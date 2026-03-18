@@ -207,15 +207,6 @@
         .fetch-status.loading { color: #2471A3; }
         .fetch-status.error { color: #c0392b; }
         .fetch-status.success { color: #27ae60; }
-        .fallback-details {
-            margin-top: 0.5rem;
-        }
-        .fallback-details summary {
-            font-size: 0.85rem;
-            color: #888;
-            cursor: pointer;
-        }
-        .fallback-details summary:hover { color: #555; }
 
         /* ── Results ── */
         .results { display: none; }
@@ -345,6 +336,28 @@
         }
         .preset-strip span { flex: 1; }
         .preset-name { font-size: 0.82rem; color: #666; }
+
+        /* ── Preset chips (in Options card) ── */
+        .presets-row {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .preset-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            color: #666;
+            transition: all 0.2s;
+            background: white;
+        }
+        .preset-chip:hover { border-color: #2471A3; color: #333; }
+        .preset-chip.active { border-color: #2471A3; background: #eaf2f8; color: #1a5276; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -381,13 +394,7 @@
             <button class="btn btn-primary" id="btn-generate" onclick="generate()">Generate</button>
         </div>
         <div id="fetch-status" class="fetch-status"></div>
-        <details class="fallback-details">
-            <summary>Paste HTML source manually (if URL fetch fails)</summary>
-            <div class="step-desc" style="padding-left:0; margin-top: 0.5rem;">
-                View Page Source (<code>Ctrl+U</code> / <code>Cmd+U</code>) → Select All → Copy → Paste below.
-            </div>
-            <textarea id="html-input" placeholder="Paste the full HTML source here..."></textarea>
-        </details>
+        <textarea id="html-input" style="display:none"></textarea>
     </div>
 
     <!-- Options -->
@@ -436,6 +443,30 @@
             <div style="background: #2471A3"></div>
             <div style="background: #E67E22"></div>
             <div style="background: #f5cba7"></div>
+        </div>
+
+        <label style="margin-top: 1rem">Presets</label>
+        <div class="presets-row">
+            <div class="preset-chip active" onclick="applyPreset('#b3d4e8','#2471A3','#f5cba7','#E67E22', this)">
+                <div class="preset-strip"><span style="background:#b3d4e8"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#f5cba7"></span></div>
+                Blue / Orange
+            </div>
+            <div class="preset-chip" onclick="applyPreset('#d1c4e9','#5e35b1','#fff3b0','#f9a825', this)">
+                <div class="preset-strip"><span style="background:#d1c4e9"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#fff3b0"></span></div>
+                Purple / Gold
+            </div>
+            <div class="preset-chip" onclick="applyPreset('#b2dfdb','#00897b','#ffccbc','#e64a19', this)">
+                <div class="preset-strip"><span style="background:#b2dfdb"></span><span style="background:#00897b"></span><span style="background:#e64a19"></span><span style="background:#ffccbc"></span></div>
+                Teal / Coral
+            </div>
+            <div class="preset-chip" onclick="applyPreset('#cfd8dc','#546e7a','#f8bbd0','#c2185b', this)">
+                <div class="preset-strip"><span style="background:#cfd8dc"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#f8bbd0"></span></div>
+                Slate / Rose
+            </div>
+            <div class="preset-chip" onclick="applyPreset('#c5cae9','#303f9f','#ffe0b2','#e65100', this)">
+                <div class="preset-strip"><span style="background:#c5cae9"></span><span style="background:#303f9f"></span><span style="background:#e65100"></span><span style="background:#ffe0b2"></span></div>
+                Indigo / Tangerine
+            </div>
         </div>
     </div>
 
@@ -510,46 +541,6 @@
                     <tr><td><strong>iLIS</strong></td><td>integrated Local Interaction Score</td></tr>
                     <tr><td><strong>ipTM</strong></td><td>interface predicted TM-score</td></tr>
                 </table>
-            </div>
-            <div class="help-col">
-                <h4>Recommended Color Schemes</h4>
-                <div class="color-presets">
-                    <div class="preset" onclick="applyPreset('#b3d4e8','#2471A3','#f5cba7','#E67E22')">
-                        <div class="preset-strip">
-                            <span style="background:#b3d4e8"></span><span style="background:#2471A3"></span>
-                            <span style="background:#E67E22"></span><span style="background:#f5cba7"></span>
-                        </div>
-                        <div class="preset-name">Blue / Orange (default)</div>
-                    </div>
-                    <div class="preset" onclick="applyPreset('#d1c4e9','#5e35b1','#fff3b0','#f9a825')">
-                        <div class="preset-strip">
-                            <span style="background:#d1c4e9"></span><span style="background:#5e35b1"></span>
-                            <span style="background:#f9a825"></span><span style="background:#fff3b0"></span>
-                        </div>
-                        <div class="preset-name">Purple / Gold</div>
-                    </div>
-                    <div class="preset" onclick="applyPreset('#b2dfdb','#00897b','#ffccbc','#e64a19')">
-                        <div class="preset-strip">
-                            <span style="background:#b2dfdb"></span><span style="background:#00897b"></span>
-                            <span style="background:#e64a19"></span><span style="background:#ffccbc"></span>
-                        </div>
-                        <div class="preset-name">Teal / Coral</div>
-                    </div>
-                    <div class="preset" onclick="applyPreset('#cfd8dc','#546e7a','#f8bbd0','#c2185b')">
-                        <div class="preset-strip">
-                            <span style="background:#cfd8dc"></span><span style="background:#546e7a"></span>
-                            <span style="background:#c2185b"></span><span style="background:#f8bbd0"></span>
-                        </div>
-                        <div class="preset-name">Slate / Rose</div>
-                    </div>
-                    <div class="preset" onclick="applyPreset('#c5cae9','#303f9f','#ffe0b2','#e65100')">
-                        <div class="preset-strip">
-                            <span style="background:#c5cae9"></span><span style="background:#303f9f"></span>
-                            <span style="background:#e65100"></span><span style="background:#ffe0b2"></span>
-                        </div>
-                        <div class="preset-name">Indigo / Tangerine</div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -823,7 +814,7 @@ async function generate() {
 
     // If URL is provided, try fetching it
     if (urlInput && urlInput.startsWith('http') && urlInput.includes('flyrnai.org')) {
-        status.textContent = 'Fetching page from FlyPredictome...';
+        status.textContent = 'Fetching page from FlyPredictome... (can take several seconds)';
         status.className = 'fetch-status loading';
         document.getElementById('btn-generate').disabled = true;
 
@@ -833,7 +824,7 @@ async function generate() {
             status.textContent = 'Page fetched successfully.';
             status.className = 'fetch-status success';
         } else {
-            status.innerHTML = 'Could not fetch URL (CORS restriction). Please use the <strong>manual paste</strong> option below.';
+            status.innerHTML = 'Could not fetch URL. Please check the URL and try again.';
             status.className = 'fetch-status error';
             document.getElementById('btn-generate').disabled = false;
             return;
@@ -921,7 +912,7 @@ function showError(msg) {
 }
 
 // ── Apply color preset ──
-function applyPreset(lirA, clirA, lirB, clirB) {
+function applyPreset(lirA, clirA, lirB, clirB, el) {
     document.getElementById('color-lir-a').value = lirA;
     document.getElementById('color-clir-a').value = clirA;
     document.getElementById('color-lir-b').value = lirB;
@@ -931,6 +922,11 @@ function applyPreset(lirA, clirA, lirB, clirB) {
     document.getElementById('hex-lir-b').textContent = lirB;
     document.getElementById('hex-clir-b').textContent = clirB;
     updateColorStrip();
+    // Update active state
+    if (el) {
+        document.querySelectorAll('.preset-chip, .preset').forEach(p => p.classList.remove('active'));
+        el.classList.add('active');
+    }
 }
 
 // Enter key triggers generate
