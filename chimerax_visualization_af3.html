@@ -135,6 +135,10 @@
             <div class="drop-zone-filename" id="file-name"></div>
         </div>
         <input type="file" id="file-input" accept=".zip" style="display:none">
+        <div id="prediction-selector" style="display:none; margin-top:0.8rem;">
+            <label>Multiple predictions found — select one:</label>
+            <select id="prediction-select" style="padding:0.5rem 0.8rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.9rem; width:100%; margin-top:0.3rem;"></select>
+        </div>
         <div class="btn-row">
             <button class="btn btn-primary" id="btn-process" onclick="processFile()" disabled>Process</button>
         </div>
@@ -374,6 +378,7 @@ let af3ChainSizes = null;
 let af3ChainNames = null;
 let af3NTotal = 0;
 let af3MultiChainColors = null;
+let af3LoadedZip = null;       // cached JSZip instance
 
 // ============================================================================
 // DROP ZONE
@@ -509,16 +514,45 @@ async function processFile() {
         const zip = await JSZip.loadAsync(af3File);
 
         setStatus('Discovering model files...', 'loading');
-        const models = discoverFiles(zip);
-        const modelCount = Object.keys(models).length;
-        if (modelCount === 0) {
-            const hasAnyCif = Object.keys(zip.files).some(f => f.endsWith('.cif'));
-            const hasSummary = Object.keys(zip.files).some(f => f.includes('summary_confidences'));
+        af3LoadedZip = zip;
+        const predictions = discoverPredictions(zip);
+        const predNames = Object.keys(predictions);
+
+        if (predNames.length === 0) {
+            const hasAnyCif = Object.keys(zip.files).some(f => f.endsWith('.cif') && !f.includes('__MACOSX'));
+            const hasSummary = Object.keys(zip.files).some(f => f.includes('summary_confidences') && !f.includes('__MACOSX'));
             if (hasAnyCif && hasSummary) {
-                throw new Error('This AF3 output has no full_data JSON files (PAE matrix not available). This commonly happens with large complexes. LIS/cLIS/iLIS cannot be calculated without PAE data. You can still use the CIF files directly in ChimeraX.');
+                throw new Error('This AF3 output has no full_data JSON files (PAE matrix not available). This commonly happens with large complexes. LIS/cLIS/iLIS cannot be calculated without PAE data.');
             }
-            throw new Error('No AF3 model files found in zip. Expected *_full_data_*.json, *_summary_confidences_*.json, and *_model_*.cif files.');
+            throw new Error('No AF3 model files found in zip.');
         }
+
+        // If multiple predictions, show selector and wait for user to pick
+        let selectedPred = predNames[0];
+        const predSelector = document.getElementById('prediction-selector');
+        const predSelect = document.getElementById('prediction-select');
+
+        if (predNames.length > 1) {
+            // Check if user already selected one
+            if (predSelect.options.length > 0 && predSelect.value) {
+                selectedPred = predSelect.value;
+            } else {
+                // Populate selector and stop — user needs to pick first
+                predSelector.style.display = '';
+                predSelect.innerHTML = predNames.map(n =>
+                    `<option value="${n}">${n} (${Object.keys(predictions[n].models).length} models)</option>`
+                ).join('');
+                setStatus(`Found ${predNames.length} predictions. Select one and click Process again.`, 'loading');
+                document.getElementById('btn-process').disabled = false;
+                return;
+            }
+        } else {
+            predSelector.style.display = 'none';
+        }
+
+        const models = getModelsForPrediction(predictions, selectedPred);
+        const modelCount = Object.keys(models).length;
+        if (modelCount === 0) throw new Error(`No models found for prediction "${selectedPred}".`);
 
         const allPairs = [];
         af3ModelData = [];
@@ -568,7 +602,7 @@ async function processFile() {
         af3AvgResults = af3Results;
 
         setStatus(`Done! Processed ${modelCount} models.`, 'success');
-        displayResults(af3Results, af3File.name.replace('.zip', ''));
+        displayResults(af3Results, selectedPred || af3File.name.replace('.zip', ''));
 
     } catch (e) {
         setStatus(e.message, 'error');
@@ -577,31 +611,47 @@ async function processFile() {
     document.getElementById('btn-process').disabled = false;
 }
 
-// -- File discovery --
-function discoverFiles(zip) {
-    const models = {};
-    const files = Object.keys(zip.files).filter(f => !f.startsWith('__MACOSX'));
+// -- Discover prediction groups in zip --
+function discoverPredictions(zip) {
+    const files = Object.keys(zip.files).filter(f => !f.startsWith('__MACOSX') && !f.endsWith('/'));
+
+    // Group full_data files by their prefix (folder/prediction name)
+    const predictions = {};  // predictionName -> { prefix, models: {idx: {full_data, summary, cif}} }
 
     for (const name of files) {
         const m = name.match(/(.+)_full_data_(\d+)\.json$/);
-        if (m) {
-            const prefix = m[1];
-            const idx = m[2];
-            const summaryName = files.find(f => f.endsWith(`${prefix}_summary_confidences_${idx}.json`)) ||
-                                files.find(f => f.includes(`summary_confidences_${idx}.json`));
-            const cifName = files.find(f => f.endsWith(`${prefix}_model_${idx}.cif`)) ||
-                            files.find(f => f.includes(`model_${idx}.cif`));
-            if (summaryName && cifName) {
-                models[idx] = {
-                    full_data: zip.files[name],
-                    summary: zip.files[summaryName],
-                    cif: zip.files[cifName],
-                    cif_filename: cifName.split('/').pop(),
-                };
-            }
+        if (!m) continue;
+        const prefix = m[1];
+        const idx = m[2];
+
+        // Determine prediction name from folder or prefix
+        const parts = name.split('/');
+        const predName = parts.length > 1 ? parts[0] : prefix.split('/').pop().replace(/^fold_/, '');
+
+        if (!predictions[predName]) {
+            predictions[predName] = { prefix, models: {} };
+        }
+
+        const summaryName = files.find(f => f === `${prefix}_summary_confidences_${idx}.json`) ||
+                            files.find(f => f.endsWith(`_summary_confidences_${idx}.json`) && f.startsWith(predName));
+        const cifName = files.find(f => f === `${prefix}_model_${idx}.cif`) ||
+                        files.find(f => f.endsWith(`_model_${idx}.cif`) && f.startsWith(predName));
+
+        if (summaryName && cifName) {
+            predictions[predName].models[idx] = {
+                full_data: zip.files[name],
+                summary: zip.files[summaryName],
+                cif: zip.files[cifName],
+                cif_filename: cifName.split('/').pop(),
+            };
         }
     }
-    return models;
+    return predictions;
+}
+
+// -- Get models for a specific prediction --
+function getModelsForPrediction(predictions, predName) {
+    return predictions[predName]?.models || {};
 }
 
 // -- Parse CIF for Cb coordinates --
