@@ -315,6 +315,10 @@
         .help-col a:hover { text-decoration: underline; }
         .help-table { font-size: 0.85rem; }
         .help-table td { padding: 0.25rem 0.5rem 0.25rem 0; vertical-align: top; color: #555; }
+        .ref-list { list-style: none; padding: 0; font-size: 0.85rem; }
+        .ref-list li { margin-bottom: 0.3rem; color: #555; }
+        .ref-list a { color: #2471A3; text-decoration: none; font-weight: 600; }
+        .ref-list a:hover { text-decoration: underline; }
         .color-presets { display: flex; flex-direction: column; gap: 0.4rem; }
         .preset {
             display: flex;
@@ -526,13 +530,14 @@
         <div class="help-content">
             <div class="help-col">
                 <h4>Quick Start</h4>
-                <ol>
+                <ol start="0">
+                    <li>Install <a href="https://www.cgl.ucsf.edu/chimerax/download.html" target="_blank">UCSF ChimeraX</a></li>
                     <li>Go to <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank">FlyPredictome</a> and search for a protein pair</li>
                     <li>Copy the FlyPredictome result page URL</li>
                     <li>Paste the URL above and click <strong>Generate</strong></li>
                     <li>Download the <code>.cxc</code> script and <code>.pdb</code> file</li>
                     <li>Place both files in the same folder</li>
-                    <li>Open the <code>.cxc</code> file to open <a href="https://www.cgl.ucsf.edu/chimerax/" target="_blank">UCSF ChimeraX</a></li>
+                    <li>Open the <code>.cxc</code> file to open ChimeraX</li>
                 </ol>
             </div>
             <div class="help-col">
@@ -543,6 +548,11 @@
                     <tr><td><strong>iLIS</strong></td><td>integrated Local Interaction Score</td></tr>
                     <tr><td><strong>ipTM</strong></td><td>interface predicted TM-score</td></tr>
                 </table>
+                <h4 style="margin-top: 0.8rem">References</h4>
+                <ul class="ref-list">
+                    <li><a href="https://www.biorxiv.org/content/10.1101/2024.02.19.580970" target="_blank">Kim et al. 2024</a> — Enhanced PPI Discovery via AlphaFold-Multimer</li>
+                    <li><a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank">Kim et al. 2025</a> — Kinase–TF Interactome Atlas</li>
+                </ul>
             </div>
         </div>
     </div>
