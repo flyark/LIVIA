@@ -800,22 +800,32 @@ function analyzeModel(fdText, scText, cifText, paeCutoff, cbCutoff) {
         clisMap.push(row);
     }
 
-    // Build per-chain-pair grids for heatmaps
+    // Build per-chain-pair grids for heatmaps (symmetrized: average of i->j and j->i)
     const ilisGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
     const iptmGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
     const lirGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
     const clirGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
     for (let i = 0; i < nc; i++) {
         for (let j = 0; j < nc; j++) {
-            const key = `${chainNames[i]},${chainNames[j]}`;
-            if (pairs[key]) {
-                ilisGrid[i][j] = pairs[key].iLIS;
-                iptmGrid[i][j] = pairs[key].ipTM;
-                lirGrid[i][j] = pairs[key].lirI.size;  // LIR count of chain i in pair i->j
-                clirGrid[i][j] = pairs[key].clirI.size; // cLIR count of chain i in pair i->j
-            }
             if (i === j) {
                 iptmGrid[i][j] = sc.chain_pair_iptm?.[i]?.[j] || 0;
+                continue;
+            }
+            const fwd = pairs[`${chainNames[i]},${chainNames[j]}`];
+            const rev = pairs[`${chainNames[j]},${chainNames[i]}`];
+            if (fwd && rev) {
+                // Symmetrize iLIS: average both directions' LIS and cLIS, then compute iLIS
+                const avgLIS = (fwd.LIS + rev.LIS) / 2;
+                const avgCLIS = (fwd.cLIS + rev.cLIS) / 2;
+                ilisGrid[i][j] = Math.sqrt(avgLIS * avgCLIS);
+                iptmGrid[i][j] = (fwd.ipTM + rev.ipTM) / 2;
+                lirGrid[i][j] = fwd.lirI.size;   // LIR of chain i from i->j direction
+                clirGrid[i][j] = fwd.clirI.size;  // cLIR of chain i from i->j direction
+            } else if (fwd) {
+                ilisGrid[i][j] = fwd.iLIS;
+                iptmGrid[i][j] = fwd.ipTM;
+                lirGrid[i][j] = fwd.lirI.size;
+                clirGrid[i][j] = fwd.clirI.size;
             }
         }
     }
