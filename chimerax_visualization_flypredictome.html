@@ -446,11 +446,11 @@
                 </div>
             </div>
         </div>
-        <div class="color-preview-strip" id="color-strip">
-            <div style="background: #b3d4e8"></div>
-            <div style="background: #2471A3"></div>
-            <div style="background: #E67E22"></div>
-            <div style="background: #f5cba7"></div>
+        <div style="display:flex; align-items:center; gap:0.8rem; margin-top:0.5rem;">
+            <div class="color-preview-strip" id="color-strip" style="flex:1; margin:0;">
+                <div style="background:#b3d4e8"></div><div style="background:#2471A3"></div><div style="background:#E67E22"></div><div style="background:#f5cba7"></div>
+            </div>
+            <button onclick="swapColors()" style="padding:0.3rem 0.8rem; border:2px solid #e0e0e0; border-radius:6px; background:white; cursor:pointer; font-size:0.82rem; color:#666; white-space:nowrap;">Swap A &#8596; B</button>
         </div>
 
         <label style="margin-top:1rem">Presets &mdash; gradient (LIR light, cLIR dark)</label>
@@ -955,6 +955,14 @@ function applyPreset(lirA, clirA, lirB, clirB, el) {
         document.querySelectorAll('.preset-chip, .preset').forEach(p => p.classList.remove('active'));
         el.classList.add('active');
     }
+}
+
+function swapColors() {
+    const la = document.getElementById('color-lir-a').value;
+    const ca = document.getElementById('color-clir-a').value;
+    const lb = document.getElementById('color-lir-b').value;
+    const cb = document.getElementById('color-clir-b').value;
+    applyPreset(lb, cb, la, ca, null);
 }
 
 // Enter key triggers generate
