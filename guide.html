@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guide — ChimeraX Visualization for AFM-LIS</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; }
+        .header { background: linear-gradient(135deg, #2471A3, #1a5276); color: white; padding: 1.5rem 2rem; text-align: center; }
+        .header h1 { font-size: 1.6rem; margin-bottom: 0.3rem; }
+        .header p { opacity: 0.85; font-size: 0.9rem; }
+        .header-links { display: flex; gap: 1rem; justify-content: center; margin-top: 0.8rem; flex-wrap: wrap; }
+        .header-links a { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.85rem; padding: 0.25rem 0.6rem; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; }
+        .header-links a:hover { background: rgba(255,255,255,0.15); color: white; }
+        .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+        .tool-section { margin-bottom: 3rem; }
+        .tool-title { font-size: 1.4rem; color: #1a5276; margin-bottom: 1.5rem; padding-bottom: 0.5rem; border-bottom: 3px solid #2471A3; }
+
+        .step { display: flex; gap: 1.5rem; margin-bottom: 2rem; align-items: flex-start; }
+        .step-badge { flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%; background: #2471A3; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 700; }
+        .step-content { flex: 1; }
+        .step-content h3 { font-size: 1.05rem; color: #1a5276; margin-bottom: 0.4rem; }
+        .step-content p { font-size: 0.9rem; color: #555; line-height: 1.6; margin-bottom: 0.5rem; }
+        .step-content code { background: #e8f0fe; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.82rem; color: #1a5276; }
+
+        .mock-ui { background: white; border-radius: 12px; padding: 1.2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-top: 0.8rem; position: relative; border: 2px solid #e0e0e0; }
+        .mock-ui.highlight { border-color: #E67E22; }
+        .mock-label { position: absolute; top: -12px; right: 12px; background: #E67E22; color: white; font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.6rem; border-radius: 4px; }
+        .mock-url { background: #f8f9fa; border: 2px solid #2471A3; border-radius: 8px; padding: 0.6rem 1rem; font-family: monospace; font-size: 0.8rem; color: #333; margin-bottom: 0.5rem; }
+        .mock-btn { display: inline-block; background: #2471A3; color: white; padding: 0.4rem 1.2rem; border-radius: 6px; font-weight: 600; font-size: 0.85rem; }
+        .mock-drop { border: 2px dashed #2471A3; border-radius: 12px; padding: 1.5rem; text-align: center; color: #2471A3; background: #eaf2f8; }
+
+        .mock-results { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.8rem; }
+        .mock-metric { background: #f8f9fa; border-radius: 8px; padding: 0.5rem; text-align: center; }
+        .mock-metric .val { font-size: 1.1rem; font-weight: 700; color: #2471A3; }
+        .mock-metric .lbl { font-size: 0.7rem; color: #888; }
+
+        .mock-maps { display: flex; gap: 0.4rem; margin-top: 0.8rem; }
+        .mock-map { width: 80px; height: 80px; border-radius: 4px; border: 1px solid #ddd; position: relative; overflow: hidden; }
+        .mock-map .pae { background: linear-gradient(135deg, #2471A3 30%, #e74c3c 70%); width: 100%; height: 100%; }
+        .mock-map .lis { background: linear-gradient(135deg, #2471A3 20%, white 80%); width: 100%; height: 100%; }
+        .mock-map .clis { background: linear-gradient(135deg, #27ae60 15%, white 85%); width: 100%; height: 100%; }
+        .mock-map-label { font-size: 0.6rem; color: #888; text-align: center; margin-top: 0.2rem; }
+
+        .mock-script { background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 0.8rem; font-family: monospace; font-size: 0.72rem; line-height: 1.5; margin-top: 0.8rem; max-height: 120px; overflow: hidden; }
+        .mock-script .cmd { color: #89b4fa; }
+        .mock-script .cmt { color: #6c7086; }
+
+        .arrow { color: #E67E22; font-size: 1.5rem; margin: 0 0.3rem; }
+        .tip { background: #fff3cd; border-left: 4px solid #ffc107; padding: 0.6rem 1rem; border-radius: 0 8px 8px 0; font-size: 0.85rem; color: #856404; margin-top: 0.8rem; }
+        .output-flow { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.8rem; }
+        .output-file { background: #f0f0f0; padding: 0.3rem 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.8rem; }
+        .output-file.cxc { border-left: 4px solid #2471A3; }
+        .output-file.pdb { border-left: 4px solid #E67E22; }
+        .output-file.cif { border-left: 4px solid #E67E22; }
+
+        .prereq { background: #eaf2f8; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .prereq h4 { color: #1a5276; margin-bottom: 0.5rem; }
+        .prereq ul { padding-left: 1.2rem; font-size: 0.9rem; color: #555; line-height: 1.8; }
+        .prereq a { color: #2471A3; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>ChimeraX Visualization for AFM-LIS — Guide</h1>
+    <p>Step-by-step instructions for both tools</p>
+    <div class="header-links">
+        <a href="index.html">FlyPredictome Tool</a>
+        <a href="af3.html">AF3 Tool</a>
+        <a href="https://github.com/flyark/chimerax_visualization_lis">GitHub</a>
+    </div>
+</div>
+
+<div class="container">
+
+    <div class="prereq">
+        <h4>Prerequisites</h4>
+        <ul>
+            <li>Install <a href="https://www.cgl.ucsf.edu/chimerax/download.html" target="_blank">UCSF ChimeraX</a> (free for academic use)</li>
+            <li>A modern web browser (Chrome, Firefox, Safari, or Edge)</li>
+            <li>No Python or other software needed — everything runs in the browser</li>
+        </ul>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- FLYPREDICTOME -->
+    <!-- ================================================================ -->
+    <div class="tool-section">
+        <h2 class="tool-title">FlyPredictome → ChimeraX</h2>
+
+        <div class="step">
+            <div class="step-badge">1</div>
+            <div class="step-content">
+                <h3>Go to FlyPredictome and find your protein pair</h3>
+                <p>Visit <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank">flyrnai.org/tools/fly_predictome</a>, search for a protein pair, and open the <code>famdb_details</code> result page.</p>
+                <p>Copy the page URL from your browser's address bar.</p>
+                <div class="mock-ui">
+                    <div class="mock-url">https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/Akt1/foxo/SET_47/</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-badge">2</div>
+            <div class="step-content">
+                <h3>Paste the URL and click Generate</h3>
+                <p>Open the <a href="index.html">FlyPredictome tool</a>, paste the URL, choose a rank (1–5), and click <strong>Generate</strong>. The tool fetches data automatically (may take a few seconds).</p>
+                <div class="mock-ui highlight">
+                    <div class="mock-label">Paste URL here</div>
+                    <div class="mock-url">https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/Akt1/foxo/SET_47/</div>
+                    <span class="mock-btn">Generate</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-badge">3</div>
+            <div class="step-content">
+                <h3>Review metrics and ChimeraX script</h3>
+                <p>The tool shows iLIS, ipTM, LIR/cLIR residue counts, and a syntax-highlighted ChimeraX command script.</p>
+                <div class="mock-ui">
+                    <div class="mock-results">
+                        <div class="mock-metric"><div class="val">0.463</div><div class="lbl">iLIS</div></div>
+                        <div class="mock-metric"><div class="val">0.55</div><div class="lbl">ipTM</div></div>
+                        <div class="mock-metric"><div class="val">42</div><div class="lbl">cLIR (A)</div></div>
+                    </div>
+                    <div class="mock-script">
+                        <span class="cmt"># ChimeraX: Akt1 — foxo</span><br>
+                        <span class="cmd">close</span><br>
+                        <span class="cmd">open</span> Akt1___foxo_unrelaxed_rank_001...pdb<br>
+                        <span class="cmd">set</span> bgColor white<br>
+                        <span class="cmd">color</span> #1/A #b3d4e8<br>
+                        <span class="cmd">color</span> #1/B #f5cba7<br>
+                        <span class="cmt"># ...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-badge">4</div>
+            <div class="step-content">
+                <h3>Download files and open in ChimeraX</h3>
+                <p>Download both the <code>.cxc</code> script and <code>.pdb</code> structure file. Place them in the <strong>same folder</strong>, then double-click the <code>.cxc</code> file to open ChimeraX.</p>
+                <div class="output-flow">
+                    <span class="output-file cxc">Akt1_foxo_interface.cxc</span>
+                    <span class="arrow">+</span>
+                    <span class="output-file pdb">Akt1___foxo_unrelaxed_rank_001...pdb</span>
+                    <span class="arrow">→</span>
+                    <span style="font-weight:600; color:#2471A3;">Open .cxc in ChimeraX</span>
+                </div>
+                <div class="tip">Both files must be in the same folder. The .cxc script references the .pdb by filename.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- AF3 -->
+    <!-- ================================================================ -->
+    <div class="tool-section">
+        <h2 class="tool-title">AlphaFold3 → ChimeraX</h2>
+
+        <div class="step">
+            <div class="step-badge">1</div>
+            <div class="step-content">
+                <h3>Get your AF3 prediction zip</h3>
+                <p>Run a prediction on <a href="https://alphafoldserver.com" target="_blank">AlphaFold Server</a> and download the results as a zip file. The zip should contain <code>*_full_data_*.json</code>, <code>*_summary_confidences_*.json</code>, and <code>*_model_*.cif</code> files.</p>
+                <div class="mock-ui">
+                    <div style="font-family:monospace; font-size:0.8rem; color:#555;">
+                        fold_my_prediction.zip<br>
+                        ├── ..._full_data_0.json &nbsp;← PAE matrix<br>
+                        ├── ..._summary_confidences_0.json &nbsp;← ipTM<br>
+                        ├── ..._model_0.cif &nbsp;← 3D structure<br>
+                        └── (× 5 models)
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-badge">2</div>
+            <div class="step-content">
+                <h3>Drop the zip file and click Process</h3>
+                <p>Open the <a href="af3.html">AF3 tool</a>, drag-and-drop your zip file (or click to browse), then click <strong>Process</strong>. Processing takes several seconds per model.</p>
+                <div class="mock-ui highlight">
+                    <div class="mock-label">Drop zip here</div>
+                    <div class="mock-drop">
+                        📦 fold_my_prediction.zip<br>
+                        <span style="font-size:0.8rem;">5 models found</span>
+                    </div>
+                    <div style="margin-top:0.5rem;"><span class="mock-btn">Process</span></div>
+                </div>
+                <div class="tip">Optionally adjust PAE cutoff (default: 12 Å) and Cβ cutoff (default: 8 Å) before processing.</div>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-badge">3</div>
+            <div class="step-content">
+                <h3>Explore PAE maps and score matrices</h3>
+                <p>The tool generates per-model visualizations:</p>
+                <ul style="font-size:0.88rem; color:#555; padding-left:1.2rem; line-height:1.8;">
+                    <li><strong>PAE Maps</strong> — blue (confident) to red (uncertain)</li>
+                    <li><strong>Score Matrix</strong> — iLIS (Oranges, lower-left) / ipTM (Purples, upper-right)</li>
+                    <li><strong>Residue Count Matrix</strong> — LIR (Blues) / cLIR (Greens)</li>
+                    <li><strong>LIS Maps</strong> — per-residue interaction scores (Blues)</li>
+                    <li><strong>cLIS Maps</strong> — contact-filtered scores (Greens)</li>
+                </ul>
+                <div class="mock-maps">
+                    <div><div class="mock-map"><div class="pae"></div></div><div class="mock-map-label">PAE</div></div>
+                    <div><div class="mock-map"><div class="lis"></div></div><div class="mock-map-label">LIS</div></div>
+                    <div><div class="mock-map"><div class="clis"></div></div><div class="mock-map-label">cLIS</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-badge">4</div>
+            <div class="step-content">
+                <h3>Select a chain pair from the table</h3>
+                <p>The chain pair table shows per-model and averaged metrics for all chain combinations, sorted canonically (A-B, A-C, ...). Click any row to generate a ChimeraX script for that pair and model.</p>
+                <div class="mock-ui">
+                    <table style="width:100%; font-size:0.8rem; border-collapse:collapse;">
+                        <tr style="background:#f8f9fa; font-weight:600;"><td style="padding:0.3rem;">Model</td><td>Pair</td><td>iLIS</td><td>ipTM</td></tr>
+                        <tr style="color:#888;"><td style="padding:0.3rem;">model_0</td><td>A — B</td><td>0.654</td><td>0.57</td></tr>
+                        <tr style="color:#888;"><td style="padding:0.3rem;">model_1</td><td>A — B</td><td>0.648</td><td>0.56</td></tr>
+                        <tr style="background:#f0f7fc; font-weight:600;"><td style="padding:0.3rem;">Average</td><td>A — B</td><td>0.654</td><td>0.56</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-badge">5</div>
+            <div class="step-content">
+                <h3>Download and open in ChimeraX</h3>
+                <p>Three download options:</p>
+                <ul style="font-size:0.88rem; color:#555; padding-left:1.2rem; line-height:1.8;">
+                    <li><strong>Download .cxc</strong> — script for the selected chain pair</li>
+                    <li><strong>Download .cif</strong> — structure file for the selected model</li>
+                    <li><strong>Download All Chains .cxc</strong> — single script showing all chains, colored by chain</li>
+                </ul>
+                <div class="output-flow">
+                    <span class="output-file cxc">chainA_chainB_interface.cxc</span>
+                    <span class="arrow">+</span>
+                    <span class="output-file cif">fold_..._model_0.cif</span>
+                    <span class="arrow">→</span>
+                    <span style="font-weight:600; color:#2471A3;">Same folder → Open .cxc</span>
+                </div>
+                <div class="tip">For multi-chain complexes, use "Download All Chains .cxc" to see the full complex with each chain in a different color. Uses ChimeraX's <code>color bychain</code> command.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- COLOR SCHEMES -->
+    <!-- ================================================================ -->
+    <div class="tool-section">
+        <h2 class="tool-title">Color Scheme Guide</h2>
+
+        <div class="step">
+            <div class="step-badge" style="background:#E67E22;">🎨</div>
+            <div class="step-content">
+                <h3>Default: Blue / Orange gradient</h3>
+                <p>LIR regions shown in light colors, cLIR (contact interface) in dark colors.</p>
+                <div style="display:flex; gap:1rem; margin-top:0.5rem; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                        <div style="width:24px; height:24px; background:#b3d4e8; border-radius:4px; border:1px solid #ccc;"></div>
+                        <span style="font-size:0.85rem;">Chain A — LIR</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                        <div style="width:24px; height:24px; background:#2471A3; border-radius:4px;"></div>
+                        <span style="font-size:0.85rem;">Chain A — cLIR</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                        <div style="width:24px; height:24px; background:#f5cba7; border-radius:4px; border:1px solid #ccc;"></div>
+                        <span style="font-size:0.85rem;">Chain B — LIR</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                        <div style="width:24px; height:24px; background:#E67E22; border-radius:4px;"></div>
+                        <span style="font-size:0.85rem;">Chain B — cLIR</span>
+                    </div>
+                </div>
+                <p style="margin-top:0.5rem;">Other presets available: Purple/Gold, Teal/Coral, Slate/Rose, solid colors, ChimeraX defaults, and auto-assigned multi-chain (tab10 palette).</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div style="text-align:center; padding:2rem; font-size:0.8rem; color:#999;">
+    <a href="index.html" style="color:#2471A3; text-decoration:none;">FlyPredictome Tool</a> ·
+    <a href="af3.html" style="color:#2471A3; text-decoration:none;">AF3 Tool</a> ·
+    <a href="https://github.com/flyark/chimerax_visualization_lis" style="color:#2471A3; text-decoration:none;">GitHub</a>
+</div>
+
+</body>
+</html>
