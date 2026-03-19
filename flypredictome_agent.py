@@ -437,6 +437,11 @@ def generate_chimerax_script(
     lines.append("view")
     lines.append("lighting soft depthCue true")
     lines.append("")
+    # ── Save figure ──
+    png_name = f"{symbol_1}_{symbol_2}.png"
+    lines.append(f"# ── Save figure ──")
+    lines.append(f"save {png_name} transparentBackground true")
+    lines.append("")
 
     # ── Color legend & metadata ──
     lines.append("# ── Color Legend ──")

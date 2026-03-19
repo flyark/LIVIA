@@ -761,6 +761,9 @@ function generateCxc(row, pdbFilename, colors) {
     lines.push(`view`);
     lines.push(`lighting soft depthCue true`);
     lines.push('');
+    lines.push(`# \u2500\u2500 Save figure \u2500\u2500`);
+    lines.push(`save ${sym1}_${sym2}.png transparentBackground true`);
+    lines.push('');
     // Legend
     lines.push(`# \u2500\u2500 Color Legend \u2500\u2500`);
     lines.push(`# LIR  = Local Interaction Region (PAE <= 12)`);

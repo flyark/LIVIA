@@ -461,6 +461,9 @@ def generate_chimerax_script(
     lines.append("view")
     lines.append("lighting soft depthCue true")
     lines.append("")
+    lines.append(f"# — Save figure —")
+    lines.append(f"save chain{ci}_chain{cj}.png transparentBackground true")
+    lines.append("")
 
     lines.append("# — Color Legend —")
     lines.append(f"# LIR  = Local Interaction Region (PAE <= 12)")

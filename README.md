@@ -2,6 +2,10 @@
 
 Generate [UCSF ChimeraX](https://www.cgl.ucsf.edu/chimerax/) visualization scripts from protein-protein interaction predictions, with automatic [AFM-LIS](https://github.com/flyark/AFM-LIS) metric calculation.
 
+<img src="images/upd1_dome_example.png" alt="Example: upd1-dome interaction visualized in ChimeraX" width="600">
+
+> **Example:** upd1–dome interaction (iLIS: 0.529, ipTM: 0.57). Chain A (upd1) in blue, Chain B (dome) in orange. LIR regions shown as ribbons, cLIR highlighted in darker colors.
+
 Two standalone web tools — **no installation required** (runs entirely in the browser):
 
 **[Open Web Tools](https://flyark.github.io/chimerax_visualization_lis/)**
