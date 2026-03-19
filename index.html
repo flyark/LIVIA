@@ -7,9 +7,12 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; min-height: 100vh; display: flex; flex-direction: column; }
-        .header { background: linear-gradient(135deg, #2471A3, #1a5276); color: white; padding: 2rem; text-align: center; }
-        .header h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
-        .header p { opacity: 0.85; font-size: 0.95rem; }
+        .header { background: linear-gradient(135deg, #2471A3, #1a5276); color: white; padding: 1.2rem 2rem 1rem; }
+        .header h1 { font-size: 1.6rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .header p { font-size: 0.9rem; opacity: 0.85; margin-bottom: 0.6rem; }
+        .header-links { display: flex; gap: 1rem; flex-wrap: wrap; }
+        .header-links a { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.85rem; padding: 0.25rem 0.6rem; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; transition: all 0.2s; }
+        .header-links a:hover { background: rgba(255,255,255,0.15); color: white; }
         .container { max-width: 800px; margin: 2rem auto; padding: 0 1.5rem; flex: 1; }
         .tool-card { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 1.5rem; display: flex; gap: 1.5rem; align-items: center; text-decoration: none; color: #333; transition: all 0.2s; border: 2px solid transparent; width: 100%; }
         .tool-card:hover { border-color: #2471A3; box-shadow: 0 4px 16px rgba(36,113,163,0.15); }
@@ -26,7 +29,13 @@
 <div class="header">
     <h1>ChimeraX Visualization for LIS</h1>
     <p>Analyze AlphaFold-predicted protein interactions and generate ChimeraX visualization scripts</p>
-    <p style="opacity:0.75; font-size:0.85rem;">PAE maps, iLIS/ipTM scores, and LIR/cLIR interface residues</p>
+    <div class="header-links">
+        <a href="chimerax_visualization_flypredictome.html">FlyPredictome-ChimeraX</a>
+        <a href="chimerax_visualization_af3.html">AlphaFold3-ChimeraX</a>
+        <a href="guide.html">Guide</a>
+        <a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS</a>
+        <a href="https://github.com/flyark/chimerax_visualization_lis" target="_blank">GitHub</a>
+    </div>
 </div>
 <div class="container">
     <a class="tool-card" href="chimerax_visualization_flypredictome.html">
