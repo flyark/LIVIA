@@ -128,17 +128,18 @@
 
     <!-- Step 1: Upload -->
     <div class="card">
-        <div class="step-header"><span class="step-num">1</span> Upload AlphaFold3 Output</div>
+        <div class="step-header"><span class="step-num">1</span> Upload AlphaFold3 Output <span style="font-weight:400; font-size:0.8rem; color:#888;">(all analysis runs locally in your browser — no data is uploaded to any server)</span></div>
         <div class="drop-zone" id="drop-zone">
             <div class="drop-zone-icon">&#128230;</div>
             <div class="drop-zone-text">Drop AF3 zip file here or click to browse</div>
             <div class="drop-zone-filename" id="file-name"></div>
         </div>
         <input type="file" id="file-input" accept=".zip" style="display:none">
-        <div style="text-align:center; margin-top:0.5rem; font-size:0.85rem; color:#888;">
-            or <a href="#" id="folder-browse-link" style="color:#2471A3;">select a folder</a> (Chrome/Edge only)
-        </div>
         <input type="file" id="folder-input" webkitdirectory style="display:none">
+        <div style="display:flex; gap:0.5rem; margin-top:0.8rem;">
+            <button class="btn btn-primary" style="flex:1; margin:0;" onclick="document.getElementById('file-input').click()">Select Zip File</button>
+            <button class="btn btn-primary" style="flex:1; margin:0; background:#1a5276;" onclick="document.getElementById('folder-input').click()">Select Folder</button>
+        </div>
         <div id="prediction-selector" style="display:none; margin-top:0.8rem;">
             <label>Multiple predictions found — select one:</label>
             <select id="prediction-select" style="padding:0.5rem 0.8rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.9rem; width:100%; margin-top:0.3rem;"></select>
@@ -405,7 +406,6 @@ fileInput.addEventListener('change', e => { if (e.target.files.length) handleFil
 
 // Folder selection
 const folderInput = document.getElementById('folder-input');
-document.getElementById('folder-browse-link').addEventListener('click', e => { e.preventDefault(); folderInput.click(); });
 folderInput.addEventListener('change', e => {
     if (e.target.files.length) handleFolder(e.target.files);
 });
