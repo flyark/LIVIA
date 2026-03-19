@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlyPredictome → ChimeraX</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #2471A3, #1a5276);
+            color: white;
+            padding: 1.2rem 2rem 1rem;
+        }
+        .header h1 { font-size: 1.6rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .header p { font-size: 0.9rem; opacity: 0.85; margin-bottom: 0.6rem; }
+        .header-links { display: flex; gap: 1.2rem; flex-wrap: wrap; }
+        .header-links a {
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            font-size: 0.85rem;
+            padding: 0.25rem 0.6rem;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .header-links a:hover { background: rgba(255,255,255,0.15); color: white; }
+        .step-link { color: #2471A3; text-decoration: none; }
+        .step-link:hover { text-decoration: underline; }
+        .container { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+
+        /* ── Cards ── */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            margin-bottom: 1.5rem;
+        }
+        .card label {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #555;
+            display: block;
+            margin-bottom: 0.4rem;
+        }
+
+        /* ── Steps ── */
+        .step-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: #2471A3;
+            color: white;
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-right: 0.5rem;
+            flex-shrink: 0;
+        }
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.8rem;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        .step-desc {
+            font-size: 0.88rem;
+            color: #666;
+            margin-bottom: 0.8rem;
+            padding-left: 2.3rem;
+        }
+        .step-desc code {
+            background: #f0f0f0;
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.82rem;
+        }
+
+        /* ── Textarea ── */
+        textarea {
+            width: 100%;
+            min-height: 160px;
+            padding: 0.8rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            resize: vertical;
+            transition: border-color 0.2s;
+        }
+        textarea:focus { outline: none; border-color: #2471A3; }
+
+        /* ── Rank select ── */
+        .rank-row {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-left: 2.3rem;
+        }
+        .rank-row select {
+            padding: 0.5rem 0.8rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            background: white;
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            padding: 0.6rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s;
+        }
+        .btn-primary { background: #2471A3; color: white; }
+        .btn-primary:hover { background: #1a5276; }
+        .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+
+        .btn-download {
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 2px solid;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.2s;
+        }
+        .btn-download.cxc { background: #2471A3; color: white; border-color: #2471A3; }
+        .btn-download.cxc:hover { background: #1a5276; border-color: #1a5276; }
+        .btn-download.pdb { background: white; color: #E67E22; border-color: #E67E22; }
+        .btn-download.pdb:hover { background: #fef5ec; }
+
+        /* ── Color Scheme ── */
+        .color-section { display: flex; gap: 2rem; flex-wrap: wrap; }
+        .color-group { flex: 1; min-width: 200px; }
+        .color-group h3 {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 0.6rem;
+        }
+        .color-pair {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.5rem;
+        }
+        .color-pair input[type="color"] {
+            width: 36px; height: 36px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            padding: 2px;
+        }
+        .color-pair .color-label { font-size: 0.9rem; }
+        .color-pair .color-hex { font-family: monospace; font-size: 0.8rem; color: #888; }
+        .color-def { font-weight: 400; font-size: 0.8rem; color: #999; }
+        .color-preview-strip {
+            display: flex; height: 8px; border-radius: 4px;
+            overflow: hidden; margin-top: 0.5rem;
+        }
+        .color-preview-strip div { flex: 1; transition: background 0.3s; }
+
+        /* ── URL input ── */
+        .url-row {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 0.8rem;
+        }
+        .url-row input[type="text"] {
+            flex: 1;
+            padding: 0.7rem 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+        .url-row input[type="text"]:focus { outline: none; border-color: #2471A3; }
+        .url-row select {
+            padding: 0.7rem 0.8rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            background: white;
+        }
+        .fetch-status {
+            font-size: 0.85rem;
+            color: #666;
+            min-height: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+        .fetch-status.loading { color: #2471A3; }
+        .fetch-status.error { color: #c0392b; }
+        .fetch-status.success { color: #27ae60; }
+
+        /* ── Results ── */
+        .results { display: none; }
+        .results.active { display: block; }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 0.8rem;
+            margin-bottom: 1rem;
+        }
+        .metric {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 0.8rem;
+            text-align: center;
+        }
+        .metric .value { font-size: 1.3rem; font-weight: 700; color: #2471A3; }
+        .metric .label { font-size: 0.75rem; color: #888; margin-top: 0.2rem; }
+
+        .result-card h2 { font-size: 1.2rem; margin-bottom: 1rem; color: #1a5276; }
+
+        /* ── Tables ── */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+        .data-table th {
+            text-align: left;
+            padding: 0.5rem 0.8rem;
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: #666;
+        }
+        .data-table td {
+            padding: 0.5rem 0.8rem;
+            border-top: 1px solid #eee;
+        }
+        .data-table tr.selected { background: #eaf2f8; }
+
+        /* ── Script Preview ── */
+        .script-preview {
+            background: #1e1e2e;
+            color: #cdd6f4;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre;
+            margin-bottom: 1rem;
+        }
+        .script-preview .comment { color: #6c7086; }
+        .script-preview .command { color: #89b4fa; }
+        .script-preview .color-val { color: #f9e2af; }
+
+        .download-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+        /* ── Error ── */
+        .error-msg {
+            display: none;
+            background: #fdeaea;
+            color: #c0392b;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .error-msg.active { display: block; }
+
+        /* ── Info box ── */
+        .info-box {
+            background: #eaf2f8;
+            border-left: 4px solid #2471A3;
+            padding: 0.8rem 1rem;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.85rem;
+            color: #1a5276;
+            margin-bottom: 1rem;
+        }
+
+        /* ── Footer ── */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            font-size: 0.8rem;
+            color: #999;
+        }
+        .footer a { color: #2471A3; text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+
+        /* ── Help section ── */
+        .help-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            padding-left: 2.3rem;
+        }
+        .help-col h4 { font-size: 0.9rem; color: #1a5276; margin-bottom: 0.5rem; }
+        .help-col ol { padding-left: 1.2rem; font-size: 0.85rem; color: #555; line-height: 1.7; }
+        .help-col a { color: #2471A3; text-decoration: none; }
+        .help-col a:hover { text-decoration: underline; }
+        .help-table { font-size: 0.85rem; }
+        .help-table td { padding: 0.25rem 0.5rem 0.25rem 0; vertical-align: top; color: #555; }
+        .ref-list { list-style: none; padding: 0; font-size: 0.85rem; }
+        .ref-list li { margin-bottom: 0.3rem; color: #555; }
+        .ref-list a { color: #2471A3; text-decoration: none; font-weight: 600; }
+        .ref-list a:hover { text-decoration: underline; }
+        .color-presets { display: flex; flex-direction: column; gap: 0.4rem; }
+        .preset {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.35rem 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .preset:hover { background: #f0f0f0; }
+        .preset-strip {
+            display: flex;
+            width: 80px;
+            height: 12px;
+            border-radius: 3px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .preset-strip span { flex: 1; }
+        .preset-name { font-size: 0.82rem; color: #666; }
+
+        /* ── Preset chips (in Options card) ── */
+        .presets-row {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .preset-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            color: #666;
+            transition: all 0.2s;
+            background: white;
+        }
+        .preset-chip:hover { border-color: #2471A3; color: #333; }
+        .preset-chip.active { border-color: #2471A3; background: #eaf2f8; color: #1a5276; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="container">
+        <h1>FlyPredictome → ChimeraX</h1>
+        <p>Generate ChimeraX visualization scripts from FlyPredictome interaction data</p>
+        <div class="header-links">
+            <a href="chimerax_visualization_af3.html">AlphaFold3-ChimeraX</a>
+            <a href="guide.html">Guide</a>
+            <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank">FlyPredictome</a>
+            <a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS</a>
+            <a href="https://github.com/flyark/chimerax_visualization_lis" target="_blank">GitHub</a>
+            <a href="https://www.biorxiv.org/content/10.1101/2024.02.19.580970" target="_blank">Kim et al. 2024</a>
+            <a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank">Kim et al. 2025</a>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- Input -->
+    <div class="card">
+        <div class="step-header"><span class="step-num">1</span> <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" class="step-link">FlyPredictome</a>&nbsp; URL</div>
+        <div class="url-row">
+            <input type="text" id="url-input"
+                   placeholder="https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/..."
+                   value="https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/Akt1/foxo/SET_47/">
+            <select id="rank-select">
+                <option value="1">Rank 1</option>
+                <option value="2">Rank 2</option>
+                <option value="3">Rank 3</option>
+                <option value="4">Rank 4</option>
+                <option value="5">Rank 5</option>
+            </select>
+            <button class="btn btn-primary" id="btn-generate" onclick="generate()">Generate</button>
+        </div>
+        <div id="fetch-status" class="fetch-status"></div>
+        <textarea id="html-input" style="display:none"></textarea>
+    </div>
+
+    <!-- Options -->
+    <div class="card">
+        <div class="step-header"><span class="step-num">2</span> Options</div>
+
+        <label>Color Scheme</label>
+        <div class="color-section">
+            <div class="color-group">
+                <h3>Chain A (Protein 1)</h3>
+                <div class="color-pair">
+                    <input type="color" id="color-lir-a" value="#b3d4e8">
+                    <div>
+                        <div class="color-label">LIR — confident domain <span class="color-def">(PAE &le; 12)</span></div>
+                        <div class="color-hex" id="hex-lir-a">#b3d4e8</div>
+                    </div>
+                </div>
+                <div class="color-pair">
+                    <input type="color" id="color-clir-a" value="#2471A3">
+                    <div>
+                        <div class="color-label">cLIR — confident interface <span class="color-def">(PAE &le; 12 &amp; C&beta; &le; 8 &Aring;)</span></div>
+                        <div class="color-hex" id="hex-clir-a">#2471A3</div>
+                    </div>
+                </div>
+            </div>
+            <div class="color-group">
+                <h3>Chain B (Protein 2)</h3>
+                <div class="color-pair">
+                    <input type="color" id="color-lir-b" value="#f5cba7">
+                    <div>
+                        <div class="color-label">LIR — confident domain <span class="color-def">(PAE &le; 12)</span></div>
+                        <div class="color-hex" id="hex-lir-b">#f5cba7</div>
+                    </div>
+                </div>
+                <div class="color-pair">
+                    <input type="color" id="color-clir-b" value="#E67E22">
+                    <div>
+                        <div class="color-label">cLIR — confident interface <span class="color-def">(PAE &le; 12 &amp; C&beta; &le; 8 &Aring;)</span></div>
+                        <div class="color-hex" id="hex-clir-b">#E67E22</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="color-preview-strip" id="color-strip">
+            <div style="background: #b3d4e8"></div>
+            <div style="background: #2471A3"></div>
+            <div style="background: #E67E22"></div>
+            <div style="background: #f5cba7"></div>
+        </div>
+
+        <label style="margin-top: 1rem">Presets</label>
+        <div class="presets-row">
+            <div class="preset-chip active" onclick="applyPreset('#b3d4e8','#2471A3','#f5cba7','#E67E22', this)">
+                <div class="preset-strip"><span style="background:#b3d4e8"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#f5cba7"></span></div>
+                Blue / Orange
+            </div>
+            <div class="preset-chip" onclick="applyPreset('#d1c4e9','#5e35b1','#fff3b0','#f9a825', this)">
+                <div class="preset-strip"><span style="background:#d1c4e9"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#fff3b0"></span></div>
+                Purple / Gold
+            </div>
+            <div class="preset-chip" onclick="applyPreset('#b2dfdb','#00897b','#ffccbc','#e64a19', this)">
+                <div class="preset-strip"><span style="background:#b2dfdb"></span><span style="background:#00897b"></span><span style="background:#e64a19"></span><span style="background:#ffccbc"></span></div>
+                Teal / Coral
+            </div>
+            <div class="preset-chip" onclick="applyPreset('#cfd8dc','#546e7a','#f8bbd0','#c2185b', this)">
+                <div class="preset-strip"><span style="background:#cfd8dc"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#f8bbd0"></span></div>
+                Slate / Rose
+            </div>
+            <div class="preset-chip" onclick="applyPreset('#c5cae9','#303f9f','#ffe0b2','#e65100', this)">
+                <div class="preset-strip"><span style="background:#c5cae9"></span><span style="background:#303f9f"></span><span style="background:#e65100"></span><span style="background:#ffe0b2"></span></div>
+                Indigo / Tangerine
+            </div>
+        </div>
+    </div>
+
+    <!-- Error -->
+    <div class="error-msg" id="error-msg"></div>
+
+    <!-- Results -->
+    <div class="results" id="results">
+
+        <!-- Summary -->
+        <div class="card result-card">
+            <h2 id="result-title"></h2>
+            <div class="metrics-grid">
+                <div class="metric"><div class="value" id="m-ilis"></div><div class="label">iLIS</div></div>
+                <div class="metric"><div class="value" id="m-iptm"></div><div class="label">ipTM</div></div>
+                <div class="metric"><div class="value" id="m-clir-a"></div><div class="label">cLIR (A)</div></div>
+                <div class="metric"><div class="value" id="m-clir-b"></div><div class="label">cLIR (B)</div></div>
+                <div class="metric"><div class="value" id="m-lir-a"></div><div class="label">LIR (A)</div></div>
+                <div class="metric"><div class="value" id="m-lir-b"></div><div class="label">LIR (B)</div></div>
+            </div>
+            <table class="data-table">
+                <thead><tr><th>Chain</th><th>Symbol</th><th>Length</th><th>LIR</th><th>cLIR</th></tr></thead>
+                <tbody id="interface-tbody"></tbody>
+            </table>
+        </div>
+
+        <!-- Script -->
+        <div class="card result-card">
+            <h2>ChimeraX Script</h2>
+            <div class="script-preview" id="script-preview"></div>
+            <div class="download-row">
+                <a class="btn-download cxc" id="dl-cxc" download>&#8595; Download .cxc</a>
+                <a class="btn-download pdb" id="dl-pdb" target="_blank">&#8595; Download .pdb</a>
+            </div>
+            <div class="info-box" style="margin-top: 1rem;">
+                The .pdb link opens the file from FlyPredictome. Save it in the same folder as the .cxc file, then open the .cxc in ChimeraX.
+            </div>
+        </div>
+
+        <!-- All Ranks -->
+        <div class="card result-card">
+            <h2>All Ranks</h2>
+            <table class="data-table">
+                <thead>
+                    <tr><th>Rank</th><th>Symbol 1</th><th>Symbol 2</th><th>iLIS</th><th>ipTM</th><th>cLIR (A)</th><th>cLIR (B)</th></tr>
+                </thead>
+                <tbody id="ranks-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="card" id="help-section">
+        <div class="step-header"><span class="step-num">?</span> How to Use &nbsp;<a href="guide.html" style="font-size:0.8rem; font-weight:400; color:#2471A3;">(Full guide)</a></div>
+        <div class="help-content">
+            <div class="help-col">
+                <h4>Quick Start</h4>
+                <ol start="0">
+                    <li>Install <a href="https://www.cgl.ucsf.edu/chimerax/download.html" target="_blank">UCSF ChimeraX</a></li>
+                    <li>Go to <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank">FlyPredictome</a> and search for a protein pair</li>
+                    <li>Copy the FlyPredictome result page URL</li>
+                    <li>Paste the URL above and click <strong>Generate</strong></li>
+                    <li>Download the <code>.cxc</code> script and <code>.pdb</code> file</li>
+                    <li>Place both files in the same folder</li>
+                    <li>Open the <code>.cxc</code> file to open ChimeraX</li>
+                </ol>
+            </div>
+            <div class="help-col">
+                <h4>Metrics (<a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS</a>)</h4>
+                <table class="help-table">
+                    <tr><td><strong>LIR</strong></td><td>Local Interaction Residues — residues in the confident interaction region (PAE &le; 12 &Aring;)</td></tr>
+                    <tr><td><strong>cLIR</strong></td><td>contact-filtered LIR — residues in direct physical contact (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</td></tr>
+                    <tr><td><strong>LIS</strong></td><td>Local Interaction Score — normalized PAE confidence across the interface (0–1)</td></tr>
+                    <tr><td><strong>cLIS</strong></td><td>contact-filtered LIS — LIS restricted to direct physical contacts</td></tr>
+                    <tr><td><strong>iLIS</strong></td><td>integrated LIS — geometric mean of LIS and cLIS; captures both rigid and transient interactions</td></tr>
+                    <tr><td><strong>ipTM</strong></td><td>interface predicted TM-score — AlphaFold-Multimer's global interface confidence</td></tr>
+                </table>
+                <h4 style="margin-top: 0.8rem">References</h4>
+                <ul class="ref-list">
+                    <li><a href="https://www.biorxiv.org/content/10.1101/2024.02.19.580970" target="_blank">Kim et al. 2024</a> — Enhanced PPI Discovery via AlphaFold-Multimer</li>
+                    <li><a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank">Kim et al. 2025</a> — Kinase–TF Interactome Atlas</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        Made by Ah-Ram Kim &middot;
+        <a href="chimerax_visualization_af3.html">AlphaFold3-ChimeraX</a> &middot;
+        Metrics defined by <a href="https://github.com/flyark/AFM-LIS">AFM-LIS</a> &middot;
+        Visualization in <a href="https://www.cgl.ucsf.edu/chimerax/">UCSF ChimeraX</a>
+    </div>
+</div>
+
+<script>
+// ── Color picker sync ──
+document.querySelectorAll('input[type="color"]').forEach(input => {
+    input.addEventListener('input', () => {
+        document.getElementById(input.id.replace('color-', 'hex-')).textContent = input.value;
+        updateColorStrip();
+    });
+});
+function updateColorStrip() {
+    const s = document.getElementById('color-strip').children;
+    s[0].style.background = document.getElementById('color-lir-a').value;
+    s[1].style.background = document.getElementById('color-clir-a').value;
+    s[2].style.background = document.getElementById('color-clir-b').value;
+    s[3].style.background = document.getElementById('color-lir-b').value;
+}
+
+// ── Parse residue ranges: '["107-114","117","120-121"]' → Set of ints ──
+function parseResidueRanges(raw) {
+    if (!raw || raw === '[]') return new Set();
+    let items;
+    try { items = JSON.parse(raw); } catch {
+        items = raw.match(/[\d]+-[\d]+|\d+/g) || [];
+    }
+    const positions = new Set();
+    for (const item of items) {
+        const s = String(item).trim();
+        if (s.includes('-')) {
+            const [a, b] = s.split('-').map(Number);
+            for (let i = a; i <= b; i++) positions.add(i);
+        } else {
+            const n = parseInt(s);
+            if (!isNaN(n)) positions.add(n);
+        }
+    }
+    return positions;
+}
+
+// ── Parse HTML table ──
+function parseTable(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const table = doc.getElementById('rank_table');
+    if (!table) return null;
+
+    const headers = [];
+    table.querySelectorAll('thead th').forEach(th => headers.push(th.textContent.trim()));
+
+    const rows = [];
+    table.querySelectorAll('tbody tr').forEach(tr => {
+        const cells = [];
+        tr.querySelectorAll('td').forEach(td => cells.push(td.textContent.trim()));
+        if (cells.length > 0) {
+            const row = {};
+            cells.forEach((val, i) => { if (i < headers.length) row[headers[i]] = val; });
+            row._cLIR_A = parseResidueRanges(row['cLIR Indice A'] || '');
+            row._cLIR_B = parseResidueRanges(row['cLIR Indice B'] || '');
+            row._LIR_A = parseResidueRanges(row['LIR Indice A'] || '');
+            row._LIR_B = parseResidueRanges(row['LIR Indice B'] || '');
+            rows.push(row);
+        }
+    });
+
+    // Extract PDB URL from page
+    let pdbUrl = '';
+    const pdbMatch = html.match(/["']([^"']*colabfold-output[^"']*\.pdb)["']/);
+    if (pdbMatch) {
+        pdbUrl = pdbMatch[1];
+        if (!pdbUrl.startsWith('http')) pdbUrl = 'https://www.flyrnai.org' + pdbUrl;
+    }
+
+    return { headers, rows, pdbUrl };
+}
+
+// ── Build ChimeraX residue spec ──
+function resSpec(positions, chain) {
+    if (positions.size === 0) return '';
+    const sorted = [...positions].sort((a, b) => a - b);
+    const ranges = [];
+    let start = sorted[0], end = sorted[0];
+    for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i] === end + 1) { end = sorted[i]; }
+        else { ranges.push(start === end ? `${start}` : `${start}-${end}`); start = end = sorted[i]; }
+    }
+    ranges.push(start === end ? `${start}` : `${start}-${end}`);
+    return `/${chain}:${ranges.join(',')}`;
+}
+
+// ── Fill gaps for continuous cartoon ──
+function fillGaps(positions, maxGap = 20) {
+    if (positions.size === 0) return new Set();
+    const sorted = [...positions].sort((a, b) => a - b);
+    const filled = new Set(sorted);
+    for (let i = 0; i < sorted.length - 1; i++) {
+        const gap = sorted[i + 1] - sorted[i] - 1;
+        if (gap > 0 && gap <= maxGap) {
+            for (let j = sorted[i] + 1; j < sorted[i + 1]; j++) filled.add(j);
+        }
+    }
+    return filled;
+}
+
+// ── Compact range string for display ──
+function rangesStr(positions) {
+    if (positions.size === 0) return 'none';
+    const sorted = [...positions].sort((a, b) => a - b);
+    const ranges = [];
+    let start = sorted[0], end = sorted[0];
+    for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i] <= end + 15) { end = sorted[i]; }
+        else { ranges.push(`${start}-${end}`); start = end = sorted[i]; }
+    }
+    ranges.push(`${start}-${end}`);
+    return ranges.join(', ');
+}
+
+// ── Generate CXC script ──
+function generateCxc(row, pdbFilename, colors) {
+    const sym1 = row['Symbol 1'] || 'Protein1';
+    const sym2 = row['Symbol 2'] || 'Protein2';
+    const cLIR_A = row._cLIR_A, cLIR_B = row._cLIR_B;
+    const LIR_A = row._LIR_A, LIR_B = row._LIR_B;
+    const lenA = row['Len A'] || row['protein_1_size'] || '?';
+    const lenB = row['Len B'] || row['protein_2_size'] || '?';
+    const iLIS = row['iLIS'] || 'N/A';
+    const ipTM = row['ipTM'] || 'N/A';
+
+    const lirAStr = rangesStr(LIR_A);
+    const lirBStr = rangesStr(LIR_B);
+
+    const LIR_A_filled = fillGaps(LIR_A);
+    const LIR_B_filled = fillGaps(LIR_B);
+    const lirASpec = resSpec(LIR_A_filled, 'A');
+    const lirBSpec = resSpec(LIR_B_filled, 'B');
+    const clirASpec = resSpec(cLIR_A, 'A');
+    const clirBSpec = resSpec(cLIR_B, 'B');
+
+    // Title positions
+    const partA = `${sym1} (${lirAStr})`;
+    const partB = `${sym2} (${lirBStr})`;
+    const partC = `iLIS: ${iLIS}  ipTM: ${ipTM}`;
+    const xposB = (0.03 + partA.length * 0.009 + 0.015).toFixed(3);
+    const xposC = (parseFloat(xposB) + partB.length * 0.009 + 0.015).toFixed(3);
+
+    let lines = [
+        `# ChimeraX visualization: ${sym1} \u2014 ${sym2} (iLIS=${iLIS}, ipTM=${ipTM})`,
+        `# Chain /A: ${sym1} (${lenA} residues, LIR: ${lirAStr})`,
+        `# Chain /B: ${sym2} (${lenB} residues, LIR: ${lirBStr})`,
+        `# Generated by FlyPredictome-ChimeraX Tool`,
+        ``,
+        `close`,
+        `open ${pdbFilename}`,
+        ``,
+        `# \u2500\u2500 Setup: white background, hide everything first \u2500\u2500`,
+        `set bgColor white`,
+        `graphics silhouettes true`,
+        `lighting soft`,
+        `color #1/A ${colors.lir_a}`,
+        `color #1/B ${colors.lir_b}`,
+        `hide atoms`,
+        `hide cartoons`,
+        ``,
+        `# \u2500\u2500 Title \u2500\u2500`,
+        `2dlabels create title text "${partA}" xpos 0.03 ypos 0.95 size 16 color ${colors.clir_a} bold true`,
+        `2dlabels create title2 text "${partB}" xpos ${xposB} ypos 0.95 size 16 color ${colors.clir_b} bold true`,
+        `2dlabels create title3 text "${partC}" xpos ${xposC} ypos 0.95 size 16 color black bold true`,
+        ``,
+        `# \u2500\u2500 Show ONLY LIR regions as cartoons \u2500\u2500`,
+        `# LIR_A: ${sym1}, ${LIR_A.size} residues`,
+    ];
+    if (lirASpec) lines.push(`show #1${lirASpec} cartoons`);
+    lines.push('');
+    lines.push(`# LIR_B: ${sym2}, ${LIR_B.size} residues`);
+    if (lirBSpec) lines.push(`show #1${lirBSpec} cartoons`);
+    lines.push('');
+
+    lines.push(`# \u2500\u2500 Highlight cLIR residues (contact interface) \u2500\u2500`);
+    if (cLIR_A.size > 0) {
+        lines.push(`# cLIR_A: ${sym1}, ${cLIR_A.size} residues`);
+        lines.push(`color #1${clirASpec} ${colors.clir_a}`);
+        lines.push('');
+    }
+    if (cLIR_B.size > 0) {
+        lines.push(`# cLIR_B: ${sym2}, ${cLIR_B.size} residues`);
+        lines.push(`color #1${clirBSpec} ${colors.clir_b}`);
+        lines.push('');
+    }
+
+    lines.push(`# \u2500\u2500 Final view \u2500\u2500`);
+    lines.push(`view`);
+    lines.push(`lighting soft depthCue true`);
+    lines.push('');
+    // Legend
+    lines.push(`# \u2500\u2500 Color Legend \u2500\u2500`);
+    lines.push(`# LIR  = Local Interaction Region (PAE <= 12)`);
+    lines.push(`# cLIR = contact LIR (PAE <= 12 & C-beta distance <= 8 \u00c5)`);
+    lines.push(`#`);
+    lines.push(`# LIR cartoons  (${colors.lir_a}) = ${sym1} LIR (chain A)`);
+    lines.push(`# cLIR cartoons (${colors.clir_a}) = ${sym1} cLIR (chain A)`);
+    lines.push(`# LIR cartoons  (${colors.lir_b}) = ${sym2} LIR (chain B)`);
+    lines.push(`# cLIR cartoons (${colors.clir_b}) = ${sym2} cLIR (chain B)`);
+    lines.push(`# Non-LIR regions are HIDDEN`);
+    lines.push(`#`);
+    if (LIR_A.size > 0) { const s = [...LIR_A].sort((a,b)=>a-b); lines.push(`# LIR_A: ${sym1} ${s[0]}-${s[s.length-1]} (${LIR_A.size} residues)`); }
+    if (LIR_B.size > 0) { const s = [...LIR_B].sort((a,b)=>a-b); lines.push(`# LIR_B: ${sym2} ${s[0]}-${s[s.length-1]} (${LIR_B.size} residues)`); }
+    if (cLIR_A.size > 0) lines.push(`# cLIR_A: ${sym1} ${cLIR_A.size} residues`);
+    if (cLIR_B.size > 0) lines.push(`# cLIR_B: ${sym2} ${cLIR_B.size} residues`);
+
+    return lines.join('\n');
+}
+
+// ── Syntax highlight ──
+function highlightCxc(text) {
+    return text.split('\n').map(line => {
+        if (line.startsWith('#')) return `<span class="comment">${esc(line)}</span>`;
+        line = esc(line).replace(/(#[0-9A-Fa-f]{6})/g, '<span class="color-val">$1</span>');
+        const m = line.match(/^(\w+)/);
+        if (m) line = `<span class="command">${m[1]}</span>` + line.slice(m[1].length);
+        return line;
+    }).join('\n');
+}
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── CORS proxy fetch ──
+const CORS_PROXIES = [
+    url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+];
+
+async function fetchViaProxy(url) {
+    // Race all proxies in parallel — use whichever responds first with valid data
+    return new Promise(resolve => {
+        let resolved = false;
+        let pending = CORS_PROXIES.length;
+
+        CORS_PROXIES.forEach(makeProxy => {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 12000);
+
+            fetch(makeProxy(url), { signal: controller.signal })
+                .then(resp => resp.ok ? resp.text() : '')
+                .then(text => {
+                    clearTimeout(timeout);
+                    if (!resolved && text.includes('rank_table')) {
+                        resolved = true;
+                        resolve(text);
+                    }
+                })
+                .catch(() => {})
+                .finally(() => {
+                    pending--;
+                    if (pending === 0 && !resolved) resolve(null);
+                });
+        });
+    });
+}
+
+// ── Main generate ──
+async function generate() {
+    const urlInput = document.getElementById('url-input').value.trim();
+    let html = document.getElementById('html-input').value.trim();
+    const rank = parseInt(document.getElementById('rank-select').value);
+    const status = document.getElementById('fetch-status');
+
+    document.getElementById('error-msg').classList.remove('active');
+    document.getElementById('results').classList.remove('active');
+
+    // If URL is provided, try fetching it
+    if (urlInput && urlInput.startsWith('http') && urlInput.includes('flyrnai.org')) {
+        status.textContent = 'Fetching page from FlyPredictome... (can take several seconds)';
+        status.className = 'fetch-status loading';
+        document.getElementById('btn-generate').disabled = true;
+
+        const fetched = await fetchViaProxy(urlInput);
+        if (fetched) {
+            html = fetched;
+            status.textContent = 'Page fetched successfully.';
+            status.className = 'fetch-status success';
+        } else {
+            status.innerHTML = 'Could not fetch URL. Please check the URL and try again.';
+            status.className = 'fetch-status error';
+            document.getElementById('btn-generate').disabled = false;
+            return;
+        }
+        document.getElementById('btn-generate').disabled = false;
+    }
+
+    if (!html) { showError('Please enter a FlyPredictome URL or paste the HTML page source.'); return; }
+
+    const parsed = parseTable(html);
+    if (!parsed || parsed.rows.length === 0) {
+        showError('Could not find the rank_table. If URL fetch failed, try pasting the page source manually (View Page Source → Select All → Copy → Paste).');
+        return;
+    }
+
+    const colors = {
+        lir_a: document.getElementById('color-lir-a').value,
+        lir_b: document.getElementById('color-lir-b').value,
+        clir_a: document.getElementById('color-clir-a').value,
+        clir_b: document.getElementById('color-clir-b').value,
+    };
+
+    // Find target rank
+    let target = parsed.rows.find(r => parseInt(r['Rank']) === rank) || parsed.rows[0];
+    const sym1 = target['Symbol 1'] || '?';
+    const sym2 = target['Symbol 2'] || '?';
+
+    // PDB filename
+    const pdbFilename = parsed.pdbUrl ? parsed.pdbUrl.split('/').pop() : `${sym1}___${sym2}.pdb`;
+
+    // Generate script
+    const cxcScript = generateCxc(target, pdbFilename, colors);
+
+    // Populate UI
+    document.getElementById('result-title').textContent = `${sym1} \u2014 ${sym2}`;
+    document.getElementById('m-ilis').textContent = target['iLIS'] || 'N/A';
+    document.getElementById('m-iptm').textContent = target['ipTM'] || 'N/A';
+    document.getElementById('m-clir-a').textContent = target._cLIR_A.size;
+    document.getElementById('m-clir-b').textContent = target._cLIR_B.size;
+    document.getElementById('m-lir-a').textContent = target._LIR_A.size;
+    document.getElementById('m-lir-b').textContent = target._LIR_B.size;
+
+    document.getElementById('interface-tbody').innerHTML = `
+        <tr><td>A</td><td>${sym1}</td><td>${target['Len A'] || '?'}</td><td>${target._LIR_A.size}</td><td>${target._cLIR_A.size}</td></tr>
+        <tr><td>B</td><td>${sym2}</td><td>${target['Len B'] || '?'}</td><td>${target._LIR_B.size}</td><td>${target._cLIR_B.size}</td></tr>
+    `;
+
+    // Script preview
+    document.getElementById('script-preview').innerHTML = highlightCxc(cxcScript);
+
+    // CXC download (blob)
+    const cxcBlob = new Blob([cxcScript], { type: 'text/plain' });
+    const dlCxc = document.getElementById('dl-cxc');
+    dlCxc.href = URL.createObjectURL(cxcBlob);
+    dlCxc.download = `${sym1}_${sym2}_interface.cxc`;
+
+    // PDB download link
+    const dlPdb = document.getElementById('dl-pdb');
+    if (parsed.pdbUrl) {
+        dlPdb.href = parsed.pdbUrl;
+        dlPdb.style.display = '';
+    } else {
+        dlPdb.style.display = 'none';
+    }
+
+    // All ranks
+    document.getElementById('ranks-tbody').innerHTML = parsed.rows.map(r => {
+        const rk = r['Rank'] || '?';
+        const sel = parseInt(rk) === rank ? 'selected' : '';
+        return `<tr class="${sel}">
+            <td>${rk}</td><td>${r['Symbol 1']||''}</td><td>${r['Symbol 2']||''}</td>
+            <td>${r['iLIS']||''}</td><td>${r['ipTM']||''}</td>
+            <td>${r._cLIR_A.size}</td><td>${r._cLIR_B.size}</td>
+        </tr>`;
+    }).join('');
+
+    document.getElementById('results').classList.add('active');
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+}
+
+function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.classList.add('active');
+}
+
+// ── Apply color preset ──
+function applyPreset(lirA, clirA, lirB, clirB, el) {
+    document.getElementById('color-lir-a').value = lirA;
+    document.getElementById('color-clir-a').value = clirA;
+    document.getElementById('color-lir-b').value = lirB;
+    document.getElementById('color-clir-b').value = clirB;
+    document.getElementById('hex-lir-a').textContent = lirA;
+    document.getElementById('hex-clir-a').textContent = clirA;
+    document.getElementById('hex-lir-b').textContent = lirB;
+    document.getElementById('hex-clir-b').textContent = clirB;
+    updateColorStrip();
+    // Update active state
+    if (el) {
+        document.querySelectorAll('.preset-chip, .preset').forEach(p => p.classList.remove('active'));
+        el.classList.add('active');
+    }
+}
+
+// Enter key triggers generate
+document.getElementById('url-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') generate();
+});
+</script>
+
+</body>
+</html>
