@@ -1,4 +1,4 @@
-# ChimeraX Visualization for AFM-LIS
+# ChimeraX Visualization for LIS
 
 Generate [UCSF ChimeraX](https://www.cgl.ucsf.edu/chimerax/) visualization scripts from protein-protein interaction predictions, with automatic [AFM-LIS](https://github.com/flyark/AFM-LIS) metric calculation.
 
