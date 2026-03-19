@@ -112,6 +112,10 @@ python app.py  # → http://127.0.0.1:5000
 **ChimeraX**
 - [Pettersen et al. 2021](https://doi.org/10.1002/pro.3943) — UCSF ChimeraX: Structure visualization for researchers, educators, and developers. *Protein Science* 30, 70–82.
 
+## Acknowledgments
+
+This tool was developed with assistance from Anthropic's Claude Code.
+
 ## License
 
 MIT
