@@ -297,6 +297,9 @@
                 <thead><tr><th>Model</th><th>Pair</th><th>iLIS</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th>cLIR (i)</th><th>cLIR (j)</th></tr></thead>
                 <tbody id="pairs-tbody"></tbody>
             </table>
+            <div style="margin-top:0.5rem;">
+                <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem;" onclick="downloadCSV()">&#8595; Download CSV</a>
+            </div>
         </div>
 
         <!-- Selected pair details -->
@@ -1589,6 +1592,47 @@ function drawAllMaps() {
     drawColorbar('colorbar-clis', greensColor, 0, 1);
     drawColorbar('colorbar-ilis', orangesColor, 0, 1);
     drawColorbar('colorbar-iptm', purplesColor, 0, 1);
+}
+
+function downloadCSV() {
+    if (!af3ModelPairs || !af3AvgResults || !af3ChainNames) return;
+    const jobName = document.getElementById('result-title')?.textContent || 'af3';
+    const header = 'folder_name,model_number,protein_1,protein_2,iLIS,LIS,LIA,LIR,cLIS,cLIA,cLIR,iptm,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
+    const rows = [header];
+
+    // Per-model rows (symmetrized)
+    for (let mi = 0; mi < af3ModelPairs.length; mi++) {
+        const sym = symmetrizePairs(af3ModelPairs[mi]);
+        for (const [key, v] of Object.entries(sym)) {
+            rows.push([
+                jobName, `model_${mi}`, v.ci, v.cj,
+                v.iLIS.toFixed(6), v.LIS.toFixed(6), '', v.lirI.size + v.lirJ.size,
+                v.cLIS.toFixed(6), '', v.clirI.size + v.clirJ.size, v.ipTM.toFixed(6),
+                `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
+                `"[${[...v.lirJ].sort((a,b)=>a-b).join(', ')}]"`,
+                `"[${[...v.clirI].sort((a,b)=>a-b).join(', ')}]"`,
+                `"[${[...v.clirJ].sort((a,b)=>a-b).join(', ')}]"`,
+            ].join(','));
+        }
+    }
+    // Average rows
+    for (const [key, v] of Object.entries(af3AvgResults)) {
+        rows.push([
+            jobName, 'average', v.ci, v.cj,
+            v.iLIS.toFixed(6), v.LIS.toFixed(6), '', v.lirI.size + v.lirJ.size,
+            v.cLIS.toFixed(6), '', v.clirI.size + v.clirJ.size, v.ipTM.toFixed(6),
+            `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
+            `"[${[...v.lirJ].sort((a,b)=>a-b).join(', ')}]"`,
+            `"[${[...v.clirI].sort((a,b)=>a-b).join(', ')}]"`,
+            `"[${[...v.clirJ].sort((a,b)=>a-b).join(', ')}]"`,
+        ].join(','));
+    }
+
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${jobName}_lis_analysis.csv`;
+    a.click();
 }
 
 function downloadAllChainsCxc() {
