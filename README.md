@@ -112,7 +112,7 @@ Claude will automatically fetch, parse, and generate the .cxc script.
 
 **AlphaFold**
 - [Abramson et al. 2024](https://doi.org/10.1038/s41586-024-07487-w) — Accurate structure prediction of biomolecular interactions with AlphaFold 3. *Nature* 630, 493–500.
-- [Jumper et al. 2021](https://doi.org/10.1038/s41586-021-03819-2) — Highly accurate protein structure prediction with AlphaFold. *Nature* 596, 583–589.
+
 - [Evans et al. 2022](https://doi.org/10.1101/2021.10.04.463034) — Protein complex prediction with AlphaFold-Multimer. *bioRxiv*.
 
 **ChimeraX**

@@ -213,6 +213,7 @@
                     <div><div class="mock-map"><canvas id="mock-lis" width="180" height="180"></canvas></div><div class="mock-map-label">LIS (Blues)</div></div>
                     <div><div class="mock-map"><canvas id="mock-clis" width="180" height="180"></canvas></div><div class="mock-map-label">cLIS (Greens)</div></div>
                     <div><div class="mock-map"><canvas id="mock-score" width="180" height="180"></canvas></div><div class="mock-map-label">Score Matrix</div></div>
+                    <div><div class="mock-map"><canvas id="mock-rescount" width="180" height="180"></canvas></div><div class="mock-map-label">Residue Count Matrix</div></div>
                 </div>
             </div>
         </div>
@@ -298,12 +299,12 @@
             <ul style="padding-left:1.2rem; margin-bottom:1rem;">
                 <li><a href="https://www.biorxiv.org/content/10.1101/2024.02.19.580970" target="_blank" style="color:#2471A3;">Kim et al. 2024</a> &mdash; Enhanced Protein-Protein Interaction Discovery via AlphaFold-Multimer</li>
                 <li><a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank" style="color:#2471A3;">Kim et al. 2025</a> &mdash; A Structure-Guided Kinase&ndash;Transcription Factor Interactome Atlas</li>
-                <li><a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3;">AFM-LIS GitHub</a> &mdash; Code and documentation</li>
+                <li><a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3;">AFM-LIS GitHub</a> &mdash; Code and documentation for calculating integrated Local Interaction Score (iLIS)</li>
             </ul>
             <p><strong>AlphaFold</strong></p>
             <ul style="padding-left:1.2rem; margin-bottom:1rem;">
                 <li><a href="https://doi.org/10.1038/s41586-024-07487-w" target="_blank" style="color:#2471A3;">Abramson et al. 2024</a> &mdash; Accurate structure prediction of biomolecular interactions with AlphaFold 3. <em>Nature</em> 630, 493&ndash;500.</li>
-                <li><a href="https://doi.org/10.1038/s41586-021-03819-2" target="_blank" style="color:#2471A3;">Jumper et al. 2021</a> &mdash; Highly accurate protein structure prediction with AlphaFold. <em>Nature</em> 596, 583&ndash;589.</li>
+
                 <li><a href="https://doi.org/10.1101/2021.10.04.463034" target="_blank" style="color:#2471A3;">Evans et al. 2022</a> &mdash; Protein complex prediction with AlphaFold-Multimer. <em>bioRxiv</em>.</li>
             </ul>
             <p><strong>ChimeraX</strong></p>
@@ -483,6 +484,45 @@ drawMockMap('mock-pae', v => bwr(v), 'pae');
 drawMockMap('mock-lis', v => blues(v), 'lis');
 drawMockMap('mock-clis', v => greens(v), 'clis');
 drawMockScore('mock-score');
+function drawMockResCount(id) {
+    const c = document.getElementById(id);
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    const s = c.width;
+    const m = 20, gs = s - m;
+    const cell = gs / 2;
+    ctx.fillStyle = 'white'; ctx.fillRect(0, 0, s, s);
+    // Lower-left=LIR(Blues), Upper-right=cLIR(Greens)
+    const lirVals = [[0, 0], [42, 0]];
+    const clirVals = [[0, 18], [0, 0]];
+    const maxLir = 42, maxClir = 18;
+    for (let i = 0; i < 2; i++) {
+        for (let j = 0; j < 2; j++) {
+            let r, g, b, val;
+            if (i === j) { r=240;g=240;b=240; val=0; }
+            else if (i > j) { val = lirVals[i][j]; [r,g,b] = blues(val/maxLir); }
+            else { val = clirVals[i][j]; [r,g,b] = greens(val/maxClir); }
+            ctx.fillStyle = `rgb(${r},${g},${b})`;
+            ctx.fillRect(m + j*cell, i*cell, cell, cell);
+            if (i !== j) {
+                const t = i > j ? val/maxLir : val/maxClir;
+                ctx.fillStyle = t > 0.6 ? 'white' : '#333';
+                ctx.font = '13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(val, m + j*cell + cell/2, i*cell + cell/2);
+            }
+        }
+    }
+    ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
+    for (let i = 0; i <= 2; i++) {
+        ctx.beginPath(); ctx.moveTo(m, i*cell); ctx.lineTo(m+2*cell, i*cell); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(m+i*cell, 0); ctx.lineTo(m+i*cell, 2*cell); ctx.stroke();
+    }
+    ctx.fillStyle = '#333'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('A', m+cell/2, 2*cell+14); ctx.fillText('B', m+cell+cell/2, 2*cell+14);
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText('A', m-4, cell/2); ctx.fillText('B', m-4, cell+cell/2);
+}
+drawMockResCount('mock-rescount');
 </script>
 </body>
 </html>
