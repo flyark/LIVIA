@@ -6,7 +6,7 @@ Generate [UCSF ChimeraX](https://www.cgl.ucsf.edu/chimerax/) visualization scrip
 
 > **Example:** upd1–dome interaction (iLIS: 0.529, ipTM: 0.57). Chain A (upd1) in blue, Chain B (dome) in orange. Light colors show LIR regions (confident interaction domain, PAE ≤ 12 Å). Dark colors highlight cLIR residues (direct physical contacts, PAE ≤ 12 Å & Cβ ≤ 8 Å). Non-interacting regions are hidden.
 
-Two standalone web tools — **no installation required** (runs entirely in the browser):
+Two standalone web tools — **no installation required**. All analysis runs **locally in your browser** — no data is uploaded to any server, no Python needed:
 
 **[Open Web Tools](https://flyark.github.io/chimerax_visualization_lis/)**
 
@@ -44,7 +44,7 @@ Upload an AlphaFold3 prediction zip file to calculate AFM-LIS metrics and genera
 5. Download `.cxc` + `.cif`, place in the same folder, open the `.cxc` in ChimeraX
 
 **Features:**
-- Full AFM-LIS metric calculation in the browser (no Python needed)
+- Full AFM-LIS metric calculation locally in the browser (no data uploaded, no Python needed)
 - **PAE Maps** — per-model Predicted Aligned Error (bwr colorscale)
 - **Score Matrix** — combined iLIS (Oranges) / ipTM (Purples) per model
 - **Residue Count Matrix** — combined LIR (Blues) / cLIR (Greens) per model
@@ -97,16 +97,6 @@ python af3_agent.py /path/to/af3_prediction.zip --chain-pair A,B
 pip install flask
 python app.py  # → http://127.0.0.1:5000
 ```
-
-## Claude Code Agent
-
-For [Claude Code](https://claude.ai/claude-code) users, the `.claude/agents/flypredictome-chimerax.md` agent enables conversational usage:
-
-```
-> https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/Egfr/spi/SET_69/
-```
-
-Claude will automatically fetch, parse, and generate the .cxc script.
 
 ## References
 
