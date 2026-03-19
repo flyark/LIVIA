@@ -794,26 +794,37 @@ function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 
 // ── CORS proxy fetch ──
 const CORS_PROXIES = [
-    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
 ];
 
 async function fetchViaProxy(url) {
-    for (const makeProxy of CORS_PROXIES) {
-        try {
+    // Race all proxies in parallel — use whichever responds first with valid data
+    return new Promise(resolve => {
+        let resolved = false;
+        let pending = CORS_PROXIES.length;
+
+        CORS_PROXIES.forEach(makeProxy => {
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 15000);
-            const proxyUrl = makeProxy(url);
-            const resp = await fetch(proxyUrl, { signal: controller.signal });
-            clearTimeout(timeout);
-            if (resp.ok) {
-                const text = await resp.text();
-                if (text.includes('rank_table')) return text;
-            }
-        } catch (e) { /* try next proxy */ }
-    }
-    return null;
+            const timeout = setTimeout(() => controller.abort(), 12000);
+
+            fetch(makeProxy(url), { signal: controller.signal })
+                .then(resp => resp.ok ? resp.text() : '')
+                .then(text => {
+                    clearTimeout(timeout);
+                    if (!resolved && text.includes('rank_table')) {
+                        resolved = true;
+                        resolve(text);
+                    }
+                })
+                .catch(() => {})
+                .finally(() => {
+                    pending--;
+                    if (pending === 0 && !resolved) resolve(null);
+                });
+        });
+    });
 }
 
 // ── Main generate ──
