@@ -100,17 +100,11 @@ python python/app.py  # → http://127.0.0.1:5000
 
 ## References
 
-**AFM-LIS**
 - [Kim et al. 2024](https://www.biorxiv.org/content/10.1101/2024.02.19.580970) — Enhanced Protein-Protein Interaction Discovery via AlphaFold-Multimer
 - [Kim et al. 2025](https://www.biorxiv.org/content/10.1101/2025.10.10.681672) — A Structure-Guided Kinase–Transcription Factor Interactome Atlas
-
-**AlphaFold**
-- [Abramson et al. 2024](https://doi.org/10.1038/s41586-024-07487-w) — Accurate structure prediction of biomolecular interactions with AlphaFold 3. *Nature* 630, 493–500.
-
-- [Evans et al. 2022](https://doi.org/10.1101/2021.10.04.463034) — Protein complex prediction with AlphaFold-Multimer. *bioRxiv*.
-
-**ChimeraX**
-- [Pettersen et al. 2021](https://doi.org/10.1002/pro.3943) — UCSF ChimeraX: Structure visualization for researchers, educators, and developers. *Protein Science* 30, 70–82.
+- [Abramson et al. 2024](https://doi.org/10.1038/s41586-024-07487-w) — Accurate structure prediction with AlphaFold 3
+- [Evans et al. 2022](https://doi.org/10.1101/2021.10.04.463034) — Protein complex prediction with AlphaFold-Multimer
+- [Pettersen et al. 2021](https://doi.org/10.1002/pro.3943) — UCSF ChimeraX: Structure visualization for researchers, educators, and developers
 
 ## Acknowledgments
 
