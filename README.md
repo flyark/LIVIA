@@ -4,10 +4,12 @@ Generate [UCSF ChimeraX](https://www.cgl.ucsf.edu/chimerax/) visualization scrip
 
 Two standalone web tools — **no installation required** (runs entirely in the browser):
 
-| Tool | Input | Link |
-|------|-------|------|
-| **FlyPredictome → ChimeraX** | FlyPredictome URL | [Open tool](https://flyark.github.io/chimerax_visualization_lis/chimerax_visualization_flypredictome.html) |
-| **AlphaFold3 → ChimeraX** | AF3 zip file | [Open tool](https://flyark.github.io/chimerax_visualization_lis/chimerax_visualization_af3.html) |
+**[Open Web Tools](https://flyark.github.io/chimerax_visualization_lis/)**
+
+| Tool | Input |
+|------|-------|
+| **FlyPredictome → ChimeraX** | FlyPredictome URL |
+| **AlphaFold3 → ChimeraX** | AF3 zip file |
 
 ## FlyPredictome → ChimeraX
 
