@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChimeraX Visualization for LIS</title>
+    <title>In silico PPI Analysis &amp; ChimeraX Script Generator</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; min-height: 100vh; display: flex; flex-direction: column; }
@@ -28,13 +28,13 @@
 <body>
 <div class="header">
     <div class="container" style="padding:0;">
-        <h1>ChimeraX Visualization for LIS</h1>
-        <p>Analyze AlphaFold-predicted protein interactions and generate ChimeraX visualization scripts</p>
+        <h1><em>In silico</em> PPI Analysis &amp; ChimeraX Script Generator</h1>
+        <p>Analyze protein-protein interactions from structure predictions and generate ChimeraX visualization scripts</p>
         <div class="header-links">
-            <a href="chimerax_visualization_flypredictome.html">FlyPredictome-ChimeraX</a>
-            <a href="chimerax_visualization_af3.html">AlphaFold3-ChimeraX</a>
-            <a href="chimerax_visualization_dimer.html">AFDB Dimer-ChimeraX</a>
-            <a href="chimerax_visualization_monomer.html">AFDB Monomer-ChimeraX</a>
+            <a href="chimerax_visualization_flypredictome.html">FlyPredictome</a>
+            <a href="chimerax_visualization_universal.html">Universal Prediction</a>
+            <a href="chimerax_visualization_dimer.html">AFDB Dimer</a>
+            <a href="chimerax_visualization_monomer.html">AFDB Monomer Subdomain</a>
             <a href="guide.html">Guide</a>
             <a href="https://github.com/flyark/chimerax_visualization_lis" target="_blank">GitHub</a>
         </div>
@@ -42,35 +42,35 @@
 </div>
 <div class="container">
     <a class="tool-card" href="chimerax_visualization_flypredictome.html">
-        <div class="tool-icon">&#129712;</div>
+
         <div class="tool-info">
-            <h2>FlyPredictome &rarr; ChimeraX</h2>
+            <h2>FlyPredictome Analysis</h2>
             <p>Paste a FlyPredictome URL to automatically fetch interaction data, extract LIR/cLIR residue indices, and generate a ChimeraX .cxc visualization script.</p>
         </div>
     </a>
-    <a class="tool-card" href="chimerax_visualization_af3.html">
-        <div class="tool-icon">&#129516;</div>
+    <a class="tool-card" href="chimerax_visualization_universal.html">
+
         <div class="tool-info">
-            <h2>AlphaFold3 &rarr; ChimeraX</h2>
-            <p>Upload an AlphaFold3 zip file or folder to calculate AFM-LIS metrics (iLIS, LIS, cLIS, LIR, cLIR), view PAE/LIS/cLIS maps, score matrices, and generate ChimeraX scripts. Supports multi-chain complexes.</p>
+            <h2>Universal Prediction Analysis</h2>
+            <p>Upload prediction files from AlphaFold3, AlphaFold2, ColabFold, Boltz, Chai-1, OpenFold, or RoseTTAFold. Calculate AFM-LIS metrics (iLIS, LIS, cLIS), view PAE/LIS/cLIS maps, and generate ChimeraX scripts.</p>
         </div>
     </a>
     <a class="tool-card" href="chimerax_visualization_dimer.html">
-        <div class="tool-icon">&#129309;</div>
+
         <div class="tool-info">
-            <h2>AlphaFold Database Dimer &rarr; ChimeraX</h2>
+            <h2>AlphaFold DB Dimer Analysis</h2>
             <p>Search the AlphaFold Protein Structure Database for dimer predictions by UniProt ID, calculate iLIS between chains, view PAE/LIS/cLIS maps, and generate ChimeraX scripts.</p>
         </div>
     </a>
     <a class="tool-card" href="chimerax_visualization_monomer.html">
-        <div class="tool-icon">&#128300;</div>
+
         <div class="tool-info">
-            <h2>AlphaFold Database Monomer Domain LIS &rarr; ChimeraX <span style="font-size:0.6rem; color:#E67E22; vertical-align:super;">ALPHA</span></h2>
+            <h2>AlphaFold DB Monomer Subdomain Analysis</h2>
             <p>Fetch monomer predictions from the AlphaFold Protein Structure Database by UniProt ID. Auto-detect domains, view PAE/LIS/cLIS maps, and calculate intramolecular iLIS between domains.</p>
         </div>
     </a>
     <a class="tool-card" href="guide.html">
-        <div class="tool-icon">&#128214;</div>
+
         <div class="tool-info">
             <h2>Step-by-Step Guide</h2>
             <p>Visual instructions for all tools — from getting your data to opening the visualization in ChimeraX. Includes metric definitions and color scheme references.</p>

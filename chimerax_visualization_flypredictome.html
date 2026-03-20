@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlyPredictome → ChimeraX</title>
+    <title>FlyPredictome Analysis</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -371,19 +371,26 @@
         }
         .preset-chip:hover { border-color: #2471A3; color: #333; }
         .preset-chip.active { border-color: #2471A3; background: #eaf2f8; color: #1a5276; font-weight: 600; }
+
+        /* Sortable table headers */
+        .data-table th.sortable { cursor: pointer; user-select: none; position: relative; }
+        .data-table th.sortable:hover { background: #e8f0fe; }
+        .data-table th.sortable::after { content: ' ⇅'; font-size: 0.7em; color: #aaa; }
+        .data-table th.sort-asc::after { content: ' ▲'; color: #2471A3; }
+        .data-table th.sort-desc::after { content: ' ▼'; color: #2471A3; }
     </style>
 </head>
 <body>
 
 <div class="header">
     <div class="container" style="padding:0;">
-        <h1>FlyPredictome → ChimeraX</h1>
+        <h1>FlyPredictome Analysis</h1>
         <p>Generate ChimeraX visualization scripts from FlyPredictome interaction data</p>
         <div class="header-links">
             <a href="index.html">Home</a>
-            <a href="chimerax_visualization_af3.html">AlphaFold3-ChimeraX</a>
-            <a href="chimerax_visualization_dimer.html">AFDB Dimer-ChimeraX</a>
-            <a href="chimerax_visualization_monomer.html">AFDB Monomer-ChimeraX</a>
+            <a href="chimerax_visualization_universal.html">Universal Prediction</a>
+            <a href="chimerax_visualization_dimer.html">AFDB Dimer</a>
+            <a href="chimerax_visualization_monomer.html">AFDB Monomer Subdomain</a>
             <a href="guide.html">Guide</a>
         </div>
     </div>
@@ -414,7 +421,7 @@
         <div class="card result-card">
             <h2 id="result-title">All Ranks</h2>
             <div style="overflow-x:auto;">
-                <table class="data-table">
+                <table class="data-table" id="ranks-table">
                     <thead>
                         <tr><th>Rank</th><th>Symbol 1</th><th>Symbol 2</th><th>iLIS</th><th>ipTM</th><th>LIR (A/B)</th><th>cLIR (A/B)</th><th>Len (A/B)</th></tr>
                     </thead>
@@ -433,6 +440,15 @@
                 Light background = LIR (PAE &le; 12 &Aring;). Dark background = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each chain uses its own color.
             </div>
             <div id="seq-viewer" style="overflow-x:auto;"></div>
+        </div>
+
+        <!-- Interaction Connection Diagram -->
+        <div class="card result-card" id="connection-diagram-card" style="display:none;">
+            <h2>Interface Contact Map</h2>
+            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+                Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Thicker lines = closer contact.
+            </div>
+            <canvas id="connection-canvas"></canvas>
         </div>
 
         <!-- Script -->
@@ -547,12 +563,12 @@
             <div class="help-col">
                 <h4>Metrics (<a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS</a>)</h4>
                 <table class="help-table">
-                    <tr><td><strong>LIR</strong></td><td>Local Interaction Residues — residues in the confident interaction region (PAE &le; 12 &Aring;)</td></tr>
-                    <tr><td><strong>cLIR</strong></td><td>contact-filtered LIR — residues in direct physical contact (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</td></tr>
-                    <tr><td><strong>LIS</strong></td><td>Local Interaction Score — normalized PAE confidence across the interface (0–1)</td></tr>
-                    <tr><td><strong>cLIS</strong></td><td>contact-filtered LIS — LIS restricted to direct physical contacts</td></tr>
-                    <tr><td><strong>iLIS</strong></td><td>integrated LIS — &radic;(LIS &times; cLIS), geometric mean of LIS and cLIS for a balanced score (confident domain &amp; confident contact)</td></tr>
-                    <tr><td><strong>ipTM</strong></td><td>interface predicted TM-score — AlphaFold-Multimer's global interface confidence</td></tr>
+                    <tr><td><strong>iLIS</strong></td><td>integrated LIS &mdash; &radic;(LIS &times; cLIS)</td></tr>
+                    <tr><td><strong>LIS</strong></td><td>Local Interaction Score &mdash; normalized PAE confidence (0&ndash;1)</td></tr>
+                    <tr><td><strong>cLIS</strong></td><td>contact-filtered LIS &mdash; restricted to direct contacts</td></tr>
+                    <tr><td><strong>LIR</strong></td><td>Local Interaction Residues (PAE &le; 12 &Aring;)</td></tr>
+                    <tr><td><strong>cLIR</strong></td><td>contact-filtered LIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</td></tr>
+                    <tr><td><strong>ipTM</strong></td><td>interface predicted TM-score</td></tr>
                 </table>
                 <h4 style="margin-top: 0.8rem">References</h4>
                 <ul class="ref-list">
@@ -565,7 +581,7 @@
 
     <div class="footer">
         Made by Ah-Ram Kim &middot;
-        <a href="chimerax_visualization_af3.html">AlphaFold3-ChimeraX</a> &middot;
+        <a href="chimerax_visualization_universal.html">Universal Prediction</a> &middot;
         Metrics defined by <a href="https://github.com/flyark/AFM-LIS">AFM-LIS</a> &middot;
         Visualization in <a href="https://www.cgl.ucsf.edu/chimerax/">UCSF ChimeraX</a>
     </div>
@@ -814,6 +830,7 @@ function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 let cxcColorMode = '';       // ChimeraX color command preset
 let flyParsed = null;      // parsed table data
 let flyChainSeqs = null;   // parsed PDB sequences
+let flyPdbText = null;     // raw PDB text for connection diagram
 let flyCurrentRank = 1;    // currently selected rank
 
 // ── CORS proxy fetch ──
@@ -891,11 +908,13 @@ async function generate() {
 
     // Fetch PDB for sequence viewer
     flyChainSeqs = null;
+    flyPdbText = null;
     if (flyParsed.pdbUrl) {
         try {
             const pdbText = await fetchTextViaProxy(flyParsed.pdbUrl);
             if (pdbText && pdbText.includes('ATOM')) {
                 flyChainSeqs = parsePdbSequence(pdbText);
+                flyPdbText = pdbText;
             }
         } catch (e) { console.warn('Could not fetch PDB for sequence:', e); }
     }
@@ -913,6 +932,8 @@ async function generate() {
             <td>${r['Len A']||'?'} / ${r['Len B']||'?'}</td>
         </tr>`;
     }).join('');
+
+    makeSortable(document.getElementById('ranks-table'));
 
     // Load the selected rank
     loadRank(rank);
@@ -969,6 +990,18 @@ function loadRank(rankNum) {
 
     // Sequence viewer
     buildFlySeqViewer(target, sym1, sym2, colors, flyChainSeqs);
+
+    // Interaction connection diagram (needs PDB coordinates)
+    buildConnectionDiagram(target, sym1, sym2, colors, flyPdbText);
+}
+
+function hexToRgba(hex, alpha) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function lightenColor(hex, amount) {
@@ -1020,6 +1053,188 @@ function parsePdbSequence(pdbText) {
         }
     }
     return chains;
+}
+
+function parsePdbCbCoords(pdbText) {
+    // Extract Cβ (or CA for GLY) coordinates per chain
+    const chains = new Map(); // chain -> Map(resnum -> {x,y,z})
+    for (const line of pdbText.split('\n')) {
+        if (!line.startsWith('ATOM')) continue;
+        const atomName = line.substring(12, 16).trim();
+        const resName = line.substring(17, 20).trim();
+        const chain = line.substring(21, 22).trim();
+        const resSeq = parseInt(line.substring(22, 26).trim());
+        const x = parseFloat(line.substring(30, 38));
+        const y = parseFloat(line.substring(38, 46));
+        const z = parseFloat(line.substring(46, 54));
+        if (isNaN(resSeq) || isNaN(x)) continue;
+        if (!chains.has(chain)) chains.set(chain, new Map());
+        const m = chains.get(chain);
+        if (atomName === 'CB') {
+            m.set(resSeq, {x, y, z});
+        } else if (atomName === 'CA' && resName === 'GLY' && !m.has(resSeq)) {
+            m.set(resSeq, {x, y, z});
+        }
+    }
+    return chains;
+}
+
+function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
+    const card = document.getElementById('connection-diagram-card');
+    const canvas = document.getElementById('connection-canvas');
+    if (!card || !canvas || !pdbText) { if (card) card.style.display = 'none'; return; }
+
+    const cLIR_A = row._cLIR_A, cLIR_B = row._cLIR_B;
+    const LIR_A = row._LIR_A, LIR_B = row._LIR_B;
+    const lenA = parseInt(row['Len A'] || row['protein_1_size']) || 0;
+    const lenB = parseInt(row['Len B'] || row['protein_2_size']) || 0;
+    if (lenA === 0 || lenB === 0 || cLIR_A.size === 0 || cLIR_B.size === 0) {
+        card.style.display = 'none';
+        return;
+    }
+
+    // Parse 3D coordinates
+    const coordChains = parsePdbCbCoords(pdbText);
+    const coordA = coordChains.get('A');
+    const coordB = coordChains.get('B');
+    if (!coordA || !coordB) { card.style.display = 'none'; return; }
+
+    // Find cLIR-cLIR contact pairs (Cβ distance < 10 Å)
+    const contactDist = 10;
+    const contacts = [];
+    for (const resA of cLIR_A) {
+        const cA = coordA.get(resA);
+        if (!cA) continue;
+        for (const resB of cLIR_B) {
+            const cB = coordB.get(resB);
+            if (!cB) continue;
+            const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
+            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            if (dist < contactDist) {
+                contacts.push({ resA, resB, dist });
+            }
+        }
+    }
+
+    if (contacts.length === 0) { card.style.display = 'none'; return; }
+    card.style.display = '';
+
+    // Drawing
+    const S = 2; // HiDPI
+    const width = 900, height = 300;
+    const barH = 14;
+    const barY_A = 50, barY_B = height - 50;
+    const barLeft = 60, barRight = width - 20;
+    const barW = barRight - barLeft;
+
+    canvas.width = width * S;
+    canvas.height = height * S;
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(S, S);
+
+    // Helper: residue to x position
+    const xA = (res) => barLeft + ((res - 1) / (lenA - 1)) * barW;
+    const xB = (res) => barLeft + ((res - 1) / (lenB - 1)) * barW;
+
+    // Draw Chain A bar
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(barLeft, barY_A, barW, barH);
+    // LIR highlights
+    for (const res of LIR_A) {
+        const x = xA(res);
+        ctx.fillStyle = colors.lir_a;
+        ctx.fillRect(x - 0.5, barY_A, 1.5, barH);
+    }
+    // cLIR highlights
+    for (const res of cLIR_A) {
+        const x = xA(res);
+        ctx.fillStyle = colors.clir_a;
+        ctx.fillRect(x - 0.5, barY_A, 1.5, barH);
+    }
+    // Border
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(barLeft, barY_A, barW, barH);
+
+    // Draw Chain B bar
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(barLeft, barY_B, barW, barH);
+    for (const res of LIR_B) {
+        const x = xB(res);
+        ctx.fillStyle = colors.lir_b;
+        ctx.fillRect(x - 0.5, barY_B, 1.5, barH);
+    }
+    for (const res of cLIR_B) {
+        const x = xB(res);
+        ctx.fillStyle = colors.clir_b;
+        ctx.fillRect(x - 0.5, barY_B, 1.5, barH);
+    }
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(barLeft, barY_B, barW, barH);
+
+    // Labels
+    ctx.fillStyle = colors.clir_a;
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${sym1} (A)`, barLeft - 5, barY_A + barH / 2);
+    ctx.fillStyle = colors.clir_b;
+    ctx.fillText(`${sym2} (B)`, barLeft - 5, barY_B + barH / 2);
+
+    // Residue number ticks
+    ctx.fillStyle = '#888';
+    ctx.font = '8px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (const t of [1, Math.round(lenA/2), lenA]) {
+        ctx.fillText(t, xA(t), barY_A + barH + 3);
+    }
+    ctx.textBaseline = 'bottom';
+    for (const t of [1, Math.round(lenB/2), lenB]) {
+        ctx.fillText(t, xB(t), barY_B - 3);
+    }
+
+    // Draw connection lines
+    const minDist = Math.min(...contacts.map(c => c.dist));
+    const maxDist = Math.max(...contacts.map(c => c.dist));
+
+    // Parse colors to rgba
+    const colA = colors.clir_a || '#2471A3';
+    const colB = colors.clir_b || '#E67E22';
+
+    for (const c of contacts) {
+        const ax = xA(c.resA);
+        const bx = xB(c.resB);
+        const t = maxDist > minDist ? 1 - (c.dist - minDist) / (maxDist - minDist) : 1;
+        const alpha = 0.03 + t * 0.12; // much lighter
+
+        ctx.beginPath();
+        ctx.moveTo(ax, barY_A + barH);
+        const midY = (barY_A + barH + barY_B) / 2;
+        ctx.bezierCurveTo(ax, midY, bx, midY, bx, barY_B);
+
+        // Gradient from chain A color to chain B color
+        const grad = ctx.createLinearGradient(0, barY_A + barH, 0, barY_B);
+        grad.addColorStop(0, hexToRgba(colA, alpha));
+        grad.addColorStop(1, hexToRgba(colB, alpha));
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+    }
+
+    // Contact count label (below the diagram, not overlapping)
+    ctx.fillStyle = '#888';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width / 2, barY_B + barH + 18);
+
+    ctx.restore();
 }
 
 function buildFlySeqViewer(row, sym1, sym2, colors, chainSeqs) {
@@ -1180,6 +1395,41 @@ function swapColors() {
 document.getElementById('url-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') generate();
 });
+
+function makeSortable(table) {
+    if (!table) return;
+    const headers = table.querySelectorAll('thead th');
+    headers.forEach((th, colIdx) => {
+        th.classList.add('sortable');
+        th.addEventListener('click', () => {
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            // Separate pinned rows (Average, selected) from sortable rows
+            const sortableRows = rows.filter(r => !r.dataset.pinned && r.textContent.trim() !== '');
+            const pinnedRows = rows.filter(r => r.dataset.pinned);
+
+            const isAsc = th.classList.contains('sort-asc');
+            headers.forEach(h => { h.classList.remove('sort-asc', 'sort-desc'); });
+            th.classList.add(isAsc ? 'sort-desc' : 'sort-asc');
+
+            sortableRows.sort((a, b) => {
+                const aVal = a.cells[colIdx]?.textContent.trim() || '';
+                const bVal = b.cells[colIdx]?.textContent.trim() || '';
+                const aNum = parseFloat(aVal);
+                const bNum = parseFloat(bVal);
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return isAsc ? bNum - aNum : aNum - bNum;
+                }
+                return isAsc ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+            });
+
+            // Re-append: sortable rows first, then pinned rows at bottom
+            sortableRows.forEach(r => tbody.appendChild(r));
+            pinnedRows.forEach(r => tbody.appendChild(r));
+        });
+    });
+}
 </script>
 
 </body>

@@ -112,6 +112,13 @@
         .footer { text-align: center; padding: 2rem; font-size: 0.8rem; color: #999; }
         .footer a { color: #2471A3; text-decoration: none; }
         .footer a:hover { text-decoration: underline; }
+
+        /* Sortable table headers */
+        .data-table th.sortable { cursor: pointer; user-select: none; position: relative; }
+        .data-table th.sortable:hover { background: #e8f0fe; }
+        .data-table th.sortable::after { content: ' ⇅'; font-size: 0.7em; color: #aaa; }
+        .data-table th.sort-asc::after { content: ' ▲'; color: #2471A3; }
+        .data-table th.sort-desc::after { content: ' ▼'; color: #2471A3; }
     </style>
 </head>
 <body>
@@ -368,11 +375,11 @@
             <div>
                 <h4 style="font-size:0.9rem; color:#1a5276; margin-bottom:0.5rem;">Metrics (<a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3;">AFM-LIS</a>)</h4>
                 <table style="font-size:0.85rem;">
-                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIR</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Residues (PAE &le; 12 &Aring;)</td></tr>
-                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIR</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLIS</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LIS &mdash; &radic;(LIS &times; cLIS)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIS</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Score &mdash; normalized PAE confidence (0&ndash;1)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIS</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIS &mdash; restricted to direct contacts</td></tr>
-                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLIS</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LIS &mdash; &radic;(LIS &times; cLIS)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIR</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Residues (PAE &le; 12 &Aring;)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIR</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>ipTM</strong></td><td style="padding:0.25rem 0; color:#555;">interface predicted TM-score</td></tr>
                 </table>
                 <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">References</h4>
@@ -1018,12 +1025,15 @@ function displayResults(results, jobName) {
         // Average row (bold, blue background)
         const avgTr = document.createElement('tr');
         avgTr.className = 'clickable';
+        avgTr.dataset.pinned = 'true';
         avgTr.style.background = '#f0f7fc';
         avgTr.style.fontWeight = '600';
         avgTr.onclick = () => selectRow(key, 'avg', avgTr);
         avgTr.innerHTML = `<td>Average</td><td>${avg.ci} \u2014 ${avg.cj}</td><td>${avg.iLIS.toFixed(3)}</td><td>${avg.ipTM.toFixed(2)}</td><td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td><td>${avg.clirI.size}</td><td>${avg.clirJ.size}</td>`;
         tbody.appendChild(avgTr);
     }
+
+    makeSortable(document.getElementById('pairs-table'));
 
     document.getElementById('results').classList.add('active');
     setupMultiChainColors();
@@ -1972,6 +1982,41 @@ function drawColorbar(canvasId, colorFn, vmin, vmax) {
         ctx.fillStyle = `rgb(${r},${g},${b})`;
         ctx.fillRect(x, 0, 1, canvas.height);
     }
+}
+
+function makeSortable(table) {
+    if (!table) return;
+    const headers = table.querySelectorAll('thead th');
+    headers.forEach((th, colIdx) => {
+        th.classList.add('sortable');
+        th.addEventListener('click', () => {
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            // Separate pinned rows (Average, selected) from sortable rows
+            const sortableRows = rows.filter(r => !r.dataset.pinned && r.textContent.trim() !== '');
+            const pinnedRows = rows.filter(r => r.dataset.pinned);
+
+            const isAsc = th.classList.contains('sort-asc');
+            headers.forEach(h => { h.classList.remove('sort-asc', 'sort-desc'); });
+            th.classList.add(isAsc ? 'sort-desc' : 'sort-asc');
+
+            sortableRows.sort((a, b) => {
+                const aVal = a.cells[colIdx]?.textContent.trim() || '';
+                const bVal = b.cells[colIdx]?.textContent.trim() || '';
+                const aNum = parseFloat(aVal);
+                const bNum = parseFloat(bVal);
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return isAsc ? bNum - aNum : aNum - bNum;
+                }
+                return isAsc ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+            });
+
+            // Re-append: sortable rows first, then pinned rows at bottom
+            sortableRows.forEach(r => tbody.appendChild(r));
+            pinnedRows.forEach(r => tbody.appendChild(r));
+        });
+    });
 }
 </script>
 </body>

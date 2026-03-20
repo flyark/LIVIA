@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Guide — ChimeraX Visualization for LIS</title>
+    <title>Guide — In silico PPI Analysis &amp; ChimeraX Script Generator</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; }
@@ -78,14 +78,14 @@
 
 <div class="header">
     <div class="container" style="padding:0;">
-        <h1>ChimeraX Visualization for LIS &mdash; Guide</h1>
+        <h1><em>In silico</em> PPI Analysis &amp; ChimeraX Script Generator &mdash; Guide</h1>
         <p>Analyze AlphaFold-predicted protein interactions and generate ChimeraX visualization scripts</p>
         <div class="header-links">
             <a href="index.html">Home</a>
-            <a href="chimerax_visualization_flypredictome.html">FlyPredictome-ChimeraX</a>
-            <a href="chimerax_visualization_af3.html">AlphaFold3-ChimeraX</a>
-            <a href="chimerax_visualization_dimer.html">AFDB Dimer-ChimeraX</a>
-            <a href="chimerax_visualization_monomer.html">AFDB Monomer-ChimeraX</a>
+            <a href="chimerax_visualization_flypredictome.html">FlyPredictome</a>
+            <a href="chimerax_visualization_universal.html">Universal Prediction</a>
+            <a href="chimerax_visualization_dimer.html">AFDB Dimer</a>
+            <a href="chimerax_visualization_monomer.html">AFDB Monomer Subdomain</a>
         </div>
     </div>
 </div>
@@ -105,13 +105,13 @@
     <!-- TOOL 1: FLYPREDICTOME -->
     <!-- ================================================================ -->
     <div class="tool-section">
-        <h2 class="tool-title">1. FlyPredictome &rarr; ChimeraX</h2>
+        <h2 class="tool-title">1. FlyPredictome Analysis</h2>
 
         <div class="subsection">
             <h3>Quick Start</h3>
             <ol class="quick-steps">
                 <li>Go to <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank">FlyPredictome</a>, search for a protein pair, and copy the prediction page URL</li>
-                <li>Open <a href="chimerax_visualization_flypredictome.html">FlyPredictome-ChimeraX</a>, paste the URL, and click <strong>Generate</strong></li>
+                <li>Open <a href="chimerax_visualization_flypredictome.html">FlyPredictome Analysis</a>, paste the URL, and click <strong>Generate</strong></li>
                 <li>Review the <strong>All Ranks</strong> table &mdash; click any row to switch between ranks 1&ndash;5</li>
                 <li>Explore metrics (iLIS, ipTM, LIR/cLIR counts), the sequence viewer, and the ChimeraX script preview</li>
                 <li>Download the <code>.cxc</code> script and <code>.pdb</code> structure file, place them in the same folder, then double-click the <code>.cxc</code> — ChimeraX will launch automatically</li>
@@ -133,36 +133,50 @@
     <!-- TOOL 2: AF3 -->
     <!-- ================================================================ -->
     <div class="tool-section">
-        <h2 class="tool-title">2. AlphaFold3 &rarr; ChimeraX</h2>
+        <h2 class="tool-title">2. Universal Prediction Analysis</h2>
 
         <div class="subsection">
             <h3>Quick Start</h3>
             <ol class="quick-steps">
-                <li>Run a prediction on <a href="https://alphafoldserver.com" target="_blank">AlphaFold Server</a> and download the results zip (single or batch)</li>
-                <li>Open <a href="chimerax_visualization_af3.html">AlphaFold3-ChimeraX</a> and upload the zip file (drag-and-drop or browse) or select an unzipped folder (tested on Chrome)</li>
-                <li>For batch downloads with multiple predictions, select which prediction to analyze from the dropdown</li>
+                <li>Run a prediction using any supported platform (AlphaFold3, AlphaFold2, ColabFold, Boltz-1/2, Chai-1, OpenFold3, or RoseTTAFold3)</li>
+                <li>Open <a href="chimerax_visualization_universal.html">Universal Prediction Analysis</a> and upload your prediction files (.zip, .gz, .cif, .pdb, .json, .npz, .npy)</li>
+                <li>The tool auto-detects the prediction platform and shows available models/ranks</li>
                 <li>Optionally adjust PAE cutoff (default: 12 &Aring;) and C&beta; cutoff (default: 8 &Aring;), then click <strong>Process</strong></li>
-                <li>Explore PAE/LIS/cLIS maps, score matrix, and residue count matrix for each model</li>
-                <li>Click a row in the <strong>chain pair table</strong> to generate a ChimeraX script for that pair and model</li>
-                <li>Download the <code>.cxc</code> script and <code>.cif</code> structure, place them in the same folder, then double-click the <code>.cxc</code> — ChimeraX will launch automatically</li>
+                <li>Explore PAE/LIS/cLIS maps, score matrix, and chain pair table</li>
+                <li>Click a row in the chain pair table to generate a ChimeraX script</li>
+                <li>Download the <code>.cxc</code> script and structure file, place them in the same folder, then double-click the <code>.cxc</code> &mdash; ChimeraX will launch automatically</li>
             </ol>
+        </div>
+
+        <div class="subsection">
+            <h3>Supported Platforms</h3>
+            <ul class="features-list">
+                <li><strong>AlphaFold3</strong> &mdash; .cif + summary_confidences + full_data JSON (from AlphaFold Server or local)</li>
+                <li><strong>AlphaFold2</strong> &mdash; ranked_*.pdb + PAE JSON (PAE must be pre-converted from .pkl)</li>
+                <li><strong>ColabFold</strong> &mdash; *_unrelaxed_rank_*.pdb + *_scores_rank_*.json</li>
+                <li><strong>Boltz-1/2</strong> &mdash; .pdb/.cif + confidence_*.json + pae_*.npz</li>
+                <li><strong>Chai-1</strong> &mdash; pred.rank_*.cif + scores.rank_*.json (PAE in JSON or .npy)</li>
+                <li><strong>OpenFold3</strong> &mdash; result_sample_*_model.pdb + confidences JSON</li>
+                <li><strong>Tamarind Bio</strong> &mdash; output from any platform via Tamarind (auto-detected)</li>
+                <li><strong>Generic</strong> &mdash; any .cif/.pdb with a PAE JSON file</li>
+            </ul>
         </div>
 
         <div class="subsection">
             <h3>Features</h3>
             <ul class="features-list">
-                <li><strong>Input flexibility</strong> &mdash; accepts zip files (single or batch) or unzipped folders (tested on Chrome)</li>
-                <li><strong>PAE maps</strong> &mdash; blue-white-red (bwr) colormap showing predicted aligned error per residue pair</li>
-                <li><strong>LIS maps</strong> &mdash; Blues colormap showing per-residue interaction scores</li>
-                <li><strong>cLIS maps</strong> &mdash; Greens colormap showing contact-filtered interaction scores</li>
-                <li><strong>Score matrix</strong> &mdash; iLIS (Oranges, lower-left) / ipTM (Purples, upper-right) for all chain pairs</li>
-                <li><strong>Residue count matrix</strong> &mdash; LIR (Blues, lower-left) / cLIR (Greens, upper-right)</li>
-                <li><strong>Chain pair table</strong> &mdash; per-model and averaged metrics for all chain combinations; click any row to generate a ChimeraX script</li>
-                <li><strong>Sequence viewer</strong> &mdash; amino acid letters with LIR (light) and cLIR (dark) highlighting per chain</li>
-                <li><strong>ChimeraX script</strong> &mdash; color presets (Gradient, Solid, ChimeraX defaults, Multi-chain tab10); Swap A &harr; B button</li>
-                <li><strong>Downloads</strong> &mdash; .cxc (per-pair or all-chains), .cif structure, CSV with full metrics</li>
+                <li><strong>Auto-detection</strong> &mdash; automatically identifies the prediction platform from file names</li>
+                <li><strong>Compressed files</strong> &mdash; accepts .zip, .gz files; decompresses in browser</li>
+                <li><strong>PAE maps</strong> &mdash; blue-white-red (bwr) colormap, per model/rank</li>
+                <li><strong>LIS maps</strong> &mdash; matplotlib Blues colormap, PAE averaged both directions</li>
+                <li><strong>cLIS maps</strong> &mdash; matplotlib Greens colormap, contact-filtered</li>
+                <li><strong>Score matrix</strong> &mdash; iLIS (Oranges, lower-left) / ipTM (Purples, upper-right)</li>
+                <li><strong>Residue count matrix</strong> &mdash; LIR (Blues) / cLIR (Greens)</li>
+                <li><strong>Sequence viewer</strong> &mdash; amino acid letters with LIR/cLIR highlighting</li>
+                <li><strong>ChimeraX presets</strong> &mdash; gradient, solid, pLDDT coloring, color bychain, color bypolymer</li>
+                <li><strong>NPZ/NPY parser</strong> &mdash; reads Boltz PAE (.npz) and Chai-1 PAE (.npy) in browser</li>
+                <li><strong>Downloads</strong> &mdash; .cxc script, structure file, CSV with full metrics</li>
             </ul>
-            <div class="tip">For multi-chain complexes, use "Download All Chains .cxc" to see the full complex with each chain in a different color using ChimeraX's <code>color bychain</code> command.</div>
         </div>
     </div>
 
@@ -170,12 +184,12 @@
     <!-- TOOL 3: DIMER -->
     <!-- ================================================================ -->
     <div class="tool-section">
-        <h2 class="tool-title">3. AlphaFold Database Dimer &rarr; ChimeraX</h2>
+        <h2 class="tool-title">3. AlphaFold DB Dimer Analysis</h2>
 
         <div class="subsection">
             <h3>Quick Start</h3>
             <ol class="quick-steps">
-                <li>Open <a href="chimerax_visualization_dimer.html">Dimer-ChimeraX</a> and enter a UniProt ID (e.g. <code>P69905</code>), a model entity ID (e.g. <code>AF-0000000066214167</code>), or a full AlphaFold DB URL</li>
+                <li>Open <a href="chimerax_visualization_dimer.html">AlphaFold DB Dimer Analysis</a> and enter a UniProt ID (e.g. <code>P69905</code>), a model entity ID (e.g. <code>AF-0000000066214167</code>), or a full AlphaFold DB URL</li>
                 <li>Click <strong>Search Dimers</strong> &mdash; a table of available dimer complexes appears with LIS, ipTM, and ipSAE scores</li>
                 <li>Click a dimer row in the table to load it &mdash; the tool fetches CIF and PAE data from AlphaFold DB automatically</li>
                 <li>Review PAE/LIS/cLIS maps, score matrix, sequence viewer, and metrics (iLIS, LIS, cLIS, ipTM, ipSAE)</li>
@@ -203,12 +217,12 @@
     <!-- TOOL 4: MONOMER -->
     <!-- ================================================================ -->
     <div class="tool-section">
-        <h2 class="tool-title">4. AlphaFold Database Monomer Domain LIS &rarr; ChimeraX <span style="font-size:0.7rem; color:#E67E22; vertical-align:super;">ALPHA</span></h2>
+        <h2 class="tool-title">4. AlphaFold DB Monomer Subdomain Analysis</h2>
 
         <div class="subsection">
             <h3>Quick Start</h3>
             <ol class="quick-steps">
-                <li>Open <a href="chimerax_visualization_monomer.html">Monomer-ChimeraX</a> and enter a UniProt ID (e.g. <code>P31749</code>) &mdash; autocomplete suggestions appear as you type</li>
+                <li>Open <a href="chimerax_visualization_monomer.html">AlphaFold DB Monomer Subdomain Analysis</a> and enter a UniProt ID (e.g. <code>P31749</code>) &mdash; autocomplete suggestions appear as you type</li>
                 <li>Click <strong>Fetch</strong> &mdash; the tool retrieves the PDB structure and PAE matrix from AlphaFold DB</li>
                 <li>Domains are <strong>auto-detected</strong> using pLDDT-based segmentation; adjust settings if needed (min length, merge LIS threshold, pLDDT cutoff)</li>
                 <li>Click <strong>Detect Domains</strong> to re-detect with new settings, or manually edit domain boundaries</li>
@@ -391,10 +405,10 @@
 <div style="text-align:center; padding:2rem; font-size:0.8rem; color:#999;">
     Made by Ah-Ram Kim &middot;
     <a href="https://github.com/flyark/AFM-LIS" style="color:#2471A3; text-decoration:none;">AFM-LIS</a> &middot;
-    <a href="chimerax_visualization_flypredictome.html" style="color:#2471A3; text-decoration:none;">FlyPredictome-ChimeraX</a> &middot;
-    <a href="chimerax_visualization_af3.html" style="color:#2471A3; text-decoration:none;">AlphaFold3-ChimeraX</a> &middot;
-    <a href="chimerax_visualization_dimer.html" style="color:#2471A3; text-decoration:none;">AFDB Dimer-ChimeraX</a> &middot;
-    <a href="chimerax_visualization_monomer.html" style="color:#2471A3; text-decoration:none;">AFDB Monomer-ChimeraX</a> &middot;
+    <a href="chimerax_visualization_flypredictome.html" style="color:#2471A3; text-decoration:none;">FlyPredictome</a> &middot;
+    <a href="chimerax_visualization_universal.html" style="color:#2471A3; text-decoration:none;">Universal Prediction</a> &middot;
+    <a href="chimerax_visualization_dimer.html" style="color:#2471A3; text-decoration:none;">AFDB Dimer</a> &middot;
+    <a href="chimerax_visualization_monomer.html" style="color:#2471A3; text-decoration:none;">AFDB Monomer Subdomain</a> &middot;
     <a href="https://github.com/flyark/chimerax_visualization_lis" style="color:#2471A3; text-decoration:none;">GitHub</a>
 </div>
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AlphaFold Database Monomer Domain LIS &rarr; ChimeraX</title>
+    <title>AlphaFold DB Monomer Subdomain Analysis</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; min-height: 100vh; }
@@ -122,19 +122,26 @@
         .footer a { color: #2471A3; text-decoration: none; }
         .footer a:hover { text-decoration: underline; }
 
+        /* Sortable table headers */
+        .data-table th.sortable { cursor: pointer; user-select: none; position: relative; }
+        .data-table th.sortable:hover { background: #e8f0fe; }
+        .data-table th.sortable::after { content: ' ⇅'; font-size: 0.7em; color: #aaa; }
+        .data-table th.sort-asc::after { content: ' ▲'; color: #2471A3; }
+        .data-table th.sort-desc::after { content: ' ▼'; color: #2471A3; }
+
     </style>
 </head>
 <body>
 
 <div class="header">
     <div class="container" style="padding:0;">
-        <h1>AlphaFold Database Monomer Domain LIS &rarr; ChimeraX</h1>
+        <h1>AlphaFold DB Monomer Subdomain Analysis</h1>
         <p>Analyze intramolecular interactions in AlphaFold monomer predictions</p>
         <div class="header-links">
             <a href="index.html">Home</a>
-            <a href="chimerax_visualization_flypredictome.html">FlyPredictome-ChimeraX</a>
-            <a href="chimerax_visualization_af3.html">AlphaFold3-ChimeraX</a>
-            <a href="chimerax_visualization_dimer.html">AFDB Dimer-ChimeraX</a>
+            <a href="chimerax_visualization_flypredictome.html">FlyPredictome</a>
+            <a href="chimerax_visualization_universal.html">Universal Prediction</a>
+            <a href="chimerax_visualization_dimer.html">AFDB Dimer</a>
             <a href="guide.html">Guide</a>
         </div>
     </div>
@@ -211,6 +218,12 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Chord Diagram (appears after Calculate) -->
+        <div id="chord-diagram-container" style="display:none; margin-top:1rem; text-align:center;">
+            <div class="map-label">Domain Interaction Chord Diagram</div>
+            <canvas id="chord-canvas"></canvas>
         </div>
 
         <!-- Maps: PAE, LIS, cLIS in a row -->
@@ -337,16 +350,17 @@
             <div>
                 <h4 style="font-size:0.9rem; color:#1a5276; margin-bottom:0.5rem;">Metrics (<a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3;">AFM-LIS</a>)</h4>
                 <table style="font-size:0.85rem;">
-                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIR</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Residues (PAE &le; 12 &Aring;)</td></tr>
-                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIR</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLIS</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LIS &mdash; &radic;(LIS &times; cLIS)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIS</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Score &mdash; normalized PAE confidence (0&ndash;1)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIS</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIS &mdash; restricted to direct contacts</td></tr>
-                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLIS</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LIS &mdash; &radic;(LIS &times; cLIS)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIR</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Residues (PAE &le; 12 &Aring;)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIR</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</td></tr>
                 </table>
                 <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">References</h4>
                 <ul style="list-style:none; padding:0; font-size:0.85rem;">
                     <li style="margin-bottom:0.3rem; color:#555;"><a href="https://www.biorxiv.org/content/10.1101/2024.02.19.580970" target="_blank" style="color:#2471A3; font-weight:600;">Kim et al. 2024</a> &mdash; Enhanced PPI Discovery via AlphaFold-Multimer</li>
                     <li style="margin-bottom:0.3rem; color:#555;"><a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank" style="color:#2471A3; font-weight:600;">Kim et al. 2025</a> &mdash; <em>In silico</em> Kinase-TF atlas for human and fly</li>
+                    <li style="margin-bottom:0.3rem; color:#555;"><a href="https://alphafold.ebi.ac.uk" target="_blank" style="color:#2471A3; font-weight:600;">AlphaFold Protein Structure Database</a> &mdash; Monomer and dimer predictions</li>
                 </ul>
             </div>
         </div>
@@ -354,7 +368,7 @@
 
     <div class="footer">
         Made by Ah-Ram Kim &middot;
-        <a href="chimerax_visualization_af3.html">AlphaFold3-ChimeraX</a> &middot;
+        <a href="chimerax_visualization_universal.html">Universal Prediction</a> &middot;
         Metrics defined by <a href="https://github.com/flyark/AFM-LIS">AFM-LIS</a> &middot;
         Visualization in <a href="https://www.cgl.ucsf.edu/chimerax/">UCSF ChimeraX</a>
     </div>
@@ -929,16 +943,15 @@ function updateColorSection() {
         binaryPresets.style.display = 'none';
         multiPresets.style.display = '';
 
+        // Compact inline layout for multi-region colors
+        section.style.gap = '0.4rem';
+        section.style.flexWrap = 'wrap';
         for (let i = 0; i < monRegions.length; i++) {
             const r = monRegions[i];
             const group = document.createElement('div');
-            group.className = 'color-group';
-            group.style.minWidth = '120px';
-            group.innerHTML = `<h3>${r.name}</h3>
-                <div class="color-pair">
-                    <input type="color" value="${r.color}" oninput="monRegions[${i}].color=this.value; updateColorStrip(); renderRegions();">
-                    <div><div class="color-label">${r.name}</div></div>
-                </div>`;
+            group.style.cssText = 'display:flex; align-items:center; gap:0.2rem;';
+            group.innerHTML = `<input type="color" value="${r.color}" style="width:24px; height:24px; border:1px solid #ddd; border-radius:4px; cursor:pointer; padding:1px;" oninput="monRegions[${i}].color=this.value; updateColorStrip(); renderRegions();">
+                <span style="font-size:0.75rem; font-weight:600; color:#555;">${r.name}</span>`;
             section.appendChild(group);
             const d = document.createElement('div');
             d.style.background = r.color;
@@ -1326,6 +1339,9 @@ function displayResults(validRegions) {
         matrixInline.style.display = 'none';
     }
 
+    // Chord diagram
+    drawChordDiagram(validRegions);
+
     // Redraw step 2 PAE map with final region boundaries
     drawPaeMap();
 
@@ -1334,6 +1350,8 @@ function displayResults(validRegions) {
 
     // Generate CXC script
     generateAndShowScript(validRegions);
+
+    makeSortable(document.getElementById('pairs-table'));
 
     document.getElementById('results').classList.add('active');
 }
@@ -1839,6 +1857,178 @@ function drawMapCanvasSingle(canvas, map2d, n, colorFn, vmin, vmax, regions, ove
     }
 }
 
+function drawChordDiagram(validRegions) {
+    const container = document.getElementById('chord-diagram-container');
+    const canvas = document.getElementById('chord-canvas');
+    if (!canvas || !monPairResults || monPairResults.length === 0 || validRegions.length < 2) {
+        if (container) container.style.display = 'none';
+        return;
+    }
+    container.style.display = '';
+
+    const nc = validRegions.length;
+    const size = 350;
+    const cx = size / 2, cy = size / 2;
+    const outerR = size / 2 - 30;
+    const innerR = outerR - 18;
+    const chordR = innerR - 4;
+
+    canvas.width = size * 2;
+    canvas.height = size * 2;
+    canvas.style.width = size + 'px';
+    canvas.style.height = size + 'px';
+    const ctx = canvas.getContext('2d');
+    const S = 2; // HiDPI scale
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(S, S);
+
+    // Total residues for proportional arc sizing
+    const totalRes = validRegions.reduce((sum, r) => sum + (r.end - r.start + 1), 0);
+    const gapAngle = 0.04; // gap between arcs in radians
+    const totalGap = gapAngle * nc;
+    const availAngle = 2 * Math.PI - totalGap;
+
+    // Compute arc start/end angles for each region
+    const arcs = [];
+    let angle = -Math.PI / 2; // start from top
+    for (let i = 0; i < nc; i++) {
+        const r = validRegions[i];
+        const len = r.end - r.start + 1;
+        const sweep = (len / totalRes) * availAngle;
+        arcs.push({ start: angle, end: angle + sweep, mid: angle + sweep / 2, region: r, idx: i });
+        angle += sweep + gapAngle;
+    }
+
+    // Draw outer arcs (domain segments)
+    for (const arc of arcs) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, outerR, arc.start, arc.end);
+        ctx.arc(cx, cy, innerR, arc.end, arc.start, true);
+        ctx.closePath();
+        ctx.fillStyle = arc.region.color;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Label
+        const labelAngle = arc.mid;
+        const labelR = outerR + 14;
+        const lx = cx + Math.cos(labelAngle) * labelR;
+        const ly = cy + Math.sin(labelAngle) * labelR;
+        ctx.save();
+        ctx.translate(lx, ly);
+        // Rotate text to follow the arc
+        let textAngle = labelAngle + Math.PI / 2;
+        if (labelAngle > Math.PI / 2 && labelAngle < 3 * Math.PI / 2) {
+            textAngle += Math.PI;
+        }
+        ctx.rotate(textAngle);
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${arc.region.name}`, 0, 0);
+        ctx.restore();
+
+        // Residue range label (smaller)
+        const rangeR = outerR + 24;
+        const rx = cx + Math.cos(labelAngle) * rangeR;
+        const ry = cy + Math.sin(labelAngle) * rangeR;
+        ctx.save();
+        ctx.translate(rx, ry);
+        ctx.rotate(textAngle);
+        ctx.fillStyle = '#888';
+        ctx.font = '7px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${arc.region.start}-${arc.region.end}`, 0, 0);
+        ctx.restore();
+    }
+
+    // Draw chords for interacting pairs
+    // Build iLIS lookup
+    const ilisMap = {};
+    let maxIlis = 0;
+    for (const v of monPairResults) {
+        const i = validRegions.indexOf(v.ri);
+        const j = validRegions.indexOf(v.rj);
+        if (i >= 0 && j >= 0 && v.iLIS > 0) {
+            ilisMap[`${i},${j}`] = v.iLIS;
+            ilisMap[`${j},${i}`] = v.iLIS;
+            if (v.iLIS > maxIlis) maxIlis = v.iLIS;
+        }
+    }
+
+    // Draw chords (thicker = higher iLIS)
+    for (const v of monPairResults) {
+        if (v.iLIS <= 0) continue;
+        const i = validRegions.indexOf(v.ri);
+        const j = validRegions.indexOf(v.rj);
+        if (i < 0 || j < 0) continue;
+
+        const arcI = arcs[i], arcJ = arcs[j];
+        const t = maxIlis > 0 ? v.iLIS / maxIlis : 0;
+
+        // Chord endpoints on the inner circle
+        const x1s = cx + Math.cos(arcI.start + 0.02) * chordR;
+        const y1s = cy + Math.sin(arcI.start + 0.02) * chordR;
+        const x1e = cx + Math.cos(arcI.end - 0.02) * chordR;
+        const y1e = cy + Math.sin(arcI.end - 0.02) * chordR;
+        const x2s = cx + Math.cos(arcJ.start + 0.02) * chordR;
+        const y2s = cy + Math.sin(arcJ.start + 0.02) * chordR;
+        const x2e = cx + Math.cos(arcJ.end - 0.02) * chordR;
+        const y2e = cy + Math.sin(arcJ.end - 0.02) * chordR;
+
+        // Draw filled chord
+        ctx.beginPath();
+        ctx.moveTo(x1s, y1s);
+        ctx.quadraticCurveTo(cx, cy, x2s, y2s);
+        ctx.arc(cx, cy, chordR, arcJ.start + 0.02, arcJ.end - 0.02);
+        ctx.quadraticCurveTo(cx, cy, x1e, y1e);
+        ctx.arc(cx, cy, chordR, arcI.end - 0.02, arcI.start + 0.02, true);
+        ctx.closePath();
+
+        // Gradient from source domain color to target domain color
+        const alpha = 0.15 + t * 0.55;
+        const grad = ctx.createLinearGradient(
+            cx + Math.cos(arcI.mid) * chordR * 0.5,
+            cy + Math.sin(arcI.mid) * chordR * 0.5,
+            cx + Math.cos(arcJ.mid) * chordR * 0.5,
+            cy + Math.sin(arcJ.mid) * chordR * 0.5
+        );
+        grad.addColorStop(0, hexToRgba(arcI.region.color, alpha));
+        grad.addColorStop(1, hexToRgba(arcJ.region.color, alpha));
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // iLIS label at center of chord
+        if (v.iLIS > 0.05) {
+            const midAngle = (arcI.mid + arcJ.mid) / 2;
+            const labelDist = chordR * 0.4;
+            const tx = cx + Math.cos(midAngle) * labelDist;
+            const ty = cy + Math.sin(midAngle) * labelDist;
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 8px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(v.iLIS.toFixed(2), tx, ty);
+        }
+    }
+
+    ctx.restore();
+}
+
+function hexToRgba(hex, alpha) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+}
+
 function drawScoreMatrix(validRegions) {
     const canvas = document.getElementById('score-matrix-canvas');
     const nc = validRegions.length;
@@ -1979,6 +2169,41 @@ function drawColorbar(canvasId, colorFn, vmin, vmax) {
         ctx.fillStyle = `rgb(${r},${g},${b})`;
         ctx.fillRect(x, 0, 1, canvas.height);
     }
+}
+
+function makeSortable(table) {
+    if (!table) return;
+    const headers = table.querySelectorAll('thead th');
+    headers.forEach((th, colIdx) => {
+        th.classList.add('sortable');
+        th.addEventListener('click', () => {
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            // Separate pinned rows (Average, selected) from sortable rows
+            const sortableRows = rows.filter(r => !r.dataset.pinned && r.textContent.trim() !== '');
+            const pinnedRows = rows.filter(r => r.dataset.pinned);
+
+            const isAsc = th.classList.contains('sort-asc');
+            headers.forEach(h => { h.classList.remove('sort-asc', 'sort-desc'); });
+            th.classList.add(isAsc ? 'sort-desc' : 'sort-asc');
+
+            sortableRows.sort((a, b) => {
+                const aVal = a.cells[colIdx]?.textContent.trim() || '';
+                const bVal = b.cells[colIdx]?.textContent.trim() || '';
+                const aNum = parseFloat(aVal);
+                const bNum = parseFloat(bVal);
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return isAsc ? bNum - aNum : aNum - bNum;
+                }
+                return isAsc ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+            });
+
+            // Re-append: sortable rows first, then pinned rows at bottom
+            sortableRows.forEach(r => tbody.appendChild(r));
+            pinnedRows.forEach(r => tbody.appendChild(r));
+        });
+    });
 }
 </script>
 </body>

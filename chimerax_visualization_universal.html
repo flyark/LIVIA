@@ -1,0 +1,2977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Prediction Analysis</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; min-height: 100vh; }
+
+        /* Header */
+        .header { background: linear-gradient(135deg, #2471A3, #1a5276); color: white; padding: 1.2rem 2rem 1rem; }
+        .header h1 { font-size: 1.6rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .header p { font-size: 0.9rem; opacity: 0.85; margin-bottom: 0.6rem; }
+        .header-links { display: flex; gap: 1rem; flex-wrap: wrap; }
+        .header-links a { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.85rem; padding: 0.25rem 0.6rem; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; transition: all 0.2s; }
+        .header-links a:hover { background: rgba(255,255,255,0.15); color: white; }
+
+        /* Layout */
+        .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+        .card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 1.5rem; }
+        .card label { font-weight: 600; font-size: 0.85rem; color: #555; display: block; margin-bottom: 0.4rem; }
+        .step-num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #2471A3; color: white; font-weight: 700; font-size: 0.85rem; margin-right: 0.5rem; }
+        .step-header { display: flex; align-items: center; margin-bottom: 0.8rem; font-weight: 600; font-size: 1rem; }
+
+        /* Drop zone */
+        .drop-zone { border: 2px dashed #ccc; border-radius: 12px; padding: 2.5rem; text-align: center; cursor: pointer; transition: all 0.2s; color: #888; }
+        .drop-zone:hover, .drop-zone.dragover { border-color: #2471A3; background: #eaf2f8; color: #2471A3; }
+        .drop-zone.has-file { border-color: #27ae60; background: #eafaf1; color: #27ae60; }
+        .drop-zone-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .drop-zone-text { font-size: 0.9rem; }
+        .drop-zone-filename { font-weight: 700; font-size: 1rem; margin-top: 0.3rem; }
+
+        /* Status */
+        .status { font-size: 0.85rem; color: #666; min-height: 1.5rem; margin-top: 0.8rem; }
+        .status.loading { color: #2471A3; }
+        .status.error { color: #c0392b; }
+        .status.success { color: #27ae60; }
+
+        /* Buttons */
+        .btn { padding: 0.6rem 1.5rem; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; border: none; transition: background 0.2s; }
+        .btn-primary { background: #2471A3; color: white; margin-top: 0.8rem; }
+        .btn-primary:hover { background: #1a5276; }
+        .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+        .btn-row { display: flex; gap: 0.5rem; margin-top: 0.8rem; }
+        .btn-download { padding: 0.6rem 1.2rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; border: 2px solid; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s; }
+        .btn-download.cxc { background: #2471A3; color: white; border-color: #2471A3; }
+        .btn-download.cxc:hover { background: #1a5276; }
+        .btn-download.cif { background: white; color: #E67E22; border-color: #E67E22; }
+        .btn-download.cif:hover { background: #fef5ec; }
+
+        /* Platform badge */
+        .platform-badge { display: inline-block; padding: 0.25rem 0.8rem; border-radius: 6px; font-size: 0.82rem; font-weight: 700; margin-top: 0.5rem; }
+        .platform-badge.alphafold3 { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .platform-badge.colabfold { background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
+        .platform-badge.boltz { background: #fce4ec; color: #c62828; border: 1px solid #ef9a9a; }
+        .platform-badge.chai { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
+        .platform-badge.openfold { background: #f3e5f5; color: #6a1b9a; border: 1px solid #ce93d8; }
+        .platform-badge.generic { background: #f5f5f5; color: #616161; border: 1px solid #bdbdbd; }
+
+        /* Color scheme */
+        .color-section { display: flex; gap: 2rem; flex-wrap: wrap; }
+        .color-group { flex: 1; min-width: 200px; }
+        .color-group h3 { font-size: 0.8rem; color: #888; margin-bottom: 0.6rem; }
+        .color-pair { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem; }
+        .color-pair input[type="color"] { width: 36px; height: 36px; border: 2px solid #e0e0e0; border-radius: 6px; cursor: pointer; padding: 2px; }
+        .color-pair .color-label { font-size: 0.9rem; }
+        .color-pair .color-hex { font-family: monospace; font-size: 0.8rem; color: #888; }
+        .color-preview-strip { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
+        .color-preview-strip div { flex: 1; transition: background 0.3s; }
+        .presets-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .preset-chip { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.8rem; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 0.82rem; color: #666; transition: all 0.2s; background: white; }
+        .preset-chip:hover { border-color: #2471A3; color: #333; }
+        .preset-chip.active { border-color: #2471A3; background: #eaf2f8; color: #1a5276; font-weight: 600; }
+        .preset-strip { display: flex; width: 60px; height: 12px; border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+        .preset-strip span { flex: 1; }
+
+        /* Results */
+        .results { display: none; }
+        .results.active { display: block; }
+        .result-card h2 { font-size: 1.2rem; margin-bottom: 1rem; color: #1a5276; }
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.8rem; margin-bottom: 1rem; }
+        .metric { background: #f8f9fa; border-radius: 8px; padding: 0.8rem; text-align: center; }
+        .metric .value { font-size: 1.3rem; font-weight: 700; color: #2471A3; }
+        .metric .label { font-size: 0.75rem; color: #888; margin-top: 0.2rem; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 1rem; }
+        .data-table th { text-align: left; padding: 0.5rem 0.8rem; background: #f8f9fa; font-weight: 600; font-size: 0.8rem; color: #666; }
+        .data-table td { padding: 0.5rem 0.8rem; border-top: 1px solid #eee; }
+        .data-table tr.selected { background: #eaf2f8; }
+        .data-table tr.clickable { cursor: pointer; }
+        .data-table tr.clickable:hover { background: #f0f7fc; }
+        .script-preview { background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 1rem; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; line-height: 1.5; max-height: 400px; overflow-y: auto; white-space: pre; margin-bottom: 1rem; }
+        .script-preview .comment { color: #6c7086; }
+        .script-preview .command { color: #89b4fa; }
+        .script-preview .color-val { color: #f9e2af; }
+        .download-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+        .error-msg { display: none; background: #fdeaea; color: #c0392b; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
+        .error-msg.active { display: block; }
+        .info-box { background: #eaf2f8; border-left: 4px solid #2471A3; padding: 0.8rem 1rem; border-radius: 0 8px 8px 0; font-size: 0.85rem; color: #1a5276; margin-bottom: 1rem; }
+        .warning-box { background: #fff8e1; border-left: 4px solid #f9a825; padding: 0.8rem 1rem; border-radius: 0 8px 8px 0; font-size: 0.85rem; color: #795548; margin-bottom: 1rem; }
+
+        /* Map rows */
+        .map-row { display: flex; gap: 0.4rem; flex-wrap: nowrap; margin-bottom: 0.8rem; }
+        .map-item { text-align: center; }
+        .map-item canvas { border-radius: 4px; display: block; }
+        .map-item .map-label { font-size: 0.75rem; color: #666; margin-bottom: 0.2rem; }
+        .colorbar-row { display: flex; flex-direction: column; align-items: center; margin-top: 0.5rem; }
+        .colorbar-row canvas { border-radius: 3px; }
+        .colorbar-labels { display: flex; justify-content: space-between; width: 300px; font-size: 0.72rem; color: #888; margin-top: 2px; }
+        .colorbar-labels span:nth-child(2) { color: #555; font-weight: 500; }
+
+        /* Sequence viewer */
+        .seq-row { display:flex; align-items:center; margin-bottom:0; }
+        .seq-num { font-size:0.72rem; color:#888; width:36px; text-align:right; padding-right:4px; flex-shrink:0; font-family:'SF Mono','Fira Code',monospace; }
+        .seq-blocks { display:flex; flex-wrap:nowrap; font-family:'SF Mono','Fira Code',monospace; font-size:0.82rem; line-height:1.4; letter-spacing:0.5px; }
+        .seq-res { display:inline-block; width:0.75em; text-align:center; cursor:default; color:#333; }
+        .seq-res.clir { color:white; font-weight:700; }
+        .seq-chain-label { font-size:0.75rem; font-weight:700; color:#1a5276; margin-top:0.5rem; margin-bottom:0.2rem; }
+        .seq-tooltip { position:fixed; background:#333; color:white; padding:2px 6px; border-radius:4px; font-size:0.72rem; pointer-events:none; z-index:200; display:none; font-family:'SF Mono',monospace; }
+
+        .footer { text-align: center; padding: 2rem; font-size: 0.8rem; color: #999; }
+        .footer a { color: #2471A3; text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+
+        /* Sortable table headers */
+        .data-table th.sortable { cursor: pointer; user-select: none; position: relative; }
+        .data-table th.sortable:hover { background: #e8f0fe; }
+        .data-table th.sortable::after { content: ' ⇅'; font-size: 0.7em; color: #aaa; }
+        .data-table th.sort-asc::after { content: ' ▲'; color: #2471A3; }
+        .data-table th.sort-desc::after { content: ' ▼'; color: #2471A3; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="container" style="padding:0;">
+        <h1>Universal Prediction Analysis</h1>
+        <p>Universal tool for AlphaFold3, ColabFold, Boltz, Chai-1, and OpenFold predictions</p>
+        <div class="header-links">
+            <a href="index.html">Home</a>
+            <a href="chimerax_visualization_flypredictome.html">FlyPredictome</a>
+            <a href="chimerax_visualization_dimer.html">AFDB Dimer</a>
+            <a href="chimerax_visualization_monomer.html">AFDB Monomer Subdomain</a>
+            <a href="guide.html">Guide</a>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- Step 1: Upload -->
+    <div class="card">
+        <div class="step-header">Upload Prediction Files &nbsp;<span style="font-weight:400; font-size:0.8rem; color:#888;">(upload your prediction files &mdash; all analysis runs locally in your browser)</span></div>
+        <div class="drop-zone" id="drop-zone">
+            <div class="drop-zone-icon">&#128230;</div>
+            <div class="drop-zone-text">Drop prediction files here (.zip, .gz, .cif, .pdb, .json, .npz, .npy) or click to browse</div>
+            <div class="drop-zone-filename" id="file-name"></div>
+        </div>
+        <input type="file" id="file-input" accept=".zip,.gz,.cif,.pdb,.json,.npz,.npy,.pkl" multiple style="display:none">
+        <input type="file" id="folder-input" webkitdirectory style="display:none">
+        <div style="display:flex; gap:0.5rem; margin-top:0.8rem;">
+            <button class="btn btn-primary" style="flex:1; margin:0;" onclick="document.getElementById('file-input').click()">Select Files</button>
+            <button class="btn btn-primary" style="flex:1; margin:0; background:#1a5276;" onclick="document.getElementById('folder-input').click()">Select Folder</button>
+        </div>
+        <div id="platform-detected" style="margin-top:0.5rem;"></div>
+        <div id="prediction-selector" style="display:none; margin-top:0.8rem;">
+            <label>Multiple predictions/ranks found &mdash; select one:</label>
+            <select id="prediction-select" style="padding:0.5rem 0.8rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.9rem; width:100%; margin-top:0.3rem;"></select>
+        </div>
+        <div class="btn-row">
+            <button class="btn btn-primary" id="btn-process" onclick="processFiles()" disabled>Process</button>
+        </div>
+        <div class="status" id="status"></div>
+    </div>
+
+    <!-- Error -->
+    <div class="error-msg" id="error-msg"></div>
+
+    <!-- Results -->
+    <div class="results" id="results">
+        <!-- Confidence Scores -->
+        <div class="card result-card" id="confidence-card" style="display:none;">
+            <h2>Confidence Scores</h2>
+            <div class="metrics-grid" id="confidence-metrics"></div>
+        </div>
+
+        <!-- PAE Maps -->
+        <div class="card result-card">
+            <h2>PAE Maps</h2>
+            <div class="map-row" id="pae-row"></div>
+            <div class="colorbar-row">
+                <canvas id="colorbar-pae" width="300" height="14"></canvas>
+                <div class="colorbar-labels"><span>0</span><span>Predicted Aligned Error (&Aring;)</span><span>30</span></div>
+            </div>
+        </div>
+
+        <!-- Combined iLIS/ipTM Heatmaps -->
+        <div class="card result-card" id="score-matrix-card" style="display:none;">
+            <h2>Score Matrix <span style="font-weight:400; font-size:0.8rem; color:#888;">(lower-left: iLIS, upper-right: ipTM)</span></h2>
+            <div class="map-row" id="combined-row"></div>
+            <div class="colorbar-row" style="flex-direction:row; gap:2rem; justify-content:center;">
+                <div style="text-align:center">
+                    <canvas id="colorbar-ilis" width="140" height="14"></canvas>
+                    <div class="colorbar-labels" style="width:140px;"><span>0</span><span>iLIS (Oranges)</span><span>1</span></div>
+                </div>
+                <div style="text-align:center">
+                    <canvas id="colorbar-iptm" width="140" height="14"></canvas>
+                    <div class="colorbar-labels" style="width:140px;"><span>0</span><span>ipTM (Purples)</span><span>1</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Combined LIR/cLIR Heatmaps -->
+        <div class="card result-card" id="lir-matrix-card" style="display:none;">
+            <h2>Residue Count Matrix <span style="font-weight:400; font-size:0.8rem; color:#888;">(lower-left: LIR, upper-right: cLIR)</span></h2>
+            <div class="map-row" id="lir-combined-row"></div>
+            <div class="colorbar-row" style="flex-direction:row; gap:2rem; justify-content:center;">
+                <div style="text-align:center">
+                    <canvas id="colorbar-lir" width="140" height="14"></canvas>
+                    <div class="colorbar-labels" style="width:140px;"><span>0</span><span>LIR (Blues)</span><span id="lir-max-label">max</span></div>
+                </div>
+                <div style="text-align:center">
+                    <canvas id="colorbar-clir" width="140" height="14"></canvas>
+                    <div class="colorbar-labels" style="width:140px;"><span>0</span><span>cLIR (Greens)</span><span id="clir-max-label">max</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LIS Maps -->
+        <div class="card result-card">
+            <h2>LIS Maps <span style="font-weight:400; font-size:0.8rem; color:#888;">(Local Interaction Score, PAE &le; 12 &Aring;)</span></h2>
+            <div class="map-row" id="lis-row"></div>
+            <div class="colorbar-row">
+                <canvas id="colorbar-lis" width="300" height="14"></canvas>
+                <div class="colorbar-labels"><span>0</span><span>Local Interaction Score (LIS)</span><span>1</span></div>
+            </div>
+        </div>
+
+        <!-- cLIS Maps -->
+        <div class="card result-card">
+            <h2>cLIS Maps <span style="font-weight:400; font-size:0.8rem; color:#888;">(contact LIS, PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</span></h2>
+            <div class="map-row" id="clis-row"></div>
+            <div class="colorbar-row">
+                <canvas id="colorbar-clis" width="300" height="14"></canvas>
+                <div class="colorbar-labels"><span>0</span><span>contact Local Interaction Score (cLIS)</span><span>1</span></div>
+            </div>
+        </div>
+
+        <!-- Sequence Viewer -->
+        <div class="card result-card" id="seq-viewer-card" style="display:none;">
+            <h2>Sequence Viewer</h2>
+            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+                Light background = LIR (PAE &le; 12 &Aring;). Dark background with white text = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each chain uses its own color.
+            </div>
+            <div id="seq-viewer" style="font-family:'SF Mono','Fira Code',monospace; overflow-x:auto;"></div>
+        </div>
+
+        <!-- Interface Contact Map -->
+        <div class="card result-card" id="contact-map-card" style="display:none;">
+            <h2>Interface Contact Map</h2>
+            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+                Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B.
+            </div>
+            <canvas id="contact-canvas"></canvas>
+        </div>
+
+        <!-- Chain Pair Table -->
+        <div class="card result-card">
+            <h2 id="result-title">Chain Pair Summary</h2>
+            <div class="info-box">Click a row to generate the ChimeraX script.</div>
+            <input type="hidden" id="seed-select" value="0">
+            <table class="data-table" id="pairs-table">
+                <thead><tr><th>Rank/Model</th><th>Pair</th><th>iLIS</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th>cLIR (i)</th><th>cLIR (j)</th></tr></thead>
+                <tbody id="pairs-tbody"></tbody>
+            </table>
+            <div style="margin-top:0.5rem;">
+                <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem;" onclick="downloadCSV()">&#8595; Download CSV</a>
+            </div>
+        </div>
+
+        <!-- Script -->
+        <div class="card result-card" id="script-card">
+            <div class="step-header">ChimeraX Script</div>
+
+            <!-- Options -->
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.9rem; font-weight:600; color:#1a5276;">Options</label>
+
+                <label>Cutoffs</label>
+                <div style="display:flex; gap:1.5rem; margin-bottom:1rem; flex-wrap:wrap;">
+                    <div>
+                        <span style="font-size:0.85rem; color:#555;">PAE cutoff (&Aring;):</span>
+                        <input type="number" id="pae-cutoff" value="12" min="1" max="30" step="1" style="width:60px; padding:0.3rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.9rem;">
+                    </div>
+                    <div>
+                        <span style="font-size:0.85rem; color:#555;">C&beta; cutoff (&Aring;):</span>
+                        <input type="number" id="cb-cutoff" value="8" min="1" max="20" step="1" style="width:60px; padding:0.3rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.9rem;">
+                    </div>
+                </div>
+
+                <label>Color Scheme</label>
+                <div class="color-section">
+                    <div class="color-group">
+                        <h3>Chain A (Protein 1)</h3>
+                        <div class="color-pair">
+                            <input type="color" id="color-lir-a" value="#b3d4e8">
+                            <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-a">#b3d4e8</div></div>
+                        </div>
+                        <div class="color-pair">
+                            <input type="color" id="color-clir-a" value="#2471A3">
+                            <div><div class="color-label">cLIR</div><div class="color-hex" id="hex-clir-a">#2471A3</div></div>
+                        </div>
+                    </div>
+                    <div class="color-group">
+                        <h3>Chain B (Protein 2)</h3>
+                        <div class="color-pair">
+                            <input type="color" id="color-lir-b" value="#f5cba7">
+                            <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-b">#f5cba7</div></div>
+                        </div>
+                        <div class="color-pair">
+                            <input type="color" id="color-clir-b" value="#E67E22">
+                            <div><div class="color-label">cLIR</div><div class="color-hex" id="hex-clir-b">#E67E22</div></div>
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:0.8rem; margin-top:0.5rem;">
+                    <div class="color-preview-strip" id="color-strip" style="flex:1; margin:0;">
+                        <div style="background:#b3d4e8"></div><div style="background:#2471A3"></div><div style="background:#E67E22"></div><div style="background:#f5cba7"></div>
+                    </div>
+                    <button onclick="swapColors()" style="padding:0.3rem 0.8rem; border:2px solid #e0e0e0; border-radius:6px; background:white; cursor:pointer; font-size:0.82rem; color:#666; white-space:nowrap;">Swap A &#8596; B</button>
+                </div>
+                <label style="margin-top:1rem">Presets &mdash; gradient (LIR light, cLIR dark)</label>
+                <div class="presets-row">
+                    <div class="preset-chip active" onclick="applyPreset('#b3d4e8','#2471A3','#f5cba7','#E67E22',this)"><div class="preset-strip"><span style="background:#b3d4e8"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#f5cba7"></span></div>Blue / Orange</div>
+                    <div class="preset-chip" onclick="applyPreset('#d1c4e9','#5e35b1','#fff3b0','#f9a825',this)"><div class="preset-strip"><span style="background:#d1c4e9"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#fff3b0"></span></div>Purple / Gold</div>
+                    <div class="preset-chip" onclick="applyPreset('#b2dfdb','#00897b','#ffccbc','#e64a19',this)"><div class="preset-strip"><span style="background:#b2dfdb"></span><span style="background:#00897b"></span><span style="background:#e64a19"></span><span style="background:#ffccbc"></span></div>Teal / Coral</div>
+                    <div class="preset-chip" onclick="applyPreset('#cfd8dc','#546e7a','#f8bbd0','#c2185b',this)"><div class="preset-strip"><span style="background:#cfd8dc"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#f8bbd0"></span></div>Slate / Rose</div>
+                    <div class="preset-chip" onclick="applyPreset('#c5cae9','#303f9f','#ffe0b2','#e65100',this)"><div class="preset-strip"><span style="background:#c5cae9"></span><span style="background:#303f9f"></span><span style="background:#e65100"></span><span style="background:#ffe0b2"></span></div>Indigo / Tangerine</div>
+                    <div class="preset-chip" onclick="applyPreset('#a8d5ba','#2e7d32','#ef9a9a','#c62828',this)"><div class="preset-strip"><span style="background:#a8d5ba"></span><span style="background:#2e7d32"></span><span style="background:#c62828"></span><span style="background:#ef9a9a"></span></div>Green / Red</div>
+                </div>
+                <label style="margin-top:0.5rem">Presets &mdash; solid</label>
+                <div class="presets-row">
+                    <div class="preset-chip" onclick="applyPreset('#2471A3','#2471A3','#E67E22','#E67E22',this)"><div class="preset-strip"><span style="background:#2471A3"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#E67E22"></span></div>Blue / Orange</div>
+                    <div class="preset-chip" onclick="applyPreset('#5e35b1','#5e35b1','#f9a825','#f9a825',this)"><div class="preset-strip"><span style="background:#5e35b1"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#f9a825"></span></div>Purple / Gold</div>
+                    <div class="preset-chip" onclick="applyPreset('#00897b','#00897b','#e64a19','#e64a19',this)"><div class="preset-strip"><span style="background:#00897b"></span><span style="background:#00897b"></span><span style="background:#e64a19"></span><span style="background:#e64a19"></span></div>Teal / Coral</div>
+                    <div class="preset-chip" onclick="applyPreset('#6A9EC6','#6A9EC6','#D4A76A','#D4A76A',this)"><div class="preset-strip"><span style="background:#6A9EC6"></span><span style="background:#6A9EC6"></span><span style="background:#D4A76A"></span><span style="background:#D4A76A"></span></div>Steel / Wheat</div>
+                    <div class="preset-chip" onclick="applyPreset('#6495ED','#6495ED','#FF6347','#FF6347',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#FF6347"></span></div>Cornflower / Tomato</div>
+                </div>
+                <label style="margin-top:0.5rem; display:none" id="multichain-presets-label">Presets &mdash; multi-chain (auto-assigned per chain)</label>
+                <div class="presets-row" id="multichain-presets" style="display:none"></div>
+                <label style="margin-top:0.5rem">Presets &mdash; ChimeraX commands</label>
+                <div class="presets-row">
+                    <div class="preset-chip" onclick="applyCxcPreset('plddt',this)"><div class="preset-strip"><span style="background:#0053D6"></span><span style="background:#65CBF3"></span><span style="background:#FFDB13"></span><span style="background:#FF7D45"></span></div>pLDDT</div>
+                    <div class="preset-chip" onclick="applyCxcPreset('bychain',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#90EE90"></span><span style="background:#DDA0DD"></span></div>bychain</div>
+                    <div class="preset-chip" onclick="applyCxcPreset('bypolymer',this)"><div class="preset-strip"><span style="background:#87CEEB"></span><span style="background:#FFA07A"></span><span style="background:#98FB98"></span><span style="background:#DDA0DD"></span></div>bypolymer</div>
+                </div>
+            </div>
+            <hr style="border:none; border-top:1px solid #e0e0e0; margin-bottom:1rem;">
+
+            <div class="script-preview" id="script-preview"></div>
+            <div class="download-row">
+                <a class="btn-download cxc" id="dl-cxc" download>&#8595; Download .cxc</a>
+                <a class="btn-download cif" id="dl-structure" download>&#8595; Download structure</a>
+                <a class="btn-download cxc" id="dl-all-chains" style="background:#1a5276; border-color:#1a5276;" onclick="downloadAllChainsCxc()">&#8595; Download All Chains .cxc</a>
+            </div>
+            <div class="info-box" style="margin-top:1rem;">Place the .cxc and structure files in the same folder, then double-click the .cxc &mdash; ChimeraX will launch automatically. "All Chains" shows every chain with LIR regions, colored by chain.</div>
+        </div>
+    </div>
+
+    <!-- How to Use -->
+    <div class="card">
+        <div class="step-header">How to Use &nbsp;<a href="guide.html" style="font-size:0.8rem; font-weight:400; color:#2471A3;">(Full guide)</a></div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:1.5rem; padding-left:2.3rem;">
+            <div>
+                <h4 style="font-size:0.9rem; color:#1a5276; margin-bottom:0.5rem;">Quick Start</h4>
+                <ol style="padding-left:1.2rem; font-size:0.85rem; color:#555; line-height:1.7;" start="0">
+                    <li>Install <a href="https://www.cgl.ucsf.edu/chimerax/download.html" target="_blank" style="color:#2471A3;">UCSF ChimeraX</a></li>
+                    <li>Run a prediction on any supported platform</li>
+                    <li>Download/export the results</li>
+                    <li>Drop the files above &mdash; the platform is auto-detected</li>
+                    <li>Click <strong>Process</strong> to calculate AFM-LIS metrics</li>
+                    <li>Click a chain pair in the table to generate a ChimeraX script</li>
+                    <li>Download .cxc + structure file, place in the same folder, double-click the .cxc</li>
+                </ol>
+                <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">Platform-Specific Tips</h4>
+                <ul style="padding-left:1.2rem; font-size:0.82rem; color:#555; line-height:1.7;">
+                    <li><strong>AlphaFold3</strong>: Drop the zip from <a href="https://alphafoldserver.com" target="_blank" style="color:#2471A3;">AlphaFold Server</a> directly</li>
+                    <li><strong>ColabFold</strong>: Upload the output folder or select individual _unrelaxed_rank_*.pdb and _scores_rank_*.json files</li>
+                    <li><strong>Boltz-1/2</strong>: Upload output folder containing .cif, confidence_*.json, and pae_*.npz files</li>
+                    <li><strong>Chai-1</strong>: Upload output folder with pred.model_idx_*.cif and scores files</li>
+                    <li><strong>OpenFold</strong>: Upload .cif with *_full_data*.json files</li>
+                    <li><strong>Generic</strong>: Any .cif/.pdb with a PAE JSON file (predicted_aligned_error field)</li>
+                </ul>
+            </div>
+            <div>
+                <h4 style="font-size:0.9rem; color:#1a5276; margin-bottom:0.5rem;">Metrics (<a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3;">AFM-LIS</a>)</h4>
+                <table style="font-size:0.85rem;">
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLIS</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LIS &mdash; &radic;(LIS &times; cLIS)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIS</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Score &mdash; normalized PAE confidence (0&ndash;1)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIS</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIS &mdash; restricted to direct contacts</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIR</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Residues (PAE &le; 12 &Aring;)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIR</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>ipTM</strong></td><td style="padding:0.25rem 0; color:#555;">interface predicted TM-score</td></tr>
+                </table>
+                <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">References</h4>
+                <ul style="list-style:none; padding:0; font-size:0.85rem;">
+                    <li style="margin-bottom:0.3rem; color:#555;"><a href="https://www.biorxiv.org/content/10.1101/2024.02.19.580970" target="_blank" style="color:#2471A3; font-weight:600;">Kim et al. 2024</a> &mdash; Enhanced PPI Discovery via AlphaFold-Multimer</li>
+                    <li style="margin-bottom:0.3rem; color:#555;"><a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank" style="color:#2471A3; font-weight:600;">Kim et al. 2025</a> &mdash; <em>In silico</em> Kinase-TF atlas for human and fly</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        Made by Ah-Ram Kim &middot;
+        <a href="chimerax_visualization_flypredictome.html">FlyPredictome</a> &middot;
+        <a href="chimerax_visualization_dimer.html">AFDB Dimer</a> &middot;
+        <a href="chimerax_visualization_monomer.html">AFDB Monomer Subdomain</a> &middot;
+        Metrics defined by <a href="https://github.com/flyark/AFM-LIS">AFM-LIS</a> &middot;
+        Visualization in <a href="https://www.cgl.ucsf.edu/chimerax/">UCSF ChimeraX</a>
+    </div>
+</div>
+
+<script>
+// ============================================================================
+// GLOBAL STATE
+// ============================================================================
+let uniState = {
+    platform: null,         // 'alphafold3', 'colabfold', 'boltz', 'chai', 'openfold', 'generic'
+    loadedFiles: {},        // filename -> ArrayBuffer or string
+    loadedZip: null,        // JSZip instance if zip
+    predictions: [],        // [{name, structureFile, structureText, pae, confidenceScores, format}]
+    selectedIdx: 0,
+    results: null,
+    modelData: [],
+    modelPairs: [],
+    avgResults: null,
+    chainNames: null,
+    chainSizes: null,
+    nTotal: 0,
+    structureContents: {},  // idx -> text
+    structureFilenames: {}, // idx -> filename
+    structureFormat: 'cif', // 'cif' or 'pdb'
+    multiChainColors: null,
+    cxcColorMode: '',
+};
+
+// ============================================================================
+// NPZ PARSER
+// ============================================================================
+async function parseNpz(arrayBuffer) {
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    const result = {};
+    for (const [name, file] of Object.entries(zip.files)) {
+        if (name.endsWith('.npy')) {
+            const buf = await file.async('arraybuffer');
+            result[name.replace('.npy', '')] = parseNpy(buf);
+        }
+    }
+    return result;
+}
+
+function parseNpy(buffer) {
+    const view = new DataView(buffer);
+    // Magic: \x93NUMPY
+    const major = view.getUint8(6);
+    let headerLen, headerOffset;
+    if (major >= 2) {
+        headerLen = view.getUint32(8, true);
+        headerOffset = 12;
+    } else {
+        headerLen = view.getUint16(8, true);
+        headerOffset = 10;
+    }
+    const headerStr = new TextDecoder().decode(new Uint8Array(buffer, headerOffset, headerLen));
+    const dataOffset = headerOffset + headerLen;
+
+    // Parse dtype
+    const descrMatch = headerStr.match(/'descr':\s*'([^']+)'/);
+    const descr = descrMatch ? descrMatch[1] : '<f4';
+
+    // Parse shape
+    const shapeMatch = headerStr.match(/'shape':\s*\(([^)]*)\)/);
+    if (!shapeMatch) return [];
+    const shapeParts = shapeMatch[1].split(',').map(s => s.trim()).filter(s => s.length > 0);
+    const shape = shapeParts.map(s => parseInt(s));
+
+    // Determine element type and size
+    let elementSize = 4;
+    let isFloat = true;
+    if (descr.includes('f8') || descr.includes('float64')) { elementSize = 8; isFloat = true; }
+    else if (descr.includes('f4') || descr.includes('float32')) { elementSize = 4; isFloat = true; }
+    else if (descr.includes('f2') || descr.includes('float16')) { elementSize = 2; isFloat = true; }
+
+    const littleEndian = descr.startsWith('<') || descr.startsWith('|');
+
+    // Read data
+    const totalElements = shape.reduce((a, b) => a * b, 1);
+    const values = new Float64Array(totalElements);
+    for (let i = 0; i < totalElements; i++) {
+        const offset = dataOffset + i * elementSize;
+        if (elementSize === 8) {
+            values[i] = view.getFloat64(offset, littleEndian);
+        } else if (elementSize === 4) {
+            values[i] = view.getFloat32(offset, littleEndian);
+        } else if (elementSize === 2) {
+            // float16 approximation
+            const h = view.getUint16(offset, littleEndian);
+            const s = (h >> 15) & 1;
+            const e = (h >> 10) & 0x1F;
+            const f = h & 0x3FF;
+            if (e === 0) values[i] = (s ? -1 : 1) * Math.pow(2, -14) * (f / 1024);
+            else if (e === 31) values[i] = f ? NaN : (s ? -Infinity : Infinity);
+            else values[i] = (s ? -1 : 1) * Math.pow(2, e - 15) * (1 + f / 1024);
+        }
+    }
+
+    // Convert to 2D array if shape has 2 dimensions
+    if (shape.length === 2) {
+        const [rows, cols] = shape;
+        const arr = [];
+        for (let i = 0; i < rows; i++) {
+            arr.push(Array.from(values.slice(i * cols, (i + 1) * cols)));
+        }
+        return arr;
+    }
+    // 1D
+    if (shape.length === 1) {
+        return Array.from(values);
+    }
+    // 3D+ return flat
+    return { shape, data: Array.from(values) };
+}
+
+// ============================================================================
+// DROP ZONE
+// ============================================================================
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const folderInput = document.getElementById('folder-input');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) handleInputFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleInputFiles(e.target.files); });
+folderInput.addEventListener('change', e => { if (e.target.files.length) handleInputFiles(e.target.files); });
+
+async function handleInputFiles(fileList) {
+    uniState.loadedFiles = {};
+    uniState.loadedZip = null;
+    uniState.predictions = [];
+    uniState.platform = null;
+
+    const files = Array.from(fileList);
+    const isFolder = files[0]?.webkitRelativePath?.includes('/');
+    const folderName = isFolder ? files[0].webkitRelativePath.split('/')[0] : null;
+
+    // Check if single zip
+    if (files.length === 1 && files[0].name.endsWith('.zip')) {
+        setStatus('Reading zip file...', 'loading');
+        const zip = await JSZip.loadAsync(files[0]);
+        uniState.loadedZip = zip;
+        // Read all files from zip into loadedFiles
+        for (const [path, entry] of Object.entries(zip.files)) {
+            if (entry.dir || path.startsWith('__MACOSX') || path.includes('/__MACOSX/')) continue;
+            const fname = path.split('/').pop();
+            if (!fname) continue;
+            if (fname.endsWith('.cif') || fname.endsWith('.pdb') || fname.endsWith('.json')) {
+                uniState.loadedFiles[path] = await entry.async('string');
+            } else if (fname.endsWith('.npz') || fname.endsWith('.npy')) {
+                uniState.loadedFiles[path] = await entry.async('arraybuffer');
+            }
+        }
+        dropZone.classList.add('has-file');
+        document.getElementById('file-name').textContent = files[0].name;
+    } else {
+        // Individual files or folder
+        setStatus('Reading files...', 'loading');
+        for (const file of files) {
+            const path = file.webkitRelativePath || file.name;
+            if (path.includes('__MACOSX') || path.includes('/msas/') || path.includes('/templates/')) continue;
+            if (file.name.endsWith('.cif') || file.name.endsWith('.pdb') || file.name.endsWith('.json')) {
+                uniState.loadedFiles[path] = await file.text();
+            } else if (file.name.endsWith('.npz') || file.name.endsWith('.npy')) {
+                uniState.loadedFiles[path] = await file.arrayBuffer();
+            } else if (file.name.endsWith('.gz')) {
+                // Gzip compressed file — decompress in browser
+                try {
+                    const ds = new DecompressionStream('gzip');
+                    const decompressed = file.stream().pipeThrough(ds);
+                    const reader = decompressed.getReader();
+                    const chunks = [];
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        chunks.push(value);
+                    }
+                    const blob = new Blob(chunks);
+                    const innerName = file.name.replace(/\.gz$/, '');
+                    if (innerName.endsWith('.cif') || innerName.endsWith('.pdb') || innerName.endsWith('.json')) {
+                        uniState.loadedFiles[innerName] = await blob.text();
+                    } else if (innerName.endsWith('.npz') || innerName.endsWith('.npy')) {
+                        uniState.loadedFiles[innerName] = await blob.arrayBuffer();
+                    }
+                } catch (e) {
+                    console.warn('Could not decompress .gz file:', file.name, e);
+                }
+            } else if (file.name.endsWith('.zip')) {
+                // Nested zip
+                const zip = await JSZip.loadAsync(await file.arrayBuffer());
+                for (const [zpath, entry] of Object.entries(zip.files)) {
+                    if (entry.dir || zpath.startsWith('__MACOSX')) continue;
+                    const zname = zpath.split('/').pop();
+                    if (zname.endsWith('.cif') || zname.endsWith('.pdb') || zname.endsWith('.json')) {
+                        uniState.loadedFiles[zpath] = await entry.async('string');
+                    } else if (zname.endsWith('.npz') || zname.endsWith('.npy')) {
+                        uniState.loadedFiles[zpath] = await entry.async('arraybuffer');
+                    }
+                }
+            }
+        }
+        dropZone.classList.add('has-file');
+        const desc = isFolder ? `${folderName}/ (${files.length} files)` : `${files.length} file(s)`;
+        document.getElementById('file-name').textContent = desc;
+    }
+
+    // Auto-detect platform
+    const platform = detectPlatform();
+    uniState.platform = platform;
+    showPlatformBadge(platform);
+
+    // Check for .pkl files (AF2) — warn user
+    const hasPkl = Array.from(fileList || []).some(f => f.name.endsWith('.pkl'));
+    const pklWarning = hasPkl ? ' Note: .pkl files detected — PAE data must be converted to JSON first (use: python -c "import pickle,json,sys; d=pickle.load(open(sys.argv[1],\'rb\')); json.dump([{\'predicted_aligned_error\':d[\'predicted_aligned_error\'].tolist()}],open(sys.argv[2],\'w\'))" result_model_1.pkl pae_model_1.json)' : '';
+
+    document.getElementById('btn-process').disabled = false;
+    setStatus(`Detected: ${platformLabel(platform)}. Click Process to analyze.${pklWarning}`);
+}
+
+function detectPlatform() {
+    const filenames = Object.keys(uniState.loadedFiles);
+    const basenames = filenames.map(f => f.split('/').pop());
+
+    // Tamarind AF3: result_sample_N_model.pdb + result_sample_N_confidences.json
+    // Tamarind format: result_sample_N_model.pdb + result_sample_N_confidences.json
+    // Could be AF3 or OpenFold3 — check experiment_config.json for 'of3' checkpoint
+    const hasTamarindModel = basenames.some(f => /^result_sample_\d+_model\.pdb$/.test(f));
+    const hasTamarindConf = basenames.some(f => /^result_sample_\d+_confidences\.json$/.test(f));
+    if (hasTamarindModel && hasTamarindConf) {
+        // Check if OpenFold3 by looking for experiment_config.json with 'of3' in checkpoint
+        const expConfig = filenames.find(f => f.split('/').pop() === 'experiment_config.json');
+        if (expConfig && uniState.loadedFiles[expConfig]) {
+            try {
+                const ec = JSON.parse(uniState.loadedFiles[expConfig]);
+                if (ec.inference_ckpt_path && ec.inference_ckpt_path.includes('of3')) return 'openfold3';
+            } catch(e) {}
+        }
+        return 'alphafold3';
+    }
+
+    // AlphaFold3: *_model_0.cif + *_summary_confidences_0.json + *_full_data_0.json
+    // Also matches result_sample_*_model.pdb files
+    const hasAF3Model = basenames.some(f => /_model_\d+\.cif$/.test(f) || /^result_sample_\d+_model\.pdb$/.test(f));
+    const hasAF3Summary = basenames.some(f => /_summary_confidences_\d+\.json$/.test(f));
+    const hasAF3FullData = basenames.some(f => /_full_data_\d+\.json$/.test(f));
+    if (hasAF3Model && hasAF3Summary && hasAF3FullData) return 'alphafold3';
+
+    // ColabFold: *_unrelaxed_rank_*.pdb + *_scores_rank_*.json
+    const hasCFModel = basenames.some(f => /_unrelaxed_rank_\d+/.test(f) && (f.endsWith('.pdb') || f.endsWith('.cif')));
+    const hasCFScores = basenames.some(f => /_scores_rank_\d+/.test(f) && f.endsWith('.json'));
+    if (hasCFModel && hasCFScores) return 'colabfold';
+
+    // AlphaFold2 (original): ranked_*.pdb or relaxed_model_*.pdb + ranking_debug.json
+    // PAE is in result_model_*.pkl (Python pickle, not browser-readable)
+    // Users must pre-convert .pkl to JSON, or provide PAE JSON separately
+    const hasAF2Ranked = basenames.some(f => /^ranked_\d+\.pdb$/.test(f));
+    const hasAF2Relaxed = basenames.some(f => /^relaxed_model_\d+\.pdb$/.test(f));
+    const hasAF2Ranking = basenames.some(f => f === 'ranking_debug.json');
+    const hasAF2Unrelaxed = basenames.some(f => /^unrelaxed_model_\d+\.pdb$/.test(f));
+    if ((hasAF2Ranked || hasAF2Relaxed || hasAF2Unrelaxed) && (hasAF2Ranking || basenames.some(f => /result_model_\d+/.test(f)))) return 'alphafold2';
+
+    // Boltz: confidence_*.json + *.cif or *.pdb (and possibly pae_*.npz)
+    const hasBoltzConf = basenames.some(f => /^confidence_/.test(f) && f.endsWith('.json'));
+    const hasBoltzStructure = basenames.some(f => f.endsWith('.cif') || f.endsWith('.pdb'));
+    if (hasBoltzConf && hasBoltzStructure) return 'boltz';
+
+    // Chai-1: pred.rank_*.cif + scores.rank_*.json (or pred.model_idx_*.cif)
+    const hasChaiModel = basenames.some(f => /^pred\.(rank_\d+|model_idx_\d+)\.cif$/.test(f));
+    const hasChaiScores = basenames.some(f => /^scores\.rank_\d+\.json$/.test(f));
+    if (hasChaiModel || (hasChaiScores && basenames.some(f => f.startsWith('pred.')))) return 'chai';
+
+    // OpenFold: *.cif with *_full_data*.json (but NOT AF3 pattern)
+    const hasOFCif = basenames.some(f => f.endsWith('.cif'));
+    const hasOFFullData = basenames.some(f => /full_data/.test(f) && f.endsWith('.json'));
+    if (hasOFCif && hasOFFullData && !hasAF3Summary) return 'openfold';
+
+    // Generic: any .cif/.pdb with JSON containing predicted_aligned_error
+    const hasStructure = basenames.some(f => f.endsWith('.cif') || f.endsWith('.pdb'));
+    const hasJson = basenames.some(f => f.endsWith('.json'));
+    if (hasStructure && hasJson) return 'generic';
+    if (hasStructure) return 'generic';
+
+    return 'generic';
+}
+
+function platformLabel(p) {
+    const labels = {
+        alphafold3: 'AlphaFold3',
+        alphafold2: 'AlphaFold2',
+        openfold3: 'OpenFold3',
+        colabfold: 'ColabFold',
+        boltz: 'Boltz',
+        chai: 'Chai-1',
+        openfold: 'OpenFold',
+        generic: 'Generic'
+    };
+    return labels[p] || p;
+}
+
+function showPlatformBadge(p) {
+    const el = document.getElementById('platform-detected');
+    el.innerHTML = `<span class="platform-badge ${p}">${platformLabel(p)}</span>`;
+}
+
+function setStatus(msg, type = '') {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status' + (type ? ' ' + type : '');
+}
+
+// ============================================================================
+// COLOR PICKERS & PRESETS
+// ============================================================================
+document.querySelectorAll('input[type="color"]').forEach(input => {
+    input.addEventListener('input', () => {
+        document.getElementById(input.id.replace('color-', 'hex-')).textContent = input.value;
+        const s = document.getElementById('color-strip').children;
+        s[0].style.background = document.getElementById('color-lir-a').value;
+        s[1].style.background = document.getElementById('color-clir-a').value;
+        s[2].style.background = document.getElementById('color-clir-b').value;
+        s[3].style.background = document.getElementById('color-lir-b').value;
+    });
+});
+
+function applyPreset(la, ca, lb, cb, el) {
+    uniState.cxcColorMode = '';
+    document.getElementById('color-lir-a').value = la;
+    document.getElementById('color-clir-a').value = ca;
+    document.getElementById('color-lir-b').value = lb;
+    document.getElementById('color-clir-b').value = cb;
+    document.getElementById('hex-lir-a').textContent = la;
+    document.getElementById('hex-clir-a').textContent = ca;
+    document.getElementById('hex-lir-b').textContent = lb;
+    document.getElementById('hex-clir-b').textContent = cb;
+    const s = document.getElementById('color-strip').children;
+    s[0].style.background = la; s[1].style.background = ca; s[2].style.background = cb; s[3].style.background = lb;
+    if (el) { document.querySelectorAll('.preset-chip').forEach(p => p.classList.remove('active')); el.classList.add('active'); }
+    if (uniState.multiChainColors) uniState.multiChainColors._active = false;
+    const selectedRow = document.querySelector('#pairs-tbody tr.selected');
+    if (selectedRow) selectedRow.click();
+}
+
+function applyCxcPreset(mode, el) {
+    uniState.cxcColorMode = mode;
+    document.querySelectorAll('.preset-chip').forEach(p => p.classList.remove('active'));
+    if (el) el.classList.add('active');
+    const sel = document.querySelector('#pairs-tbody tr.selected');
+    if (sel) sel.click();
+}
+
+function swapColors() {
+    const la = document.getElementById('color-lir-a').value;
+    const ca = document.getElementById('color-clir-a').value;
+    const lb = document.getElementById('color-lir-b').value;
+    const cb = document.getElementById('color-clir-b').value;
+    applyPreset(lb, cb, la, ca, null);
+}
+
+const TAB10 = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
+const TAB20 = ['#1f77b4','#aec7e8','#ff7f0e','#ffbb78','#2ca02c','#98df8a','#d62728','#ff9896','#9467bd','#c5b0d5','#8c564b','#c49c94','#e377c2','#f7b6d2','#7f7f7f','#c7c7c7','#bcbd22','#dbdb8d','#17becf','#9edae5'];
+
+function setupMultiChainColors() {
+    if (!uniState.chainNames || uniState.chainNames.length <= 2) {
+        document.getElementById('multichain-presets').style.display = 'none';
+        document.getElementById('multichain-presets-label').style.display = 'none';
+        uniState.multiChainColors = null;
+        return;
+    }
+    const palette = uniState.chainNames.length <= 10 ? TAB10 : TAB20;
+    uniState.multiChainColors = {};
+    uniState.chainNames.forEach((name, i) => {
+        uniState.multiChainColors[name] = palette[i % palette.length];
+    });
+    const label = document.getElementById('multichain-presets-label');
+    const row = document.getElementById('multichain-presets');
+    label.style.display = '';
+    row.style.display = '';
+    row.innerHTML = '';
+    const chip = document.createElement('div');
+    chip.className = 'preset-chip';
+    const strip = document.createElement('div');
+    strip.className = 'preset-strip';
+    strip.style.width = `${uniState.chainNames.length * 16}px`;
+    uniState.chainNames.forEach((name, i) => {
+        const span = document.createElement('span');
+        span.style.background = palette[i % palette.length];
+        strip.appendChild(span);
+    });
+    chip.appendChild(strip);
+    chip.appendChild(document.createTextNode(`Tab${uniState.chainNames.length <= 10 ? '10' : '20'} (${uniState.chainNames.join(', ')})`));
+    chip.onclick = () => {
+        uniState.multiChainColors._active = true;
+        document.querySelectorAll('.preset-chip').forEach(p => p.classList.remove('active'));
+        chip.classList.add('active');
+    };
+    row.appendChild(chip);
+}
+
+function getColorsForPair(ci, cj) {
+    if (uniState.multiChainColors && uniState.multiChainColors._active) {
+        const colA = uniState.multiChainColors[ci] || '#2471A3';
+        const colB = uniState.multiChainColors[cj] || '#E67E22';
+        return { lir_a: colA, clir_a: colA, lir_b: colB, clir_b: colB };
+    }
+    return {
+        lir_a: document.getElementById('color-lir-a').value,
+        clir_a: document.getElementById('color-clir-a').value,
+        lir_b: document.getElementById('color-lir-b').value,
+        clir_b: document.getElementById('color-clir-b').value,
+    };
+}
+
+// ============================================================================
+// PLATFORM-SPECIFIC DISCOVERY
+// ============================================================================
+
+function discoverPredictions() {
+    const filenames = Object.keys(uniState.loadedFiles);
+    const platform = uniState.platform;
+
+    switch (platform) {
+        case 'alphafold3': return discoverAF3(filenames);
+        case 'openfold3': return discoverAF3(filenames); // same format as AF3
+        case 'alphafold2': return discoverAF2(filenames);
+        case 'colabfold': return discoverColabFold(filenames);
+        case 'boltz': return discoverBoltz(filenames);
+        case 'chai': return discoverChai(filenames);
+        case 'openfold': return discoverOpenFold(filenames);
+        default: return discoverGeneric(filenames);
+    }
+}
+
+function discoverAF3(filenames) {
+    const predictions = {};
+
+    // Standard AF3: prefix_full_data_N.json + prefix_summary_confidences_N.json + prefix_model_N.cif
+    for (const name of filenames) {
+        const base = name.split('/').pop();
+        const m = base.match(/^(.+)_full_data_(\d+)\.json$/);
+        if (!m) continue;
+        const prefix = m[1];
+        const idx = m[2];
+
+        const summaryPath = filenames.find(f => f.split('/').pop() === `${prefix}_summary_confidences_${idx}.json`);
+        const cifPath = filenames.find(f => f.split('/').pop() === `${prefix}_model_${idx}.cif`);
+        if (!summaryPath || !cifPath) continue;
+
+        if (!predictions[prefix]) predictions[prefix] = {};
+        predictions[prefix][idx] = {
+            structurePath: cifPath,
+            paeSource: name,     // full_data JSON
+            confidencePath: summaryPath,
+            format: 'cif',
+            label: `model_${idx}`,
+        };
+    }
+
+    // Tamarind AF3: result_sample_N_model.pdb + result_sample_N_confidences.json + _confidences_aggregated.json
+    for (const name of filenames) {
+        const base = name.split('/').pop();
+        const m = base.match(/^result_sample_(\d+)_model\.pdb$/);
+        if (!m) continue;
+        const idx = m[1];
+
+        const confPath = filenames.find(f => f.split('/').pop() === `result_sample_${idx}_confidences.json`);
+        // Aggregated JSON has iptm, ptm, ranking_score — use as confidence source
+        const aggPath = filenames.find(f => f.split('/').pop() === `result_sample_${idx}_confidences_aggregated.json`);
+
+        const prefix = 'prediction';
+        if (!predictions[prefix]) predictions[prefix] = {};
+        predictions[prefix][idx] = {
+            structurePath: name,
+            paeSource: confPath || null,         // full JSON has pde (used as PAE)
+            confidencePath: aggPath || confPath,  // aggregated has iptm/ptm
+            confidencePathFull: confPath,          // full has plddt array
+            format: 'pdb',
+            label: `sample_${idx}`,
+        };
+    }
+
+    return predictions;
+}
+
+function discoverAF2(filenames) {
+    const predictions = {};
+    const prefix = 'alphafold2';
+    // Look for ranked_*.pdb (preferred) or relaxed_model_*.pdb or unrelaxed_model_*.pdb
+    for (const name of filenames) {
+        const base = name.split('/').pop();
+        let rank = null, structPath = null;
+        const mRanked = base.match(/^ranked_(\d+)\.pdb$/);
+        const mRelaxed = base.match(/^relaxed_model_(\d+)(_multimer)?(_v\d+)?(_pred_\d+)?\.pdb$/);
+        const mUnrelaxed = base.match(/^unrelaxed_model_(\d+)(_multimer)?(_v\d+)?(_pred_\d+)?\.pdb$/);
+        if (mRanked) { rank = mRanked[1]; structPath = name; }
+        else if (mRelaxed) { rank = mRelaxed[1]; structPath = name; }
+        else if (mUnrelaxed) { rank = mUnrelaxed[1]; structPath = name; }
+        else continue;
+
+        // Look for PAE JSON (user must pre-convert from .pkl)
+        // Try: pae_model_*.json, result_model_*_pae.json, or any JSON with predicted_aligned_error
+        const paeJson = filenames.find(f => {
+            const fb = f.split('/').pop();
+            return fb.endsWith('.json') && (fb.includes(`model_${rank}`) || fb.includes('pae'));
+        });
+
+        predictions[rank] = {
+            structurePath: structPath,
+            paeSource: paeJson || null,
+            confidencePath: filenames.find(f => f.split('/').pop() === 'ranking_debug.json') || null,
+            format: 'pdb',
+            label: `ranked_${rank}`,
+        };
+    }
+    // If no ranked files, check for any .pdb files
+    if (Object.keys(predictions).length === 0) {
+        for (const name of filenames) {
+            if (name.endsWith('.pdb')) {
+                predictions['0'] = { structurePath: name, paeSource: null, confidencePath: null, format: 'pdb', label: name.split('/').pop() };
+                break;
+            }
+        }
+    }
+    return predictions;
+}
+
+function discoverColabFold(filenames) {
+    const predictions = {};
+    for (const name of filenames) {
+        const base = name.split('/').pop();
+        const m = base.match(/^(.+)_unrelaxed_rank_(\d+)(.*)\.(pdb|cif)$/);
+        if (!m) continue;
+        const prefix = m[1];
+        const rank = m[2];
+        const rest = m[3]; // e.g. "_alphafold2_multimer_v3_model_4_seed_000"
+        const ext = m[4];
+
+        // Extract model number from filename if present
+        const modelMatch = rest.match(/model_(\d+)/);
+        const modelNum = modelMatch ? modelMatch[1] : null;
+
+        // Find matching scores file
+        const scoresPath = filenames.find(f => {
+            const fb = f.split('/').pop();
+            return fb.includes('_scores_rank_') && fb.includes(`rank_${rank.padStart(3,'0')}`) && fb.endsWith('.json');
+        }) || filenames.find(f => {
+            const fb = f.split('/').pop();
+            return fb.includes('scores') && fb.includes(`rank_${rank}`) && fb.endsWith('.json');
+        }) || filenames.find(f => {
+            const fb = f.split('/').pop();
+            return fb.startsWith(prefix) && fb.includes('scores') && fb.endsWith('.json');
+        });
+
+        if (!predictions[prefix]) predictions[prefix] = {};
+        predictions[prefix][rank] = {
+            structurePath: name,
+            paeSource: scoresPath || null,
+            confidencePath: scoresPath || null,
+            format: ext,
+            label: modelNum ? `rank_${rank} (model_${modelNum})` : `rank_${rank}`,
+        };
+    }
+    return predictions;
+}
+
+function discoverBoltz(filenames) {
+    const predictions = {};
+    // Boltz typically outputs: predictions/MODEL_NAME/confidence_model_X.json, pae_model_X.npz, MODEL_NAME_model_X.cif
+    // Tamarind Boltz-2: predictions/result/result_model_N.pdb, pae_result_model_N.npz, confidence_result_model_N.json
+    const structFiles = filenames.filter(f => {
+        const base = f.split('/').pop();
+        return base.endsWith('.cif') || base.endsWith('.pdb');
+    });
+    const confFiles = filenames.filter(f => f.split('/').pop().startsWith('confidence') && f.endsWith('.json'));
+    const paeFiles = filenames.filter(f => f.split('/').pop().startsWith('pae') && f.endsWith('.npz'));
+
+    for (let i = 0; i < structFiles.length; i++) {
+        const structBase = structFiles[i].split('/').pop();
+        const ext = structBase.split('.').pop();
+        const idx = String(i);
+        // Try to match confidence and pae by index
+        const confPath = confFiles.find(f => {
+            const fb = f.split('/').pop();
+            return fb.includes(`_${i}`) || fb.includes(`model_${i}`);
+        }) || confFiles[i] || null;
+        const paePath = paeFiles.find(f => {
+            const fb = f.split('/').pop();
+            return fb.includes(`_${i}`) || fb.includes(`model_${i}`);
+        }) || paeFiles[i] || null;
+
+        if (!predictions['boltz']) predictions['boltz'] = {};
+        predictions['boltz'][idx] = {
+            structurePath: structFiles[i],
+            paeSource: paePath || confPath,
+            confidencePath: confPath,
+            format: ext,
+            label: `model_${i}`,
+        };
+    }
+    return predictions;
+}
+
+function discoverChai(filenames) {
+    const predictions = {};
+    // Chai-1 format: pred.rank_N.cif, scores.rank_N.json, pae.rank_N.npy
+    // Also supports: pred.model_idx_N.cif
+    const cifFiles = filenames.filter(f => {
+        const base = f.split('/').pop();
+        return /^pred\.(rank_\d+|model_idx_\d+)\.cif$/.test(base);
+    });
+
+    for (const cif of cifFiles) {
+        const base = cif.split('/').pop();
+        const m = base.match(/pred\.(rank_(\d+)|model_idx_(\d+))\.cif/);
+        if (!m) continue;
+        const rankOrIdx = m[2] || m[3];
+        const isRank = !!m[2];
+
+        // Find matching scores file
+        const scorePath = filenames.find(f => {
+            const fb = f.split('/').pop();
+            return fb === `scores.rank_${rankOrIdx}.json` || fb === `scores.model_idx_${rankOrIdx}.json`;
+        }) || filenames.find(f => f.split('/').pop().includes('scores') && f.endsWith('.json')) || null;
+
+        // Find matching PAE file (.npy or .npz or .json)
+        const paePath = filenames.find(f => {
+            const fb = f.split('/').pop();
+            return fb === `pae.rank_${rankOrIdx}.npy` || fb === `pae.rank_${rankOrIdx}.npz`;
+        }) || filenames.find(f => {
+            const fb = f.split('/').pop();
+            return fb.startsWith('pae') && (fb.endsWith('.npy') || fb.endsWith('.npz') || fb.endsWith('.json'));
+        }) || null;
+
+        const groupKey = 'prediction';
+        if (!predictions[groupKey]) predictions[groupKey] = {};
+        predictions[groupKey][rankOrIdx] = {
+            structurePath: cif,
+            paeSource: paePath || scorePath,  // Tamarind Chai-1: scores JSON contains PAE under 'pae' key
+            confidencePath: scorePath,
+            format: 'cif',
+            label: isRank ? `rank_${rankOrIdx}` : `model_${rankOrIdx}`,
+        };
+    }
+    return predictions;
+}
+
+function discoverOpenFold(filenames) {
+    const predictions = {};
+    for (const name of filenames) {
+        const base = name.split('/').pop();
+        const m = base.match(/^(.+)_full_data.*\.json$/);
+        if (!m) continue;
+        const prefix = m[1];
+
+        const cifPath = filenames.find(f => f.split('/').pop().endsWith('.cif'));
+        if (!cifPath) continue;
+
+        if (!predictions[prefix]) predictions[prefix] = {};
+        predictions[prefix]['0'] = {
+            structurePath: cifPath,
+            paeSource: name,
+            confidencePath: name,
+            format: 'cif',
+            label: 'model_0',
+        };
+    }
+    return predictions;
+}
+
+function discoverGeneric(filenames) {
+    const predictions = {};
+    const structFiles = filenames.filter(f => {
+        const ext = f.split('/').pop().split('.').pop();
+        return ext === 'cif' || ext === 'pdb';
+    });
+    const jsonFiles = filenames.filter(f => f.endsWith('.json'));
+    const npzFiles = filenames.filter(f => f.endsWith('.npz'));
+
+    for (let i = 0; i < structFiles.length; i++) {
+        const structBase = structFiles[i].split('/').pop();
+        const ext = structBase.split('.').pop();
+
+        // Try to find a PAE source
+        let paeSource = null;
+        // Try matching by name prefix
+        const namePrefix = structBase.replace(/\.(cif|pdb)$/, '');
+        paeSource = jsonFiles.find(f => f.split('/').pop().includes(namePrefix)) || jsonFiles[0] || null;
+        if (!paeSource && npzFiles.length > 0) paeSource = npzFiles[0];
+
+        if (!predictions['generic']) predictions['generic'] = {};
+        predictions['generic'][String(i)] = {
+            structurePath: structFiles[i],
+            paeSource: paeSource,
+            confidencePath: paeSource,
+            format: ext,
+            label: structBase,
+        };
+    }
+    return predictions;
+}
+
+// ============================================================================
+// PAE EXTRACTION (platform-specific)
+// ============================================================================
+
+async function extractPAE(paeSource, platform) {
+    if (!paeSource) return null;
+    const content = uniState.loadedFiles[paeSource];
+    if (!content) return null;
+
+    // NPY file (Chai-1) — raw numpy array
+    if (paeSource.endsWith('.npy')) {
+        try {
+            return parseNpy(content);
+        } catch (e) {
+            console.warn('NPY parse failed:', e);
+        }
+        return null;
+    }
+
+    // NPZ file (Boltz) — zip of npy files
+    if (paeSource.endsWith('.npz')) {
+        try {
+            const npzData = await parseNpz(content);
+            // Look for 'pae' key or first 2D array
+            if (npzData.pae) return npzData.pae;
+            for (const [key, val] of Object.entries(npzData)) {
+                if (Array.isArray(val) && Array.isArray(val[0])) return val;
+            }
+        } catch (e) {
+            console.warn('NPZ parse failed:', e);
+        }
+        return null;
+    }
+
+    // JSON file
+    if (typeof content !== 'string') return null;
+    try {
+        const json = JSON.parse(content);
+
+        // AF3 full_data: {pae: [[...]]}
+        if (json.pae && Array.isArray(json.pae) && Array.isArray(json.pae[0])) {
+            return json.pae;
+        }
+
+        // ColabFold scores: {pae: [[...]]} (direct 2D array)
+        if (json.pae && Array.isArray(json.pae)) {
+            // ColabFold PAE can be flat or 2D
+            if (Array.isArray(json.pae[0])) return json.pae;
+            // Flat array - need to reshape
+            const n = Math.round(Math.sqrt(json.pae.length));
+            if (n * n === json.pae.length) {
+                const pae = [];
+                for (let i = 0; i < n; i++) {
+                    pae.push(json.pae.slice(i * n, (i + 1) * n));
+                }
+                return pae;
+            }
+        }
+
+        // AlphaFold DB / generic format: [{predicted_aligned_error: [[...]]}]
+        if (Array.isArray(json) && json[0]?.predicted_aligned_error) {
+            return json[0].predicted_aligned_error;
+        }
+
+        // Direct predicted_aligned_error field
+        if (json.predicted_aligned_error) {
+            if (Array.isArray(json.predicted_aligned_error) && Array.isArray(json.predicted_aligned_error[0])) {
+                return json.predicted_aligned_error;
+            }
+        }
+
+        // Boltz confidence JSON may have pae field
+        if (json.pae_matrix || json.predicted_aligned_error_matrix) {
+            return json.pae_matrix || json.predicted_aligned_error_matrix;
+        }
+
+        // Tamarind AF3: pde key (predicted distance error) as PAE fallback
+        if (json.pde && Array.isArray(json.pde)) {
+            if (Array.isArray(json.pde[0])) return json.pde;
+            // Flat array - reshape to 2D
+            const n = Math.round(Math.sqrt(json.pde.length));
+            if (n * n === json.pde.length) {
+                const pae = [];
+                for (let i = 0; i < n; i++) {
+                    pae.push(json.pde.slice(i * n, (i + 1) * n));
+                }
+                return pae;
+            }
+        }
+
+    } catch (e) {
+        console.warn('JSON parse failed for PAE:', e);
+    }
+    return null;
+}
+
+function extractConfidenceScores(confidencePath, platform) {
+    if (!confidencePath) return {};
+    const content = uniState.loadedFiles[confidencePath];
+    if (!content || typeof content !== 'string') return {};
+
+    try {
+        const json = JSON.parse(content);
+        const scores = {};
+
+        // Helper: unwrap single-element arrays (Tamarind Chai-1 wraps scalars in arrays)
+        const unwrap = (v) => Array.isArray(v) ? v[0] : v;
+
+        // AF3 summary_confidences
+        if (json.ptm !== undefined) scores.pTM = unwrap(json.ptm);
+        if (json.iptm !== undefined) scores.ipTM = unwrap(json.iptm);
+        if (json.chain_pair_iptm) scores.chainPairIptm = json.chain_pair_iptm;
+        if (json.atom_plddts) scores.pLDDT = json.atom_plddts.reduce((a, b) => a + b, 0) / json.atom_plddts.length;
+        if (json.fraction_disordered !== undefined) scores.fractionDisordered = unwrap(json.fraction_disordered);
+        if (json.ranking_score !== undefined) scores.rankingScore = unwrap(json.ranking_score);
+
+        // ColabFold
+        if (json.ptm !== undefined && !scores.pTM) scores.pTM = json.ptm;
+        if (json.iptm !== undefined && !scores.ipTM) scores.ipTM = json.iptm;
+        if (json.plddt) {
+            const plddts = Array.isArray(json.plddt) ? json.plddt : [];
+            if (plddts.length > 0) scores.pLDDT = plddts.reduce((a, b) => a + b, 0) / plddts.length;
+        }
+
+        // Chai-1: per_chain_pair_iptm is [[[iptm_AA, iptm_AB], [iptm_BA, iptm_BB]]]
+        if (json.per_chain_pair_iptm && !scores.chainPairIptm) {
+            const raw = json.per_chain_pair_iptm;
+            // Unwrap batch dimension if present
+            scores.chainPairIptm = Array.isArray(raw[0]?.[0]) && Array.isArray(raw[0][0]) ? raw[0] : raw;
+        }
+        if (json.aggregate_score !== undefined) scores.aggregateScore = unwrap(json.aggregate_score);
+
+        // Tamarind AF3 aggregated format
+        if (json.avg_plddt !== undefined && !scores.pLDDT) scores.pLDDT = json.avg_plddt;
+        if (json.sample_ranking_score !== undefined) scores.rankingScore = json.sample_ranking_score;
+        if (json.iptm_by_asym_id_pair && !scores.chainPairIptm) {
+            // Format: {"(1, 2)": 0.34} — convert to 2D array
+            const raw = json.iptm_by_asym_id_pair;
+            const allIds = new Set();
+            for (const key of Object.keys(raw)) {
+                const m = key.match(/\((\d+),\s*(\d+)\)/);
+                if (m) { allIds.add(m[1]); allIds.add(m[2]); }
+            }
+            const ids = [...allIds].sort((a, b) => Number(a) - Number(b));
+            if (ids.length > 0) {
+                const matrix = ids.map(i => ids.map(j => {
+                    return raw[`(${i}, ${j})`] || raw[`(${j}, ${i})`] || 0;
+                }));
+                scores.chainPairIptm = matrix;
+            }
+        }
+
+        // Boltz confidence
+        if (json.confidence_score !== undefined) scores.confidence = unwrap(json.confidence_score);
+        if (json.ptm_score !== undefined) scores.pTM = unwrap(json.ptm_score);
+        if (json.iptm_score !== undefined) scores.ipTM = unwrap(json.iptm_score);
+        if (json.pair_chains_iptm) {
+            // Boltz-2 Tamarind: dict-of-dicts {"0": {"0": 0.55, "1": 0.17}, ...} -> 2D array
+            const raw = json.pair_chains_iptm;
+            if (Array.isArray(raw)) {
+                scores.chainPairIptm = raw;
+            } else if (typeof raw === 'object') {
+                const keys = Object.keys(raw).sort((a, b) => Number(a) - Number(b));
+                scores.chainPairIptm = keys.map(rowKey => {
+                    const row = raw[rowKey];
+                    const colKeys = Object.keys(row).sort((a, b) => Number(a) - Number(b));
+                    return colKeys.map(colKey => row[colKey]);
+                });
+            }
+        }
+        if (json.complex_plddt !== undefined) scores.pLDDT = json.complex_plddt;
+
+        // Generic
+        if (json.max_predicted_aligned_error !== undefined) scores.maxPAE = json.max_predicted_aligned_error;
+
+        return scores;
+    } catch (e) {
+        return {};
+    }
+}
+
+// ============================================================================
+// STRUCTURE PARSING
+// ============================================================================
+
+function parseCifCoords(cifText) {
+    const residues = new Map();
+    const lines = cifText.split('\n');
+    let inAtomSite = false;
+    const colNames = [];
+
+    for (const line of lines) {
+        if (line.startsWith('_atom_site.')) {
+            inAtomSite = true;
+            colNames.push(line.trim().split('.')[1]);
+            continue;
+        }
+        if (inAtomSite && !line.startsWith('_atom_site.') && !line.startsWith('#') && line.trim()) {
+            if (line.startsWith('loop_') || line.startsWith('_')) { inAtomSite = false; continue; }
+            const p = line.trim().split(/\s+/);
+            if (p.length < colNames.length) continue;
+
+            const getCol = (name) => p[colNames.indexOf(name)] || '';
+            const groupPDB = getCol('group_PDB');
+            if (groupPDB !== 'ATOM' && groupPDB !== 'HETATM') continue;
+
+            const atomName = getCol('label_atom_id');
+            const compId = getCol('label_comp_id');
+            const chain = getCol('label_asym_id');
+            const resnum = parseInt(getCol('label_seq_id'));
+            const x = parseFloat(getCol('Cartn_x'));
+            const y = parseFloat(getCol('Cartn_y'));
+            const z = parseFloat(getCol('Cartn_z'));
+
+            if (isNaN(resnum) || isNaN(x)) continue;
+            const key = `${chain}:${resnum}`;
+
+            if (atomName === 'CB') {
+                residues.set(key, { chain, resnum, x, y, z, hasP: false });
+            } else if (atomName === 'CA' && compId === 'GLY' && !residues.has(key)) {
+                residues.set(key, { chain, resnum, x, y, z, hasP: false });
+            } else if (atomName === 'P' && !residues.has(key)) {
+                residues.set(key, { chain, resnum, x, y, z, hasP: true });
+            }
+        }
+    }
+    return [...residues.values()];
+}
+
+function parsePdbCoords(pdbText) {
+    const residues = new Map();
+    for (const line of pdbText.split('\n')) {
+        if (!line.startsWith('ATOM') && !line.startsWith('HETATM')) continue;
+        if (line.length < 54) continue;
+        const atomName = line.substring(12, 16).trim();
+        const compId = line.substring(17, 20).trim();
+        const chain = line.substring(21, 22).trim() || 'A';
+        const resnum = parseInt(line.substring(22, 26).trim());
+        const x = parseFloat(line.substring(30, 38));
+        const y = parseFloat(line.substring(38, 46));
+        const z = parseFloat(line.substring(46, 54));
+        const key = `${chain}:${resnum}`;
+        if (atomName === 'CB') {
+            residues.set(key, { chain, resnum, x, y, z, hasP: false });
+        } else if (atomName === 'CA' && compId === 'GLY' && !residues.has(key)) {
+            residues.set(key, { chain, resnum, x, y, z, hasP: false });
+        } else if (atomName === 'P' && !residues.has(key)) {
+            residues.set(key, { chain, resnum, x, y, z, hasP: true });
+        }
+    }
+    return [...residues.values()];
+}
+
+function parseStructureCoords(text, format) {
+    return format === 'pdb' ? parsePdbCoords(text) : parseCifCoords(text);
+}
+
+function getChainsFromCoords(coords) {
+    const chainMap = new Map();
+    for (const c of coords) {
+        if (!chainMap.has(c.chain)) chainMap.set(c.chain, 0);
+        chainMap.set(c.chain, chainMap.get(c.chain) + 1);
+    }
+    return chainMap;
+}
+
+function getChainsFromStructure(text, format) {
+    if (format === 'pdb') {
+        return getChainsFromPdb(text);
+    }
+    return getChainsFromCif(text);
+}
+
+function getChainsFromCif(cifText) {
+    // Use label_asym_id for chain ordering
+    const chainOrder = [];
+    const chainCounts = new Map();
+    const lines = cifText.split('\n');
+    let inAtomSite = false;
+    const colNames = [];
+    const seenResidues = new Set();
+
+    for (const line of lines) {
+        if (line.startsWith('_atom_site.')) {
+            inAtomSite = true;
+            colNames.push(line.trim().split('.')[1]);
+            continue;
+        }
+        if (inAtomSite && !line.startsWith('_atom_site.') && !line.startsWith('#') && line.trim()) {
+            if (line.startsWith('loop_') || line.startsWith('_')) { inAtomSite = false; continue; }
+            const parts = line.trim().split(/\s+/);
+            if (parts.length < colNames.length) continue;
+            const getCol = (name) => parts[colNames.indexOf(name)] || '';
+            if (getCol('group_PDB') !== 'ATOM') continue;
+            if (getCol('label_atom_id') !== 'CA' && getCol('label_atom_id') !== 'P') continue;
+            const chain = getCol('label_asym_id');
+            const resSeq = getCol('label_seq_id');
+            const rkey = `${chain}:${resSeq}`;
+            if (seenResidues.has(rkey)) continue;
+            seenResidues.add(rkey);
+            if (!chainCounts.has(chain)) {
+                chainOrder.push(chain);
+                chainCounts.set(chain, 0);
+            }
+            chainCounts.set(chain, chainCounts.get(chain) + 1);
+        }
+    }
+    return { names: chainOrder, sizes: chainOrder.map(c => chainCounts.get(c)) };
+}
+
+function getChainsFromPdb(pdbText) {
+    const chainOrder = [];
+    const chainCounts = new Map();
+    const seenResidues = new Set();
+    for (const line of pdbText.split('\n')) {
+        if (!line.startsWith('ATOM')) continue;
+        const atomName = line.substring(12, 16).trim();
+        if (atomName !== 'CA' && atomName !== 'P') continue;
+        const chain = line.substring(21, 22).trim() || 'A';
+        const resnum = line.substring(22, 26).trim();
+        const rkey = `${chain}:${resnum}`;
+        if (seenResidues.has(rkey)) continue;
+        seenResidues.add(rkey);
+        if (!chainCounts.has(chain)) {
+            chainOrder.push(chain);
+            chainCounts.set(chain, 0);
+        }
+        chainCounts.set(chain, chainCounts.get(chain) + 1);
+    }
+    return { names: chainOrder, sizes: chainOrder.map(c => chainCounts.get(c)) };
+}
+
+// ============================================================================
+// CONTACT MAP
+// ============================================================================
+
+function computeContactMap(coords, threshold) {
+    const n = coords.length;
+    const contact = new Uint8Array(n * n);
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+            const dx = coords[i].x - coords[j].x;
+            const dy = coords[i].y - coords[j].y;
+            const dz = coords[i].z - coords[j].z;
+            let dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (coords[i].hasP || coords[j].hasP) dist -= 4;
+            if (dist < threshold) {
+                contact[i * n + j] = 1;
+                contact[j * n + i] = 1;
+            }
+        }
+    }
+    return { contact, n };
+}
+
+// ============================================================================
+// MAIN PROCESSING
+// ============================================================================
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function processFiles() {
+    document.getElementById('btn-process').disabled = true;
+    document.getElementById('results').classList.remove('active');
+    document.getElementById('error-msg').classList.remove('active');
+
+    try {
+        setStatus('Discovering prediction files...', 'loading');
+        const predictions = discoverPredictions();
+        const predNames = Object.keys(predictions);
+
+        if (predNames.length === 0) {
+            throw new Error('No prediction files found. Please upload structure files (.cif/.pdb) with PAE data (.json/.npz).');
+        }
+
+        // If multiple prediction groups, show selector
+        let selectedPred = predNames[0];
+        const predSelector = document.getElementById('prediction-selector');
+        const predSelect = document.getElementById('prediction-select');
+
+        if (predNames.length > 1) {
+            if (predSelect.options.length > 0 && predSelect.value) {
+                selectedPred = predSelect.value;
+            } else {
+                predSelector.style.display = '';
+                predSelect.innerHTML = predNames.map(n =>
+                    `<option value="${n}">${n} (${Object.keys(predictions[n]).length} models)</option>`
+                ).join('');
+                setStatus(`Found ${predNames.length} prediction groups. Select one and click Process again.`, 'loading');
+                document.getElementById('btn-process').disabled = false;
+                return;
+            }
+        } else {
+            predSelector.style.display = 'none';
+        }
+
+        const models = predictions[selectedPred];
+        const modelIndices = Object.keys(models).sort();
+        if (modelIndices.length === 0) throw new Error(`No models found for "${selectedPred}".`);
+
+        const allPairs = [];
+        uniState.modelData = [];
+        uniState.modelPairs = [];
+        uniState.structureContents = {};
+        uniState.structureFilenames = {};
+        uniState.chainNames = null;
+        uniState.chainSizes = null;
+        uniState.nTotal = 0;
+        uniState.multiChainColors = null;
+
+        const paeCutoff = parseFloat(document.getElementById('pae-cutoff').value) || 12;
+        const cbCutoff = parseFloat(document.getElementById('cb-cutoff').value) || 8;
+
+        let globalConfidenceScores = {};
+
+        for (let mi = 0; mi < modelIndices.length; mi++) {
+            const idx = modelIndices[mi];
+            const model = models[idx];
+            setStatus(`Analyzing model ${mi + 1} of ${modelIndices.length}...`, 'loading');
+            await sleep(10);
+
+            // Load structure
+            const structText = uniState.loadedFiles[model.structurePath];
+            if (!structText) throw new Error(`Structure file not found: ${model.structurePath}`);
+            uniState.structureContents[idx] = structText;
+            uniState.structureFilenames[idx] = model.structurePath.split('/').pop();
+            uniState.structureFormat = model.format;
+
+            // Extract PAE
+            const pae = await extractPAE(model.paeSource, uniState.platform);
+            if (!pae) {
+                throw new Error(`Could not extract PAE matrix from ${model.paeSource || 'any file'}. PAE data is required for LIS/cLIS/iLIS calculation.`);
+            }
+
+            // Extract confidence scores
+            const scores = extractConfidenceScores(model.confidencePath, uniState.platform);
+            // Also merge from full confidence file if separate (Tamarind AF3)
+            if (model.confidencePathFull && model.confidencePathFull !== model.confidencePath) {
+                const fullScores = extractConfidenceScores(model.confidencePathFull, uniState.platform);
+                for (const [k, v] of Object.entries(fullScores)) {
+                    if (scores[k] === undefined) scores[k] = v;
+                }
+            }
+            if (mi === 0) globalConfidenceScores = scores;
+
+            // Parse chain info from structure
+            const chainInfo = getChainsFromStructure(structText, model.format);
+
+            // For AF3, we can get chain IDs from full_data JSON
+            let chainIds = null;
+            if (uniState.platform === 'alphafold3' && model.paeSource) {
+                try {
+                    const fd = JSON.parse(uniState.loadedFiles[model.paeSource]);
+                    if (fd.token_chain_ids) chainIds = fd.token_chain_ids;
+                } catch(e) {}
+            }
+
+            // Build chain boundaries
+            let chainNames, sizes, nTotal;
+            if (chainIds) {
+                const chainMap = new Map();
+                for (const c of chainIds) chainMap.set(c, (chainMap.get(c) || 0) + 1);
+                chainNames = [...chainMap.keys()];
+                sizes = [...chainMap.values()];
+                nTotal = chainIds.length;
+            } else {
+                chainNames = chainInfo.names;
+                sizes = chainInfo.sizes;
+                nTotal = sizes.reduce((a, b) => a + b, 0);
+            }
+
+            // Ensure PAE size matches
+            const paeSize = pae.length;
+            if (paeSize !== nTotal) {
+                // Try to reconcile - use PAE size as authoritative
+                if (Math.abs(paeSize - nTotal) > 5) {
+                    console.warn(`PAE size (${paeSize}) differs from structure residue count (${nTotal}). Using PAE size.`);
+                }
+                nTotal = paeSize;
+            }
+
+            const cumSum = [];
+            let acc = 0;
+            for (const s of sizes) { acc += s; cumSum.push(acc); }
+            const starts = [0, ...cumSum.slice(0, -1)];
+
+            // Build transformed LIS map
+            const transformed = new Float32Array(nTotal * nTotal);
+            for (let i = 0; i < nTotal; i++) {
+                for (let j = 0; j < nTotal; j++) {
+                    if (i >= pae.length || j >= pae[i].length) continue;
+                    const v = (pae[i][j] + pae[j][i]) / 2;
+                    transformed[i * nTotal + j] = (v < paeCutoff) ? 1 - v / paeCutoff : 0;
+                }
+            }
+
+            // Contact map
+            const coords = parseStructureCoords(structText, model.format);
+            const { contact, n: nCoords } = computeContactMap(coords, cbCutoff);
+            const nUse = Math.min(nTotal, nCoords);
+
+            // ipTM: per-chain-pair matrix (AF3) or global value (ColabFold/Boltz/etc)
+            const iptmMatrix = scores.chainPairIptm || null;
+            const globalIptm = scores.ipTM || 0;
+
+            // Per chain pair metrics
+            const pairs = {};
+            const nc = chainNames.length;
+            for (let i = 0; i < nc; i++) {
+                for (let j = 0; j < nc; j++) {
+                    if (i === j) continue;
+                    const si = starts[i], ei = Math.min(cumSum[i], nTotal);
+                    const sj = starts[j], ej = Math.min(cumSum[j], nTotal);
+
+                    let lisSum = 0, lisCount = 0;
+                    let clisSum = 0, clisCount = 0;
+                    const lirI = new Set(), lirJ = new Set();
+                    const clirI = new Set(), clirJ = new Set();
+
+                    for (let ri = si; ri < ei; ri++) {
+                        for (let rj = sj; rj < ej; rj++) {
+                            const tv = transformed[ri * nTotal + rj];
+                            if (tv > 0) {
+                                lisSum += tv;
+                                lisCount++;
+                                lirI.add(ri - si + 1);
+                                lirJ.add(rj - sj + 1);
+                                if (ri < nUse && rj < nUse && contact[ri * nCoords + rj]) {
+                                    clisSum += tv;
+                                    clisCount++;
+                                    clirI.add(ri - si + 1);
+                                    clirJ.add(rj - sj + 1);
+                                }
+                            }
+                        }
+                    }
+
+                    const lis = lisCount > 0 ? lisSum / lisCount : 0;
+                    const clis = clisCount > 0 ? clisSum / clisCount : 0;
+                    const ilis = Math.sqrt(lis * clis);
+                    const iptm = (iptmMatrix && iptmMatrix[i] && iptmMatrix[i][j] != null) ? iptmMatrix[i][j] : globalIptm;
+
+                    pairs[`${chainNames[i]},${chainNames[j]}`] = {
+                        ci: chainNames[i], cj: chainNames[j],
+                        LIS: lis, cLIS: clis, iLIS: ilis, ipTM: iptm,
+                        LIA: lisCount, cLIA: clisCount,
+                        lirI, lirJ, clirI, clirJ,
+                        lenI: sizes[i], lenJ: sizes[j],
+                    };
+                }
+            }
+
+            // Build display maps
+            const lisMap = [];
+            for (let i = 0; i < nTotal; i++) {
+                const row = new Float32Array(nTotal);
+                for (let j = 0; j < nTotal; j++) row[j] = transformed[i * nTotal + j];
+                lisMap.push(row);
+            }
+
+            const clisMap = [];
+            for (let i = 0; i < nTotal; i++) {
+                const row = new Float32Array(nTotal);
+                for (let j = 0; j < nTotal; j++) {
+                    const tv = transformed[i * nTotal + j];
+                    const cv = (i < nUse && j < nUse) ? contact[i * nCoords + j] : 0;
+                    row[j] = (tv > 0 && cv) ? tv : 0;
+                }
+                clisMap.push(row);
+            }
+
+            // Build grids
+            const ilisGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
+            const iptmGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
+            const lirGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
+            const clirGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
+            for (let i = 0; i < nc; i++) {
+                for (let j = 0; j < nc; j++) {
+                    if (i === j) {
+                        iptmGrid[i][j] = iptmMatrix?.[i]?.[j] ?? globalIptm ?? 0;
+                        continue;
+                    }
+                    const fwd = pairs[`${chainNames[i]},${chainNames[j]}`];
+                    const rev = pairs[`${chainNames[j]},${chainNames[i]}`];
+                    if (fwd && rev) {
+                        const avgLIS = (fwd.LIS + rev.LIS) / 2;
+                        const avgCLIS = (fwd.cLIS + rev.cLIS) / 2;
+                        ilisGrid[i][j] = Math.sqrt(avgLIS * avgCLIS);
+                        iptmGrid[i][j] = (fwd.ipTM + rev.ipTM) / 2;
+                        lirGrid[i][j] = fwd.lirI.size;
+                        clirGrid[i][j] = fwd.clirI.size;
+                    } else if (fwd) {
+                        ilisGrid[i][j] = fwd.iLIS;
+                        iptmGrid[i][j] = fwd.ipTM;
+                        lirGrid[i][j] = fwd.lirI.size;
+                        clirGrid[i][j] = fwd.clirI.size;
+                    }
+                }
+            }
+
+            allPairs.push(pairs);
+            uniState.modelPairs.push(pairs);
+            if (!uniState.chainNames) uniState.chainNames = chainNames;
+            uniState.nTotal = nTotal;
+            uniState.chainSizes = sizes;
+
+            uniState.modelData.push({
+                pae, lisMap, clisMap, ilisGrid, iptmGrid, lirGrid, clirGrid, nTotal, idx,
+                label: model.label || `model_${idx}`,
+            });
+        }
+
+        setStatus('Computing results...', 'loading');
+        await sleep(10);
+
+        uniState.results = averageModels(allPairs);
+        uniState.avgResults = uniState.results;
+
+        // Show confidence scores
+        displayConfidenceScores(globalConfidenceScores);
+
+        setStatus(`Done! Processed ${modelIndices.length} model(s) from ${platformLabel(uniState.platform)}.`, 'success');
+        const displayName = selectedPred + ' (' + platformLabel(uniState.platform) + ')';
+        displayResults(uniState.results, displayName);
+
+    } catch (e) {
+        setStatus(e.message, 'error');
+        console.error(e);
+    }
+    document.getElementById('btn-process').disabled = false;
+}
+
+// ============================================================================
+// AVERAGING
+// ============================================================================
+
+function averageModels(allPairs) {
+    const allKeys = new Set();
+    for (const mp of allPairs) for (const k of Object.keys(mp)) allKeys.add(k);
+
+    const averaged = {};
+    for (const key of allKeys) {
+        const vals = allPairs.filter(mp => mp[key]).map(mp => mp[key]);
+        if (vals.length === 0) continue;
+        const n = vals.length;
+        averaged[key] = {
+            ci: vals[0].ci, cj: vals[0].cj,
+            LIS: vals.reduce((s, v) => s + v.LIS, 0) / n,
+            cLIS: vals.reduce((s, v) => s + v.cLIS, 0) / n,
+            ipTM: vals.reduce((s, v) => s + v.ipTM, 0) / n,
+            LIA: vals.reduce((s, v) => s + (v.LIA || 0), 0) / n,
+            cLIA: vals.reduce((s, v) => s + (v.cLIA || 0), 0) / n,
+            lenI: vals[0].lenI, lenJ: vals[0].lenJ,
+            lirI: new Set(vals.flatMap(v => [...v.lirI])),
+            lirJ: new Set(vals.flatMap(v => [...v.lirJ])),
+            clirI: new Set(vals.flatMap(v => [...v.clirI])),
+            clirJ: new Set(vals.flatMap(v => [...v.clirJ])),
+        };
+        averaged[key].iLIS = Math.sqrt(averaged[key].LIS * averaged[key].cLIS);
+    }
+    return symmetrizePairsFromComma(averaged);
+}
+
+function symmetrizePairsFromComma(pairs) {
+    const symmetric = {};
+    const seen = new Set();
+    for (const [key, val] of Object.entries(pairs)) {
+        const [ci, cj] = key.split(',');
+        const canon = [ci, cj].sort().join(',');
+        if (seen.has(canon)) continue;
+        seen.add(canon);
+        const rev = `${cj},${ci}`;
+        if (pairs[rev]) {
+            const rv = pairs[rev];
+            const s = {
+                ci, cj,
+                LIS: (val.LIS + rv.LIS) / 2,
+                cLIS: (val.cLIS + rv.cLIS) / 2,
+                ipTM: (val.ipTM + rv.ipTM) / 2,
+                LIA: ((val.LIA || 0) + (rv.LIA || 0)) / 2,
+                cLIA: ((val.cLIA || 0) + (rv.cLIA || 0)) / 2,
+                lenI: val.lenI, lenJ: val.lenJ,
+                lirI: val.lirI, lirJ: rv.lirI,
+                clirI: val.clirI, clirJ: rv.clirI,
+            };
+            s.iLIS = Math.sqrt(s.LIS * s.cLIS);
+            symmetric[`${ci}-${cj}`] = s;
+        } else {
+            symmetric[`${ci}-${cj}`] = val;
+        }
+    }
+    return symmetric;
+}
+
+function symmetrizePairs(pairs) {
+    return symmetrizePairsFromComma(pairs);
+}
+
+// ============================================================================
+// DISPLAY
+// ============================================================================
+
+function displayConfidenceScores(scores) {
+    const card = document.getElementById('confidence-card');
+    const grid = document.getElementById('confidence-metrics');
+    if (!scores || Object.keys(scores).length === 0) {
+        card.style.display = 'none';
+        return;
+    }
+    card.style.display = '';
+    let html = '';
+    if (scores.pLDDT !== undefined) html += `<div class="metric"><div class="value">${scores.pLDDT.toFixed(1)}</div><div class="label">pLDDT</div></div>`;
+    if (scores.pTM !== undefined) html += `<div class="metric"><div class="value">${scores.pTM.toFixed(3)}</div><div class="label">pTM</div></div>`;
+    if (scores.ipTM !== undefined) html += `<div class="metric"><div class="value">${scores.ipTM.toFixed(3)}</div><div class="label">ipTM</div></div>`;
+    if (scores.rankingScore !== undefined) html += `<div class="metric"><div class="value">${scores.rankingScore.toFixed(2)}</div><div class="label">Ranking Score</div></div>`;
+    if (scores.confidence !== undefined) html += `<div class="metric"><div class="value">${scores.confidence.toFixed(3)}</div><div class="label">Confidence</div></div>`;
+    if (scores.fractionDisordered !== undefined) html += `<div class="metric"><div class="value">${(scores.fractionDisordered * 100).toFixed(1)}%</div><div class="label">Disordered</div></div>`;
+    grid.innerHTML = html;
+}
+
+function displayResults(results, jobName) {
+    document.getElementById('result-title').textContent = jobName;
+
+    const perModelSym = uniState.modelPairs.map(mp => symmetrizePairs(mp));
+
+    const pairKeys = Object.keys(results).sort((a, b) => {
+        const [a1, a2] = a.split('-');
+        const [b1, b2] = b.split('-');
+        if (a1 !== b1) return a1.localeCompare(b1);
+        return a2.localeCompare(b2);
+    });
+
+    const tbody = document.getElementById('pairs-tbody');
+    tbody.innerHTML = '';
+
+    const hasMultipleModels = perModelSym.length > 1;
+
+    for (let pi = 0; pi < pairKeys.length; pi++) {
+        const key = pairKeys[pi];
+        const avg = results[key];
+
+        if (hasMultipleModels) {
+            // Per-model rows
+            for (let mi = 0; mi < perModelSym.length; mi++) {
+                const mv = perModelSym[mi][key];
+                if (!mv) continue;
+                const tr = document.createElement('tr');
+                tr.className = 'clickable';
+                if (mi === 0 && pi > 0) tr.style.borderTop = '3px solid #2471A3';
+                tr.style.color = '#777';
+                tr.style.fontSize = '0.8rem';
+                tr.onclick = () => selectRow(key, String(mi), tr);
+                tr.innerHTML = `<td>${uniState.modelData[mi]?.label || 'model_' + mi}</td><td>${mv.ci} \u2014 ${mv.cj}</td><td>${mv.iLIS.toFixed(3)}</td><td>${mv.ipTM.toFixed(2)}</td><td>${mv.LIS.toFixed(3)}</td><td>${mv.cLIS.toFixed(3)}</td><td>${mv.clirI.size}</td><td>${mv.clirJ.size}</td>`;
+                tbody.appendChild(tr);
+            }
+            // Average row
+            const avgTr = document.createElement('tr');
+            avgTr.className = 'clickable';
+            avgTr.dataset.pinned = 'true';
+            avgTr.style.background = '#f0f7fc';
+            avgTr.style.fontWeight = '600';
+            avgTr.onclick = () => selectRow(key, 'avg', avgTr);
+            avgTr.innerHTML = `<td>Average</td><td>${avg.ci} \u2014 ${avg.cj}</td><td>${avg.iLIS.toFixed(3)}</td><td>${avg.ipTM.toFixed(2)}</td><td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td><td>${avg.clirI.size}</td><td>${avg.clirJ.size}</td>`;
+            tbody.appendChild(avgTr);
+        } else {
+            // Single model row
+            const tr = document.createElement('tr');
+            tr.className = 'clickable';
+            tr.onclick = () => selectRow(key, '0', tr);
+            tr.innerHTML = `<td>${uniState.modelData[0]?.label || '0'}</td><td>${avg.ci} \u2014 ${avg.cj}</td><td>${avg.iLIS.toFixed(3)}</td><td>${avg.ipTM.toFixed(2)}</td><td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td><td>${avg.clirI.size}</td><td>${avg.clirJ.size}</td>`;
+            tbody.appendChild(tr);
+        }
+    }
+
+    // Show/hide multi-chain cards
+    const nc = uniState.chainNames ? uniState.chainNames.length : 0;
+    document.getElementById('score-matrix-card').style.display = nc > 1 ? '' : 'none';
+    document.getElementById('lir-matrix-card').style.display = nc > 1 ? '' : 'none';
+
+    makeSortable(document.getElementById('pairs-table'));
+
+    document.getElementById('results').classList.add('active');
+    setupMultiChainColors();
+    drawAllMaps();
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+
+    // Auto-select first pair
+    if (pairKeys.length > 0) {
+        const firstRow = tbody.querySelector('tr:last-child') || tbody.querySelector('tr');
+        const firstModelIdx = hasMultipleModels ? 'avg' : '0';
+        selectRow(pairKeys[0], firstModelIdx, firstRow);
+    }
+}
+
+function selectRow(pairKey, modelIdx, trEl) {
+    document.getElementById('seed-select').value = modelIdx;
+    if (modelIdx === 'avg') {
+        uniState.results = uniState.avgResults;
+    } else {
+        uniState.results = symmetrizePairs(uniState.modelPairs[parseInt(modelIdx)] || uniState.modelPairs[0]);
+    }
+    document.querySelectorAll('#pairs-tbody tr').forEach(tr => tr.classList.remove('selected'));
+    if (trEl) trEl.classList.add('selected');
+    selectPair(pairKey);
+}
+
+function selectPair(key) {
+    const v = uniState.results[key];
+    if (!v) return;
+
+    buildSequenceViewer(key);
+    buildContactMap(key);
+
+    const colors = getColorsForPair(v.ci, v.cj);
+    const seedVal = document.getElementById('seed-select').value;
+    const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureFilenames)[0] : seedVal;
+    const structFilename = uniState.structureFilenames[useIdx] || uniState.structureFilenames[Object.keys(uniState.structureFilenames)[0]];
+    const cxc = generateCxc(v, structFilename, colors);
+
+    document.getElementById('script-preview').innerHTML = highlightCxc(cxc);
+    const dlCxc = document.getElementById('dl-cxc');
+    dlCxc.href = URL.createObjectURL(new Blob([cxc], { type: 'text/plain' }));
+    dlCxc.download = `chain${v.ci}_chain${v.cj}_interface.cxc`;
+
+    const structContent = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
+    const dlStruct = document.getElementById('dl-structure');
+    dlStruct.href = URL.createObjectURL(new Blob([structContent], { type: 'text/plain' }));
+    dlStruct.download = structFilename;
+    dlStruct.textContent = `\u2193 Download .${uniState.structureFormat}`;
+    dlStruct.className = `btn-download cif`;
+}
+
+// ============================================================================
+// CXC GENERATION
+// ============================================================================
+
+function resSpec(positions, chain) {
+    if (positions.size === 0) return '';
+    const sorted = [...positions].sort((a, b) => a - b);
+    const ranges = [];
+    let start = sorted[0], end = sorted[0];
+    for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i] === end + 1) end = sorted[i];
+        else { ranges.push(start === end ? `${start}` : `${start}-${end}`); start = end = sorted[i]; }
+    }
+    ranges.push(start === end ? `${start}` : `${start}-${end}`);
+    return `/${chain}:${ranges.join(',')}`;
+}
+
+function fillGaps(positions, maxGap = 20) {
+    if (positions.size === 0) return new Set();
+    const sorted = [...positions].sort((a, b) => a - b);
+    const filled = new Set(sorted);
+    for (let i = 0; i < sorted.length - 1; i++) {
+        const gap = sorted[i + 1] - sorted[i] - 1;
+        if (gap > 0 && gap <= maxGap) {
+            for (let j = sorted[i] + 1; j < sorted[i + 1]; j++) filled.add(j);
+        }
+    }
+    return filled;
+}
+
+function rangesStr(positions) {
+    if (positions.size === 0) return 'none';
+    const sorted = [...positions].sort((a, b) => a - b);
+    const ranges = [];
+    let start = sorted[0], end = sorted[0];
+    for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i] <= end + 15) end = sorted[i];
+        else { ranges.push(`${start}-${end}`); start = end = sorted[i]; }
+    }
+    ranges.push(`${start}-${end}`);
+    return ranges.join(', ');
+}
+
+function generateCxc(v, structFilename, colors) {
+    const lirIStr = rangesStr(v.lirI), lirJStr = rangesStr(v.lirJ);
+    const iLIS = v.iLIS.toFixed(3), ipTM = v.ipTM.toFixed(2);
+    const partA = `Chain ${v.ci} (${lirIStr})`;
+    const partB = `Chain ${v.cj} (${lirJStr})`;
+    const partC = `iLIS: ${iLIS}  ipTM: ${ipTM}`;
+    const xB = (0.03 + partA.length * 0.009 + 0.015).toFixed(3);
+    const xC = (parseFloat(xB) + partB.length * 0.009 + 0.015).toFixed(3);
+
+    const lirISpec = resSpec(fillGaps(v.lirI), v.ci);
+    const lirJSpec = resSpec(fillGaps(v.lirJ), v.cj);
+    const clirISpec = resSpec(v.clirI, v.ci);
+    const clirJSpec = resSpec(v.clirJ, v.cj);
+
+    const paeCut = document.getElementById('pae-cutoff')?.value || '12';
+    const cbCut = document.getElementById('cb-cutoff')?.value || '8';
+
+    let lines = [
+        `# ChimeraX: Chain ${v.ci} \u2014 Chain ${v.cj} (iLIS=${iLIS}, ipTM=${ipTM})`,
+        `# Chain /${v.ci}: ${v.lenI} residues, LIR: ${lirIStr}`,
+        `# Chain /${v.cj}: ${v.lenJ} residues, LIR: ${lirJStr}`,
+        `# Platform: ${platformLabel(uniState.platform)}`,
+        `# Generated by Universal Structure Prediction Tool`, '',
+        'close', `open ${structFilename}`, '',
+        '# \u2500\u2500 Setup \u2500\u2500',
+        'set bgColor white', 'graphics silhouettes true', 'lighting soft',
+    ];
+    if (uniState.cxcColorMode === 'plddt') {
+        lines.push('color bfactor palette #FF7D45:#FFDB13:#65CBF3:#0053D6 range 50,90');
+    } else if (uniState.cxcColorMode === 'bychain') {
+        lines.push('color bychain');
+    } else if (uniState.cxcColorMode === 'bypolymer') {
+        lines.push('color bypolymer');
+    } else {
+        lines.push(`color #1/${v.ci} ${colors.lir_a}`, `color #1/${v.cj} ${colors.lir_b}`);
+    }
+    lines.push(
+        'hide atoms', 'hide cartoons', '',
+        '# \u2500\u2500 Title \u2500\u2500',
+        `2dlabels create title text "${partA}" xpos 0.03 ypos 0.95 size 16 color ${colors.clir_a} bold true`,
+        `2dlabels create title2 text "${partB}" xpos ${xB} ypos 0.95 size 16 color ${colors.clir_b} bold true`,
+        `2dlabels create title3 text "${partC}" xpos ${xC} ypos 0.95 size 16 color black bold true`, '',
+        '# \u2500\u2500 Show LIR regions \u2500\u2500',
+        `# LIR ${v.ci}: ${v.lirI.size} residues`,
+    );
+    if (lirISpec) lines.push(`show #1${lirISpec} cartoons`);
+    lines.push('', `# LIR ${v.cj}: ${v.lirJ.size} residues`);
+    if (lirJSpec) lines.push(`show #1${lirJSpec} cartoons`);
+    lines.push('', '# \u2500\u2500 Highlight cLIR \u2500\u2500');
+    if (!uniState.cxcColorMode && v.clirI.size > 0) {
+        lines.push(`# cLIR ${v.ci}: ${v.clirI.size} residues`);
+        lines.push(`color #1${clirISpec} ${colors.clir_a}`);
+        lines.push('');
+    }
+    if (!uniState.cxcColorMode && v.clirJ.size > 0) {
+        lines.push(`# cLIR ${v.cj}: ${v.clirJ.size} residues`);
+        lines.push(`color #1${clirJSpec} ${colors.clir_b}`);
+        lines.push('');
+    }
+    lines.push('# \u2500\u2500 Final \u2500\u2500', 'view', 'lighting soft depthCue true', '');
+    lines.push('# \u2500\u2500 Save figure \u2500\u2500');
+    lines.push(`save chain${v.ci}_chain${v.cj}.png transparentBackground true`);
+    lines.push('');
+    lines.push('# \u2500\u2500 Color Legend \u2500\u2500');
+    lines.push(`# LIR  = Local Interaction Region (PAE <= ${paeCut})`);
+    lines.push(`# cLIR = contact LIR (PAE <= ${paeCut} & C-beta <= ${cbCut} \u00c5)`);
+    lines.push('#');
+    lines.push(`# LIR  (${colors.lir_a}) = Chain ${v.ci}`, `# cLIR (${colors.clir_a}) = Chain ${v.ci}`);
+    lines.push(`# LIR  (${colors.lir_b}) = Chain ${v.cj}`, `# cLIR (${colors.clir_b}) = Chain ${v.cj}`);
+    lines.push('# Non-LIR regions are HIDDEN');
+    lines.push('');
+    lines.push('# \u2500\u2500 Alternative: color by pLDDT (uncomment below) \u2500\u2500');
+    lines.push('# color bfactor palette #FF7D45:#FFDB13:#65CBF3:#0053D6 range 50,90');
+    lines.push('# # Very high (>90): dark blue, High (70-90): light blue, Low (50-70): yellow, Very low (<50): orange');
+    return lines.join('\n');
+}
+
+function highlightCxc(text) {
+    return text.split('\n').map(line => {
+        if (line.startsWith('#')) return `<span class="comment">${esc(line)}</span>`;
+        line = esc(line).replace(/(#[0-9A-Fa-f]{6})/g, '<span class="color-val">$1</span>');
+        const m = line.match(/^(\w+)/);
+        if (m) line = `<span class="command">${m[1]}</span>` + line.slice(m[1].length);
+        return line;
+    }).join('\n');
+}
+
+function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// ============================================================================
+// MAP DRAWING
+// ============================================================================
+
+const HIRES = 2;
+
+function bwrColor(value, vmin, vmax) {
+    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
+    let r, g, b;
+    if (t < 0.5) {
+        const s = t / 0.5;
+        r = Math.round(s * 255); g = Math.round(s * 255); b = 255;
+    } else {
+        const s = (t - 0.5) / 0.5;
+        r = 255; g = Math.round((1 - s) * 255); b = Math.round((1 - s) * 255);
+    }
+    return [r, g, b];
+}
+
+function bluesColor(value, vmin, vmax) {
+    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
+    if (t < 0.5) {
+        const s = t / 0.5;
+        return [Math.round(247 - s * 140), Math.round(251 - s * 77), Math.round(255 - s * 41)];
+    } else {
+        const s = (t - 0.5) / 0.5;
+        return [Math.round(107 - s * 99), Math.round(174 - s * 126), Math.round(214 - s * 107)];
+    }
+}
+
+function greensColor(value, vmin, vmax) {
+    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
+    if (t < 0.5) {
+        const s = t / 0.5;
+        return [Math.round(247 - s * 131), Math.round(252 - s * 56), Math.round(245 - s * 127)];
+    } else {
+        const s = (t - 0.5) / 0.5;
+        return [Math.round(116 - s * 116), Math.round(196 - s * 128), Math.round(118 - s * 91)];
+    }
+}
+
+function orangesColor(value, vmin, vmax) {
+    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
+    return [255, Math.round(255 - t * 128), Math.round(255 - t * 220)];
+}
+
+function purplesColor(value, vmin, vmax) {
+    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
+    return [Math.round(255 - t * 128), Math.round(255 - t * 180), 255];
+}
+
+function calcMapDisplaySize() {
+    const containerW = 1100 - 96;
+    const leftMargin = 20;
+    const nMaps = uniState.modelData.length || 1;
+    const gap = 6;
+    const totalGaps = gap * (nMaps - 1);
+    const totalMargins = leftMargin * nMaps;
+    const raw = Math.floor((containerW - totalGaps - totalMargins) / nMaps);
+    return Math.min(raw, 350); // cap at 350px per map
+}
+
+function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, vmax) {
+    const leftMargin = 20;
+    const manyChains = chainSizes && chainSizes.length > 4;
+    const bottomMargin = manyChains ? 50 : 36;
+    const displaySize = calcMapDisplaySize();
+    const plotPx = displaySize * HIRES;
+    const leftPx = leftMargin * HIRES;
+    const bottomPx = bottomMargin * HIRES;
+    const scale = plotPx / n;
+
+    canvas.width = plotPx + leftPx;
+    canvas.height = plotPx + bottomPx;
+    canvas.style.width = (displaySize + leftMargin) + 'px';
+    canvas.style.height = (displaySize + bottomMargin) + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const imgData = ctx.createImageData(plotPx, plotPx);
+    const data = imgData.data;
+    for (let py = 0; py < plotPx; py++) {
+        const i = Math.min(n - 1, Math.floor(py / scale));
+        const row = map2d[i];
+        if (!row) continue;
+        for (let px = 0; px < plotPx; px++) {
+            const j = Math.min(n - 1, Math.floor(px / scale));
+            const val = row[j] !== undefined ? row[j] : 0;
+            const [r, g, b] = colorFn(val, vmin, vmax);
+            const idx = (py * plotPx + px) * 4;
+            data[idx] = r; data[idx + 1] = g; data[idx + 2] = b; data[idx + 3] = 255;
+        }
+    }
+    ctx.putImageData(imgData, leftPx, 0);
+
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 0.5 * HIRES;
+    ctx.strokeRect(leftPx, 0, plotPx, plotPx);
+
+    let cum = 0;
+    for (let k = 0; k < chainSizes.length - 1; k++) {
+        cum += chainSizes[k];
+        const pos = Math.round(cum * scale);
+        ctx.beginPath(); ctx.moveTo(leftPx + pos, 0); ctx.lineTo(leftPx + pos, plotPx); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(leftPx, pos); ctx.lineTo(leftPx + plotPx, pos); ctx.stroke();
+    }
+
+    const chainFont = Math.max(9, Math.min(12, Math.floor(displaySize / chainSizes.length / 3))) * HIRES;
+    const tickFont = Math.max(7, Math.min(9, Math.floor(displaySize / 20))) * HIRES;
+
+    let labelCum = 0;
+    for (let k = 0; k < chainSizes.length; k++) {
+        const chainStart = labelCum;
+        const chainLen = chainSizes[k];
+        const chainMid = (chainStart + chainLen / 2) * scale;
+        const name = chainNames[k] || String.fromCharCode(65 + k);
+
+        ctx.font = `${chainFont}px sans-serif`;
+        ctx.fillStyle = '#333';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(name, leftPx - 3 * HIRES, chainMid);
+
+        const stagger = chainSizes.length > 4;
+        const rowOff = (stagger && k % 2 === 1) ? (chainFont + 3 * HIRES) : 0;
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(name, leftPx + chainMid, plotPx + 2 * HIRES + rowOff);
+
+        ctx.font = `${tickFont}px sans-serif`;
+        ctx.fillStyle = '#888';
+        const lenText = chainSizes.length <= 4 ? `1-${chainLen}` : `${chainLen}`;
+        ctx.fillText(lenText, leftPx + chainMid, plotPx + chainFont + 3 * HIRES + rowOff);
+
+        ctx.fillStyle = '#333';
+        labelCum += chainLen;
+    }
+}
+
+function dilateMap(map2d, radius) {
+    const n = map2d.length;
+    const result = map2d.map(row => {
+        const newRow = new Float32Array(row.length);
+        newRow.set(row);
+        return newRow;
+    });
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+            if (map2d[i][j] > 0) {
+                for (let di = -radius; di <= radius; di++) {
+                    for (let dj = -radius; dj <= radius; dj++) {
+                        const ni = i + di, nj = j + dj;
+                        if (ni >= 0 && ni < n && nj >= 0 && nj < n) {
+                            result[ni][nj] = Math.max(result[ni][nj], map2d[i][j]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return result;
+}
+
+function drawCombinedHeatmap(canvas, ilisGrid, iptmGrid, chainNames) {
+    const nc = chainNames.length;
+    const displaySize = calcMapDisplaySize();
+    const leftMargin = 20;
+    const bottomMargin = 28;
+    const cellDisplaySize = Math.floor(displaySize / nc);
+    const gridDisplay = cellDisplaySize * nc;
+    const leftPx = leftMargin * HIRES;
+    const bottomPx = bottomMargin * HIRES;
+    const gridPx = gridDisplay * HIRES;
+    const cPx = cellDisplaySize * HIRES;
+
+    canvas.width = gridPx + leftPx;
+    canvas.height = gridPx + bottomPx;
+    canvas.style.width = (gridDisplay + leftMargin) + 'px';
+    canvas.style.height = (gridDisplay + bottomMargin) + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let i = 0; i < nc; i++) {
+        for (let j = 0; j < nc; j++) {
+            let r, g, b;
+            let val, decimalPlaces;
+            if (i === j) {
+                ctx.fillStyle = 'rgb(240,240,240)';
+                ctx.fillRect(leftPx + j * cPx, i * cPx, cPx, cPx);
+                continue;
+            } else if (i > j) {
+                val = ilisGrid[i][j];
+                [r, g, b] = orangesColor(val, 0, 1);
+                decimalPlaces = 3;
+            } else {
+                val = iptmGrid[i][j];
+                [r, g, b] = purplesColor(val, 0, 1);
+                decimalPlaces = 3;
+            }
+            ctx.fillStyle = `rgb(${r},${g},${b})`;
+            ctx.fillRect(leftPx + j * cPx, i * cPx, cPx, cPx);
+
+            const fontSize = Math.max(8, Math.min(14, cellDisplaySize / 4)) * HIRES;
+            ctx.font = `${fontSize}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = val > 0.5 ? 'white' : 'black';
+            ctx.fillText(val.toFixed(decimalPlaces), leftPx + j * cPx + cPx / 2, i * cPx + cPx / 2);
+        }
+    }
+
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 0.5 * HIRES;
+    for (let i = 0; i <= nc; i++) {
+        ctx.beginPath(); ctx.moveTo(leftPx, i * cPx); ctx.lineTo(leftPx + nc * cPx, i * cPx); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(leftPx + i * cPx, 0); ctx.lineTo(leftPx + i * cPx, nc * cPx); ctx.stroke();
+    }
+
+    const labelFont = Math.max(9, Math.min(12, cellDisplaySize / 3)) * HIRES;
+    ctx.font = `${labelFont}px sans-serif`;
+    ctx.fillStyle = '#333';
+    for (let k = 0; k < nc; k++) {
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(chainNames[k], leftPx - 3 * HIRES, k * cPx + cPx / 2);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(chainNames[k], leftPx + k * cPx + cPx / 2, gridPx + 4 * HIRES);
+    }
+}
+
+function drawCombinedLirHeatmap(canvas, lirGrid, clirGrid, chainNames, lirMax, clirMax) {
+    const nc = chainNames.length;
+    const displaySize = calcMapDisplaySize();
+    const leftMargin = 20;
+    const bottomMargin = 28;
+    const cellDisplaySize = Math.floor(displaySize / nc);
+    const gridDisplay = cellDisplaySize * nc;
+    const leftPx = leftMargin * HIRES;
+    const gridPx = gridDisplay * HIRES;
+    const cPx = cellDisplaySize * HIRES;
+
+    canvas.width = gridPx + leftPx;
+    canvas.height = gridPx + bottomMargin * HIRES;
+    canvas.style.width = (gridDisplay + leftMargin) + 'px';
+    canvas.style.height = (gridDisplay + bottomMargin) + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let i = 0; i < nc; i++) {
+        for (let j = 0; j < nc; j++) {
+            let r, g, b, val, maxVal;
+            if (i === j) {
+                ctx.fillStyle = 'rgb(240,240,240)';
+                ctx.fillRect(leftPx + j * cPx, i * cPx, cPx, cPx);
+                continue;
+            } else if (i > j) {
+                val = lirGrid[i][j];
+                maxVal = lirMax || 1;
+                [r, g, b] = bluesColor(val, 0, maxVal);
+            } else {
+                val = clirGrid[i][j];
+                maxVal = clirMax || 1;
+                [r, g, b] = greensColor(val, 0, maxVal);
+            }
+            ctx.fillStyle = `rgb(${r},${g},${b})`;
+            ctx.fillRect(leftPx + j * cPx, i * cPx, cPx, cPx);
+
+            const fontSize = Math.max(7, Math.min(12, cellDisplaySize / 4)) * HIRES;
+            ctx.font = `${fontSize}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const t = val / (maxVal || 1);
+            ctx.fillStyle = t > 0.6 ? 'white' : 'black';
+            ctx.fillText(Math.round(val), leftPx + j * cPx + cPx / 2, i * cPx + cPx / 2);
+        }
+    }
+
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 0.5 * HIRES;
+    for (let i = 0; i <= nc; i++) {
+        ctx.beginPath(); ctx.moveTo(leftPx, i * cPx); ctx.lineTo(leftPx + nc * cPx, i * cPx); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(leftPx + i * cPx, 0); ctx.lineTo(leftPx + i * cPx, nc * cPx); ctx.stroke();
+    }
+
+    const labelFont = Math.max(9, Math.min(12, cellDisplaySize / 3)) * HIRES;
+    ctx.font = `${labelFont}px sans-serif`;
+    ctx.fillStyle = '#333';
+    for (let k = 0; k < nc; k++) {
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(chainNames[k], leftPx - 3 * HIRES, k * cPx + cPx / 2);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(chainNames[k], leftPx + k * cPx + cPx / 2, gridPx + 4 * HIRES);
+    }
+}
+
+function drawAllMaps() {
+    const chainNames = uniState.chainNames || [];
+    const chainSizes = uniState.chainSizes || [];
+
+    // PAE Maps
+    const paeRow = document.getElementById('pae-row');
+    paeRow.innerHTML = '';
+    for (let mi = 0; mi < uniState.modelData.length; mi++) {
+        const model = uniState.modelData[mi];
+        const item = document.createElement('div');
+        item.className = 'map-item';
+        const canvas = document.createElement('canvas');
+        const label = document.createElement('div');
+        label.className = 'map-label';
+        label.textContent = model.label;
+        item.appendChild(label);
+        item.appendChild(canvas);
+        paeRow.appendChild(item);
+        drawMapCanvas(canvas, model.pae, model.nTotal, chainSizes, chainNames, bwrColor, 0, 30);
+    }
+
+    // Combined iLIS/ipTM Heatmaps (multi-chain only)
+    if (chainNames.length > 1) {
+        const combinedRow = document.getElementById('combined-row');
+        combinedRow.innerHTML = '';
+        for (let mi = 0; mi < uniState.modelData.length; mi++) {
+            const model = uniState.modelData[mi];
+            const item = document.createElement('div');
+            item.className = 'map-item';
+            const canvas = document.createElement('canvas');
+            const label = document.createElement('div');
+            label.className = 'map-label';
+            label.textContent = model.label;
+            item.appendChild(label);
+            item.appendChild(canvas);
+            combinedRow.appendChild(item);
+            drawCombinedHeatmap(canvas, model.ilisGrid, model.iptmGrid, chainNames);
+        }
+
+        // Combined LIR/cLIR Heatmaps
+        const lirCombinedRow = document.getElementById('lir-combined-row');
+        lirCombinedRow.innerHTML = '';
+        let globalLirMax = 0, globalClirMax = 0;
+        for (const model of uniState.modelData) {
+            const nc = model.lirGrid.length;
+            for (let i = 0; i < nc; i++) {
+                for (let j = 0; j < nc; j++) {
+                    if (i !== j) {
+                        globalLirMax = Math.max(globalLirMax, model.lirGrid[i][j]);
+                        globalClirMax = Math.max(globalClirMax, model.clirGrid[i][j]);
+                    }
+                }
+            }
+        }
+        document.getElementById('lir-max-label').textContent = globalLirMax;
+        document.getElementById('clir-max-label').textContent = globalClirMax;
+
+        for (let mi = 0; mi < uniState.modelData.length; mi++) {
+            const model = uniState.modelData[mi];
+            const item = document.createElement('div');
+            item.className = 'map-item';
+            const canvas = document.createElement('canvas');
+            const label = document.createElement('div');
+            label.className = 'map-label';
+            label.textContent = model.label;
+            item.appendChild(label);
+            item.appendChild(canvas);
+            lirCombinedRow.appendChild(item);
+            drawCombinedLirHeatmap(canvas, model.lirGrid, model.clirGrid, chainNames, globalLirMax, globalClirMax);
+        }
+        drawColorbar('colorbar-lir', bluesColor, 0, 1);
+        drawColorbar('colorbar-clir', greensColor, 0, 1);
+    }
+
+    // LIS Maps
+    const lisRow = document.getElementById('lis-row');
+    lisRow.innerHTML = '';
+    for (let mi = 0; mi < uniState.modelData.length; mi++) {
+        const model = uniState.modelData[mi];
+        const item = document.createElement('div');
+        item.className = 'map-item';
+        const canvas = document.createElement('canvas');
+        const label = document.createElement('div');
+        label.className = 'map-label';
+        label.textContent = model.label;
+        item.appendChild(label);
+        item.appendChild(canvas);
+        lisRow.appendChild(item);
+        drawMapCanvas(canvas, model.lisMap, model.nTotal, chainSizes, chainNames, bluesColor, 0, 1);
+    }
+
+    // cLIS Maps (dilated)
+    const clisRow = document.getElementById('clis-row');
+    clisRow.innerHTML = '';
+    const clisDilateRadius = uniState.nTotal > 1000 ? 3 : uniState.nTotal > 500 ? 2 : 1;
+    for (let mi = 0; mi < uniState.modelData.length; mi++) {
+        const model = uniState.modelData[mi];
+        const item = document.createElement('div');
+        item.className = 'map-item';
+        const canvas = document.createElement('canvas');
+        const label = document.createElement('div');
+        label.className = 'map-label';
+        label.textContent = model.label;
+        item.appendChild(label);
+        item.appendChild(canvas);
+        clisRow.appendChild(item);
+        const dilated = dilateMap(model.clisMap, clisDilateRadius);
+        drawMapCanvas(canvas, dilated, model.nTotal, chainSizes, chainNames, greensColor, 0, 1);
+    }
+
+    // Colorbars
+    drawColorbar('colorbar-pae', bwrColor, 0, 30);
+    drawColorbar('colorbar-lis', bluesColor, 0, 1);
+    drawColorbar('colorbar-clis', greensColor, 0, 1);
+    drawColorbar('colorbar-ilis', orangesColor, 0, 1);
+    drawColorbar('colorbar-iptm', purplesColor, 0, 1);
+}
+
+function drawColorbar(canvasId, colorFn, vmin, vmax) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    for (let x = 0; x < w; x++) {
+        const v = vmin + (x / w) * (vmax - vmin);
+        const [r, g, b] = colorFn(v, vmin, vmax);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(x, 0, 1, canvas.height);
+    }
+}
+
+// ============================================================================
+// CSV DOWNLOAD
+// ============================================================================
+
+function downloadCSV() {
+    if (!uniState.modelPairs || !uniState.avgResults || !uniState.chainNames) return;
+    const jobName = document.getElementById('result-title')?.textContent || 'prediction';
+    const header = 'folder_name,platform,model_number,protein_1,protein_2,iLIS,LIS,LIA,LIR,cLIS,cLIA,cLIR,iptm,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
+    const rows = [header];
+    const platform = platformLabel(uniState.platform);
+
+    for (let mi = 0; mi < uniState.modelPairs.length; mi++) {
+        const sym = symmetrizePairs(uniState.modelPairs[mi]);
+        for (const [key, v] of Object.entries(sym)) {
+            rows.push([
+                jobName, platform, `model_${mi}`, v.ci, v.cj,
+                v.iLIS.toFixed(6), v.LIS.toFixed(6), Math.round(v.LIA || 0), v.lirI.size + v.lirJ.size,
+                v.cLIS.toFixed(6), Math.round(v.cLIA || 0), v.clirI.size + v.clirJ.size, v.ipTM.toFixed(6),
+                `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
+                `"[${[...v.lirJ].sort((a,b)=>a-b).join(', ')}]"`,
+                `"[${[...v.clirI].sort((a,b)=>a-b).join(', ')}]"`,
+                `"[${[...v.clirJ].sort((a,b)=>a-b).join(', ')}]"`,
+            ].join(','));
+        }
+    }
+    if (uniState.modelPairs.length > 1) {
+        for (const [key, v] of Object.entries(uniState.avgResults)) {
+            rows.push([
+                jobName, platform, 'average', v.ci, v.cj,
+                v.iLIS.toFixed(6), v.LIS.toFixed(6), '', v.lirI.size + v.lirJ.size,
+                v.cLIS.toFixed(6), '', v.clirI.size + v.clirJ.size, v.ipTM.toFixed(6),
+                `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
+                `"[${[...v.lirJ].sort((a,b)=>a-b).join(', ')}]"`,
+                `"[${[...v.clirI].sort((a,b)=>a-b).join(', ')}]"`,
+                `"[${[...v.clirJ].sort((a,b)=>a-b).join(', ')}]"`,
+            ].join(','));
+        }
+    }
+
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${jobName}_lis_analysis.csv`;
+    a.click();
+}
+
+function downloadAllChainsCxc() {
+    if (!uniState.avgResults || !uniState.chainNames) return;
+
+    const useIdx = Object.keys(uniState.structureFilenames)[0];
+    const structFilename = uniState.structureFilenames[useIdx];
+
+    const allLIR = {};
+    for (const name of uniState.chainNames) allLIR[name] = new Set();
+    for (const [key, v] of Object.entries(uniState.avgResults)) {
+        for (const r of v.lirI) allLIR[v.ci].add(r);
+        for (const r of v.lirJ) allLIR[v.cj].add(r);
+    }
+
+    const paeCut = document.getElementById('pae-cutoff')?.value || '12';
+    let lines = [
+        `# ChimeraX: All chains \u2014 LIR regions`,
+        `# Platform: ${platformLabel(uniState.platform)}`,
+        `# Generated by Universal Structure Prediction Tool`,
+        `# LIR = Local Interaction Region (PAE <= ${paeCut})`, '',
+        'close',
+        `open ${structFilename}`, '',
+        '# \u2500\u2500 Setup \u2500\u2500',
+        'set bgColor white',
+        'graphics silhouettes true',
+        'lighting soft',
+        'hide atoms',
+        'hide cartoons', '',
+        '# \u2500\u2500 Color by chain \u2500\u2500',
+        'color bychain', '',
+        '# \u2500\u2500 Show only LIR regions per chain \u2500\u2500',
+    ];
+
+    for (const name of uniState.chainNames) {
+        const lir = allLIR[name];
+        if (lir.size === 0) continue;
+        const spec = resSpec(fillGaps(lir), name);
+        lines.push(`# Chain ${name}: ${lir.size} LIR residues`);
+        lines.push(`show #1${spec} cartoons`);
+    }
+
+    lines.push('', '# \u2500\u2500 Final \u2500\u2500', 'view', 'lighting soft depthCue true', '');
+    lines.push('# \u2500\u2500 Save figure \u2500\u2500');
+    lines.push('save all_chains_LIR.png transparentBackground true');
+    lines.push('');
+    lines.push('# \u2500\u2500 Chain Summary \u2500\u2500');
+    for (const name of uniState.chainNames) {
+        const sz = uniState.chainSizes[uniState.chainNames.indexOf(name)];
+        lines.push(`# Chain ${name}: ${sz} residues, ${allLIR[name].size} LIR residues`);
+    }
+    lines.push('# Non-LIR regions are HIDDEN');
+    lines.push('');
+    lines.push('# \u2500\u2500 Alternative: color by pLDDT (uncomment below) \u2500\u2500');
+    lines.push('# color bfactor palette #FF7D45:#FFDB13:#65CBF3:#0053D6 range 50,90');
+
+    const cxc = lines.join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([cxc], { type: 'text/plain' }));
+    a.download = 'all_chains_LIR.cxc';
+    a.click();
+}
+
+// ============================================================================
+// SEQUENCE VIEWER
+// ============================================================================
+const AA3TO1 = {ALA:'A',ARG:'R',ASN:'N',ASP:'D',CYS:'C',GLN:'Q',GLU:'E',GLY:'G',HIS:'H',ILE:'I',LEU:'L',LYS:'K',MET:'M',PHE:'F',PRO:'P',SER:'S',THR:'T',TRP:'W',TYR:'Y',VAL:'V'};
+
+function parseCifSequence(cifText) {
+    const chains = new Map();
+    const lines = cifText.split('\n');
+    let inAtomSite = false;
+    const colNames = [];
+    for (const line of lines) {
+        if (line.startsWith('_atom_site.')) {
+            inAtomSite = true;
+            colNames.push(line.trim().split('.')[1]);
+            continue;
+        }
+        if (inAtomSite && !line.startsWith('_atom_site.') && !line.startsWith('#') && line.trim()) {
+            if (line.startsWith('loop_') || line.startsWith('_')) { inAtomSite = false; continue; }
+            const parts = line.trim().split(/\s+/);
+            if (parts.length < colNames.length) continue;
+            const getCol = (name) => parts[colNames.indexOf(name)] || '';
+            if (getCol('group_PDB') !== 'ATOM') continue;
+            if (getCol('label_atom_id') !== 'CA') continue;
+            const chain = getCol('label_asym_id');
+            const resSeq = parseInt(getCol('label_seq_id'));
+            const resName = getCol('label_comp_id');
+            if (isNaN(resSeq)) continue;
+            if (!chains.has(chain)) chains.set(chain, []);
+            const arr = chains.get(chain);
+            if (!arr.find(r => r.resnum === resSeq)) {
+                arr.push({ resnum: resSeq, aa: AA3TO1[resName] || 'X' });
+            }
+        }
+    }
+    return chains;
+}
+
+function parsePdbSequence(pdbText) {
+    const chains = new Map();
+    for (const line of pdbText.split('\n')) {
+        if (!line.startsWith('ATOM')) continue;
+        const atomName = line.substring(12, 16).trim();
+        if (atomName !== 'CA') continue;
+        const chain = line.substring(21, 22).trim() || 'A';
+        const resnum = parseInt(line.substring(22, 26).trim());
+        const resName = line.substring(17, 20).trim();
+        if (isNaN(resnum)) continue;
+        if (!chains.has(chain)) chains.set(chain, []);
+        const arr = chains.get(chain);
+        if (!arr.find(r => r.resnum === resnum)) {
+            arr.push({ resnum, aa: AA3TO1[resName] || 'X' });
+        }
+    }
+    return chains;
+}
+
+function lightenColor(hex, amount) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    return `rgb(${Math.round(r+(255-r)*amount)},${Math.round(g+(255-g)*amount)},${Math.round(b+(255-b)*amount)})`;
+}
+
+function buildSequenceViewer(pairKey) {
+    const container = document.getElementById('seq-viewer');
+    const card = document.getElementById('seq-viewer-card');
+    if (!container || !uniState.chainNames) { if (card) card.style.display = 'none'; return; }
+
+    const seedVal = document.getElementById('seed-select').value;
+    const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
+    const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
+    if (!structText) { card.style.display = 'none'; return; }
+
+    card.style.display = '';
+    container.innerHTML = '';
+
+    const chainSeqs = uniState.structureFormat === 'pdb' ? parsePdbSequence(structText) : parseCifSequence(structText);
+    const v = uniState.results[pairKey];
+    if (!v) { card.style.display = 'none'; return; }
+
+    // Build per-chain LIR/cLIR sets as union across ALL pairs
+    const allLIR = {};
+    const allCLIR = {};
+    for (const name of uniState.chainNames) { allLIR[name] = new Set(); allCLIR[name] = new Set(); }
+
+    if (uniState.avgResults) {
+        for (const [key, pv] of Object.entries(uniState.avgResults)) {
+            if (pv.lirI) for (const r of pv.lirI) allLIR[pv.ci]?.add(r);
+            if (pv.lirJ) for (const r of pv.lirJ) allLIR[pv.cj]?.add(r);
+            if (pv.clirI) for (const r of pv.clirI) allCLIR[pv.ci]?.add(r);
+            if (pv.clirJ) for (const r of pv.clirJ) allCLIR[pv.cj]?.add(r);
+        }
+    }
+    for (const mp of uniState.modelPairs) {
+        for (const [key, pv] of Object.entries(mp)) {
+            if (pv.lirI) for (const r of pv.lirI) allLIR[pv.ci]?.add(r);
+            if (pv.lirJ) for (const r of pv.lirJ) allLIR[pv.cj]?.add(r);
+            if (pv.clirI) for (const r of pv.clirI) allCLIR[pv.ci]?.add(r);
+            if (pv.clirJ) for (const r of pv.clirJ) allCLIR[pv.cj]?.add(r);
+        }
+    }
+
+    const colors = getColorsForPair(v.ci, v.cj);
+
+    let tooltip = document.querySelector('.seq-tooltip');
+    if (!tooltip) { tooltip = document.createElement('div'); tooltip.className = 'seq-tooltip'; document.body.appendChild(tooltip); }
+
+    const chainConfigs = [];
+    const selectedChains = [v.ci, v.cj];
+    chainConfigs.push({ name: v.ci, seq: chainSeqs.get(v.ci) || [], lir: allLIR[v.ci], clir: allCLIR[v.ci], clirColor: colors.clir_a });
+    chainConfigs.push({ name: v.cj, seq: chainSeqs.get(v.cj) || [], lir: allLIR[v.cj], clir: allCLIR[v.cj], clirColor: colors.clir_b });
+
+    for (const name of uniState.chainNames) {
+        if (selectedChains.includes(name)) continue;
+        const chainColor = (uniState.multiChainColors && uniState.multiChainColors[name]) || '#888';
+        chainConfigs.push({ name, seq: chainSeqs.get(name) || [], lir: allLIR[name], clir: allCLIR[name], clirColor: chainColor });
+    }
+
+    for (const cc of chainConfigs) {
+        if (cc.seq.length === 0) continue;
+        const label = document.createElement('div');
+        label.className = 'seq-chain-label';
+        const isSelected = selectedChains.includes(cc.name);
+        label.textContent = `Chain ${cc.name} (${cc.seq.length} residues)` + (isSelected ? ` \u2014 selected pair` : '');
+        container.appendChild(label);
+
+        const perRow = 80;
+        for (let rowStart = 0; rowStart < cc.seq.length; rowStart += perRow) {
+            const row = document.createElement('div');
+            row.className = 'seq-row';
+            const numLabel = document.createElement('span');
+            numLabel.className = 'seq-num';
+            numLabel.textContent = cc.seq[rowStart].resnum;
+            row.appendChild(numLabel);
+
+            const blocks = document.createElement('span');
+            blocks.className = 'seq-blocks';
+            const rowEnd = Math.min(rowStart + perRow, cc.seq.length);
+            for (let i = rowStart; i < rowEnd; i++) {
+                const res = cc.seq[i];
+                const isClir = cc.clir.has(res.resnum);
+                const isLir = cc.lir.has(res.resnum);
+                const el = document.createElement('span');
+                el.className = 'seq-res' + (isClir ? ' clir' : '');
+                el.style.background = isClir ? cc.clirColor : isLir ? lightenColor(cc.clirColor.replace('#',''), 0.4) : 'transparent';
+                el.textContent = res.aa;
+                el.addEventListener('mouseenter', (e) => {
+                    tooltip.textContent = `${res.aa}${res.resnum}` + (isClir ? ' (cLIR)' : isLir ? ' (LIR)' : '');
+                    tooltip.style.display = '';
+                    tooltip.style.left = (e.clientX + 8) + 'px';
+                    tooltip.style.top = (e.clientY - 20) + 'px';
+                });
+                el.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+                blocks.appendChild(el);
+
+                if ((i - rowStart + 1) % 10 === 0 && i < rowEnd - 1) {
+                    const gap = document.createElement('span');
+                    gap.style.cssText = 'width:3px; display:inline-block;';
+                    blocks.appendChild(gap);
+                }
+            }
+            row.appendChild(blocks);
+
+            const endLabel = document.createElement('span');
+            endLabel.className = 'seq-num';
+            endLabel.style.textAlign = 'left';
+            endLabel.style.paddingLeft = '3px';
+            endLabel.textContent = cc.seq[rowEnd - 1].resnum;
+            row.appendChild(endLabel);
+            container.appendChild(row);
+        }
+    }
+}
+
+function makeSortable(table) {
+    if (!table) return;
+    const headers = table.querySelectorAll('thead th');
+    headers.forEach((th, colIdx) => {
+        th.classList.add('sortable');
+        th.addEventListener('click', () => {
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            // Separate pinned rows (Average, selected) from sortable rows
+            const sortableRows = rows.filter(r => !r.dataset.pinned && r.textContent.trim() !== '');
+            const pinnedRows = rows.filter(r => r.dataset.pinned);
+
+            const isAsc = th.classList.contains('sort-asc');
+            headers.forEach(h => { h.classList.remove('sort-asc', 'sort-desc'); });
+            th.classList.add(isAsc ? 'sort-desc' : 'sort-asc');
+
+            sortableRows.sort((a, b) => {
+                const aVal = a.cells[colIdx]?.textContent.trim() || '';
+                const bVal = b.cells[colIdx]?.textContent.trim() || '';
+                const aNum = parseFloat(aVal);
+                const bNum = parseFloat(bVal);
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return isAsc ? bNum - aNum : aNum - bNum;
+                }
+                return isAsc ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+            });
+
+            // Re-append: sortable rows first, then pinned rows at bottom
+            sortableRows.forEach(r => tbody.appendChild(r));
+            pinnedRows.forEach(r => tbody.appendChild(r));
+        });
+    });
+}
+
+function hexToRgba(hex, alpha) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function buildContactMap(pairKey) {
+    // Get the selected pair result
+    const v = uniState.results[pairKey];
+    const card = document.getElementById('contact-map-card');
+    const canvas = document.getElementById('contact-canvas');
+    if (!v || !card || !canvas) { if (card) card.style.display = 'none'; return; }
+
+    // Get structure coordinates
+    const seedVal = document.getElementById('seed-select')?.value || '0';
+    const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
+    const structText = uniState.structureContents[useIdx];
+    if (!structText) { card.style.display = 'none'; return; }
+
+    const coords = parseStructureCoords(structText, uniState.structureFormat);
+    // Build per-chain coordinate maps
+    const chainCoordMap = new Map();
+    for (const c of coords) {
+        const key = c.chain;
+        if (!chainCoordMap.has(key)) chainCoordMap.set(key, new Map());
+        chainCoordMap.get(key).set(c.resnum, c);
+    }
+
+    const coordA = chainCoordMap.get(v.ci);
+    const coordB = chainCoordMap.get(v.cj);
+    if (!coordA || !coordB || v.clirI.size === 0 || v.clirJ.size === 0) {
+        card.style.display = 'none';
+        return;
+    }
+
+    // Find contact pairs (cLIR_A near cLIR_B within 10 Angstrom)
+    const contactDist = 10;
+    const contacts = [];
+    for (const resA of v.clirI) {
+        const cA = coordA.get(resA);
+        if (!cA) continue;
+        for (const resB of v.clirJ) {
+            const cB = coordB.get(resB);
+            if (!cB) continue;
+            const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
+            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            if (dist < contactDist) contacts.push({ resA, resB, dist });
+        }
+    }
+
+    if (contacts.length === 0) { card.style.display = 'none'; return; }
+    card.style.display = '';
+
+    // Get colors
+    const colors = getColorsForPair(v.ci, v.cj);
+
+    // Draw
+    const S = 2;
+    const width = 900, height = 280;
+    const barH = 14;
+    const barY_A = 45, barY_B = height - 55;
+    const barLeft = 60, barRight = width - 20;
+    const barW = barRight - barLeft;
+
+    canvas.width = width * S;
+    canvas.height = height * S;
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(S, S);
+
+    const xA = (res) => barLeft + ((res - 1) / Math.max(1, v.lenI - 1)) * barW;
+    const xB = (res) => barLeft + ((res - 1) / Math.max(1, v.lenJ - 1)) * barW;
+
+    // Chain A bar
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(barLeft, barY_A, barW, barH);
+    for (const res of v.lirI) { ctx.fillStyle = colors.lir_a; ctx.fillRect(xA(res) - 0.5, barY_A, 1.5, barH); }
+    for (const res of v.clirI) { ctx.fillStyle = colors.clir_a; ctx.fillRect(xA(res) - 0.5, barY_A, 1.5, barH); }
+    ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_A, barW, barH);
+
+    // Chain B bar
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(barLeft, barY_B, barW, barH);
+    for (const res of v.lirJ) { ctx.fillStyle = colors.lir_b; ctx.fillRect(xB(res) - 0.5, barY_B, 1.5, barH); }
+    for (const res of v.clirJ) { ctx.fillStyle = colors.clir_b; ctx.fillRect(xB(res) - 0.5, barY_B, 1.5, barH); }
+    ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_B, barW, barH);
+
+    // Labels
+    ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = colors.clir_a; ctx.fillText(`${v.ci}`, barLeft - 5, barY_A + barH / 2);
+    ctx.fillStyle = colors.clir_b; ctx.fillText(`${v.cj}`, barLeft - 5, barY_B + barH / 2);
+
+    // Ticks
+    ctx.fillStyle = '#888'; ctx.font = '8px sans-serif'; ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (const t of [1, Math.round(v.lenI/2), v.lenI]) ctx.fillText(t, xA(t), barY_A + barH + 3);
+    ctx.textBaseline = 'bottom';
+    for (const t of [1, Math.round(v.lenJ/2), v.lenJ]) ctx.fillText(t, xB(t), barY_B - 3);
+
+    // Connection lines
+    const minDist = Math.min(...contacts.map(c => c.dist));
+    const maxDist = Math.max(...contacts.map(c => c.dist));
+    for (const c of contacts) {
+        const ax = xA(c.resA), bx = xB(c.resB);
+        const t = maxDist > minDist ? 1 - (c.dist - minDist) / (maxDist - minDist) : 1;
+        const alpha = 0.03 + t * 0.12;
+        const midY = (barY_A + barH + barY_B) / 2;
+        ctx.beginPath();
+        ctx.moveTo(ax, barY_A + barH);
+        ctx.bezierCurveTo(ax, midY, bx, midY, bx, barY_B);
+        const grad = ctx.createLinearGradient(0, barY_A + barH, 0, barY_B);
+        grad.addColorStop(0, hexToRgba(colors.clir_a, alpha));
+        grad.addColorStop(1, hexToRgba(colors.clir_b, alpha));
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+    }
+
+    // Label
+    ctx.fillStyle = '#888'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(`${contacts.length} cLIR contact pairs`, width / 2, barY_B + barH + 18);
+
+    ctx.restore();
+}
+</script>
+</body>
+</html>

@@ -1,110 +1,63 @@
-# ChimeraX Visualization for LIS
+# *In silico* PPI Analysis & ChimeraX Script Generator
 
-Generate [UCSF ChimeraX](https://www.cgl.ucsf.edu/chimerax/) visualization scripts from protein-protein interaction predictions, with automatic [AFM-LIS](https://github.com/flyark/AFM-LIS) metric calculation.
+Analyze protein-protein interactions from structure predictions and generate [UCSF ChimeraX](https://www.cgl.ucsf.edu/chimerax/) visualization scripts, with automatic [AFM-LIS](https://github.com/flyark/AFM-LIS) metric calculation.
 
-<img src="images/upd1_dome_example.png" alt="Example: upd1-dome interaction visualized in ChimeraX" width="600">
-
-> **Example:** upd1–dome interaction (iLIS: 0.529, ipTM: 0.57). Chain A (upd1) in blue, Chain B (dome) in orange. Light colors show LIR regions (confident interaction domain, PAE ≤ 12 Å). Dark colors highlight cLIR residues (direct physical contacts, PAE ≤ 12 Å & Cβ ≤ 8 Å). Non-interacting regions are hidden.
-
-Two standalone web tools — **no installation required**. All analysis runs **locally in your browser** — no data is uploaded to any server, no Python needed:
+All analysis runs **locally in your browser** — no installation, no data uploaded, no Python needed.
 
 **[Open Web Tools](https://flyark.github.io/chimerax_visualization_lis/)**
 
-| Tool | Input |
-|------|-------|
-| **FlyPredictome → ChimeraX** | FlyPredictome URL |
-| **AlphaFold3 → ChimeraX** | AF3 zip file |
+| Tool | Input | Description |
+|------|-------|-------------|
+| **FlyPredictome Analysis** | FlyPredictome URL | Drosophila PPI predictions |
+| **Universal Prediction Analysis** | AF2/AF3/ColabFold/Boltz/Chai-1/OpenFold files | Multi-platform structure prediction analysis |
+| **AlphaFold DB Dimer Analysis** | UniProt ID or model ID | Pre-computed dimer predictions from AlphaFold Database |
+| **AlphaFold DB Monomer Subdomain Analysis** | UniProt ID | Intramolecular domain interaction analysis |
 
-## FlyPredictome → ChimeraX
+## Universal Prediction Analysis
 
-Automatically fetch interaction data from [FlyPredictome](https://www.flyrnai.org/tools/fly_predictome) and generate ChimeraX scripts.
+Upload prediction output from **any major platform** — the tool auto-detects the format:
 
-**Quick start:**
-1. Paste a FlyPredictome result page URL
-2. Choose rank and color scheme
-3. Click **Generate**
-4. Download `.cxc` script and `.pdb` structure file
-5. Place both in the same folder, open the `.cxc` in ChimeraX
+- **AlphaFold3** — .cif + summary_confidences + full_data JSON
+- **AlphaFold2** — ranked_*.pdb + PAE JSON
+- **ColabFold** — *_unrelaxed_rank_*.pdb + *_scores_rank_*.json
+- **Boltz-1/2** — .pdb/.cif + confidence_*.json + pae_*.npz
+- **Chai-1** — pred.rank_*.cif + scores.rank_*.json + pae.rank_*.npy
+- **OpenFold3** — result_sample_*_model.pdb + confidences JSON
+- **Generic** — any .cif/.pdb with a PAE JSON
 
-**Features:**
-- Automatic data fetching via CORS proxy (parallel racing for speed)
-- Pre-computed LIR/cLIR residue indices from FlyPredictome database
-- Color presets: gradient (LIR light / cLIR dark), solid, ChimeraX defaults
-- All 5 ranks shown with iLIS/ipTM scores
+Accepts .zip, .gz, folders, or individual files. Handles .npz and .npy PAE formats.
 
-## AlphaFold3 → ChimeraX
+## Features
 
-Upload an AlphaFold3 prediction zip file to calculate AFM-LIS metrics and generate ChimeraX scripts. Supports multi-chain complexes (tested with 8-chain CCT complex, 4334 residues).
-
-**Quick start:**
-1. Download your prediction from [AlphaFold Server](https://alphafoldserver.com) as a zip
-2. Drop the zip file on the page and click **Process**
-3. Explore the generated maps and score matrices
-4. Click a chain pair to generate a ChimeraX script
-5. Download `.cxc` + `.cif`, place in the same folder, open the `.cxc` in ChimeraX
-
-**Features:**
-- Full AFM-LIS metric calculation locally in the browser (no data uploaded, no Python needed)
-- **PAE Maps** — per-model Predicted Aligned Error (bwr colorscale)
-- **Score Matrix** — combined iLIS (Oranges) / ipTM (Purples) per model
-- **Residue Count Matrix** — combined LIR (Blues) / cLIR (Greens) per model
-- **LIS Maps** — Local Interaction Score maps (Blues, dilated for large complexes)
-- **cLIS Maps** — contact LIS maps (Greens, dilated for visibility)
-- Multi-chain support with staggered axis labels
-- Per-model and averaged metrics in the chain pair table
-- Adjustable PAE cutoff and Cβ distance cutoff
-- Color presets: gradient, solid, ChimeraX defaults, multi-chain (tab10 palette)
-- **Download All Chains .cxc** — single script showing all chains with `color bychain`
+- **PAE/LIS/cLIS maps** — bwr, matplotlib Blues, matplotlib Greens colormaps
+- **Score matrix** — iLIS (Oranges) / ipTM (Purples) per chain pair
+- **Residue count matrix** — LIR (Blues) / cLIR (Greens)
+- **Sequence viewer** — amino acid letters with LIR/cLIR highlighting
+- **Sortable tables** — click column headers to sort
+- **ChimeraX presets** — gradient, solid, pLDDT coloring, color bychain, color bypolymer
+- **Domain auto-detection** (monomer) — LIS/pLDDT-based segmentation with adjustable parameters
+- **UniProt autocomplete** (monomer/dimer) — search suggestions as you type
+- **CSV download** — full metrics with residue indices
 
 ## AFM-LIS Metrics
 
 | Metric | Definition |
 |--------|------------|
-| **LIR** | Local Interaction Residues — residues in the confident interaction region (PAE ≤ 12 Å) |
-| **cLIR** | contact-filtered LIR — residues in direct physical contact (PAE ≤ 12 Å & Cβ ≤ 8 Å) |
-| **LIS** | Local Interaction Score — normalized PAE confidence across the interface (0–1) |
-| **cLIS** | contact-filtered LIS — LIS restricted to direct physical contacts |
-| **iLIS** | integrated LIS — geometric mean of LIS and cLIS: √(LIS × cLIS) |
-| **ipTM** | interface predicted TM-score — AlphaFold-Multimer's global interface confidence |
+| **iLIS** | integrated LIS — √(LIS × cLIS) |
+| **LIS** | Local Interaction Score — normalized PAE confidence (0–1) |
+| **cLIS** | contact-filtered LIS — restricted to direct contacts |
+| **LIR** | Local Interaction Residues (PAE ≤ 12 Å) |
+| **cLIR** | contact-filtered LIR (PAE ≤ 12 Å & Cβ ≤ 8 Å) |
+| **ipTM** | interface predicted TM-score |
+
+Default cutoffs: PAE ≤ 12 Å, Cβ ≤ 8 Å (adjustable). PAE averaged in both directions per residue pair.
 
 See [AFM-LIS](https://github.com/flyark/AFM-LIS) for details.
 
-## Color Scheme
-
-Default blue/orange gradient:
-
-| Color | Region |
-|-------|--------|
-| Light blue (`#b3d4e8`) | Chain A — LIR |
-| Dark blue (`#2471A3`) | Chain A — cLIR |
-| Light orange (`#f5cba7`) | Chain B — LIR |
-| Dark orange (`#E67E22`) | Chain B — cLIR |
-
-Non-LIR regions are hidden. Multiple preset schemes available including solid colors and ChimeraX defaults.
-
-## Local Python Agents (Alternative)
-
-For command-line usage or batch processing (requires Python + numpy + scipy):
-
-```bash
-# FlyPredictome
-python python/flypredictome_agent.py "https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/Egfr/spi/SET_69/" --rank 1
-
-# AlphaFold3
-python python/af3_agent.py /path/to/af3_prediction.zip --chain-pair A,B
-
-# Flask web app (local server)
-pip install flask
-python python/app.py  # → http://127.0.0.1:5000
-```
-
 ## References
 
-- [Kim et al. 2024](https://www.biorxiv.org/content/10.1101/2024.02.19.580970) — Enhanced Protein-Protein Interaction Discovery via AlphaFold-Multimer
-- [Kim et al. 2025](https://www.biorxiv.org/content/10.1101/2025.10.10.681672) — A Structure-Guided Kinase–Transcription Factor Interactome Atlas
-- [Abramson et al. 2024](https://doi.org/10.1038/s41586-024-07487-w) — Accurate structure prediction with AlphaFold 3
-- [Evans et al. 2022](https://doi.org/10.1101/2021.10.04.463034) — Protein complex prediction with AlphaFold-Multimer
-- [Pettersen et al. 2021](https://doi.org/10.1002/pro.3943) — UCSF ChimeraX: Structure visualization for researchers, educators, and developers
+- [Kim et al. 2024](https://www.biorxiv.org/content/10.1101/2024.02.19.580970) — Enhanced PPI Discovery via AlphaFold-Multimer
+- [Kim et al. 2025](https://www.biorxiv.org/content/10.1101/2025.10.10.681672) — *In silico* Kinase-TF atlas for human and fly
 
 ## Acknowledgments
 
