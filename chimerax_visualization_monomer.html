@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monomer &rarr; ChimeraX</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; min-height: 100vh; }
+
+        /* Header */
+        .header { background: linear-gradient(135deg, #2471A3, #1a5276); color: white; padding: 1.2rem 2rem 1rem; }
+        .header h1 { font-size: 1.6rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .header p { font-size: 0.9rem; opacity: 0.85; margin-bottom: 0.6rem; }
+        .header-links { display: flex; gap: 1rem; flex-wrap: wrap; }
+        .header-links a { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.85rem; padding: 0.25rem 0.6rem; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; transition: all 0.2s; }
+        .header-links a:hover { background: rgba(255,255,255,0.15); color: white; }
+
+        /* Layout */
+        .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+        .card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 1.5rem; }
+        .card label { font-weight: 600; font-size: 0.85rem; color: #555; display: block; margin-bottom: 0.4rem; }
+        .step-num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #2471A3; color: white; font-weight: 700; font-size: 0.85rem; margin-right: 0.5rem; }
+        .step-header { display: flex; align-items: center; margin-bottom: 0.8rem; font-weight: 600; font-size: 1rem; }
+
+        /* Status */
+        .status { font-size: 0.85rem; color: #666; min-height: 1.5rem; margin-top: 0.8rem; }
+        .status.loading { color: #2471A3; }
+        .status.error { color: #c0392b; }
+        .status.success { color: #27ae60; }
+
+        /* Buttons */
+        .btn { padding: 0.6rem 1.5rem; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; border: none; transition: background 0.2s; }
+        .btn-primary { background: #2471A3; color: white; margin-top: 0.8rem; }
+        .btn-primary:hover { background: #1a5276; }
+        .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+        .btn-secondary { background: white; color: #2471A3; border: 2px solid #2471A3; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-secondary:hover { background: #eaf2f8; }
+        .btn-row { display: flex; gap: 0.5rem; margin-top: 0.8rem; flex-wrap: wrap; }
+        .btn-download { padding: 0.6rem 1.2rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; border: 2px solid; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s; }
+        .btn-download.cxc { background: #2471A3; color: white; border-color: #2471A3; }
+        .btn-download.cxc:hover { background: #1a5276; }
+        .btn-download.pdb { background: white; color: #E67E22; border-color: #E67E22; }
+        .btn-download.pdb:hover { background: #fef5ec; }
+
+        /* Color scheme */
+        .color-section { display: flex; gap: 2rem; flex-wrap: wrap; }
+        .color-group { flex: 1; min-width: 200px; }
+        .color-group h3 { font-size: 0.8rem; color: #888; margin-bottom: 0.6rem; }
+        .color-pair { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem; }
+        .color-pair input[type="color"] { width: 36px; height: 36px; border: 2px solid #e0e0e0; border-radius: 6px; cursor: pointer; padding: 2px; }
+        .color-pair .color-label { font-size: 0.9rem; }
+        .color-pair .color-hex { font-family: monospace; font-size: 0.8rem; color: #888; }
+        .color-preview-strip { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
+        .color-preview-strip div { flex: 1; transition: background 0.3s; }
+        .presets-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .preset-chip { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.8rem; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 0.82rem; color: #666; transition: all 0.2s; background: white; }
+        .preset-chip:hover { border-color: #2471A3; color: #333; }
+        .preset-chip.active { border-color: #2471A3; background: #eaf2f8; color: #1a5276; font-weight: 600; }
+        .preset-strip { display: flex; width: 60px; height: 12px; border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+        .preset-strip span { flex: 1; }
+
+        /* Results */
+        .results { display: none; }
+        .results.active { display: block; }
+        .result-card h2 { font-size: 1.2rem; margin-bottom: 1rem; color: #1a5276; }
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.8rem; margin-bottom: 1rem; }
+        .metric { background: #f8f9fa; border-radius: 8px; padding: 0.8rem; text-align: center; }
+        .metric .value { font-size: 1.3rem; font-weight: 700; color: #2471A3; }
+        .metric .label { font-size: 0.75rem; color: #888; margin-top: 0.2rem; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 1rem; }
+        .data-table th { text-align: left; padding: 0.5rem 0.8rem; background: #f8f9fa; font-weight: 600; font-size: 0.8rem; color: #666; }
+        .data-table td { padding: 0.5rem 0.8rem; border-top: 1px solid #eee; }
+        .data-table tr.selected { background: #eaf2f8; }
+        .script-preview { background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 1rem; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; line-height: 1.5; max-height: 400px; overflow-y: auto; white-space: pre; margin-bottom: 1rem; }
+        .script-preview .comment { color: #6c7086; }
+        .script-preview .command { color: #89b4fa; }
+        .script-preview .color-val { color: #f9e2af; }
+        .download-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+        .error-msg { display: none; background: #fdeaea; color: #c0392b; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
+        .error-msg.active { display: block; }
+        .info-box { background: #eaf2f8; border-left: 4px solid #2471A3; padding: 0.8rem 1rem; border-radius: 0 8px 8px 0; font-size: 0.85rem; color: #1a5276; margin-bottom: 1rem; }
+
+        /* Map */
+        .map-item { text-align: center; }
+        .map-item canvas { border-radius: 4px; display: block; }
+        .map-item .map-label { font-size: 0.75rem; color: #666; margin-bottom: 0.2rem; }
+        .colorbar-row { display: flex; flex-direction: column; align-items: center; margin-top: 0.5rem; }
+        .colorbar-row canvas { border-radius: 3px; }
+        .colorbar-labels { display: flex; justify-content: space-between; width: 300px; font-size: 0.72rem; color: #888; margin-top: 2px; }
+        .colorbar-labels span:nth-child(2) { color: #555; font-weight: 500; }
+
+        /* Region inputs */
+        .region-row { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+        .region-row .region-label { font-weight: 600; font-size: 0.9rem; min-width: 80px; }
+        .region-row input[type="number"] { width: 80px; padding: 0.4rem; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 0.9rem; }
+        .region-row .region-color { width: 16px; height: 16px; border-radius: 4px; display: inline-block; }
+        .region-row .remove-btn { background: none; border: none; color: #c0392b; cursor: pointer; font-size: 1.1rem; padding: 0 0.3rem; }
+        .region-row .remove-btn:hover { color: #e74c3c; }
+
+        .footer { text-align: center; padding: 2rem; font-size: 0.8rem; color: #999; }
+        .footer a { color: #2471A3; text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="container" style="padding:0;">
+        <h1>Monomer &rarr; ChimeraX</h1>
+        <p>Analyze intramolecular interactions in AlphaFold monomer predictions</p>
+        <div class="header-links">
+            <a href="index.html">Home</a>
+            <a href="chimerax_visualization_flypredictome.html">FlyPredictome-ChimeraX</a>
+            <a href="chimerax_visualization_af3.html">AlphaFold3-ChimeraX</a>
+            <a href="guide.html">Guide</a>
+            <a href="https://alphafold.ebi.ac.uk" target="_blank">AlphaFold DB</a>
+            <a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS</a>
+            <a href="https://github.com/flyark/chimerax_visualization_lis" target="_blank">GitHub</a>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- Step 1: Fetch -->
+    <div class="card">
+        <div class="step-header"><span class="step-num">1</span> Fetch AlphaFold Monomer Prediction &nbsp;<span style="font-weight:400; font-size:0.8rem; color:#888;">(all analysis runs locally in your browser &mdash; no data is uploaded to any server)</span></div>
+        <label>UniProt ID or AlphaFold DB URL</label>
+        <div style="display:flex; gap:0.5rem; align-items:flex-start;">
+            <input type="text" id="uniprot-input" placeholder="e.g. P28482 or https://alphafold.ebi.ac.uk/entry/P28482" style="flex:1; padding:0.5rem 0.8rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.9rem;">
+            <button class="btn btn-primary" style="margin:0;" id="btn-fetch" onclick="fetchData()">Fetch</button>
+        </div>
+        <div class="status" id="status"></div>
+    </div>
+
+    <!-- Step 2: Define Regions -->
+    <div class="card" id="regions-card" style="display:none;">
+        <div class="step-header"><span class="step-num">2</span> Define Regions</div>
+
+        <div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
+            <!-- PAE Map -->
+            <div class="map-item" id="pae-map-container">
+                <div class="map-label" id="pae-map-label">PAE Map</div>
+                <canvas id="pae-canvas"></canvas>
+            </div>
+        </div>
+        <div class="colorbar-row">
+            <canvas id="colorbar-pae" width="300" height="14"></canvas>
+            <div class="colorbar-labels"><span>0</span><span>Predicted Aligned Error (&Aring;)</span><span>30</span></div>
+        </div>
+
+        <div style="margin-top:1rem;">
+            <label>Regions</label>
+            <div id="regions-container"></div>
+            <div class="btn-row">
+                <button class="btn-secondary" onclick="addRegion()">+ Add Region</button>
+                <button class="btn btn-primary" style="margin:0;" id="btn-calculate" onclick="calculate()">Calculate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 3: Options -->
+    <div class="card" id="options-card" style="display:none;">
+        <div class="step-header"><span class="step-num">3</span> Options</div>
+
+        <label>Cutoffs</label>
+        <div style="display:flex; gap:1.5rem; margin-bottom:1rem; flex-wrap:wrap;">
+            <div>
+                <span style="font-size:0.85rem; color:#555;">PAE cutoff (&Aring;):</span>
+                <input type="number" id="pae-cutoff" value="12" min="1" max="30" step="1" style="width:60px; padding:0.3rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.9rem;">
+            </div>
+            <div>
+                <span style="font-size:0.85rem; color:#555;">C&beta; cutoff (&Aring;):</span>
+                <input type="number" id="cb-cutoff" value="8" min="1" max="20" step="1" style="width:60px; padding:0.3rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.9rem;">
+            </div>
+        </div>
+
+        <label>Color Scheme</label>
+        <div class="color-section" id="color-section"></div>
+        <div style="display:flex; align-items:center; gap:0.8rem; margin-top:0.5rem;">
+            <div class="color-preview-strip" id="color-strip" style="flex:1; margin:0;"></div>
+            <button onclick="swapColors()" style="padding:0.3rem 0.8rem; border:2px solid #e0e0e0; border-radius:6px; background:white; cursor:pointer; font-size:0.82rem; color:#666; white-space:nowrap;">Swap A &#8596; B</button>
+        </div>
+
+        <label style="margin-top:1rem">Presets &mdash; gradient (LIR light, cLIR dark)</label>
+        <div class="presets-row">
+            <div class="preset-chip active" onclick="applyPreset('#b3d4e8','#2471A3','#f5cba7','#E67E22',this)"><div class="preset-strip"><span style="background:#b3d4e8"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#f5cba7"></span></div>Blue / Orange</div>
+            <div class="preset-chip" onclick="applyPreset('#d1c4e9','#5e35b1','#fff3b0','#f9a825',this)"><div class="preset-strip"><span style="background:#d1c4e9"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#fff3b0"></span></div>Purple / Gold</div>
+            <div class="preset-chip" onclick="applyPreset('#b2dfdb','#00897b','#ffccbc','#e64a19',this)"><div class="preset-strip"><span style="background:#b2dfdb"></span><span style="background:#00897b"></span><span style="background:#e64a19"></span><span style="background:#ffccbc"></span></div>Teal / Coral</div>
+            <div class="preset-chip" onclick="applyPreset('#cfd8dc','#546e7a','#f8bbd0','#c2185b',this)"><div class="preset-strip"><span style="background:#cfd8dc"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#f8bbd0"></span></div>Slate / Rose</div>
+            <div class="preset-chip" onclick="applyPreset('#c5cae9','#303f9f','#ffe0b2','#e65100',this)"><div class="preset-strip"><span style="background:#c5cae9"></span><span style="background:#303f9f"></span><span style="background:#e65100"></span><span style="background:#ffe0b2"></span></div>Indigo / Tangerine</div>
+            <div class="preset-chip" onclick="applyPreset('#a8d5ba','#2e7d32','#ef9a9a','#c62828',this)"><div class="preset-strip"><span style="background:#a8d5ba"></span><span style="background:#2e7d32"></span><span style="background:#c62828"></span><span style="background:#ef9a9a"></span></div>Green / Red</div>
+        </div>
+        <label style="margin-top:0.5rem">Presets &mdash; solid (same color for LIR and cLIR)</label>
+        <div class="presets-row">
+            <div class="preset-chip" onclick="applyPreset('#2471A3','#2471A3','#E67E22','#E67E22',this)"><div class="preset-strip"><span style="background:#2471A3"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#E67E22"></span></div>Blue / Orange</div>
+            <div class="preset-chip" onclick="applyPreset('#5e35b1','#5e35b1','#f9a825','#f9a825',this)"><div class="preset-strip"><span style="background:#5e35b1"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#f9a825"></span></div>Purple / Gold</div>
+            <div class="preset-chip" onclick="applyPreset('#00897b','#00897b','#e64a19','#e64a19',this)"><div class="preset-strip"><span style="background:#00897b"></span><span style="background:#00897b"></span><span style="background:#e64a19"></span><span style="background:#e64a19"></span></div>Teal / Coral</div>
+            <div class="preset-chip" onclick="applyPreset('#546e7a','#546e7a','#c2185b','#c2185b',this)"><div class="preset-strip"><span style="background:#546e7a"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#c2185b"></span></div>Slate / Rose</div>
+            <div class="preset-chip" onclick="applyPreset('#6A9EC6','#6A9EC6','#D4A76A','#D4A76A',this)"><div class="preset-strip"><span style="background:#6A9EC6"></span><span style="background:#6A9EC6"></span><span style="background:#D4A76A"></span><span style="background:#D4A76A"></span></div>Steel / Wheat</div>
+        </div>
+        <label style="margin-top:0.5rem">Presets &mdash; ChimeraX defaults</label>
+        <div class="presets-row">
+            <div class="preset-chip" onclick="applyPreset('#6495ED','#6495ED','#FF6347','#FF6347',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#FF6347"></span></div>Cornflower / Tomato</div>
+            <div class="preset-chip" onclick="applyPreset('#87CEEB','#87CEEB','#FFD700','#FFD700',this)"><div class="preset-strip"><span style="background:#87CEEB"></span><span style="background:#87CEEB"></span><span style="background:#FFD700"></span><span style="background:#FFD700"></span></div>SkyBlue / Gold</div>
+            <div class="preset-chip" onclick="applyPreset('#90EE90','#90EE90','#DDA0DD','#DDA0DD',this)"><div class="preset-strip"><span style="background:#90EE90"></span><span style="background:#90EE90"></span><span style="background:#DDA0DD"></span><span style="background:#DDA0DD"></span></div>LightGreen / Plum</div>
+            <div class="preset-chip" onclick="applyPreset('#FFA07A','#FFA07A','#20B2AA','#20B2AA',this)"><div class="preset-strip"><span style="background:#FFA07A"></span><span style="background:#FFA07A"></span><span style="background:#20B2AA"></span><span style="background:#20B2AA"></span></div>Salmon / Teal</div>
+        </div>
+        <label style="margin-top:0.5rem; display:none" id="multiregion-presets-label">Presets &mdash; multi-region (auto-assigned per region)</label>
+        <div class="presets-row" id="multiregion-presets" style="display:none"></div>
+    </div>
+
+    <!-- Error -->
+    <div class="error-msg" id="error-msg"></div>
+
+    <!-- Results -->
+    <div class="results" id="results">
+        <!-- PAE Map with Regions -->
+        <div class="card result-card">
+            <h2>PAE Map with Regions</h2>
+            <div class="map-item" style="text-align:center;">
+                <canvas id="pae-result-canvas"></canvas>
+            </div>
+            <div class="colorbar-row">
+                <canvas id="colorbar-pae-result" width="300" height="14"></canvas>
+                <div class="colorbar-labels"><span>0</span><span>Predicted Aligned Error (&Aring;)</span><span>30</span></div>
+            </div>
+        </div>
+
+        <!-- Score Matrix (if >2 regions) -->
+        <div class="card result-card" id="score-matrix-card" style="display:none;">
+            <h2>Score Matrix <span style="font-weight:400; font-size:0.8rem; color:#888;">(iLIS between regions)</span></h2>
+            <div style="text-align:center;">
+                <canvas id="score-matrix-canvas"></canvas>
+            </div>
+            <div class="colorbar-row">
+                <canvas id="colorbar-ilis" width="200" height="14"></canvas>
+                <div class="colorbar-labels" style="width:200px;"><span>0</span><span>iLIS (Oranges)</span><span>1</span></div>
+            </div>
+        </div>
+
+        <!-- Region Pair Table -->
+        <div class="card result-card">
+            <h2 id="result-title">Region Pair Summary</h2>
+            <div class="metrics-grid" id="pair-metrics"></div>
+            <table class="data-table" id="pairs-table">
+                <thead><tr><th>Region Pair</th><th>iLIS</th><th>LIS</th><th>cLIS</th><th>LIR(i)</th><th>LIR(j)</th><th>cLIR(i)</th><th>cLIR(j)</th></tr></thead>
+                <tbody id="pairs-tbody"></tbody>
+            </table>
+            <div style="margin-top:0.5rem;">
+                <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem; cursor:pointer;" onclick="downloadCSV()">&#8595; Download CSV</a>
+            </div>
+        </div>
+
+        <!-- Script -->
+        <div class="card result-card" id="script-card">
+            <h2>ChimeraX Script</h2>
+            <div class="script-preview" id="script-preview"></div>
+            <div class="download-row">
+                <a class="btn-download cxc" id="dl-cxc" download>&#8595; Download .cxc</a>
+                <a class="btn-download pdb" id="dl-pdb" download>&#8595; Download .pdb</a>
+            </div>
+            <div class="info-box" style="margin-top:1rem;">Place the .cxc and .pdb files in the same folder, then open the .cxc in ChimeraX.</div>
+        </div>
+    </div>
+
+    <!-- How to Use -->
+    <div class="card">
+        <div class="step-header"><span class="step-num">?</span> How to Use</div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:1.5rem; padding-left:2.3rem;">
+            <div>
+                <h4 style="font-size:0.9rem; color:#1a5276; margin-bottom:0.5rem;">Quick Start</h4>
+                <ol style="padding-left:1.2rem; font-size:0.85rem; color:#555; line-height:1.7;">
+                    <li>Enter a UniProt ID (e.g., P28482) and click <strong>Fetch</strong></li>
+                    <li>Define two or more regions of interest by residue range</li>
+                    <li>Click <strong>Calculate</strong> to compute interaction metrics</li>
+                    <li>Review the PAE map, iLIS scores, and region pair table</li>
+                    <li>Download the .cxc + .pdb files</li>
+                    <li>Open the .cxc file in <a href="https://www.cgl.ucsf.edu/chimerax/download.html" target="_blank" style="color:#2471A3;">UCSF ChimeraX</a></li>
+                </ol>
+            </div>
+            <div>
+                <h4 style="font-size:0.9rem; color:#1a5276; margin-bottom:0.5rem;">Metrics (<a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3;">AFM-LIS</a>)</h4>
+                <table style="font-size:0.85rem;">
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIR</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Residues (PAE &le; cutoff)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIR</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIR (PAE &le; cutoff &amp; C&beta; &le; cutoff)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIS</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Score &mdash; normalized PAE confidence (0&ndash;1)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIS</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIS &mdash; restricted to direct contacts</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLIS</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LIS &mdash; &radic;(LIS &times; cLIS)</td></tr>
+                </table>
+                <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">References</h4>
+                <ul style="list-style:none; padding:0; font-size:0.85rem;">
+                    <li style="margin-bottom:0.3rem; color:#555;"><a href="https://www.biorxiv.org/content/10.1101/2024.02.19.580970" target="_blank" style="color:#2471A3; font-weight:600;">Kim et al. 2024</a> &mdash; Enhanced PPI Discovery via AlphaFold-Multimer</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        Made by Ah-Ram Kim &middot;
+        <a href="chimerax_visualization_af3.html">AlphaFold3-ChimeraX</a> &middot;
+        Metrics defined by <a href="https://github.com/flyark/AFM-LIS">AFM-LIS</a> &middot;
+        Visualization in <a href="https://www.cgl.ucsf.edu/chimerax/">UCSF ChimeraX</a>
+    </div>
+</div>
+
+<script>
+// ============================================================================
+// GLOBAL STATE
+// ============================================================================
+let monPae = null;          // 2D array of PAE values
+let monPaeMax = 31.75;      // max PAE from JSON
+let monCoords = [];         // [{resnum, x, y, z}]
+let monPdbText = '';        // raw PDB text
+let monProteinLen = 0;      // total residues
+let monUniprotId = '';      // fetched UniProt ID
+let monPdbFilename = '';    // filename for download
+let monRegions = [];        // [{name, start, end, color}]
+let monPairResults = [];    // calculated pair results
+let monRegionCounter = 0;   // for naming regions
+
+const REGION_COLORS = [
+    '#2471A3', '#E67E22', '#27ae60', '#c0392b', '#8e44ad',
+    '#16a085', '#d35400', '#2c3e50', '#f39c12', '#1abc9c'
+];
+
+// ============================================================================
+// FETCH DATA
+// ============================================================================
+
+function setStatus(msg, type = '') {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status' + (type ? ' ' + type : '');
+}
+
+function parseUniprotId(input) {
+    input = input.trim();
+    // Handle full URL: https://alphafold.ebi.ac.uk/entry/P28482
+    const urlMatch = input.match(/alphafold\.ebi\.ac\.uk\/entry\/([A-Za-z0-9_]+)/);
+    if (urlMatch) return urlMatch[1].toUpperCase();
+    // Handle plain UniProt ID
+    const idMatch = input.match(/^([A-Za-z0-9_]+)$/);
+    if (idMatch) return idMatch[1].toUpperCase();
+    return null;
+}
+
+async function fetchData() {
+    const input = document.getElementById('uniprot-input').value;
+    const uniprotId = parseUniprotId(input);
+    if (!uniprotId) {
+        setStatus('Please enter a valid UniProt ID or AlphaFold DB URL.', 'error');
+        return;
+    }
+
+    document.getElementById('btn-fetch').disabled = true;
+    document.getElementById('results').classList.remove('active');
+    document.getElementById('regions-card').style.display = 'none';
+    document.getElementById('options-card').style.display = 'none';
+
+    try {
+        setStatus(`Fetching prediction for ${uniprotId}...`, 'loading');
+
+        // Step 1: Get prediction metadata
+        const apiUrl = `https://alphafold.ebi.ac.uk/api/prediction/${uniprotId}`;
+        const metaResp = await fetch(apiUrl);
+        if (!metaResp.ok) {
+            if (metaResp.status === 404) throw new Error(`UniProt ID "${uniprotId}" not found in AlphaFold DB.`);
+            throw new Error(`API error: ${metaResp.status} ${metaResp.statusText}`);
+        }
+        const meta = await metaResp.json();
+        const entry = Array.isArray(meta) ? meta[0] : meta;
+
+        const paeUrl = entry.paeDocUrl;
+        const pdbUrl = entry.pdbUrl;
+
+        if (!paeUrl || !pdbUrl) throw new Error('PAE or PDB data not available for this entry.');
+
+        // Step 2: Fetch PAE
+        setStatus('Fetching PAE data...', 'loading');
+        const paeResp = await fetch(paeUrl);
+        if (!paeResp.ok) throw new Error('Failed to fetch PAE data.');
+        const paeJson = await paeResp.json();
+
+        // Parse PAE: format is [{predicted_aligned_error: [[...]], max_predicted_aligned_error: 31.75}]
+        const paeEntry = Array.isArray(paeJson) ? paeJson[0] : paeJson;
+        monPae = paeEntry.predicted_aligned_error;
+        monPaeMax = paeEntry.max_predicted_aligned_error || 31.75;
+        monProteinLen = monPae.length;
+
+        // Step 3: Fetch PDB
+        setStatus('Fetching PDB structure...', 'loading');
+        const pdbResp = await fetch(pdbUrl);
+        if (!pdbResp.ok) throw new Error('Failed to fetch PDB data.');
+        monPdbText = await pdbResp.text();
+        monPdbFilename = `AF-${uniprotId}-F1-model_v4.pdb`;
+        monUniprotId = uniprotId;
+
+        // Parse PDB for CB coordinates
+        monCoords = parsePdbCoords(monPdbText);
+
+        setStatus(`Loaded: ${uniprotId} (${monProteinLen} residues)`, 'success');
+
+        // Show regions card
+        document.getElementById('regions-card').style.display = '';
+        document.getElementById('options-card').style.display = '';
+
+        // Initialize two default regions if none exist
+        if (monRegions.length === 0) {
+            addRegion();
+            addRegion();
+        }
+
+        // Draw initial PAE map
+        drawPaeMap();
+        updateColorSection();
+
+    } catch (e) {
+        setStatus(e.message, 'error');
+        console.error(e);
+    }
+
+    document.getElementById('btn-fetch').disabled = false;
+}
+
+// ============================================================================
+// PDB PARSING
+// ============================================================================
+
+function parsePdbCoords(pdbText) {
+    const residues = new Map(); // resnum -> {resnum, x, y, z}
+    for (const line of pdbText.split('\n')) {
+        const recType = line.substring(0, 6).trim();
+        if (recType !== 'ATOM' && recType !== 'HETATM') continue;
+        if (line.length < 54) continue;
+
+        const atomName = line.substring(12, 16).trim();
+        const resName = line.substring(17, 20).trim();
+        const resSeq = parseInt(line.substring(22, 26).trim());
+        const x = parseFloat(line.substring(30, 38).trim());
+        const y = parseFloat(line.substring(38, 46).trim());
+        const z = parseFloat(line.substring(46, 54).trim());
+
+        if (isNaN(resSeq) || isNaN(x) || isNaN(y) || isNaN(z)) continue;
+
+        if (atomName === 'CB') {
+            residues.set(resSeq, { resnum: resSeq, x, y, z });
+        } else if (atomName === 'CA' && resName === 'GLY' && !residues.has(resSeq)) {
+            residues.set(resSeq, { resnum: resSeq, x, y, z });
+        }
+    }
+    return [...residues.values()].sort((a, b) => a.resnum - b.resnum);
+}
+
+// ============================================================================
+// REGION MANAGEMENT
+// ============================================================================
+
+function addRegion() {
+    const name = String.fromCharCode(65 + monRegionCounter); // A, B, C, ...
+    const color = REGION_COLORS[monRegionCounter % REGION_COLORS.length];
+    monRegionCounter++;
+    monRegions.push({ name, start: '', end: '', color });
+    renderRegions();
+    updateColorSection();
+}
+
+function removeRegion(idx) {
+    if (monRegions.length <= 2) return; // minimum 2 regions
+    monRegions.splice(idx, 1);
+    renderRegions();
+    updateColorSection();
+    drawPaeMap();
+}
+
+function renderRegions() {
+    const container = document.getElementById('regions-container');
+    container.innerHTML = '';
+    for (let i = 0; i < monRegions.length; i++) {
+        const r = monRegions[i];
+        const row = document.createElement('div');
+        row.className = 'region-row';
+        row.innerHTML = `
+            <span class="region-color" style="background:${r.color};"></span>
+            <span class="region-label">Region ${r.name}</span>
+            <span style="font-size:0.85rem; color:#555;">Start:</span>
+            <input type="number" value="${r.start}" min="1" max="${monProteinLen}" placeholder="1" onchange="updateRegion(${i},'start',this.value)" oninput="updateRegion(${i},'start',this.value)">
+            <span style="font-size:0.85rem; color:#555;">End:</span>
+            <input type="number" value="${r.end}" min="1" max="${monProteinLen}" placeholder="${monProteinLen}" onchange="updateRegion(${i},'end',this.value)" oninput="updateRegion(${i},'end',this.value)">
+            <span style="font-size:0.8rem; color:#888;">(1&ndash;${monProteinLen})</span>
+            ${monRegions.length > 2 ? `<button class="remove-btn" onclick="removeRegion(${i})" title="Remove region">&times;</button>` : ''}
+        `;
+        container.appendChild(row);
+    }
+}
+
+function updateRegion(idx, field, value) {
+    monRegions[idx][field] = value ? parseInt(value) : '';
+    drawPaeMap();
+}
+
+// ============================================================================
+// COLOR SCHEME
+// ============================================================================
+
+function updateColorSection() {
+    const section = document.getElementById('color-section');
+    const strip = document.getElementById('color-strip');
+
+    // For 2 regions, show A/B color pickers
+    // For >2 regions, use auto-assigned colors
+    section.innerHTML = '';
+    strip.innerHTML = '';
+
+    if (monRegions.length <= 2) {
+        section.innerHTML = `
+            <div class="color-group">
+                <h3>Region A</h3>
+                <div class="color-pair">
+                    <input type="color" id="color-lir-a" value="#b3d4e8" oninput="onColorChange()">
+                    <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-a">#b3d4e8</div></div>
+                </div>
+                <div class="color-pair">
+                    <input type="color" id="color-clir-a" value="#2471A3" oninput="onColorChange()">
+                    <div><div class="color-label">cLIR</div><div class="color-hex" id="hex-clir-a">#2471A3</div></div>
+                </div>
+            </div>
+            <div class="color-group">
+                <h3>Region B</h3>
+                <div class="color-pair">
+                    <input type="color" id="color-lir-b" value="#f5cba7" oninput="onColorChange()">
+                    <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-b">#f5cba7</div></div>
+                </div>
+                <div class="color-pair">
+                    <input type="color" id="color-clir-b" value="#E67E22" oninput="onColorChange()">
+                    <div><div class="color-label">cLIR</div><div class="color-hex" id="hex-clir-b">#E67E22</div></div>
+                </div>
+            </div>
+        `;
+        strip.innerHTML = `<div style="background:#b3d4e8"></div><div style="background:#2471A3"></div><div style="background:#E67E22"></div><div style="background:#f5cba7"></div>`;
+    } else {
+        for (let i = 0; i < monRegions.length; i++) {
+            const r = monRegions[i];
+            const group = document.createElement('div');
+            group.className = 'color-group';
+            group.style.minWidth = '120px';
+            group.innerHTML = `<h3>Region ${r.name}</h3>
+                <div class="color-pair">
+                    <input type="color" value="${r.color}" oninput="monRegions[${i}].color=this.value; onColorChange();">
+                    <div><div class="color-label">${r.name}</div></div>
+                </div>`;
+            section.appendChild(group);
+            const d = document.createElement('div');
+            d.style.background = r.color;
+            strip.appendChild(d);
+        }
+    }
+}
+
+function onColorChange() {
+    // Update hex labels if they exist
+    const hexLirA = document.getElementById('hex-lir-a');
+    const hexClirA = document.getElementById('hex-clir-a');
+    const hexLirB = document.getElementById('hex-lir-b');
+    const hexClirB = document.getElementById('hex-clir-b');
+    if (hexLirA) {
+        hexLirA.textContent = document.getElementById('color-lir-a').value;
+        hexClirA.textContent = document.getElementById('color-clir-a').value;
+        hexLirB.textContent = document.getElementById('color-lir-b').value;
+        hexClirB.textContent = document.getElementById('color-clir-b').value;
+        const s = document.getElementById('color-strip').children;
+        s[0].style.background = document.getElementById('color-lir-a').value;
+        s[1].style.background = document.getElementById('color-clir-a').value;
+        s[2].style.background = document.getElementById('color-clir-b').value;
+        s[3].style.background = document.getElementById('color-lir-b').value;
+    }
+}
+
+function applyPreset(la, ca, lb, cb, el) {
+    const lirA = document.getElementById('color-lir-a');
+    if (!lirA) return; // multi-region mode, presets don't apply
+    lirA.value = la;
+    document.getElementById('color-clir-a').value = ca;
+    document.getElementById('color-lir-b').value = lb;
+    document.getElementById('color-clir-b').value = cb;
+    document.getElementById('hex-lir-a').textContent = la;
+    document.getElementById('hex-clir-a').textContent = ca;
+    document.getElementById('hex-lir-b').textContent = lb;
+    document.getElementById('hex-clir-b').textContent = cb;
+    const s = document.getElementById('color-strip').children;
+    s[0].style.background = la; s[1].style.background = ca; s[2].style.background = cb; s[3].style.background = lb;
+    if (el) { document.querySelectorAll('.preset-chip').forEach(p => p.classList.remove('active')); el.classList.add('active'); }
+}
+
+function swapColors() {
+    const lirA = document.getElementById('color-lir-a');
+    if (!lirA) return;
+    const la = lirA.value;
+    const ca = document.getElementById('color-clir-a').value;
+    const lb = document.getElementById('color-lir-b').value;
+    const cb = document.getElementById('color-clir-b').value;
+    applyPreset(lb, cb, la, ca, null);
+}
+
+function getColorsForRegionPair(idxI, idxJ) {
+    if (monRegions.length <= 2) {
+        return {
+            lir_a: document.getElementById('color-lir-a')?.value || '#b3d4e8',
+            clir_a: document.getElementById('color-clir-a')?.value || '#2471A3',
+            lir_b: document.getElementById('color-lir-b')?.value || '#f5cba7',
+            clir_b: document.getElementById('color-clir-b')?.value || '#E67E22',
+        };
+    }
+    const colA = monRegions[idxI]?.color || '#2471A3';
+    const colB = monRegions[idxJ]?.color || '#E67E22';
+    return { lir_a: colA, clir_a: colA, lir_b: colB, clir_b: colB };
+}
+
+// ============================================================================
+// CALCULATION
+// ============================================================================
+
+function calculate() {
+    if (!monPae) { setStatus('Please fetch data first.', 'error'); return; }
+
+    // Validate regions
+    const validRegions = [];
+    for (const r of monRegions) {
+        const s = parseInt(r.start);
+        const e = parseInt(r.end);
+        if (isNaN(s) || isNaN(e) || s < 1 || e > monProteinLen || s > e) {
+            setStatus(`Invalid region ${r.name}: start=${r.start}, end=${r.end}. Must be 1-${monProteinLen}.`, 'error');
+            return;
+        }
+        validRegions.push({ name: r.name, start: s, end: e, color: r.color });
+    }
+
+    if (validRegions.length < 2) {
+        setStatus('Please define at least two regions.', 'error');
+        return;
+    }
+
+    const paeCutoff = parseFloat(document.getElementById('pae-cutoff').value) || 12;
+    const cbCutoff = parseFloat(document.getElementById('cb-cutoff').value) || 8;
+
+    // Build contact map from coords
+    const coordMap = new Map();
+    for (const c of monCoords) coordMap.set(c.resnum, c);
+
+    // Calculate metrics for each pair of regions
+    monPairResults = [];
+    for (let i = 0; i < validRegions.length; i++) {
+        for (let j = i + 1; j < validRegions.length; j++) {
+            const ri = validRegions[i];
+            const rj = validRegions[j];
+            const result = calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap);
+            monPairResults.push(result);
+        }
+    }
+
+    setStatus('Calculation complete!', 'success');
+    displayResults(validRegions);
+}
+
+function calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap) {
+    let lisSum = 0, lisCount = 0;
+    let clisSum = 0, clisCount = 0;
+    const lirI = new Set(), lirJ = new Set();
+    const clirI = new Set(), clirJ = new Set();
+
+    for (let a = ri.start; a <= ri.end; a++) {
+        for (let b = rj.start; b <= rj.end; b++) {
+            // PAE indices are 0-based
+            const paeVal = monPae[a - 1][b - 1];
+            const paeValRev = monPae[b - 1][a - 1];
+            // Use the average of both directions
+            const paeAvg = (paeVal + paeValRev) / 2;
+
+            if (paeAvg < paeCutoff) {
+                const score = 1 - paeAvg / paeCutoff;
+                lisSum += score;
+                lisCount++;
+                lirI.add(a);
+                lirJ.add(b);
+
+                // Check Cb distance
+                const ci = coordMap.get(a);
+                const cj = coordMap.get(b);
+                if (ci && cj) {
+                    const dx = ci.x - cj.x;
+                    const dy = ci.y - cj.y;
+                    const dz = ci.z - cj.z;
+                    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                    if (dist < cbCutoff) {
+                        clisSum += score;
+                        clisCount++;
+                        clirI.add(a);
+                        clirJ.add(b);
+                    }
+                }
+            }
+        }
+    }
+
+    const lis = lisCount > 0 ? lisSum / lisCount : 0;
+    const clis = clisCount > 0 ? clisSum / clisCount : 0;
+    const ilis = Math.sqrt(lis * clis);
+
+    return {
+        ri, rj,
+        iLIS: ilis, LIS: lis, cLIS: clis,
+        lirI, lirJ, clirI, clirJ,
+        lenI: ri.end - ri.start + 1,
+        lenJ: rj.end - rj.start + 1,
+    };
+}
+
+// ============================================================================
+// DISPLAY
+// ============================================================================
+
+function displayResults(validRegions) {
+    document.getElementById('result-title').textContent = `${monUniprotId} \u2014 Region Pair Summary`;
+
+    // Metrics for first/primary pair
+    const metricsDiv = document.getElementById('pair-metrics');
+    if (monPairResults.length === 1) {
+        const v = monPairResults[0];
+        metricsDiv.innerHTML = `
+            <div class="metric"><div class="value">${v.iLIS.toFixed(3)}</div><div class="label">iLIS</div></div>
+            <div class="metric"><div class="value">${v.LIS.toFixed(3)}</div><div class="label">LIS</div></div>
+            <div class="metric"><div class="value">${v.cLIS.toFixed(3)}</div><div class="label">cLIS</div></div>
+            <div class="metric"><div class="value">${v.lirI.size}</div><div class="label">LIR (${v.ri.name})</div></div>
+            <div class="metric"><div class="value">${v.lirJ.size}</div><div class="label">LIR (${v.rj.name})</div></div>
+            <div class="metric"><div class="value">${v.clirI.size}</div><div class="label">cLIR (${v.ri.name})</div></div>
+            <div class="metric"><div class="value">${v.clirJ.size}</div><div class="label">cLIR (${v.rj.name})</div></div>
+        `;
+    } else {
+        metricsDiv.innerHTML = '';
+    }
+
+    // Table
+    const tbody = document.getElementById('pairs-tbody');
+    tbody.innerHTML = '';
+    for (const v of monPairResults) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${v.ri.name} (${v.ri.start}-${v.ri.end}) &mdash; ${v.rj.name} (${v.rj.start}-${v.rj.end})</td><td>${v.iLIS.toFixed(3)}</td><td>${v.LIS.toFixed(3)}</td><td>${v.cLIS.toFixed(3)}</td><td>${v.lirI.size}</td><td>${v.lirJ.size}</td><td>${v.clirI.size}</td><td>${v.clirJ.size}</td>`;
+        tbody.appendChild(tr);
+    }
+
+    // Score matrix for >2 regions
+    const matrixCard = document.getElementById('score-matrix-card');
+    if (validRegions.length > 2) {
+        matrixCard.style.display = '';
+        drawScoreMatrix(validRegions);
+        drawColorbar('colorbar-ilis', orangesColor, 0, 1);
+    } else {
+        matrixCard.style.display = 'none';
+    }
+
+    // PAE map with regions
+    drawPaeMapResult(validRegions);
+    drawColorbar('colorbar-pae-result', bwrColor, 0, 30);
+
+    // Generate CXC script
+    generateAndShowScript(validRegions);
+
+    document.getElementById('results').classList.add('active');
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+}
+
+function generateAndShowScript(validRegions) {
+    const paeCut = document.getElementById('pae-cutoff')?.value || '12';
+    const cbCut = document.getElementById('cb-cutoff')?.value || '8';
+
+    let lines = [
+        `# ChimeraX: ${monUniprotId} \u2014 Intramolecular Region Analysis`,
+        `# Protein length: ${monProteinLen} residues`,
+    ];
+
+    // Region summaries
+    for (const r of validRegions) {
+        lines.push(`# Region ${r.name}: residues ${r.start}-${r.end}`);
+    }
+    lines.push(`# Generated by Monomer-ChimeraX Tool`, '');
+    lines.push('close', `open ${monPdbFilename}`, '');
+    lines.push('# \u2500\u2500 Setup \u2500\u2500');
+    lines.push('set bgColor white', 'graphics silhouettes true', 'lighting soft');
+    lines.push('hide atoms', 'hide cartoons', '');
+
+    // Color and show each region
+    lines.push('# \u2500\u2500 Show Regions \u2500\u2500');
+
+    for (let ri = 0; ri < validRegions.length; ri++) {
+        const r = validRegions[ri];
+        const color = monRegions.length <= 2
+            ? (ri === 0 ? (document.getElementById('color-lir-a')?.value || '#b3d4e8') : (document.getElementById('color-lir-b')?.value || '#f5cba7'))
+            : r.color;
+
+        lines.push(`# Region ${r.name}: ${r.start}-${r.end}`);
+        lines.push(`show #1/A:${r.start}-${r.end} cartoons`);
+        lines.push(`color #1/A:${r.start}-${r.end} ${color}`);
+        lines.push('');
+    }
+
+    // Highlight cLIR residues for each pair
+    lines.push('# \u2500\u2500 Highlight cLIR residues \u2500\u2500');
+    for (const v of monPairResults) {
+        const colorsForPair = getColorsForRegionPair(
+            validRegions.indexOf(v.ri),
+            validRegions.indexOf(v.rj)
+        );
+        if (v.clirI.size > 0) {
+            const spec = resSpec(v.clirI, 'A');
+            const color = monRegions.length <= 2 ? colorsForPair.clir_a : v.ri.color;
+            lines.push(`# cLIR ${v.ri.name}: ${v.clirI.size} residues (from ${v.ri.name}-${v.rj.name} pair)`);
+            lines.push(`color #1${spec} ${color}`);
+        }
+        if (v.clirJ.size > 0) {
+            const spec = resSpec(v.clirJ, 'A');
+            const color = monRegions.length <= 2 ? colorsForPair.clir_b : v.rj.color;
+            lines.push(`# cLIR ${v.rj.name}: ${v.clirJ.size} residues (from ${v.ri.name}-${v.rj.name} pair)`);
+            lines.push(`color #1${spec} ${color}`);
+        }
+    }
+    lines.push('');
+
+    // Title labels
+    lines.push('# \u2500\u2500 Title \u2500\u2500');
+    const regionLabels = validRegions.map(r => `Region ${r.name} (${r.start}-${r.end})`).join('  ');
+    lines.push(`2dlabels create title text "${monUniprotId}: ${regionLabels}" xpos 0.03 ypos 0.95 size 14 color black bold true`);
+    lines.push('');
+
+    lines.push('# \u2500\u2500 Final \u2500\u2500', 'view', 'lighting soft depthCue true', '');
+    lines.push('# \u2500\u2500 Save figure \u2500\u2500');
+    lines.push(`save ${monUniprotId}_regions.png transparentBackground true`);
+    lines.push('');
+    lines.push('# \u2500\u2500 Color Legend \u2500\u2500');
+    lines.push(`# LIR  = Local Interaction Region (PAE <= ${paeCut})`);
+    lines.push(`# cLIR = contact LIR (PAE <= ${paeCut} & C-beta <= ${cbCut} \u00c5)`);
+    for (const r of validRegions) {
+        lines.push(`# Region ${r.name}: residues ${r.start}-${r.end}`);
+    }
+    lines.push('# Non-region residues are HIDDEN');
+
+    const cxc = lines.join('\n');
+    document.getElementById('script-preview').innerHTML = highlightCxc(cxc);
+
+    const dlCxc = document.getElementById('dl-cxc');
+    dlCxc.href = URL.createObjectURL(new Blob([cxc], { type: 'text/plain' }));
+    dlCxc.download = `${monUniprotId}_regions.cxc`;
+
+    const dlPdb = document.getElementById('dl-pdb');
+    dlPdb.href = URL.createObjectURL(new Blob([monPdbText], { type: 'text/plain' }));
+    dlPdb.download = monPdbFilename;
+}
+
+function downloadCSV() {
+    if (!monPairResults.length) return;
+    const header = 'uniprot_id,region_i,region_i_range,region_j,region_j_range,iLIS,LIS,cLIS,LIR_i,LIR_j,cLIR_i,cLIR_j,LIR_indices_i,LIR_indices_j,cLIR_indices_i,cLIR_indices_j';
+    const rows = [header];
+    for (const v of monPairResults) {
+        rows.push([
+            monUniprotId, v.ri.name, `${v.ri.start}-${v.ri.end}`, v.rj.name, `${v.rj.start}-${v.rj.end}`,
+            v.iLIS.toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
+            v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
+            `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
+            `"[${[...v.lirJ].sort((a,b)=>a-b).join(', ')}]"`,
+            `"[${[...v.clirI].sort((a,b)=>a-b).join(', ')}]"`,
+            `"[${[...v.clirJ].sort((a,b)=>a-b).join(', ')}]"`,
+        ].join(','));
+    }
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${monUniprotId}_region_analysis.csv`;
+    a.click();
+}
+
+// ============================================================================
+// HELPER FUNCTIONS (reused from AF3 tool)
+// ============================================================================
+
+function resSpec(positions, chain) {
+    if (positions.size === 0) return '';
+    const sorted = [...positions].sort((a, b) => a - b);
+    const ranges = [];
+    let start = sorted[0], end = sorted[0];
+    for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i] === end + 1) end = sorted[i];
+        else { ranges.push(start === end ? `${start}` : `${start}-${end}`); start = end = sorted[i]; }
+    }
+    ranges.push(start === end ? `${start}` : `${start}-${end}`);
+    return `/${chain}:${ranges.join(',')}`;
+}
+
+function fillGaps(positions, maxGap = 20) {
+    if (positions.size === 0) return new Set();
+    const sorted = [...positions].sort((a, b) => a - b);
+    const filled = new Set(sorted);
+    for (let i = 0; i < sorted.length - 1; i++) {
+        const gap = sorted[i + 1] - sorted[i] - 1;
+        if (gap > 0 && gap <= maxGap) {
+            for (let j = sorted[i] + 1; j < sorted[i + 1]; j++) filled.add(j);
+        }
+    }
+    return filled;
+}
+
+function rangesStr(positions) {
+    if (positions.size === 0) return 'none';
+    const sorted = [...positions].sort((a, b) => a - b);
+    const ranges = [];
+    let start = sorted[0], end = sorted[0];
+    for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i] <= end + 15) end = sorted[i];
+        else { ranges.push(`${start}-${end}`); start = end = sorted[i]; }
+    }
+    ranges.push(`${start}-${end}`);
+    return ranges.join(', ');
+}
+
+function highlightCxc(text) {
+    return text.split('\n').map(line => {
+        if (line.startsWith('#')) return `<span class="comment">${esc(line)}</span>`;
+        line = esc(line).replace(/(#[0-9A-Fa-f]{6})/g, '<span class="color-val">$1</span>');
+        const m = line.match(/^(\w+)/);
+        if (m) line = `<span class="command">${m[1]}</span>` + line.slice(m[1].length);
+        return line;
+    }).join('\n');
+}
+
+function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// ============================================================================
+// MAP DRAWING
+// ============================================================================
+
+const HIRES = 2;
+
+function bwrColor(value, vmin, vmax) {
+    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
+    let r, g, b;
+    if (t < 0.5) {
+        const s = t / 0.5;
+        r = Math.round(s * 255); g = Math.round(s * 255); b = 255;
+    } else {
+        const s = (t - 0.5) / 0.5;
+        r = 255; g = Math.round((1 - s) * 255); b = Math.round((1 - s) * 255);
+    }
+    return [r, g, b];
+}
+
+function orangesColor(value, vmin, vmax) {
+    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
+    return [255, Math.round(255 - t * 128), Math.round(255 - t * 220)];
+}
+
+function drawPaeMap() {
+    if (!monPae) return;
+    const canvas = document.getElementById('pae-canvas');
+    drawMapCanvasSingle(canvas, monPae, monProteinLen, bwrColor, 0, 30, monRegions);
+    drawColorbar('colorbar-pae', bwrColor, 0, 30);
+}
+
+function drawPaeMapResult(validRegions) {
+    if (!monPae) return;
+    const canvas = document.getElementById('pae-result-canvas');
+    drawMapCanvasSingle(canvas, monPae, monProteinLen, bwrColor, 0, 30, validRegions);
+}
+
+function drawMapCanvasSingle(canvas, map2d, n, colorFn, vmin, vmax, regions) {
+    const leftMargin = 30;
+    const bottomMargin = 36;
+    const maxDisplaySize = 500;
+    const displaySize = Math.min(maxDisplaySize, Math.max(250, n));
+    const plotPx = displaySize * HIRES;
+    const leftPx = leftMargin * HIRES;
+    const bottomPx = bottomMargin * HIRES;
+    const scale = plotPx / n;
+
+    canvas.width = plotPx + leftPx;
+    canvas.height = plotPx + bottomPx;
+    canvas.style.width = (displaySize + leftMargin) + 'px';
+    canvas.style.height = (displaySize + bottomMargin) + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw map pixels
+    const imgData = ctx.createImageData(plotPx, plotPx);
+    const data = imgData.data;
+    for (let py = 0; py < plotPx; py++) {
+        const i = Math.min(n - 1, Math.floor(py / scale));
+        const row = map2d[i];
+        for (let px = 0; px < plotPx; px++) {
+            const j = Math.min(n - 1, Math.floor(px / scale));
+            const [r, g, b] = colorFn(row[j], vmin, vmax);
+            const idx = (py * plotPx + px) * 4;
+            data[idx] = r; data[idx + 1] = g; data[idx + 2] = b; data[idx + 3] = 255;
+        }
+    }
+    ctx.putImageData(imgData, leftPx, 0);
+
+    // Edge border
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 0.5 * HIRES;
+    ctx.strokeRect(leftPx, 0, plotPx, plotPx);
+
+    // Axis labels
+    const tickFont = 9 * HIRES;
+    ctx.font = `${tickFont}px sans-serif`;
+    ctx.fillStyle = '#555';
+
+    // Y-axis: label at top, middle, bottom
+    const yTicks = [1, Math.round(n / 2), n];
+    for (const t of yTicks) {
+        const py = (t - 0.5) * scale;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(t, leftPx - 4 * HIRES, py);
+    }
+
+    // X-axis: label at left, middle, right
+    const xTicks = [1, Math.round(n / 2), n];
+    for (const t of xTicks) {
+        const px = leftPx + (t - 0.5) * scale;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(t, px, plotPx + 3 * HIRES);
+    }
+
+    // Axis titles
+    ctx.font = `${10 * HIRES}px sans-serif`;
+    ctx.fillStyle = '#333';
+    ctx.textAlign = 'center';
+    ctx.fillText('Aligned residue', leftPx + plotPx / 2, plotPx + 18 * HIRES);
+    ctx.save();
+    ctx.translate(8 * HIRES, plotPx / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('Scored residue', 0, 0);
+    ctx.restore();
+
+    // Draw region boundaries
+    if (regions && regions.length > 0) {
+        for (const r of regions) {
+            const s = parseInt(r.start);
+            const e = parseInt(r.end);
+            if (isNaN(s) || isNaN(e) || s < 1 || e > n || s > e) continue;
+
+            const x1 = leftPx + (s - 1) * scale;
+            const x2 = leftPx + e * scale;
+            const y1 = (s - 1) * scale;
+            const y2 = e * scale;
+
+            ctx.strokeStyle = r.color;
+            ctx.lineWidth = 2.5 * HIRES;
+
+            // Diagonal block (self-interaction)
+            ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+            // Cross-blocks with other regions
+            for (const r2 of regions) {
+                if (r2 === r) continue;
+                const s2 = parseInt(r2.start);
+                const e2 = parseInt(r2.end);
+                if (isNaN(s2) || isNaN(e2) || s2 < 1 || e2 > n || s2 > e2) continue;
+
+                const x2b = leftPx + (s2 - 1) * scale;
+                const x2e = leftPx + e2 * scale;
+                const y2b = (s - 1) * scale;
+                const y2e = e * scale;
+
+                // Draw the row-block for this region pair (region r on Y-axis, region r2 on X-axis)
+                ctx.strokeStyle = r.color;
+                ctx.lineWidth = 1.5 * HIRES;
+                ctx.strokeRect(x2b, y2b, x2e - x2b, y2e - y2b);
+            }
+        }
+    }
+}
+
+function drawScoreMatrix(validRegions) {
+    const canvas = document.getElementById('score-matrix-canvas');
+    const nc = validRegions.length;
+    const cellSize = Math.min(80, Math.floor(400 / nc));
+    const leftMargin = 50;
+    const bottomMargin = 40;
+    const gridPx = cellSize * nc * HIRES;
+    const leftPx = leftMargin * HIRES;
+    const cPx = cellSize * HIRES;
+
+    canvas.width = gridPx + leftPx;
+    canvas.height = gridPx + bottomMargin * HIRES;
+    canvas.style.width = (cellSize * nc + leftMargin) + 'px';
+    canvas.style.height = (cellSize * nc + bottomMargin) + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Build iLIS grid
+    const ilisGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
+    for (const v of monPairResults) {
+        const i = validRegions.indexOf(v.ri);
+        const j = validRegions.indexOf(v.rj);
+        if (i >= 0 && j >= 0) {
+            ilisGrid[i][j] = v.iLIS;
+            ilisGrid[j][i] = v.iLIS;
+        }
+    }
+
+    // Draw cells
+    for (let i = 0; i < nc; i++) {
+        for (let j = 0; j < nc; j++) {
+            let r, g, b;
+            if (i === j) {
+                r = 240; g = 240; b = 240;
+                ctx.fillStyle = `rgb(${r},${g},${b})`;
+                ctx.fillRect(leftPx + j * cPx, i * cPx, cPx, cPx);
+                continue;
+            }
+            const val = ilisGrid[i][j];
+            [r, g, b] = orangesColor(val, 0, 1);
+            ctx.fillStyle = `rgb(${r},${g},${b})`;
+            ctx.fillRect(leftPx + j * cPx, i * cPx, cPx, cPx);
+
+            // Numeric value
+            const fontSize = Math.max(10, Math.min(16, cellSize / 3)) * HIRES;
+            ctx.font = `${fontSize}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = val > 0.5 ? 'white' : 'black';
+            ctx.fillText(val.toFixed(3), leftPx + j * cPx + cPx / 2, i * cPx + cPx / 2);
+        }
+    }
+
+    // Grid lines
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 0.5 * HIRES;
+    for (let i = 0; i <= nc; i++) {
+        ctx.beginPath(); ctx.moveTo(leftPx, i * cPx); ctx.lineTo(leftPx + nc * cPx, i * cPx); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(leftPx + i * cPx, 0); ctx.lineTo(leftPx + i * cPx, nc * cPx); ctx.stroke();
+    }
+
+    // Labels
+    const labelFont = Math.max(10, Math.min(14, cellSize / 3)) * HIRES;
+    ctx.font = `${labelFont}px sans-serif`;
+    ctx.fillStyle = '#333';
+    for (let k = 0; k < nc; k++) {
+        const label = `${validRegions[k].name}`;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, leftPx - 4 * HIRES, k * cPx + cPx / 2);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(label, leftPx + k * cPx + cPx / 2, gridPx + 4 * HIRES);
+    }
+}
+
+function drawColorbar(canvasId, colorFn, vmin, vmax) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    for (let x = 0; x < w; x++) {
+        const v = vmin + (x / w) * (vmax - vmin);
+        const [r, g, b] = colorFn(v, vmin, vmax);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(x, 0, 1, canvas.height);
+    }
+}
+</script>
+</body>
+</html>
