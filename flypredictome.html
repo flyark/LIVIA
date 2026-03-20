@@ -592,9 +592,11 @@
 
     <div class="footer">
         Made by Ah-Ram Kim &middot;
-        <a href="universal.html">Universal Prediction</a> &middot;
-        Metrics defined by <a href="https://github.com/flyark/AFM-LIS">AFM-LIS</a> &middot;
-        Visualization in <a href="https://www.cgl.ucsf.edu/chimerax/">UCSF ChimeraX</a>
+        <a href="https://github.com/flyark/AFM-LIS" style="color:#2471A3; text-decoration:none;">AFM-LIS</a> &middot;
+        <a href="universal.html" style="color:#2471A3; text-decoration:none;">Universal Prediction</a> &middot;
+        <a href="dimer.html" style="color:#2471A3; text-decoration:none;">AFDB Dimer</a> &middot;
+        <a href="monomer.html" style="color:#2471A3; text-decoration:none;">AFDB Monomer Subdomain</a> &middot;
+        <a href="https://github.com/flyark/in_silico_ppi_analysis" style="color:#2471A3; text-decoration:none;">GitHub</a>
     </div>
 </div>
 
@@ -1181,8 +1183,8 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     ctx.scale(S, S);
 
     // Helper: residue to x position
-    const xA = (res) => barLeft + ((res - 1) / (lenA - 1)) * barW;
-    const xB = (res) => barLeft + ((res - 1) / (lenB - 1)) * barW;
+    const xA = (res) => barLeft + ((res - 1) / Math.max(1, lenA - 1)) * barW;
+    const xB = (res) => barLeft + ((res - 1) / Math.max(1, lenB - 1)) * barW;
 
     // Draw Chain A bar
     ctx.fillStyle = '#f0f0f0';
@@ -1487,7 +1489,7 @@ function buildFlySeqViewer(row, sym1, sym2, colors, chainSeqs) {
                 const isLir = cc.lir.has(resnum);
                 const el = document.createElement('span');
                 el.className = 'seq-res' + (isClir ? ' clir' : '');
-                el.style.background = isClir ? cc.clirColor : isLir ? lightenColor(cc.clirColor, 0.4) : 'transparent';
+                el.style.background = isClir ? cc.clirColor : isLir ? lightenColor(cc.clirColor.replace('#',''), 0.4) : 'transparent';
                 if (aa) el.textContent = aa;
                 el.addEventListener('mouseenter', (e) => {
                     tooltip.textContent = (aa ? `${aa}${resnum}` : `Res ${resnum}`) + (isClir ? ' (cLIR)' : isLir ? ' (LIR)' : '');
@@ -1521,14 +1523,14 @@ function buildFlySeqViewer(row, sym1, sym2, colors, chainSeqs) {
 
 function downloadFlyCSV() {
     if (!flyParsed || flyParsed.rows.length === 0) return;
-    const header = 'name,model,chain_A,chain_B,iLIS,ipSAE,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
+    const header = 'name,model,chain_A,chain_B,iLIS,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
     const rows = [header];
     for (const r of flyParsed.rows) {
         const sym1 = r['Symbol 1'] || '';
         const sym2 = r['Symbol 2'] || '';
         rows.push([
             `${sym1}_${sym2}`, r['Rank'] || '', sym1, sym2,
-            r['iLIS'] != null ? parseFloat(r['iLIS']).toFixed(6) : '', '',
+            r['iLIS'] != null ? parseFloat(r['iLIS']).toFixed(6) : '',
             '', '',
             r['ipTM'] != null ? parseFloat(r['ipTM']).toFixed(6) : '', '', '',
             r._LIR_A.size, r._LIR_B.size, r._cLIR_A.size, r._cLIR_B.size,

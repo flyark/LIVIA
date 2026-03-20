@@ -191,32 +191,16 @@
 
         <!-- Combined iLIS/ipTM Heatmaps -->
         <div class="card result-card" id="score-matrix-card" style="display:none;">
-            <h2>Score Matrix <span style="font-weight:400; font-size:0.8rem; color:#888;">(lower-left: iLIS, upper-right: ipTM)</span></h2>
+            <h2>iLIS / cLIR Matrix <span style="font-weight:400; font-size:0.8rem; color:#888;">(lower-left: iLIS, upper-right: cLIR count)</span></h2>
             <div class="map-row" id="combined-row"></div>
             <div class="colorbar-row" style="flex-direction:row; gap:2rem; justify-content:center;">
-                <div style="text-align:center">
-                    <canvas id="colorbar-ilis" width="140" height="14"></canvas>
-                    <div class="colorbar-labels" style="width:140px;"><span>0</span><span>iLIS (Oranges)</span><span>1</span></div>
+                <div style="display:flex; align-items:center; gap:0.3rem;">
+                    <canvas id="colorbar-ilis" width="60" height="8"></canvas>
+                    <span style="font-size:0.7rem; color:#888;">iLIS (0&ndash;1)</span>
                 </div>
-                <div style="text-align:center">
-                    <canvas id="colorbar-iptm" width="140" height="14"></canvas>
-                    <div class="colorbar-labels" style="width:140px;"><span>0</span><span>ipTM (Purples)</span><span>1</span></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Combined LIR/cLIR Heatmaps -->
-        <div class="card result-card" id="lir-matrix-card" style="display:none;">
-            <h2>Residue Count Matrix <span style="font-weight:400; font-size:0.8rem; color:#888;">(lower-left: LIR, upper-right: cLIR)</span></h2>
-            <div class="map-row" id="lir-combined-row"></div>
-            <div class="colorbar-row" style="flex-direction:row; gap:2rem; justify-content:center;">
-                <div style="text-align:center">
-                    <canvas id="colorbar-lir" width="140" height="14"></canvas>
-                    <div class="colorbar-labels" style="width:140px;"><span>0</span><span>LIR (Blues)</span><span id="lir-max-label">max</span></div>
-                </div>
-                <div style="text-align:center">
-                    <canvas id="colorbar-clir" width="140" height="14"></canvas>
-                    <div class="colorbar-labels" style="width:140px;"><span>0</span><span>cLIR (Greens)</span><span id="clir-max-label">max</span></div>
+                <div style="display:flex; align-items:center; gap:0.3rem;">
+                    <canvas id="colorbar-clir" width="60" height="8"></canvas>
+                    <span style="font-size:0.7rem; color:#888;">cLIR</span>
                 </div>
             </div>
         </div>
@@ -419,11 +403,11 @@
 
     <div class="footer">
         Made by Ah-Ram Kim &middot;
-        <a href="flypredictome.html">FlyPredictome</a> &middot;
-        <a href="dimer.html">AFDB Dimer</a> &middot;
-        <a href="monomer.html">AFDB Monomer Subdomain</a> &middot;
-        Metrics defined by <a href="https://github.com/flyark/AFM-LIS">AFM-LIS</a> &middot;
-        Visualization in <a href="https://www.cgl.ucsf.edu/chimerax/">UCSF ChimeraX</a>
+        <a href="https://github.com/flyark/AFM-LIS" style="color:#2471A3; text-decoration:none;">AFM-LIS</a> &middot;
+        <a href="flypredictome.html" style="color:#2471A3; text-decoration:none;">FlyPredictome</a> &middot;
+        <a href="dimer.html" style="color:#2471A3; text-decoration:none;">AFDB Dimer</a> &middot;
+        <a href="monomer.html" style="color:#2471A3; text-decoration:none;">AFDB Monomer Subdomain</a> &middot;
+        <a href="https://github.com/flyark/in_silico_ppi_analysis" style="color:#2471A3; text-decoration:none;">GitHub</a>
     </div>
 </div>
 
@@ -2010,7 +1994,6 @@ function displayResults(results, jobName) {
     // Show/hide multi-chain cards
     const nc = uniState.chainNames ? uniState.chainNames.length : 0;
     document.getElementById('score-matrix-card').style.display = nc > 1 ? '' : 'none';
-    document.getElementById('lir-matrix-card').style.display = nc > 1 ? '' : 'none';
 
     makeSortable(document.getElementById('pairs-table'));
 
@@ -2364,81 +2347,11 @@ function dilateMap(map2d, radius) {
     return result;
 }
 
-function drawCombinedHeatmap(canvas, ilisGrid, iptmGrid, chainNames) {
+function drawCombinedHeatmap(canvas, ilisGrid, clirGrid, chainNames, globalClirMax) {
     const nc = chainNames.length;
     const displaySize = calcMapDisplaySize();
     const leftMargin = 20;
-    const bottomMargin = 28;
-    const cellDisplaySize = Math.floor(displaySize / nc);
-    const gridDisplay = cellDisplaySize * nc;
-    const leftPx = leftMargin * HIRES;
-    const bottomPx = bottomMargin * HIRES;
-    const gridPx = gridDisplay * HIRES;
-    const cPx = cellDisplaySize * HIRES;
-
-    canvas.width = gridPx + leftPx;
-    canvas.height = gridPx + bottomPx;
-    canvas.style.width = (gridDisplay + leftMargin) + 'px';
-    canvas.style.height = (gridDisplay + bottomMargin) + 'px';
-
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    for (let i = 0; i < nc; i++) {
-        for (let j = 0; j < nc; j++) {
-            let r, g, b;
-            let val, decimalPlaces;
-            if (i === j) {
-                ctx.fillStyle = 'rgb(240,240,240)';
-                ctx.fillRect(leftPx + j * cPx, i * cPx, cPx, cPx);
-                continue;
-            } else if (i > j) {
-                val = ilisGrid[i][j];
-                [r, g, b] = orangesColor(val, 0, 1);
-                decimalPlaces = 3;
-            } else {
-                val = iptmGrid[i][j];
-                [r, g, b] = purplesColor(val, 0, 1);
-                decimalPlaces = 3;
-            }
-            ctx.fillStyle = `rgb(${r},${g},${b})`;
-            ctx.fillRect(leftPx + j * cPx, i * cPx, cPx, cPx);
-
-            const fontSize = Math.max(8, Math.min(14, cellDisplaySize / 4)) * HIRES;
-            ctx.font = `${fontSize}px sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillStyle = val > 0.5 ? 'white' : 'black';
-            ctx.fillText(val.toFixed(decimalPlaces), leftPx + j * cPx + cPx / 2, i * cPx + cPx / 2);
-        }
-    }
-
-    ctx.strokeStyle = '#ccc';
-    ctx.lineWidth = 0.5 * HIRES;
-    for (let i = 0; i <= nc; i++) {
-        ctx.beginPath(); ctx.moveTo(leftPx, i * cPx); ctx.lineTo(leftPx + nc * cPx, i * cPx); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(leftPx + i * cPx, 0); ctx.lineTo(leftPx + i * cPx, nc * cPx); ctx.stroke();
-    }
-
-    const labelFont = Math.max(9, Math.min(12, cellDisplaySize / 3)) * HIRES;
-    ctx.font = `${labelFont}px sans-serif`;
-    ctx.fillStyle = '#333';
-    for (let k = 0; k < nc; k++) {
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(chainNames[k], leftPx - 3 * HIRES, k * cPx + cPx / 2);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(chainNames[k], leftPx + k * cPx + cPx / 2, gridPx + 4 * HIRES);
-    }
-}
-
-function drawCombinedLirHeatmap(canvas, lirGrid, clirGrid, chainNames, lirMax, clirMax) {
-    const nc = chainNames.length;
-    const displaySize = calcMapDisplaySize();
-    const leftMargin = 20;
-    const bottomMargin = 28;
+    const bottomMargin = 22;
     const cellDisplaySize = Math.floor(displaySize / nc);
     const gridDisplay = cellDisplaySize * nc;
     const leftPx = leftMargin * HIRES;
@@ -2454,35 +2367,58 @@ function drawCombinedLirHeatmap(canvas, lirGrid, clirGrid, chainNames, lirMax, c
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    const maxClir = globalClirMax || 1;
+
     for (let i = 0; i < nc; i++) {
         for (let j = 0; j < nc; j++) {
-            let r, g, b, val, maxVal;
-            if (i === j) {
-                ctx.fillStyle = 'rgb(240,240,240)';
-                ctx.fillRect(leftPx + j * cPx, i * cPx, cPx, cPx);
-                continue;
-            } else if (i > j) {
-                val = lirGrid[i][j];
-                maxVal = lirMax || 1;
-                [r, g, b] = bluesColor(val, 0, maxVal);
-            } else {
-                val = clirGrid[i][j];
-                maxVal = clirMax || 1;
-                [r, g, b] = greensColor(val, 0, maxVal);
-            }
-            ctx.fillStyle = `rgb(${r},${g},${b})`;
-            ctx.fillRect(leftPx + j * cPx, i * cPx, cPx, cPx);
+            const x = leftPx + j * cPx;
+            const y = i * cPx;
 
-            const fontSize = Math.max(7, Math.min(12, cellDisplaySize / 4)) * HIRES;
-            ctx.font = `${fontSize}px sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            const t = val / (maxVal || 1);
-            ctx.fillStyle = t > 0.6 ? 'white' : 'black';
-            ctx.fillText(Math.round(val), leftPx + j * cPx + cPx / 2, i * cPx + cPx / 2);
+            if (i === j) {
+                ctx.fillStyle = '#f0f0f0';
+                ctx.fillRect(x, y, cPx, cPx);
+                continue;
+            }
+
+            if (i > j) {
+                // Bottom-left: iLIS (Oranges)
+                const val = ilisGrid[i][j];
+                const [r, g, b] = orangesColor(val, 0, 1);
+                ctx.fillStyle = `rgb(${r},${g},${b})`;
+                ctx.fillRect(x, y, cPx, cPx);
+
+                const fontSize = Math.max(8, Math.min(14, cellDisplaySize / 3.5)) * HIRES;
+                ctx.font = `bold ${fontSize}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = val > 0.5 ? 'white' : '#333';
+                ctx.fillText(val.toFixed(3), x + cPx / 2, y + cPx / 2);
+            } else {
+                // Top-right: cLIR (white → green, 0 = pure white)
+                const val = clirGrid[i][j];
+                if (val === 0) {
+                    ctx.fillStyle = '#ffffff';
+                } else {
+                    const t = Math.min(1, val / maxClir);
+                    const r2 = Math.round(255 * (1 - t));
+                    const g2 = Math.round(255 - t * 85);
+                    const b2 = Math.round(255 * (1 - t));
+                    ctx.fillStyle = `rgb(${r2},${g2},${b2})`;
+                }
+                ctx.fillRect(x, y, cPx, cPx);
+
+                const fontSize = Math.max(8, Math.min(14, cellDisplaySize / 3.5)) * HIRES;
+                ctx.font = `bold ${fontSize}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const t = maxClir > 0 ? val / maxClir : 0;
+                ctx.fillStyle = t > 0.6 ? 'white' : '#333';
+                ctx.fillText(val.toFixed(0), x + cPx / 2, y + cPx / 2);
+            }
         }
     }
 
+    // Grid lines
     ctx.strokeStyle = '#ccc';
     ctx.lineWidth = 0.5 * HIRES;
     for (let i = 0; i <= nc; i++) {
@@ -2490,8 +2426,17 @@ function drawCombinedLirHeatmap(canvas, lirGrid, clirGrid, chainNames, lirMax, c
         ctx.beginPath(); ctx.moveTo(leftPx + i * cPx, 0); ctx.lineTo(leftPx + i * cPx, nc * cPx); ctx.stroke();
     }
 
+    // Diagonal line
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 1.5 * HIRES;
+    ctx.beginPath();
+    ctx.moveTo(leftPx, 0);
+    ctx.lineTo(leftPx + gridPx, gridPx);
+    ctx.stroke();
+
+    // Labels
     const labelFont = Math.max(9, Math.min(12, cellDisplaySize / 3)) * HIRES;
-    ctx.font = `${labelFont}px sans-serif`;
+    ctx.font = `bold ${labelFont}px sans-serif`;
     ctx.fillStyle = '#333';
     for (let k = 0; k < nc; k++) {
         ctx.textAlign = 'right';
@@ -2524,8 +2469,17 @@ function drawAllMaps() {
         drawMapCanvas(canvas, model.pae, model.nTotal, chainSizes, chainNames, bwrColor, 0, 30);
     }
 
-    // Combined iLIS/ipTM Heatmaps (multi-chain only)
+    // Combined iLIS/cLIR Heatmaps (multi-chain only)
     if (chainNames.length > 1) {
+        // Find global max cLIR across all models
+        let globalClirMax = 0;
+        for (const model of uniState.modelData) {
+            const nc = model.clirGrid.length;
+            for (let i = 0; i < nc; i++)
+                for (let j = 0; j < nc; j++)
+                    if (i !== j) globalClirMax = Math.max(globalClirMax, model.clirGrid[i][j]);
+        }
+
         const combinedRow = document.getElementById('combined-row');
         combinedRow.innerHTML = '';
         for (let mi = 0; mi < uniState.modelData.length; mi++) {
@@ -2539,42 +2493,8 @@ function drawAllMaps() {
             item.appendChild(label);
             item.appendChild(canvas);
             combinedRow.appendChild(item);
-            drawCombinedHeatmap(canvas, model.ilisGrid, model.iptmGrid, chainNames);
+            drawCombinedHeatmap(canvas, model.ilisGrid, model.clirGrid, chainNames, globalClirMax);
         }
-
-        // Combined LIR/cLIR Heatmaps
-        const lirCombinedRow = document.getElementById('lir-combined-row');
-        lirCombinedRow.innerHTML = '';
-        let globalLirMax = 0, globalClirMax = 0;
-        for (const model of uniState.modelData) {
-            const nc = model.lirGrid.length;
-            for (let i = 0; i < nc; i++) {
-                for (let j = 0; j < nc; j++) {
-                    if (i !== j) {
-                        globalLirMax = Math.max(globalLirMax, model.lirGrid[i][j]);
-                        globalClirMax = Math.max(globalClirMax, model.clirGrid[i][j]);
-                    }
-                }
-            }
-        }
-        document.getElementById('lir-max-label').textContent = globalLirMax;
-        document.getElementById('clir-max-label').textContent = globalClirMax;
-
-        for (let mi = 0; mi < uniState.modelData.length; mi++) {
-            const model = uniState.modelData[mi];
-            const item = document.createElement('div');
-            item.className = 'map-item';
-            const canvas = document.createElement('canvas');
-            const label = document.createElement('div');
-            label.className = 'map-label';
-            label.textContent = model.label;
-            item.appendChild(label);
-            item.appendChild(canvas);
-            lirCombinedRow.appendChild(item);
-            drawCombinedLirHeatmap(canvas, model.lirGrid, model.clirGrid, chainNames, globalLirMax, globalClirMax);
-        }
-        drawColorbar('colorbar-lir', bluesColor, 0, 1);
-        drawColorbar('colorbar-clir', greensColor, 0, 1);
     }
 
     // LIS Maps
@@ -2618,7 +2538,7 @@ function drawAllMaps() {
     drawColorbar('colorbar-lis', bluesColor, 0, 1);
     drawColorbar('colorbar-clis', greensColor, 0, 1);
     drawColorbar('colorbar-ilis', orangesColor, 0, 1);
-    drawColorbar('colorbar-iptm', purplesColor, 0, 1);
+    drawColorbar('colorbar-clir', greensColor, 0, 1);
 }
 
 function drawColorbar(canvasId, colorFn, vmin, vmax) {

@@ -124,13 +124,15 @@
                 <li><strong>All Ranks table</strong> &mdash; shows iLIS, LIS, cLIS, ipTM, LIR/cLIR counts for all 5 ranked models; click any row to load that rank</li>
                 <li><strong>Sequence viewer</strong> &mdash; displays actual amino acid letters for each chain with LIR (light color) and cLIR (dark color) highlighting</li>
                 <li><strong>ChimeraX script</strong> &mdash; syntax-highlighted preview with color presets (Gradient, Solid, ChimeraX defaults); Swap A &harr; B button reverses chain colors</li>
+                <li><strong>Interface Contact Map</strong> &mdash; lines connect cLIR residue pairs in physical contact, with color gradient from chain A to chain B</li>
+                <li><strong>Chain Interaction Map</strong> &mdash; circular chord diagram showing chain arcs (proportional to length) and lines connecting cLIR residue pairs in contact</li>
                 <li><strong>Downloads</strong> &mdash; .cxc script, .pdb structure, and CSV of all ranks with full metrics</li>
             </ul>
         </div>
     </div>
 
     <!-- ================================================================ -->
-    <!-- TOOL 2: AF3 -->
+    <!-- TOOL 2: UNIVERSAL -->
     <!-- ================================================================ -->
     <div class="tool-section">
         <h2 class="tool-title">2. Universal Prediction Analysis</h2>
@@ -138,7 +140,7 @@
         <div class="subsection">
             <h3>Quick Start</h3>
             <ol class="quick-steps">
-                <li>Run a prediction using any supported platform (AlphaFold3, AlphaFold2, ColabFold, Boltz-1/2, Chai-1, OpenFold3, or RoseTTAFold3)</li>
+                <li>Run a prediction using any supported platform (AlphaFold3, AlphaFold2, ColabFold, Boltz-1/2, Chai-1, or OpenFold3)</li>
                 <li>Open <a href="universal.html">Universal Prediction Analysis</a> and upload your prediction files (.zip, .gz, .cif, .pdb, .json, .npz, .npy)</li>
                 <li>The tool auto-detects the prediction platform and shows available models/ranks</li>
                 <li>Optionally adjust PAE cutoff (default: 12 &Aring;) and C&beta; cutoff (default: 8 &Aring;), then click <strong>Process</strong></li>
@@ -203,7 +205,7 @@
                 <li><strong>Flexible input</strong> &mdash; accepts UniProt ID, AlphaFold model entity ID, or full AlphaFold DB URL</li>
                 <li><strong>Dimer search table</strong> &mdash; lists all available dimer predictions for a protein with complex name, type, gene names, LIS, ipTM, and ipSAE; click any row to select</li>
                 <li><strong>Auto-fetch from AlphaFold DB</strong> &mdash; CIF structure and PAE matrix are fetched directly from the database</li>
-                <li><strong>PAE/LIS/cLIS maps</strong> &mdash; same colormaps as the AF3 tool (bwr, Blues, Greens)</li>
+                <li><strong>PAE/LIS/cLIS maps</strong> &mdash; same colormaps as the Universal tool (bwr, Blues, Greens)</li>
                 <li><strong>Score matrix</strong> &mdash; iLIS (Oranges) / cLIR count (Greens)</li>
                 <li><strong>Sequence viewer</strong> &mdash; amino acid letters with LIR (light) and cLIR (dark) highlighting per chain</li>
                 <li><strong>ipSAE metric</strong> &mdash; interface predicted Squared Aligned Error from AlphaFold DB, shown alongside iLIS, LIS, cLIS, and ipTM</li>
@@ -321,7 +323,7 @@
             <p>After selecting a new color scheme or adjusting individual colors:</p>
             <ul class="features-list">
                 <li><strong>FlyPredictome:</strong> Click <strong>Generate</strong> again to regenerate the .cxc script with updated colors</li>
-                <li><strong>AlphaFold3:</strong> Click a chain pair row in the table again, or click <strong>Process</strong> to reprocess</li>
+                <li><strong>Universal:</strong> Click a chain pair row in the table again, or click <strong>Process</strong> to reprocess</li>
                 <li><strong>Dimer:</strong> Click a dimer row to regenerate the script with the new color scheme</li>
                 <li><strong>Monomer:</strong> Select a ChimeraX preset (domain colors, pLDDT, bychain, bypolymer) to regenerate the script</li>
             </ul>
@@ -352,7 +354,7 @@
 
         <div style="margin-bottom:1rem;">
             <p style="font-size:0.9rem; color:#555; line-height:1.6;">
-                <strong>Default cutoffs:</strong> PAE &le; <strong>12 &Aring;</strong> (confident interaction) and C&beta; &le; <strong>8 &Aring;</strong> (direct contact). These can be adjusted before processing in the AF3 and Dimer tools.
+                <strong>Default cutoffs:</strong> PAE &le; <strong>12 &Aring;</strong> (confident interaction) and C&beta; &le; <strong>8 &Aring;</strong> (direct contact). These can be adjusted before processing in the Universal and Dimer tools.
             </p>
             <p style="font-size:0.9rem; color:#555; line-height:1.6; margin-top:0.5rem;">
                 <strong>PAE transformation:</strong> Raw PAE values (0&ndash;30 &Aring;) are linearly scaled to confidence scores: PAE = 0 &rarr; score = 1 (highest confidence), PAE = cutoff &rarr; score = 0, PAE &gt; cutoff &rarr; 0. Default PAE cutoff is 12 &Aring;.

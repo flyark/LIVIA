@@ -201,6 +201,24 @@
             <div id="maps-flex" style="display:flex; gap:0.4rem; justify-content:center; overflow:hidden;"></div>
         </div>
 
+        <!-- iLIS / cLIR Score Matrix -->
+        <div class="card result-card" id="score-matrix-card" style="display:none;">
+            <h2>iLIS / cLIR Matrix <span style="font-weight:400; font-size:0.8rem; color:#888;">(lower-left: iLIS, upper-right: cLIR count)</span></h2>
+            <div style="text-align:center;">
+                <canvas id="score-matrix-canvas"></canvas>
+            </div>
+            <div style="display:flex; justify-content:center; gap:1rem; margin-top:0.3rem; font-size:0.7rem;">
+                <div style="display:flex; align-items:center; gap:0.3rem;">
+                    <canvas id="colorbar-ilis" width="60" height="8"></canvas>
+                    <span style="color:#888;">iLIS (0&ndash;1)</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:0.3rem;">
+                    <canvas id="colorbar-clir" width="60" height="8"></canvas>
+                    <span style="color:#888;">cLIR</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Sequence Viewer -->
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
             <h2>Sequence Viewer</h2>
@@ -369,11 +387,11 @@
 
     <div class="footer">
         Made by Ah-Ram Kim &middot;
-        <a href="universal.html">Universal Prediction</a> &middot;
-        <a href="flypredictome.html">FlyPredictome</a> &middot;
-        <a href="monomer.html">AFDB Monomer Subdomain</a> &middot;
-        Metrics defined by <a href="https://github.com/flyark/AFM-LIS">AFM-LIS</a> &middot;
-        Visualization in <a href="https://www.cgl.ucsf.edu/chimerax/">UCSF ChimeraX</a>
+        <a href="https://github.com/flyark/AFM-LIS" style="color:#2471A3; text-decoration:none;">AFM-LIS</a> &middot;
+        <a href="flypredictome.html" style="color:#2471A3; text-decoration:none;">FlyPredictome</a> &middot;
+        <a href="universal.html" style="color:#2471A3; text-decoration:none;">Universal Prediction</a> &middot;
+        <a href="monomer.html" style="color:#2471A3; text-decoration:none;">AFDB Monomer Subdomain</a> &middot;
+        <a href="https://github.com/flyark/in_silico_ppi_analysis" style="color:#2471A3; text-decoration:none;">GitHub</a>
     </div>
 </div>
 
@@ -1344,6 +1362,7 @@ function computePairMetrics(pae, contact, nUse, offI, lenI, offJ, lenJ, paeCutof
         for (let j = 0; j < lenJ; j++) {
             const ri = offI + i;
             const rj = offJ + j;
+            if (ri >= pae.length || rj >= pae.length || rj >= pae[ri].length || ri >= pae[rj].length) continue;
             const v = (pae[ri][rj] + pae[rj][ri]) / 2; // average both directions
             if (v < paeCutoff) {
                 const tv = 1 - v / paeCutoff;
@@ -1392,6 +1411,9 @@ function displayDimerResults() {
 
     // Draw maps
     drawAllMaps();
+
+    // Score matrix (iLIS / cLIR)
+    drawScoreMatrix();
 
     // Sequence viewer
     buildDimerSequenceViewer();
@@ -1451,11 +1473,150 @@ function greensColor(value, vmin, vmax) {
     }
 }
 
+// matplotlib Oranges: white → orange
+function orangesColor(value, vmin, vmax) {
+    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
+    return [255, Math.round(255 - t * 128), Math.round(255 - t * 220)];
+}
+
+function drawScoreMatrix() {
+    const card = document.getElementById('score-matrix-card');
+    const canvas = document.getElementById('score-matrix-canvas');
+    const v = dimerPairResult;
+    if (!v || !card || !canvas) { if (card) card.style.display = 'none'; return; }
+
+    card.style.display = '';
+
+    const nc = 2;
+    const cellSize = 55;
+    const leftMargin = 70;
+    const bottomMargin = 22;
+    const gridPx = cellSize * nc * HIRES;
+    const leftPx = leftMargin * HIRES;
+    const cPx = cellSize * HIRES;
+
+    canvas.width = gridPx + leftPx;
+    canvas.height = gridPx + bottomMargin * HIRES;
+    canvas.style.width = (cellSize * nc + leftMargin) + 'px';
+    canvas.style.height = (cellSize * nc + bottomMargin) + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 2x2 grid: chains ci, cj
+    const labels = [v.ci, v.cj];
+    const ilisVal = v.iLIS;
+    const clirCount = v.clirI.size + v.clirJ.size;
+
+    // Draw cells
+    for (let i = 0; i < nc; i++) {
+        for (let j = 0; j < nc; j++) {
+            const x = leftPx + j * cPx;
+            const y = i * cPx;
+
+            if (i === j) {
+                // Diagonal: gray
+                ctx.fillStyle = '#f0f0f0';
+                ctx.fillRect(x, y, cPx, cPx);
+                continue;
+            }
+
+            const fontSize = Math.max(9, Math.min(15, cellSize / 3)) * HIRES;
+
+            if (i > j) {
+                // Bottom-left: iLIS (Oranges)
+                const [r, g, b] = orangesColor(ilisVal, 0, 1);
+                ctx.fillStyle = `rgb(${r},${g},${b})`;
+                ctx.fillRect(x, y, cPx, cPx);
+
+                ctx.font = `bold ${fontSize}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = ilisVal > 0.5 ? 'white' : '#333';
+                ctx.fillText(ilisVal.toFixed(3), x + cPx / 2, y + cPx / 2);
+            } else {
+                // Top-right: cLIR count (white → green, 0 = pure white)
+                if (clirCount === 0) {
+                    ctx.fillStyle = '#ffffff';
+                } else {
+                    const t = 1; // single cell, use full intensity
+                    const r2 = Math.round(255 * (1 - t));
+                    const g2 = Math.round(255 - t * 85);
+                    const b2 = Math.round(255 * (1 - t));
+                    ctx.fillStyle = `rgb(${r2},${g2},${b2})`;
+                }
+                ctx.fillRect(x, y, cPx, cPx);
+
+                ctx.font = `bold ${fontSize}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = clirCount > 0 ? 'white' : '#333';
+                ctx.fillText(clirCount.toFixed(0), x + cPx / 2, y + cPx / 2);
+            }
+        }
+    }
+
+    // Grid lines
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 0.5 * HIRES;
+    for (let i = 0; i <= nc; i++) {
+        ctx.beginPath(); ctx.moveTo(leftPx, i * cPx); ctx.lineTo(leftPx + nc * cPx, i * cPx); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(leftPx + i * cPx, 0); ctx.lineTo(leftPx + i * cPx, nc * cPx); ctx.stroke();
+    }
+
+    // Diagonal separator line
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 1.5 * HIRES;
+    ctx.beginPath();
+    ctx.moveTo(leftPx, 0);
+    ctx.lineTo(leftPx + gridPx, gridPx);
+    ctx.stroke();
+
+    // Labels
+    const labelFont = Math.max(8, Math.min(12, cellSize / 3.5)) * HIRES;
+    ctx.fillStyle = '#333';
+    for (let k = 0; k < nc; k++) {
+        // Y-axis labels
+        ctx.font = `bold ${labelFont}px sans-serif`;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(labels[k], leftPx - 4 * HIRES, k * cPx + cPx / 2);
+
+        // X-axis labels
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(labels[k], leftPx + k * cPx + cPx / 2, gridPx + 4 * HIRES);
+    }
+
+    // Draw colorbars
+    drawColorbar('colorbar-ilis', orangesColor, 0, 1);
+    drawColorbar('colorbar-clir', function(value, vmin, vmax) {
+        const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
+        if (t === 0) return [255, 255, 255];
+        return [Math.round(255 * (1 - t)), Math.round(255 - t * 85), Math.round(255 * (1 - t))];
+    }, 0, 1);
+}
+
+function drawColorbar(canvasId, colorFn, vmin, vmax) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    for (let x = 0; x < w; x++) {
+        const val = vmin + (x / w) * (vmax - vmin);
+        const [r, g, b] = colorFn(val, vmin, vmax);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(x, 0, 1, canvas.height);
+    }
+}
+
 function buildLisMap(pae, lenI, lenJ, offsetI, offsetJ, paeCutoff) {
     const map = Array.from({length: lenI}, () => Array(lenJ).fill(0));
     for (let i = 0; i < lenI; i++) {
         for (let j = 0; j < lenJ; j++) {
             const ri = offsetI + i, rj = offsetJ + j;
+            if (ri >= pae.length || rj >= pae.length || rj >= pae[ri].length || ri >= pae[rj].length) continue;
             const v = (pae[ri][rj] + pae[rj][ri]) / 2;
             map[i][j] = v < paeCutoff ? 1 - v / paeCutoff : 0;
         }
@@ -1469,6 +1630,7 @@ function buildClisMap(pae, contact, nUse, lenI, lenJ, offsetI, offsetJ, paeCutof
         for (let j = 0; j < lenJ; j++) {
             const ri = offsetI + i;
             const rj = offsetJ + j;
+            if (ri >= pae.length || rj >= pae.length || rj >= pae[ri].length || ri >= pae[rj].length) continue;
             const v = (pae[ri][rj] + pae[rj][ri]) / 2;
             const tv = v < paeCutoff ? 1 - v / paeCutoff : 0;
             const cv = (ri < nUse && rj < nUse) ? contact[ri * nUse + rj] : 0;
