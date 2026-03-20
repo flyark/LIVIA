@@ -4,7 +4,7 @@ Analyze protein-protein interactions from structure predictions and generate [UC
 
 All analysis runs **locally in your browser** — no installation, no data uploaded, no Python needed.
 
-**[Open Web Tools](https://flyark.github.io/in-silico-ppi-analysis/)**
+**[Open Web Tools](https://flyark.github.io/in_silico_ppi_analysis/)**
 
 | Tool | Input | Description |
 |------|-------|-------------|
