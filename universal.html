@@ -2234,7 +2234,7 @@ var mvsTemplate = ${JSON.stringify(JSON.stringify(mvsJson))};
 async function init() {
     var viewer = await molstar.Viewer.create('viewer1', {
         layoutIsExpanded: false,
-        layoutShowControls: false,
+        layoutShowControls: true,
         layoutShowRemoteState: false,
         layoutShowSequence: false,
         layoutShowLog: false,
@@ -2282,13 +2282,7 @@ async function init() {
                     },
                 });
                 // Also try setting light intensity to 0 for fully matte appearance
-                c3d.setProps({
-                    renderer: Object.assign({}, c3d.props.renderer, {
-                        lightIntensity: 0.4,
-                        ambientIntensity: 0.6,
-                        style: { name: 'flat-shaded', params: {} }
-                    })
-                });
+
             }
         } catch(e2) { console.warn('Illustrative style error:', e2); }
     }, 2000);
