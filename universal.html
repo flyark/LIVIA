@@ -2159,6 +2159,11 @@ function buildColorComponents(v) {
     // For multi-chain (>2), default to bychain if no explicit mode set
     const mode = (!uniState.cxcColorMode && nc > 2) ? 'bychain' : uniState.cxcColorMode;
     const components = [];
+    const types = uniState.chainTypes || [];
+    const isIonChain = (ch) => types[uniState.chainNames?.indexOf(ch)] === 'ion';
+    const addComp = (chain, ranges, color) => {
+        components.push({ chain, ranges, color, isIon: isIonChain(chain) });
+    };
 
     const lirIFilled = fillGaps(v.lirI);
     const lirJFilled = fillGaps(v.lirJ);
@@ -2202,19 +2207,19 @@ function buildColorComponents(v) {
                 byColor[color].add(resnum);
             }
             for (const [color, posSet] of Object.entries(byColor)) {
-                components.push({ chain, ranges: toRanges(posSet), color });
+                addComp(chain, toRanges(posSet), color);
             }
         };
         addPlddt(v.ci, lirIFilled);
         addPlddt(v.cj, lirJFilled);
         for (const c of otherChains) addPlddt(c, fillGaps(otherLIR[c]));
     } else if (mode === 'bychain' || mode === 'bypolymer') {
-        components.push({ chain: v.ci, ranges: toRanges(lirIFilled), color: colors.clir_a });
-        components.push({ chain: v.cj, ranges: toRanges(lirJFilled), color: colors.clir_b });
+        addComp(v.ci, toRanges(lirIFilled), colors.clir_a);
+        addComp(v.cj, toRanges(lirJFilled), colors.clir_b);
         for (const c of otherChains) {
             const cc = (uniState.multiChainColors && uniState.multiChainColors[c]) || '#cccccc';
             const ranges = toRanges(fillGaps(otherLIR[c]));
-            if (ranges.length > 0) components.push({ chain: c, ranges, color: cc });
+            if (ranges.length > 0) addComp(c, ranges, cc);
         }
     } else {
         // Gradient: LIR-only in light, cLIR in dark (separate components)
@@ -2223,13 +2228,13 @@ function buildColorComponents(v) {
         const lirOnlyI = new Set([...lirIFilled].filter(r => !clirISet.has(r)));
         const lirOnlyJ = new Set([...lirJFilled].filter(r => !clirJSet.has(r)));
 
-        components.push({ chain: v.ci, ranges: toRanges(lirOnlyI), color: colors.lir_a });
-        components.push({ chain: v.cj, ranges: toRanges(lirOnlyJ), color: colors.lir_b });
-        components.push({ chain: v.ci, ranges: toRanges(clirISet), color: colors.clir_a });
-        components.push({ chain: v.cj, ranges: toRanges(clirJSet), color: colors.clir_b });
+        addComp(v.ci, toRanges(lirOnlyI), colors.lir_a);
+        addComp(v.cj, toRanges(lirOnlyJ), colors.lir_b);
+        addComp(v.ci, toRanges(clirISet), colors.clir_a);
+        addComp(v.cj, toRanges(clirJSet), colors.clir_b);
         for (const c of otherChains) {
             const ranges = toRanges(fillGaps(otherLIR[c]));
-            if (ranges.length > 0) components.push({ chain: c, ranges, color: '#dddddd' });
+            if (ranges.length > 0) addComp(c, ranges, '#dddddd');
         }
     }
     return components.filter(c => c.ranges.length > 0);
@@ -2283,12 +2288,13 @@ function buildMolstarPage(structData, fmt, colorComponents) {
             beg_label_seq_id: r.start,
             end_label_seq_id: r.end,
         }));
+        const repType = comp.isIon ? 'ball-and-stick' : 'cartoon';
         structureChildren.push({
             kind: 'component',
             params: { selector: selector.length === 1 ? selector[0] : selector },
             children: [{
                 kind: 'representation',
-                params: { type: 'cartoon' },
+                params: { type: repType },
                 children: [{ kind: 'color', params: { color: comp.color } }]
             }]
         });
@@ -2875,8 +2881,9 @@ function downloadCSV() {
 function downloadAllChainsCxc() {
     if (!uniState.avgResults || !uniState.chainNames) return;
 
-    const useIdx = Object.keys(uniState.structureFilenames)[0];
-    const structFilename = uniState.structureFilenames[useIdx];
+    const seedVal = document.getElementById('seed-select')?.value || '0';
+    const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureFilenames)[0] : seedVal;
+    const structFilename = uniState.structureFilenames[useIdx] || uniState.structureFilenames[Object.keys(uniState.structureFilenames)[0]];
 
     const allLIR = {};
     for (const name of uniState.chainNames) allLIR[name] = new Set();
