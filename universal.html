@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Universal Prediction Analysis</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.4.2/3Dmol-min.js"></script>
+    <!-- Mol* loaded inside iframe, not here -->
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; min-height: 100vh; }
@@ -98,6 +98,15 @@
         .download-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
         .error-msg { display: none; background: #fdeaea; color: #c0392b; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
         .error-msg.active { display: block; }
+
+        /* Mol* viewer overrides: hide all UI panels, keep only the 3D canvas */
+        #viewer3d-container .msp-plugin { position: relative !important; }
+        #viewer3d-container .msp-layout-expanded { transform: none !important; position: relative !important; }
+        #viewer3d-container .msp-plugin .msp-btn-row-group,
+        #viewer3d-container .msp-plugin .msp-viewport-controls,
+        #viewer3d-container .msp-plugin .msp-highlight-info,
+        #viewer3d-container .msp-plugin .msp-sequence,
+        #viewer3d-container .msp-plugin .msp-left-panel-controls { display: none !important; }
         .info-box { background: #eaf2f8; border-left: 4px solid #2471A3; padding: 0.8rem 1rem; border-radius: 0 8px 8px 0; font-size: 0.85rem; color: #1a5276; margin-bottom: 1rem; }
         .warning-box { background: #fff8e1; border-left: 4px solid #f9a825; padding: 0.8rem 1rem; border-radius: 0 8px 8px 0; font-size: 0.85rem; color: #795548; margin-bottom: 1rem; }
 
@@ -275,9 +284,9 @@
             <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
                 Interactive 3D preview matching ChimeraX script output. LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom, right-click to translate.
             </div>
-            <div id="viewer3d-container" style="width:100%; height:500px; position:relative; border-radius:8px; overflow:hidden; border:1px solid #e0e0e0; background:#fff;"></div>
+            <iframe id="viewer3d-frame" style="width:100%; height:600px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin"></iframe>
             <div style="text-align:center; margin-top:0.3rem;">
-                <a id="viewer3d-png" style="display:inline-block; font-size:0.7rem; color:#2471A3; cursor:pointer; opacity:0.6;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.6'" onclick="if(viewer3d){const c=document.querySelector('#viewer3d-container canvas');if(c){const a=document.createElement('a');a.download='structure_3d.png';a.href=c.toDataURL('image/png');a.click();}}">PNG</a>
+                <a style="display:inline-block; font-size:0.7rem; color:#2471A3; cursor:pointer; opacity:0.6;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.6'" onclick="downloadMolstarPng()">PNG</a>
             </div>
         </div>
 
@@ -363,9 +372,9 @@
             <div class="script-preview" id="script-preview"></div>
             <div class="download-row">
                 <a class="btn-download cxc" id="dl-cxc" download>&#8595; Download .cxc</a>
-                <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy to Clipboard</button>
                 <a class="btn-download cif" id="dl-structure" download>&#8595; Download structure</a>
                 <a class="btn-download cxc" id="dl-all-chains" style="background:#1a5276; border-color:#1a5276;" onclick="downloadAllChainsCxc()">&#8595; Download All Chains .cxc</a>
+                <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy to Clipboard</button>
             </div>
             <div class="info-box" style="margin-top:1rem;">Place the .cxc and structure files in the same folder, then double-click the .cxc &mdash; ChimeraX will launch automatically. "All Chains" shows every chain with LIR regions, colored by chain.</div>
         </div>
@@ -450,7 +459,7 @@ let uniState = {
     multiChainColors: null,
     cxcColorMode: '',
 };
-let viewer3d = null;
+let viewer3dBlobUrl = null;  // blob URL for current iframe page
 
 // ============================================================================
 // NPZ PARSER
@@ -1629,6 +1638,10 @@ async function processFiles() {
         uniState.chainTypes = null;
         uniState.nTotal = 0;
         uniState.multiChainColors = null;
+        // Reset Mol* viewer
+        if (viewer3dBlobUrl) { URL.revokeObjectURL(viewer3dBlobUrl); viewer3dBlobUrl = null; }
+        const v3frame = document.getElementById('viewer3d-frame');
+        if (v3frame) v3frame.src = 'about:blank';
 
         const paeCutoff = parseFloat(document.getElementById('pae-cutoff').value) || 12;
         const cbCutoff = parseFloat(document.getElementById('cb-cutoff').value) || 8;
@@ -2039,84 +2052,37 @@ function selectRow(pairKey, modelIdx, trEl) {
 }
 
 // ============================================================================
-// 3D STRUCTURE VIEWER
+// 3D STRUCTURE VIEWER (Mol* via iframe + loadStructureFromData)
 // ============================================================================
 
-function initViewer3d() {
-    if (viewer3d) return;
-    const container = document.getElementById('viewer3d-container');
-    if (!container) return;
-    viewer3d = $3Dmol.createViewer(container, {
-        backgroundColor: 'white',
-        antialias: true,
-        cartoonQuality: 8,
-        disableFog: true,
-    });
-    // Enable outline (silhouettes) for cartoon edges
-    viewer3d.setViewStyle({style: 'outline', color: 'black', width: 0.02});
-    // Disable context menu so right-drag translates
-    container.addEventListener('contextmenu', (e) => e.preventDefault());
-}
-
-function setsToResiArray(positions) {
-    if (!positions || positions.size === 0) return null;
-    const sorted = [...positions].sort((a, b) => a - b);
-    const ranges = [];
-    let start = sorted[0], end = sorted[0];
-    for (let i = 1; i < sorted.length; i++) {
-        if (sorted[i] === end + 1) { end = sorted[i]; }
-        else { ranges.push(start === end ? String(start) : `${start}-${end}`); start = end = sorted[i]; }
-    }
-    ranges.push(start === end ? String(start) : `${start}-${end}`);
-    return ranges;
-}
-
-function updateViewer3d(pairKey) {
-    const card = document.getElementById('viewer3d-card');
-    const v = uniState.results[pairKey];
-    if (!v) { if (card) card.style.display = 'none'; return; }
-
-    const seedVal = document.getElementById('seed-select').value;
-    const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
-    const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
-    if (!structText) { if (card) card.style.display = 'none'; return; }
-
-    card.style.display = '';
-    initViewer3d();
-
-    const fmt = uniState.structureFormat === 'cif' ? 'mmcif' : 'pdb';
-
-    viewer3d.removeAllModels();
-    viewer3d.addModel(structText, fmt);
-    applyViewer3dColors(v);
-    viewer3d.zoomTo();
-    viewer3d.render();
-}
-
-function applyViewer3dColors(v) {
-    if (!viewer3d || !v) return;
+// Build an array of {chain, ranges, color} components — each becomes a separate MVS component
+// so non-LIR residues have NO component = hidden
+function buildColorComponents(v) {
     const colors = getColorsForPair(v.ci, v.cj);
-    const mode = uniState.cxcColorMode;
+    const nc = uniState.chainNames ? uniState.chainNames.length : 0;
+    // For multi-chain (>2), default to bychain if no explicit mode set
+    const mode = (!uniState.cxcColorMode && nc > 2) ? 'bychain' : uniState.cxcColorMode;
+    const components = [];
 
-    // Start with everything hidden (matching CXC: hide atoms, hide cartoons)
-    viewer3d.setStyle({}, {});
-
-    // Build LIR sets with gap filling (matching CXC script behavior)
     const lirIFilled = fillGaps(v.lirI);
     const lirJFilled = fillGaps(v.lirJ);
-    const lirIResi = setsToResiArray(lirIFilled);
-    const lirJResi = setsToResiArray(lirJFilled);
-    const clirIResi = setsToResiArray(v.clirI);
-    const clirJResi = setsToResiArray(v.clirJ);
 
-    // Cartoon base style: flat/matte look
-    const cStyle = {style: 'oval', thickness: 0.4, opacity: 1};
-    const nc = uniState.chainNames ? uniState.chainNames.length : 0;
+    // Helper: convert Set to array of {start, end} ranges
+    function toRanges(positions) {
+        const sorted = [...positions].sort((a, b) => a - b);
+        if (sorted.length === 0) return [];
+        const ranges = [];
+        let s = sorted[0], e = sorted[0];
+        for (let i = 1; i <= sorted.length; i++) {
+            if (i < sorted.length && sorted[i] === e + 1) { e = sorted[i]; continue; }
+            ranges.push({ start: s, end: e });
+            if (i < sorted.length) { s = e = sorted[i]; }
+        }
+        return ranges;
+    }
 
-    // For multi-chain: show all chains with LIR regions, non-selected chains in light gray
+    // Other chains for multi-subunit context
     const otherChains = (uniState.chainNames || []).filter(c => c !== v.ci && c !== v.cj);
-
-    // Build union LIR for other chains (across all pairs involving that chain)
     const otherLIR = {};
     for (const c of otherChains) otherLIR[c] = new Set();
     const currentResults = uniState.results || {};
@@ -2126,42 +2092,219 @@ function applyViewer3dColors(v) {
     }
 
     if (mode === 'plddt') {
-        const plddt = function(atom) {
-            var b = atom.b;
-            if (b > 90) return '#0053D6';
-            if (b > 70) return '#65CBF3';
-            if (b > 50) return '#FFDB13';
-            return '#FF7D45';
+        const seedVal = document.getElementById('seed-select').value;
+        const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
+        const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
+        const bfactors = parseBfactorsPerResidue(structText, uniState.structureFormat);
+        // Group by pLDDT color band for efficiency
+        const addPlddt = (chain, positions) => {
+            const byColor = {};
+            for (const resnum of positions) {
+                const bf = bfactors.get(`${chain}:${resnum}`);
+                const color = bf !== undefined ? plddtColor(bf) : '#65CBF3';
+                if (!byColor[color]) byColor[color] = new Set();
+                byColor[color].add(resnum);
+            }
+            for (const [color, posSet] of Object.entries(byColor)) {
+                components.push({ chain, ranges: toRanges(posSet), color });
+            }
         };
-        if (lirIResi) viewer3d.setStyle({chain: v.ci, resi: lirIResi}, {cartoon: {...cStyle, colorfunc: plddt}});
-        if (lirJResi) viewer3d.setStyle({chain: v.cj, resi: lirJResi}, {cartoon: {...cStyle, colorfunc: plddt}});
-        for (const c of otherChains) {
-            const resi = setsToResiArray(fillGaps(otherLIR[c]));
-            if (resi) viewer3d.setStyle({chain: c, resi}, {cartoon: {...cStyle, colorfunc: plddt, opacity: 0.5}});
-        }
+        addPlddt(v.ci, lirIFilled);
+        addPlddt(v.cj, lirJFilled);
+        for (const c of otherChains) addPlddt(c, fillGaps(otherLIR[c]));
     } else if (mode === 'bychain' || mode === 'bypolymer') {
-        if (lirIResi) viewer3d.setStyle({chain: v.ci, resi: lirIResi}, {cartoon: {...cStyle, color: colors.clir_a}});
-        if (lirJResi) viewer3d.setStyle({chain: v.cj, resi: lirJResi}, {cartoon: {...cStyle, color: colors.clir_b}});
+        components.push({ chain: v.ci, ranges: toRanges(lirIFilled), color: colors.clir_a });
+        components.push({ chain: v.cj, ranges: toRanges(lirJFilled), color: colors.clir_b });
         for (const c of otherChains) {
-            const resi = setsToResiArray(fillGaps(otherLIR[c]));
-            const chainColor = (uniState.multiChainColors && uniState.multiChainColors[c]) || '#cccccc';
-            if (resi) viewer3d.setStyle({chain: c, resi}, {cartoon: {...cStyle, color: chainColor, opacity: 0.4}});
+            const cc = (uniState.multiChainColors && uniState.multiChainColors[c]) || '#cccccc';
+            const ranges = toRanges(fillGaps(otherLIR[c]));
+            if (ranges.length > 0) components.push({ chain: c, ranges, color: cc });
         }
     } else {
-        // Gradient/solid: selected pair in full color, others semi-transparent gray
-        if (lirIResi) viewer3d.setStyle({chain: v.ci, resi: lirIResi}, {cartoon: {...cStyle, color: colors.lir_a}});
-        if (lirJResi) viewer3d.setStyle({chain: v.cj, resi: lirJResi}, {cartoon: {...cStyle, color: colors.lir_b}});
-        if (clirIResi) viewer3d.setStyle({chain: v.ci, resi: clirIResi}, {cartoon: {...cStyle, color: colors.clir_a}});
-        if (clirJResi) viewer3d.setStyle({chain: v.cj, resi: clirJResi}, {cartoon: {...cStyle, color: colors.clir_b}});
+        // Gradient: LIR-only in light, cLIR in dark (separate components)
+        const clirISet = v.clirI || new Set();
+        const clirJSet = v.clirJ || new Set();
+        const lirOnlyI = new Set([...lirIFilled].filter(r => !clirISet.has(r)));
+        const lirOnlyJ = new Set([...lirJFilled].filter(r => !clirJSet.has(r)));
 
-        // Other chains: show LIR regions in semi-transparent gray for context
+        components.push({ chain: v.ci, ranges: toRanges(lirOnlyI), color: colors.lir_a });
+        components.push({ chain: v.cj, ranges: toRanges(lirOnlyJ), color: colors.lir_b });
+        components.push({ chain: v.ci, ranges: toRanges(clirISet), color: colors.clir_a });
+        components.push({ chain: v.cj, ranges: toRanges(clirJSet), color: colors.clir_b });
         for (const c of otherChains) {
-            const resi = setsToResiArray(fillGaps(otherLIR[c]));
-            if (resi) viewer3d.setStyle({chain: c, resi}, {cartoon: {...cStyle, color: '#dddddd', opacity: 0.35}});
+            const ranges = toRanges(fillGaps(otherLIR[c]));
+            if (ranges.length > 0) components.push({ chain: c, ranges, color: '#dddddd' });
         }
     }
+    return components.filter(c => c.ranges.length > 0);
+}
 
-    viewer3d.render();
+function parseBfactorsPerResidue(text, format) {
+    const m = new Map();
+    if (format === 'pdb') {
+        for (const line of text.split('\n')) {
+            if (!line.startsWith('ATOM') || line.length < 66) continue;
+            if (line.substring(12, 16).trim() !== 'CA') continue;
+            const ch = line.substring(21, 22).trim() || 'A';
+            const rn = parseInt(line.substring(22, 26).trim());
+            const bf = parseFloat(line.substring(60, 66).trim());
+            if (!isNaN(rn) && !isNaN(bf)) m.set(`${ch}:${rn}`, bf);
+        }
+    } else {
+        const lines = text.split('\n');
+        let inA = false; const cols = [];
+        for (const line of lines) {
+            if (line.startsWith('_atom_site.')) { inA = true; cols.push(line.trim().split('.')[1]); continue; }
+            if (inA && !line.startsWith('_atom_site.') && !line.startsWith('#') && line.trim()) {
+                if (line.startsWith('loop_') || line.startsWith('_')) { inA = false; continue; }
+                const p = line.trim().split(/\s+/);
+                if (p.length < cols.length) continue;
+                const g = (n) => { const i = cols.indexOf(n); return i >= 0 ? p[i] : ''; };
+                if (g('group_PDB') !== 'ATOM' || g('label_atom_id') !== 'CA') continue;
+                const ch = g('label_asym_id'), rn = parseInt(g('label_seq_id')), bf = parseFloat(g('B_iso_or_equiv'));
+                if (!isNaN(rn) && !isNaN(bf)) m.set(`${ch}:${rn}`, bf);
+            }
+        }
+    }
+    return m;
+}
+
+function plddtColor(b) {
+    if (b > 90) return '#0053D6';
+    if (b > 70) return '#65CBF3';
+    if (b > 50) return '#FFDB13';
+    return '#FF7D45';
+}
+
+function buildMolstarPage(structData, fmt, colorComponents) {
+    // Build MVS JSON with separate components per colored group
+    // Each component selects only the LIR residues for that chain+color
+    // Non-LIR residues have no component = hidden
+    const structureChildren = [];
+    for (const comp of colorComponents) {
+        const selector = comp.ranges.map(r => ({
+            label_asym_id: comp.chain,
+            beg_label_seq_id: r.start,
+            end_label_seq_id: r.end,
+        }));
+        structureChildren.push({
+            kind: 'component',
+            params: { selector: selector.length === 1 ? selector[0] : selector },
+            children: [{
+                kind: 'representation',
+                params: { type: 'cartoon' },
+                children: [{ kind: 'color', params: { color: comp.color } }]
+            }]
+        });
+    }
+
+    const mvsJson = {
+        kind: 'single',
+        root: {
+            kind: 'root',
+            children: [
+                { kind: 'canvas', params: { background_color: 'white' } },
+                {
+                    kind: 'download',
+                    params: { url: '__STRUCT_BLOB_URL__' },
+                    children: [{
+                        kind: 'parse',
+                        params: { format: fmt },
+                        children: [{
+                            kind: 'structure',
+                            params: { type: 'model' },
+                            children: structureChildren
+                        }]
+                    }]
+                }
+            ]
+        },
+        metadata: { version: '1.6' }
+    };
+
+    return `<!DOCTYPE html>
+<html><head>
+<script src="https://cdn.jsdelivr.net/npm/molstar@latest/build/viewer/molstar.js"><\/script>
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/molstar@latest/build/viewer/molstar.css" />
+<style>#viewer1 { position:absolute; top:0; left:0; right:0; bottom:0; }</style>
+</head><body>
+<div id="viewer1"></div>
+<script>
+var structData = ${JSON.stringify(structData)};
+var fmt = "${fmt}";
+var mvsTemplate = ${JSON.stringify(JSON.stringify(mvsJson))};
+
+async function init() {
+    var viewer = await molstar.Viewer.create('viewer1', {
+        layoutIsExpanded: false,
+        layoutShowControls: false,
+        layoutShowRemoteState: false,
+        layoutShowSequence: false,
+        layoutShowLog: false,
+        layoutShowLeftPanel: false,
+        viewportShowExpand: false,
+        viewportShowSelectionMode: false,
+        viewportShowAnimation: false,
+    });
+
+    // Create blob URL for structure data (inside iframe = same origin)
+    var structBlob = new Blob([structData], { type: 'text/plain' });
+    var structUrl = URL.createObjectURL(structBlob);
+
+    // Replace placeholder URL in MVS JSON
+    var mvsStr = mvsTemplate.replace('__STRUCT_BLOB_URL__', structUrl);
+
+    // Load via MVS (coloring included)
+    try {
+        viewer.loadMvsData(mvsStr, 'mvsj');
+    } catch(e) {
+        console.warn('MVS failed, falling back:', e);
+        viewer.loadStructureFromData(structData, fmt);
+    }
+}
+init().catch(function(e) { console.error('Mol* error:', e); });
+<\/script>
+</body></html>`;
+}
+
+async function updateViewer3d(pairKey) {
+    const card = document.getElementById('viewer3d-card');
+    const frame = document.getElementById('viewer3d-frame');
+    const v = uniState.results[pairKey];
+    if (!v) { if (card) card.style.display = 'none'; return; }
+
+    const seedVal = document.getElementById('seed-select').value;
+    const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
+    const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
+    if (!structText || !frame) { if (card) card.style.display = 'none'; return; }
+
+    card.style.display = '';
+    const fmt = uniState.structureFormat === 'cif' ? 'mmcif' : 'pdb';
+
+    // Build separate components per colored group (non-LIR = hidden)
+    const colorComponents = buildColorComponents(v);
+
+    // Build iframe page with structure + coloring
+    const page = buildMolstarPage(structText, fmt, colorComponents);
+    const blob = new Blob([page], { type: 'text/html' });
+    if (viewer3dBlobUrl) URL.revokeObjectURL(viewer3dBlobUrl);
+    viewer3dBlobUrl = URL.createObjectURL(blob);
+    frame.src = viewer3dBlobUrl;
+}
+
+function downloadMolstarPng() {
+    try {
+        const frame = document.getElementById('viewer3d-frame');
+        if (frame && frame.contentDocument) {
+            const canvas = frame.contentDocument.querySelector('canvas');
+            if (canvas) {
+                const a = document.createElement('a');
+                a.download = 'structure_3d.png';
+                a.href = canvas.toDataURL('image/png');
+                a.click();
+            }
+        }
+    } catch(e) { console.warn('PNG download failed (cross-origin?):', e); }
 }
 
 function selectPair(key) {

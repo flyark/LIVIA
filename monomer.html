@@ -240,6 +240,18 @@
             </div>
         </div>
 
+        <!-- 3D Structure Viewer -->
+        <div class="card result-card" id="viewer3d-card" style="display:none;">
+            <h2>3D Structure Preview</h2>
+            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+                Interactive 3D preview matching ChimeraX script output. LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom, right-click to translate.
+            </div>
+            <iframe id="viewer3d-frame" style="width:100%; height:600px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin"></iframe>
+            <div style="text-align:center; margin-top:0.3rem;">
+                <a style="display:inline-block; font-size:0.7rem; color:#2471A3; cursor:pointer; opacity:0.6;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.6'" onclick="downloadMolstarPng()">PNG</a>
+            </div>
+        </div>
+
         <!-- Sequence Viewer -->
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
             <h2>Sequence Viewer</h2>
@@ -331,8 +343,8 @@
             <div class="script-preview" id="script-preview"></div>
             <div class="download-row">
                 <a class="btn-download cxc" id="dl-cxc" download>&#8595; Download .cxc</a>
-                <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy to Clipboard</button>
                 <a class="btn-download pdb" id="dl-pdb" download>&#8595; Download .pdb</a>
+                <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy to Clipboard</button>
             </div>
             <div class="info-box" style="margin-top:1rem;">Place the .cxc and .pdb files in the same folder, then double-click the .cxc — ChimeraX will launch automatically.</div>
         </div>
@@ -398,6 +410,7 @@ let monRegions = [];        // [{name, start, end, color}]
 let monPairResults = [];    // calculated pair results
 let monCxcColorMode = '';   // '', 'plddt', 'bychain', 'bypolymer'
 let monRegionCounter = 0;   // for naming regions
+let viewer3dBlobUrl = null; // blob URL for current Mol* iframe page
 
 const REGION_COLORS = [
     '#2471A3', '#E67E22', '#27ae60', '#c0392b', '#8e44ad',
@@ -545,6 +558,12 @@ async function fetchData() {
     document.getElementById('results').classList.remove('active');
     document.getElementById('regions-card').style.display = 'none';
     document.getElementById('score-matrix-inline').style.display = 'none';
+    // Reset Mol* viewer
+    if (viewer3dBlobUrl) { URL.revokeObjectURL(viewer3dBlobUrl); viewer3dBlobUrl = null; }
+    const v3frame = document.getElementById('viewer3d-frame');
+    if (v3frame) v3frame.src = 'about:blank';
+    const v3card = document.getElementById('viewer3d-card');
+    if (v3card) v3card.style.display = 'none';
 
     try {
         setStatus(`Fetching prediction for ${uniprotId}...`, 'loading');
@@ -708,10 +727,10 @@ function applyCxcPreset(mode, el) {
     monCxcColorMode = mode;
     document.querySelectorAll('.preset-chip').forEach(p => p.classList.remove('active'));
     if (el) el.classList.add('active');
-    // Regenerate CXC
+    // Regenerate CXC + 3D viewer
     if (monPairResults && monPairResults.length > 0) {
         const vr = monRegions.filter(r => !isNaN(parseInt(r.start)) && !isNaN(parseInt(r.end)));
-        if (vr.length >= 2) generateAndShowScript(vr);
+        if (vr.length >= 2) { generateAndShowScript(vr); updateViewer3d(vr); }
     }
 }
 
@@ -991,10 +1010,10 @@ function updateColorSection() {
                 updateColorSection();
                 renderRegions();
                 drawPaeMap();
-                // Regenerate CXC
+                // Regenerate CXC + 3D viewer
                 if (monPairResults && monPairResults.length > 0) {
                     const vr = monRegions.filter(r => !isNaN(parseInt(r.start)) && !isNaN(parseInt(r.end)));
-                    if (vr.length >= 2) generateAndShowScript(vr);
+                    if (vr.length >= 2) { generateAndShowScript(vr); updateViewer3d(vr); }
                 }
             };
             presetsRow.appendChild(chip);
@@ -1046,10 +1065,10 @@ function applyPreset(la, ca, lb, cb, el) {
     const s = document.getElementById('color-strip').children;
     s[0].style.background = la; s[1].style.background = ca; s[2].style.background = cb; s[3].style.background = lb;
     if (el) { document.querySelectorAll('.preset-chip').forEach(p => p.classList.remove('active')); el.classList.add('active'); }
-    // Regenerate CXC with new colors
+    // Regenerate CXC + 3D viewer with new colors
     if (monPairResults && monPairResults.length > 0) {
         const validRegions = monRegions.filter(r => !isNaN(parseInt(r.start)) && !isNaN(parseInt(r.end)));
-        if (validRegions.length >= 2) generateAndShowScript(validRegions);
+        if (validRegions.length >= 2) { generateAndShowScript(validRegions); updateViewer3d(validRegions); }
     }
 }
 
@@ -1391,6 +1410,9 @@ function displayResults(validRegions) {
     // Redraw step 2 PAE map with final region boundaries
     drawPaeMap();
 
+    // 3D Mol* viewer
+    updateViewer3d(validRegions);
+
     // Sequence viewer
     buildSequenceViewer(validRegions);
 
@@ -1584,6 +1606,263 @@ function rangesStr(positions) {
     }
     ranges.push(`${start}-${end}`);
     return ranges.join(', ');
+}
+
+// ============================================================================
+// 3D MOL* VIEWER
+// ============================================================================
+
+function parseBfactorsPerResidue(text) {
+    const m = new Map();
+    for (const line of text.split('\n')) {
+        if (!line.startsWith('ATOM') || line.length < 66) continue;
+        if (line.substring(12, 16).trim() !== 'CA') continue;
+        const ch = line.substring(21, 22).trim() || 'A';
+        const rn = parseInt(line.substring(22, 26).trim());
+        const bf = parseFloat(line.substring(60, 66).trim());
+        if (!isNaN(rn) && !isNaN(bf)) m.set(`${ch}:${rn}`, bf);
+    }
+    return m;
+}
+
+function plddtColor(b) {
+    if (b > 90) return '#0053D6';
+    if (b > 70) return '#65CBF3';
+    if (b > 50) return '#FFDB13';
+    return '#FF7D45';
+}
+
+function toRanges(positions) {
+    const sorted = [...positions].sort((a, b) => a - b);
+    if (sorted.length === 0) return [];
+    const ranges = [];
+    let s = sorted[0], e = sorted[0];
+    for (let i = 1; i <= sorted.length; i++) {
+        if (i < sorted.length && sorted[i] === e + 1) { e = sorted[i]; continue; }
+        ranges.push({ start: s, end: e });
+        if (i < sorted.length) { s = e = sorted[i]; }
+    }
+    return ranges;
+}
+
+function buildMolstarPage(structData, fmt, colorComponents) {
+    const structureChildren = [];
+    for (const comp of colorComponents) {
+        const selector = comp.ranges.map(r => ({
+            label_asym_id: comp.chain,
+            beg_label_seq_id: r.start,
+            end_label_seq_id: r.end,
+        }));
+        structureChildren.push({
+            kind: 'component',
+            params: { selector: selector.length === 1 ? selector[0] : selector },
+            children: [{
+                kind: 'representation',
+                params: { type: 'cartoon' },
+                children: [{ kind: 'color', params: { color: comp.color } }]
+            }]
+        });
+    }
+
+    const mvsJson = {
+        kind: 'single',
+        root: {
+            kind: 'root',
+            children: [
+                { kind: 'canvas', params: { background_color: 'white' } },
+                {
+                    kind: 'download',
+                    params: { url: '__STRUCT_BLOB_URL__' },
+                    children: [{
+                        kind: 'parse',
+                        params: { format: fmt },
+                        children: [{
+                            kind: 'structure',
+                            params: { type: 'model' },
+                            children: structureChildren
+                        }]
+                    }]
+                }
+            ]
+        },
+        metadata: { version: '1.6' }
+    };
+
+    return `<!DOCTYPE html>
+<html><head>
+<script src="https://cdn.jsdelivr.net/npm/molstar@latest/build/viewer/molstar.js"><\/script>
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/molstar@latest/build/viewer/molstar.css" />
+<style>#viewer1 { position:absolute; top:0; left:0; right:0; bottom:0; }</style>
+</head><body>
+<div id="viewer1"></div>
+<script>
+var structData = ${JSON.stringify(structData)};
+var fmt = "${fmt}";
+var mvsTemplate = ${JSON.stringify(JSON.stringify(mvsJson))};
+
+async function init() {
+    var viewer = await molstar.Viewer.create('viewer1', {
+        layoutIsExpanded: false,
+        layoutShowControls: false,
+        layoutShowRemoteState: false,
+        layoutShowSequence: false,
+        layoutShowLog: false,
+        layoutShowLeftPanel: false,
+        viewportShowExpand: false,
+        viewportShowSelectionMode: false,
+        viewportShowAnimation: false,
+    });
+
+    var structBlob = new Blob([structData], { type: 'text/plain' });
+    var structUrl = URL.createObjectURL(structBlob);
+
+    var mvsStr = mvsTemplate.replace('__STRUCT_BLOB_URL__', structUrl);
+
+    try {
+        viewer.loadMvsData(mvsStr, 'mvsj');
+    } catch(e) {
+        console.warn('MVS failed, falling back:', e);
+        viewer.loadStructureFromData(structData, fmt);
+    }
+}
+init().catch(function(e) { console.error('Mol* error:', e); });
+<\/script>
+</body></html>`;
+}
+
+function buildMonomerColorComponents(validRegions) {
+    const components = [];
+    const chain = 'A'; // monomer always uses chain A
+
+    if (monCxcColorMode === 'plddt') {
+        // Color all LIR residues by pLDDT
+        const bfactors = parseBfactorsPerResidue(monPdbText);
+        const allLIR = new Set();
+        for (const v of monPairResults) {
+            for (const r of v.lirI) allLIR.add(r);
+            for (const r of v.lirJ) allLIR.add(r);
+        }
+        const filled = fillGaps(allLIR);
+        const byColor = {};
+        for (const resnum of filled) {
+            const bf = bfactors.get(`${chain}:${resnum}`);
+            const color = bf !== undefined ? plddtColor(bf) : '#65CBF3';
+            if (!byColor[color]) byColor[color] = new Set();
+            byColor[color].add(resnum);
+        }
+        for (const [color, posSet] of Object.entries(byColor)) {
+            components.push({ chain, ranges: toRanges(posSet), color });
+        }
+    } else if (monCxcColorMode === 'bychain' || monCxcColorMode === 'bypolymer') {
+        // Show all region residues in their region color (solid, no LIR/cLIR distinction)
+        for (const reg of validRegions) {
+            const allRes = new Set();
+            for (let i = reg.start; i <= reg.end; i++) allRes.add(i);
+            components.push({ chain, ranges: toRanges(allRes), color: reg.color });
+        }
+    } else {
+        // Default: LIR in light region color, cLIR in dark region color
+        // Collect all LIR and cLIR per region across all pairs
+        const regionLIR = new Map();  // region index -> Set of LIR residues
+        const regionCLIR = new Map(); // region index -> Set of cLIR residues
+
+        for (let ri = 0; ri < validRegions.length; ri++) {
+            regionLIR.set(ri, new Set());
+            regionCLIR.set(ri, new Set());
+        }
+
+        for (const v of monPairResults) {
+            const idxI = validRegions.indexOf(v.ri);
+            const idxJ = validRegions.indexOf(v.rj);
+            if (idxI >= 0) {
+                for (const r of v.lirI) regionLIR.get(idxI).add(r);
+                for (const r of v.clirI) regionCLIR.get(idxI).add(r);
+            }
+            if (idxJ >= 0) {
+                for (const r of v.lirJ) regionLIR.get(idxJ).add(r);
+                for (const r of v.clirJ) regionCLIR.get(idxJ).add(r);
+            }
+        }
+
+        const isBinary = monRegions.length <= 2;
+
+        for (let ri = 0; ri < validRegions.length; ri++) {
+            const reg = validRegions[ri];
+            const clirSet = regionCLIR.get(ri);
+            const lirSet = regionLIR.get(ri);
+            const lirOnly = new Set([...fillGaps(lirSet)].filter(r => !clirSet.has(r)));
+
+            let lirColor, clirColor;
+            if (isBinary) {
+                // Use the 4-color picker values (gradient mode)
+                const colors = getColorsForRegionPair(0, 1);
+                lirColor = ri === 0 ? colors.lir_a : colors.lir_b;
+                clirColor = ri === 0 ? colors.clir_a : colors.clir_b;
+            } else {
+                // Multi-region: light for LIR, dark (original) for cLIR
+                lirColor = lightenColorHex(reg.color, 0.55);
+                clirColor = reg.color;
+            }
+
+            if (lirOnly.size > 0) {
+                components.push({ chain, ranges: toRanges(lirOnly), color: lirColor });
+            }
+            if (clirSet.size > 0) {
+                components.push({ chain, ranges: toRanges(clirSet), color: clirColor });
+            }
+        }
+    }
+
+    return components.filter(c => c.ranges.length > 0);
+}
+
+function lightenColorHex(hex, amount) {
+    hex = hex.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    const nr = Math.round(r + (255 - r) * amount);
+    const ng = Math.round(g + (255 - g) * amount);
+    const nb = Math.round(b + (255 - b) * amount);
+    return '#' + [nr, ng, nb].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+function updateViewer3d(validRegions) {
+    const card = document.getElementById('viewer3d-card');
+    const frame = document.getElementById('viewer3d-frame');
+    if (!monPdbText || !frame || !validRegions || validRegions.length < 2) {
+        if (card) card.style.display = 'none';
+        return;
+    }
+    if (!monPairResults || monPairResults.length === 0) {
+        if (card) card.style.display = 'none';
+        return;
+    }
+
+    card.style.display = '';
+    const colorComponents = buildMonomerColorComponents(validRegions);
+    if (colorComponents.length === 0) { card.style.display = 'none'; return; }
+
+    const page = buildMolstarPage(monPdbText, 'pdb', colorComponents);
+    const blob = new Blob([page], { type: 'text/html' });
+    if (viewer3dBlobUrl) URL.revokeObjectURL(viewer3dBlobUrl);
+    viewer3dBlobUrl = URL.createObjectURL(blob);
+    frame.src = viewer3dBlobUrl;
+}
+
+function downloadMolstarPng() {
+    try {
+        const frame = document.getElementById('viewer3d-frame');
+        if (frame && frame.contentDocument) {
+            const canvas = frame.contentDocument.querySelector('canvas');
+            if (canvas) {
+                const a = document.createElement('a');
+                a.download = `${monUniprotId || 'structure'}_3d.png`;
+                a.href = canvas.toDataURL('image/png');
+                a.click();
+            }
+        }
+    } catch(e) { console.warn('PNG download failed (cross-origin?):', e); }
 }
 
 function highlightCxc(text) {

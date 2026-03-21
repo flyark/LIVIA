@@ -248,6 +248,18 @@
             </div>
         </div>
 
+        <!-- 3D Structure Viewer -->
+        <div class="card result-card" id="viewer3d-card" style="display:none;">
+            <h2>3D Structure Preview</h2>
+            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+                Interactive 3D preview matching ChimeraX script output. LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom, right-click to translate.
+            </div>
+            <iframe id="viewer3d-frame" style="width:100%; height:600px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin"></iframe>
+            <div style="text-align:center; margin-top:0.3rem;">
+                <a style="display:inline-block; font-size:0.7rem; color:#2471A3; cursor:pointer; opacity:0.6;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.6'" onclick="downloadMolstarPng()">PNG</a>
+            </div>
+        </div>
+
         <!-- Chain Pair Table -->
         <div class="card result-card">
             <h2>Chain Pair Details</h2>
@@ -344,8 +356,8 @@
             <div class="script-preview" id="script-preview"></div>
             <div class="download-row">
                 <a class="btn-download cxc" id="dl-cxc" download>&#8595; Download .cxc</a>
-                <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy to Clipboard</button>
                 <a class="btn-download cif" id="dl-cif" download>&#8595; Download .cif</a>
+                <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy to Clipboard</button>
             </div>
             <div class="info-box" style="margin-top:1rem;">Place the .cxc and .cif files in the same folder, then double-click the .cxc — ChimeraX will launch automatically.</div>
         </div>
@@ -409,6 +421,7 @@ let dimerChains = null;      // chain info from PAE JSON
 let dimerPairResult = null;  // computed pair metrics
 let dimerCifFilename = '';   // filename for download
 let cxcColorMode = '';       // ChimeraX color command preset
+let viewer3dBlobUrl = null;  // blob URL for current Mol* iframe page
 
 // ============================================================================
 // CORS PROXY (AlphaFold DB complex API lacks CORS headers)
@@ -694,6 +707,13 @@ async function selectDimer(idx, trEl) {
 
     document.getElementById('results').classList.remove('active');
     document.getElementById('error-msg').classList.remove('active');
+
+    // Reset Mol* viewer
+    if (viewer3dBlobUrl) { URL.revokeObjectURL(viewer3dBlobUrl); viewer3dBlobUrl = null; }
+    const v3frame = document.getElementById('viewer3d-frame');
+    if (v3frame) v3frame.src = 'about:blank';
+    const v3card = document.getElementById('viewer3d-card');
+    if (v3card) v3card.style.display = 'none';
 
     const modelEntityId = entry.modelEntityId;
     const version = entry.latestVersion || entry.modelVersion || 1;
@@ -1445,6 +1465,9 @@ function displayDimerResults() {
     // Chain Interaction Map (circular chord diagram)
     buildChordDiagram();
 
+    // 3D Structure Viewer
+    updateViewer3d();
+
     // Generate script
     generateAndDisplayScript();
 
@@ -2099,6 +2122,214 @@ function downloadCSV() {
 }
 
 // ============================================================================
+// 3D STRUCTURE VIEWER (Mol* via iframe + loadMvsData)
+// ============================================================================
+
+function parseBfactorsPerResidue(text) {
+    const m = new Map();
+    // CIF format only (dimer tool always uses CIF from AlphaFold DB)
+    const lines = text.split('\n');
+    let inA = false; const cols = [];
+    for (const line of lines) {
+        if (line.startsWith('_atom_site.')) { inA = true; cols.push(line.trim().split('.')[1]); continue; }
+        if (inA && !line.startsWith('_atom_site.') && !line.startsWith('#') && line.trim()) {
+            if (line.startsWith('loop_') || line.startsWith('_')) { inA = false; continue; }
+            const p = line.trim().split(/\s+/);
+            if (p.length < cols.length) continue;
+            const g = (n) => { const i = cols.indexOf(n); return i >= 0 ? p[i] : ''; };
+            if (g('group_PDB') !== 'ATOM' || g('label_atom_id') !== 'CA') continue;
+            const ch = g('label_asym_id'), rn = parseInt(g('label_seq_id')), bf = parseFloat(g('B_iso_or_equiv'));
+            if (!isNaN(rn) && !isNaN(bf)) m.set(`${ch}:${rn}`, bf);
+        }
+    }
+    return m;
+}
+
+function plddtColor(b) {
+    if (b > 90) return '#0053D6';
+    if (b > 70) return '#65CBF3';
+    if (b > 50) return '#FFDB13';
+    return '#FF7D45';
+}
+
+function buildColorComponents(v) {
+    const colors = {
+        lir_a: document.getElementById('color-lir-a').value,
+        clir_a: document.getElementById('color-clir-a').value,
+        lir_b: document.getElementById('color-lir-b').value,
+        clir_b: document.getElementById('color-clir-b').value,
+    };
+    const components = [];
+
+    const lirIFilled = fillGaps(v.lirI);
+    const lirJFilled = fillGaps(v.lirJ);
+
+    // Helper: convert Set to array of {start, end} ranges
+    function toRanges(positions) {
+        const sorted = [...positions].sort((a, b) => a - b);
+        if (sorted.length === 0) return [];
+        const ranges = [];
+        let s = sorted[0], e = sorted[0];
+        for (let i = 1; i <= sorted.length; i++) {
+            if (i < sorted.length && sorted[i] === e + 1) { e = sorted[i]; continue; }
+            ranges.push({ start: s, end: e });
+            if (i < sorted.length) { s = e = sorted[i]; }
+        }
+        return ranges;
+    }
+
+    if (cxcColorMode === 'plddt') {
+        const bfactors = parseBfactorsPerResidue(dimerCifText);
+        const addPlddt = (chain, positions) => {
+            const byColor = {};
+            for (const resnum of positions) {
+                const bf = bfactors.get(`${chain}:${resnum}`);
+                const color = bf !== undefined ? plddtColor(bf) : '#65CBF3';
+                if (!byColor[color]) byColor[color] = new Set();
+                byColor[color].add(resnum);
+            }
+            for (const [color, posSet] of Object.entries(byColor)) {
+                components.push({ chain, ranges: toRanges(posSet), color });
+            }
+        };
+        addPlddt(v.ci, lirIFilled);
+        addPlddt(v.cj, lirJFilled);
+    } else if (cxcColorMode === 'bychain' || cxcColorMode === 'bypolymer') {
+        components.push({ chain: v.ci, ranges: toRanges(lirIFilled), color: colors.clir_a });
+        components.push({ chain: v.cj, ranges: toRanges(lirJFilled), color: colors.clir_b });
+    } else {
+        // Gradient: LIR-only in light, cLIR in dark (separate components)
+        const clirISet = v.clirI || new Set();
+        const clirJSet = v.clirJ || new Set();
+        const lirOnlyI = new Set([...lirIFilled].filter(r => !clirISet.has(r)));
+        const lirOnlyJ = new Set([...lirJFilled].filter(r => !clirJSet.has(r)));
+
+        components.push({ chain: v.ci, ranges: toRanges(lirOnlyI), color: colors.lir_a });
+        components.push({ chain: v.cj, ranges: toRanges(lirOnlyJ), color: colors.lir_b });
+        components.push({ chain: v.ci, ranges: toRanges(clirISet), color: colors.clir_a });
+        components.push({ chain: v.cj, ranges: toRanges(clirJSet), color: colors.clir_b });
+    }
+    return components.filter(c => c.ranges.length > 0);
+}
+
+function buildMolstarPage(structData, fmt, colorComponents) {
+    const structureChildren = [];
+    for (const comp of colorComponents) {
+        const selector = comp.ranges.map(r => ({
+            label_asym_id: comp.chain,
+            beg_label_seq_id: r.start,
+            end_label_seq_id: r.end,
+        }));
+        structureChildren.push({
+            kind: 'component',
+            params: { selector: selector.length === 1 ? selector[0] : selector },
+            children: [{
+                kind: 'representation',
+                params: { type: 'cartoon' },
+                children: [{ kind: 'color', params: { color: comp.color } }]
+            }]
+        });
+    }
+
+    const mvsJson = {
+        kind: 'single',
+        root: {
+            kind: 'root',
+            children: [
+                { kind: 'canvas', params: { background_color: 'white' } },
+                {
+                    kind: 'download',
+                    params: { url: '__STRUCT_BLOB_URL__' },
+                    children: [{
+                        kind: 'parse',
+                        params: { format: fmt },
+                        children: [{
+                            kind: 'structure',
+                            params: { type: 'model' },
+                            children: structureChildren
+                        }]
+                    }]
+                }
+            ]
+        },
+        metadata: { version: '1.6' }
+    };
+
+    return `<!DOCTYPE html>
+<html><head>
+<script src="https://cdn.jsdelivr.net/npm/molstar@latest/build/viewer/molstar.js"><\/script>
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/molstar@latest/build/viewer/molstar.css" />
+<style>#viewer1 { position:absolute; top:0; left:0; right:0; bottom:0; }</style>
+</head><body>
+<div id="viewer1"></div>
+<script>
+var structData = ${JSON.stringify(structData)};
+var fmt = "${fmt}";
+var mvsTemplate = ${JSON.stringify(JSON.stringify(mvsJson))};
+
+async function init() {
+    var viewer = await molstar.Viewer.create('viewer1', {
+        layoutIsExpanded: false,
+        layoutShowControls: false,
+        layoutShowRemoteState: false,
+        layoutShowSequence: false,
+        layoutShowLog: false,
+        layoutShowLeftPanel: false,
+        viewportShowExpand: false,
+        viewportShowSelectionMode: false,
+        viewportShowAnimation: false,
+    });
+
+    var structBlob = new Blob([structData], { type: 'text/plain' });
+    var structUrl = URL.createObjectURL(structBlob);
+    var mvsStr = mvsTemplate.replace('__STRUCT_BLOB_URL__', structUrl);
+
+    try {
+        viewer.loadMvsData(mvsStr, 'mvsj');
+    } catch(e) {
+        console.warn('MVS failed, falling back:', e);
+        viewer.loadStructureFromData(structData, fmt);
+    }
+}
+init().catch(function(e) { console.error('Mol* error:', e); });
+<\/script>
+</body></html>`;
+}
+
+function updateViewer3d() {
+    const card = document.getElementById('viewer3d-card');
+    const frame = document.getElementById('viewer3d-frame');
+    const v = dimerPairResult;
+    if (!v || !dimerCifText) { if (card) card.style.display = 'none'; return; }
+    if (!frame) { if (card) card.style.display = 'none'; return; }
+
+    card.style.display = '';
+    const fmt = 'mmcif';  // dimer tool always uses CIF
+
+    const colorComponents = buildColorComponents(v);
+    const page = buildMolstarPage(dimerCifText, fmt, colorComponents);
+    const blob = new Blob([page], { type: 'text/html' });
+    if (viewer3dBlobUrl) URL.revokeObjectURL(viewer3dBlobUrl);
+    viewer3dBlobUrl = URL.createObjectURL(blob);
+    frame.src = viewer3dBlobUrl;
+}
+
+function downloadMolstarPng() {
+    try {
+        const frame = document.getElementById('viewer3d-frame');
+        if (frame && frame.contentDocument) {
+            const canvas = frame.contentDocument.querySelector('canvas');
+            if (canvas) {
+                const a = document.createElement('a');
+                a.download = 'structure_3d.png';
+                a.href = canvas.toDataURL('image/png');
+                a.click();
+            }
+        }
+    } catch(e) { console.warn('PNG download failed (cross-origin?):', e); }
+}
+
+// ============================================================================
 // COLOR PICKERS & PRESETS
 // ============================================================================
 document.querySelectorAll('input[type="color"]').forEach(input => {
@@ -2125,15 +2356,15 @@ function applyPreset(la, ca, lb, cb, el) {
     const s = document.getElementById('color-strip').children;
     s[0].style.background = la; s[1].style.background = ca; s[2].style.background = cb; s[3].style.background = lb;
     if (el) { document.querySelectorAll('.preset-chip').forEach(p => p.classList.remove('active')); el.classList.add('active'); }
-    // Re-render script if results are visible
-    if (dimerPairResult) generateAndDisplayScript();
+    // Re-render script and 3D viewer if results are visible
+    if (dimerPairResult) { generateAndDisplayScript(); updateViewer3d(); }
 }
 
 function applyCxcPreset(mode, el) {
     cxcColorMode = mode;
     document.querySelectorAll('.preset-chip').forEach(p => p.classList.remove('active'));
     if (el) el.classList.add('active');
-    if (dimerPairResult) generateAndDisplayScript();
+    if (dimerPairResult) { generateAndDisplayScript(); updateViewer3d(); }
 }
 
 function swapColors() {
