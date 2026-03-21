@@ -88,7 +88,10 @@
         .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 1rem; }
         .data-table th { text-align: left; padding: 0.5rem 0.8rem; background: #f8f9fa; font-weight: 600; font-size: 0.8rem; color: #666; }
         .data-table td { padding: 0.5rem 0.8rem; border-top: 1px solid #eee; }
-        .data-table tr.selected { background: #eaf2f8; }
+        .data-table tr.selected td { background: #d4e6f6; }
+        .data-table tr.selected td:first-child { box-shadow: inset 4px 0 0 #2471A3; }
+        .data-table tr.avg-row { background: #f0f7fc; font-weight: 600; }
+        .model-badge { font-size: 0.7rem; font-weight: 500; color: #2471A3; background: #eaf2f8; padding: 0.15rem 0.5rem; border-radius: 4px; vertical-align: middle; }
         .data-table tr.clickable { cursor: pointer; }
         .data-table tr.clickable:hover { background: #f0f7fc; }
         .script-preview { background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 1rem; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; line-height: 1.5; max-height: 400px; overflow-y: auto; white-space: pre; margin-bottom: 1rem; }
@@ -213,6 +216,25 @@
 
     <!-- Results -->
     <div class="results" id="results">
+        <!-- Interaction Analysis Summary -->
+        <div class="card result-card">
+            <h2 id="result-title">Interaction Analysis Summary</h2>
+            <div class="info-box">Click a row to switch between models. This updates all visualizations, metrics, and the ChimeraX script.</div>
+            <input type="hidden" id="seed-select" value="0">
+            <div style="overflow-x:auto;">
+            <table class="data-table" id="pairs-table">
+                <thead><tr><th>Rank/Model</th><th>Pair</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipSAE</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th>LIR (i/j)</th><th>cLIR (i/j)</th></tr></thead>
+                <tbody id="pairs-tbody"></tbody>
+            </table>
+            </div>
+            <div style="margin-top:0.5rem;">
+                <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem;" onclick="downloadCSV()">&#8595; Download CSV</a>
+            </div>
+            <div style="margin-top:0.6rem; font-size:0.75rem; color:#999; line-height:1.5;">
+                <strong>Average row:</strong> iLIS, iLIA, iLISA, ipSAE, and ipTM are averaged across all models. LIR and cLIR counts represent the union of all models (every residue identified as LIR or cLIR in any model is included).
+            </div>
+        </div>
+
         <!-- PAE Maps -->
         <div class="card result-card">
             <h2>Predicted Aligned Error (PAE) Maps</h2>
@@ -220,22 +242,6 @@
             <div class="colorbar-row">
                 <canvas id="colorbar-pae" width="300" height="14"></canvas>
                 <div class="colorbar-labels"><span>0</span><span>Predicted Aligned Error (&Aring;)</span><span>30</span></div>
-            </div>
-        </div>
-
-        <!-- Combined iLIS/ipTM Heatmaps -->
-        <div class="card result-card" id="score-matrix-card" style="display:none;">
-            <h2>iLIS / cLIR Matrix <span style="font-weight:400; font-size:0.8rem; color:#888;">(lower-left: iLIS, upper-right: cLIR count)</span></h2>
-            <div class="map-row" id="combined-row"></div>
-            <div class="colorbar-row" style="flex-direction:row; gap:2rem; justify-content:center;">
-                <div style="display:flex; align-items:center; gap:0.3rem;">
-                    <canvas id="colorbar-ilis" width="60" height="8"></canvas>
-                    <span style="font-size:0.7rem; color:#888;">iLIS (0&ndash;1)</span>
-                </div>
-                <div style="display:flex; align-items:center; gap:0.3rem;">
-                    <canvas id="colorbar-clir" width="60" height="8"></canvas>
-                    <span style="font-size:0.7rem; color:#888;">cLIR</span>
-                </div>
             </div>
         </div>
 
@@ -261,7 +267,7 @@
 
         <!-- Sequence Viewer -->
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
-            <h2>Sequence Viewer</h2>
+            <h2>Sequence Viewer <span class="model-badge" id="seq-model-badge"></span></h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Light background = LIR (PAE &le; 12 &Aring;). Dark background with white text = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each chain uses its own color.
             </div>
@@ -270,7 +276,7 @@
 
         <!-- Interface Contact Map (2-chain linear) -->
         <div class="card result-card" id="contact-map-card" style="display:none;">
-            <h2>Interface Contact Map</h2>
+            <h2>Interface Contact Map <span class="model-badge" id="contact-model-badge"></span></h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B.
             </div>
@@ -279,34 +285,25 @@
 
         <!-- Chain Interaction Map (multi-chain) -->
         <div class="card result-card" id="chord-card" style="display:none;">
-            <h2>Chain Interaction Map</h2>
+            <h2>Chain Interaction Map <span class="model-badge" id="chord-model-badge"></span></h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent chains. Lines connect cLIR residue pairs in physical contact across all chain pairs.
             </div>
-            <div style="text-align:center;">
-                <canvas id="chord-canvas"></canvas>
-            </div>
-        </div>
-
-        <!-- Chain Pair Table -->
-        <div class="card result-card">
-            <h2 id="result-title">Chain Pair Summary</h2>
-            <div class="info-box">Click a row to generate the ChimeraX script.</div>
-            <input type="hidden" id="seed-select" value="0">
-            <div style="overflow-x:auto;">
-            <table class="data-table" id="pairs-table">
-                <thead><tr><th>Rank/Model</th><th>Pair</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipSAE</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th>LIR (i/j)</th><th>cLIR (i/j)</th></tr></thead>
-                <tbody id="pairs-tbody"></tbody>
-            </table>
-            </div>
-            <div style="margin-top:0.5rem;">
-                <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem;" onclick="downloadCSV()">&#8595; Download CSV</a>
+            <div style="display:flex; justify-content:center; gap:2rem; flex-wrap:wrap;">
+                <div style="text-align:center;">
+                    <canvas id="chord-canvas"></canvas>
+                    <div style="font-size:0.75rem; color:#999; margin-top:0.25rem;">Selected Model</div>
+                </div>
+                <div id="chord-all-wrap" style="text-align:center;">
+                    <canvas id="chord-canvas-all"></canvas>
+                    <div style="font-size:0.75rem; color:#999; margin-top:0.25rem;">All Models Combined</div>
+                </div>
             </div>
         </div>
 
         <!-- 3D Structure Viewer -->
         <div class="card result-card" id="viewer3d-card" style="display:none;">
-            <h2>3D Structure Viewer</h2>
+            <h2>3D Structure Viewer <span class="model-badge" id="viewer3d-model-badge"></span></h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Interactive 3D preview matching ChimeraX script output. LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom, right-click to translate.
             </div>
@@ -315,7 +312,7 @@
 
         <!-- Script -->
         <div class="card result-card" id="script-card">
-            <div class="step-header">ChimeraX Script</div>
+            <div class="step-header">ChimeraX Script <span class="model-badge" id="script-model-badge"></span></div>
 
             <!-- Options -->
             <div style="margin-bottom:1rem;">
@@ -333,7 +330,31 @@
                     </div>
                 </div>
 
-                <label>Color Scheme</label>
+                <label>Presets &mdash; gradient (LIR light, cLIR dark)</label>
+                <div class="presets-row">
+                    <div class="preset-chip active" onclick="applyPreset('#80CBC4','#00897B','#FFAB91','#E64A19',this)"><div class="preset-strip"><span style="background:#80CBC4"></span><span style="background:#00897B"></span><span style="background:#E64A19"></span><span style="background:#FFAB91"></span></div>Teal / Coral</div>
+                    <div class="preset-chip" onclick="applyPreset('#b3d4e8','#2471A3','#f5cba7','#E67E22',this)"><div class="preset-strip"><span style="background:#b3d4e8"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#f5cba7"></span></div>Blue / Orange</div>
+                    <div class="preset-chip" onclick="applyPreset('#d1c4e9','#5e35b1','#fff3b0','#f9a825',this)"><div class="preset-strip"><span style="background:#d1c4e9"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#fff3b0"></span></div>Purple / Gold</div>
+                    <div class="preset-chip" onclick="applyPreset('#cfd8dc','#546e7a','#f8bbd0','#c2185b',this)"><div class="preset-strip"><span style="background:#cfd8dc"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#f8bbd0"></span></div>Slate / Rose</div>
+                    <div class="preset-chip" onclick="applyPreset('#c5cae9','#303f9f','#ffe0b2','#e65100',this)"><div class="preset-strip"><span style="background:#c5cae9"></span><span style="background:#303f9f"></span><span style="background:#e65100"></span><span style="background:#ffe0b2"></span></div>Indigo / Tangerine</div>
+                    <div class="preset-chip" onclick="applyPreset('#a8d5ba','#2e7d32','#ef9a9a','#c62828',this)"><div class="preset-strip"><span style="background:#a8d5ba"></span><span style="background:#2e7d32"></span><span style="background:#c62828"></span><span style="background:#ef9a9a"></span></div>Green / Red</div>
+                </div>
+                <label style="margin-top:0.5rem">Presets &mdash; solid</label>
+                <div class="presets-row">
+                    <div class="preset-chip" onclick="applyPreset('#00897B','#00897B','#E64A19','#E64A19',this)"><div class="preset-strip"><span style="background:#00897B"></span><span style="background:#00897B"></span><span style="background:#E64A19"></span><span style="background:#E64A19"></span></div>Teal / Coral</div>
+                    <div class="preset-chip" onclick="applyPreset('#5e35b1','#5e35b1','#f9a825','#f9a825',this)"><div class="preset-strip"><span style="background:#5e35b1"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#f9a825"></span></div>Purple / Gold</div>
+                    <div class="preset-chip" onclick="applyPreset('#6A9EC6','#6A9EC6','#D4A76A','#D4A76A',this)"><div class="preset-strip"><span style="background:#6A9EC6"></span><span style="background:#6A9EC6"></span><span style="background:#D4A76A"></span><span style="background:#D4A76A"></span></div>Steel / Wheat</div>
+                    <div class="preset-chip" onclick="applyPreset('#6495ED','#6495ED','#FF6347','#FF6347',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#FF6347"></span></div>Cornflower / Tomato</div>
+                </div>
+                <label style="margin-top:0.5rem; display:none" id="multichain-presets-label">Presets &mdash; multi-chain (auto-assigned per chain)</label>
+                <div class="presets-row" id="multichain-presets" style="display:none"></div>
+                <label style="margin-top:0.5rem">Presets &mdash; ChimeraX commands</label>
+                <div class="presets-row">
+                    <div class="preset-chip" onclick="applyCxcPreset('plddt',this)"><div class="preset-strip"><span style="background:#0053D6"></span><span style="background:#65CBF3"></span><span style="background:#FFDB13"></span><span style="background:#FF7D45"></span></div>pLDDT</div>
+                    <div class="preset-chip" onclick="applyCxcPreset('bychain',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#90EE90"></span><span style="background:#DDA0DD"></span></div>bychain</div>
+                    <div class="preset-chip" onclick="applyCxcPreset('bypolymer',this)"><div class="preset-strip"><span style="background:#87CEEB"></span><span style="background:#FFA07A"></span><span style="background:#98FB98"></span><span style="background:#DDA0DD"></span></div>bypolymer</div>
+                </div>
+                <label style="margin-top:1rem">Color Scheme</label>
                 <div class="color-section">
                     <div class="color-group">
                         <h3>Chain A (Protein 1)</h3>
@@ -363,30 +384,6 @@
                         <div style="background:#80CBC4"></div><div style="background:#00897B"></div><div style="background:#E64A19"></div><div style="background:#FFAB91"></div>
                     </div>
                     <button onclick="swapColors()" style="padding:0.3rem 0.8rem; border:2px solid #e0e0e0; border-radius:6px; background:white; cursor:pointer; font-size:0.82rem; color:#666; white-space:nowrap;">Swap A &#8596; B</button>
-                </div>
-                <label style="margin-top:1rem">Presets &mdash; gradient (LIR light, cLIR dark)</label>
-                <div class="presets-row">
-                    <div class="preset-chip active" onclick="applyPreset('#80CBC4','#00897B','#FFAB91','#E64A19',this)"><div class="preset-strip"><span style="background:#80CBC4"></span><span style="background:#00897B"></span><span style="background:#E64A19"></span><span style="background:#FFAB91"></span></div>Teal / Coral</div>
-                    <div class="preset-chip" onclick="applyPreset('#b3d4e8','#2471A3','#f5cba7','#E67E22',this)"><div class="preset-strip"><span style="background:#b3d4e8"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#f5cba7"></span></div>Blue / Orange</div>
-                    <div class="preset-chip" onclick="applyPreset('#d1c4e9','#5e35b1','#fff3b0','#f9a825',this)"><div class="preset-strip"><span style="background:#d1c4e9"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#fff3b0"></span></div>Purple / Gold</div>
-                    <div class="preset-chip" onclick="applyPreset('#cfd8dc','#546e7a','#f8bbd0','#c2185b',this)"><div class="preset-strip"><span style="background:#cfd8dc"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#f8bbd0"></span></div>Slate / Rose</div>
-                    <div class="preset-chip" onclick="applyPreset('#c5cae9','#303f9f','#ffe0b2','#e65100',this)"><div class="preset-strip"><span style="background:#c5cae9"></span><span style="background:#303f9f"></span><span style="background:#e65100"></span><span style="background:#ffe0b2"></span></div>Indigo / Tangerine</div>
-                    <div class="preset-chip" onclick="applyPreset('#a8d5ba','#2e7d32','#ef9a9a','#c62828',this)"><div class="preset-strip"><span style="background:#a8d5ba"></span><span style="background:#2e7d32"></span><span style="background:#c62828"></span><span style="background:#ef9a9a"></span></div>Green / Red</div>
-                </div>
-                <label style="margin-top:0.5rem">Presets &mdash; solid</label>
-                <div class="presets-row">
-                    <div class="preset-chip" onclick="applyPreset('#00897B','#00897B','#E64A19','#E64A19',this)"><div class="preset-strip"><span style="background:#00897B"></span><span style="background:#00897B"></span><span style="background:#E64A19"></span><span style="background:#E64A19"></span></div>Teal / Coral</div>
-                    <div class="preset-chip" onclick="applyPreset('#5e35b1','#5e35b1','#f9a825','#f9a825',this)"><div class="preset-strip"><span style="background:#5e35b1"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#f9a825"></span></div>Purple / Gold</div>
-                    <div class="preset-chip" onclick="applyPreset('#6A9EC6','#6A9EC6','#D4A76A','#D4A76A',this)"><div class="preset-strip"><span style="background:#6A9EC6"></span><span style="background:#6A9EC6"></span><span style="background:#D4A76A"></span><span style="background:#D4A76A"></span></div>Steel / Wheat</div>
-                    <div class="preset-chip" onclick="applyPreset('#6495ED','#6495ED','#FF6347','#FF6347',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#FF6347"></span></div>Cornflower / Tomato</div>
-                </div>
-                <label style="margin-top:0.5rem; display:none" id="multichain-presets-label">Presets &mdash; multi-chain (auto-assigned per chain)</label>
-                <div class="presets-row" id="multichain-presets" style="display:none"></div>
-                <label style="margin-top:0.5rem">Presets &mdash; ChimeraX commands</label>
-                <div class="presets-row">
-                    <div class="preset-chip" onclick="applyCxcPreset('plddt',this)"><div class="preset-strip"><span style="background:#0053D6"></span><span style="background:#65CBF3"></span><span style="background:#FFDB13"></span><span style="background:#FF7D45"></span></div>pLDDT</div>
-                    <div class="preset-chip" onclick="applyCxcPreset('bychain',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#90EE90"></span><span style="background:#DDA0DD"></span></div>bychain</div>
-                    <div class="preset-chip" onclick="applyCxcPreset('bypolymer',this)"><div class="preset-strip"><span style="background:#87CEEB"></span><span style="background:#FFA07A"></span><span style="background:#98FB98"></span><span style="background:#DDA0DD"></span></div>bypolymer</div>
                 </div>
             </div>
             <hr style="border:none; border-top:1px solid #e0e0e0; margin-bottom:1rem;">
@@ -731,7 +728,7 @@ function detectPlatform() {
 
     // Chai-1: pred.rank_*.cif + scores.rank_*.json (or pred.model_idx_*.cif)
     const hasChaiModel = basenames.some(f => /^pred\.(rank_\d+|model_idx_\d+)\.cif$/.test(f));
-    const hasChaiScores = basenames.some(f => /^scores\.rank_\d+\.json$/.test(f));
+    const hasChaiScores = basenames.some(f => /^scores\.(rank_\d+|model_idx_\d+)\.(json|npz)$/.test(f));
     if (hasChaiModel || (hasChaiScores && basenames.some(f => f.startsWith('pred.')))) return 'chai';
 
     // OpenFold: *.cif with *_full_data*.json (but NOT AF3 pattern)
@@ -1080,27 +1077,30 @@ function discoverChai(filenames) {
         const rankOrIdx = m[2] || m[3];
         const isRank = !!m[2];
 
-        // Find matching scores file
+        // Find matching scores file (.json or .npz)
         const scorePath = filenames.find(f => {
             const fb = f.split('/').pop();
             return fb === `scores.rank_${rankOrIdx}.json` || fb === `scores.model_idx_${rankOrIdx}.json`;
         }) || filenames.find(f => f.split('/').pop().includes('scores') && f.endsWith('.json')) || null;
 
+        const scoreNpzPath = filenames.find(f => {
+            const fb = f.split('/').pop();
+            return fb === `scores.rank_${rankOrIdx}.npz` || fb === `scores.model_idx_${rankOrIdx}.npz`;
+        }) || null;
+
         // Find matching PAE file (.npy or .npz or .json)
         const paePath = filenames.find(f => {
             const fb = f.split('/').pop();
-            return fb === `pae.rank_${rankOrIdx}.npy` || fb === `pae.rank_${rankOrIdx}.npz`;
-        }) || filenames.find(f => {
-            const fb = f.split('/').pop();
-            return fb.startsWith('pae') && (fb.endsWith('.npy') || fb.endsWith('.npz') || fb.endsWith('.json'));
+            return fb === `pae.rank_${rankOrIdx}.npy` || fb === `pae.rank_${rankOrIdx}.npz`
+                || fb === `pae.model_idx_${rankOrIdx}.npy` || fb === `pae.model_idx_${rankOrIdx}.npz`;
         }) || null;
 
         const groupKey = 'prediction';
         if (!predictions[groupKey]) predictions[groupKey] = {};
         predictions[groupKey][rankOrIdx] = {
             structurePath: cif,
-            paeSource: paePath || scorePath,  // Tamarind Chai-1: scores JSON contains PAE under 'pae' key
-            confidencePath: scorePath,
+            paeSource: paePath || scorePath || scoreNpzPath,  // Chai-1: PAE in dedicated file, or embedded in scores JSON
+            confidencePath: scorePath || scoreNpzPath,
             format: 'cif',
             label: isRank ? `rank_${rankOrIdx}` : `model_${rankOrIdx}`,
         };
@@ -1146,10 +1146,20 @@ function discoverGeneric(filenames) {
 
         // Try to find a PAE source
         let paeSource = null;
-        // Try matching by name prefix
+        // Try matching by name prefix or index number
         const namePrefix = structBase.replace(/\.(cif|pdb)$/, '');
-        paeSource = jsonFiles.find(f => f.split('/').pop().includes(namePrefix)) || jsonFiles[0] || null;
-        if (!paeSource && npzFiles.length > 0) paeSource = npzFiles[0];
+        const idxMatch = namePrefix.match(/(\d+)/);
+        const idx = idxMatch ? idxMatch[1] : null;
+        paeSource = jsonFiles.find(f => f.split('/').pop().includes(namePrefix));
+        if (!paeSource && idx) {
+            // Match by index number (e.g., pred.model_idx_1.cif → scores.model_idx_1.json)
+            paeSource = jsonFiles.find(f => {
+                const fb = f.split('/').pop();
+                return fb.includes(idx) && !fb.includes('aggregated');
+            });
+        }
+        if (!paeSource) paeSource = jsonFiles[i] || jsonFiles[0] || null;
+        if (!paeSource && npzFiles.length > 0) paeSource = npzFiles[i] || npzFiles[0] || null;
 
         if (!predictions['generic']) predictions['generic'] = {};
         predictions['generic'][String(i)] = {
@@ -2027,37 +2037,70 @@ function displayResults(results, jobName) {
 
     const hasMultipleModels = perModelSym.length > 1;
 
+    // Find model with highest max iLIS (across all pairs) to auto-select
+    let bestIdx = 0;
+    if (hasMultipleModels) {
+        let bestILIS = -1;
+        for (let mi = 0; mi < perModelSym.length; mi++) {
+            // Find the max iLIS across all pairs for this model
+            let maxILIS = 0;
+            for (const key of pairKeys) {
+                const mv = perModelSym[mi][key];
+                if (mv && mv.iLIS > maxILIS) maxILIS = mv.iLIS;
+            }
+            if (maxILIS > bestILIS) { bestILIS = maxILIS; bestIdx = mi; }
+        }
+    }
+    // Sort pair keys by iLIS descending (using best model's values)
+    const bestModelResults = hasMultipleModels ? perModelSym[bestIdx] : results;
+    pairKeys.sort((a, b) => {
+        const aILIS = bestModelResults[a]?.iLIS || 0;
+        const bILIS = bestModelResults[b]?.iLIS || 0;
+        return bILIS - aILIS;
+    });
+    const autoSelectKey = pairKeys[0];
+    if (hasMultipleModels) {
+        // Refine: find best model specifically for the top pair
+        let bestILIS = -1;
+        for (let mi = 0; mi < perModelSym.length; mi++) {
+            const mv = perModelSym[mi][autoSelectKey];
+            if (mv && mv.iLIS > bestILIS) { bestILIS = mv.iLIS; bestIdx = mi; }
+        }
+    }
+    const autoSelectIdx = String(bestIdx);
+
     for (let pi = 0; pi < pairKeys.length; pi++) {
         const key = pairKeys[pi];
         const avg = results[key];
+        const isFirstPair = pi === 0;
 
         if (hasMultipleModels) {
-            // Per-model rows
-            for (let mi = 0; mi < perModelSym.length; mi++) {
+            // Sort model indices by iLIS descending for this pair
+            const sortedMi = [...Array(perModelSym.length).keys()]
+                .filter(mi => perModelSym[mi][key])
+                .sort((a, b) => (perModelSym[b][key]?.iLIS || 0) - (perModelSym[a][key]?.iLIS || 0));
+
+            // Per-model rows (sorted by iLIS)
+            for (const mi of sortedMi) {
                 const mv = perModelSym[mi][key];
-                if (!mv) continue;
                 const tr = document.createElement('tr');
-                tr.className = 'clickable';
-                if (mi === 0 && pi > 0) tr.style.borderTop = '3px solid #2471A3';
-                tr.style.color = '#777';
-                tr.style.fontSize = '0.8rem';
+                tr.className = (isFirstPair && mi === bestIdx) ? 'clickable selected' : 'clickable';
+                if (sortedMi.indexOf(mi) === 0 && pi > 0) tr.style.borderTop = '3px solid #2471A3';
                 tr.onclick = () => selectRow(key, String(mi), tr);
                 tr.innerHTML = `<td>${uniState.modelData[mi]?.label || 'model_' + mi}</td><td>${mv.ci} \u2014 ${mv.cj}</td><td>${mv.iLIS.toFixed(3)}</td><td>${(mv.iLIA||0).toFixed(1)}</td><td>${(mv.iLISA||0).toFixed(1)}</td><td>${(mv.ipSAE||0).toFixed(3)}</td><td>${(mv.ipTM||0).toFixed(2)}</td><td>${mv.LIS.toFixed(3)}</td><td>${mv.cLIS.toFixed(3)}</td><td>${mv.lirI.size} / ${mv.lirJ.size}</td><td>${mv.clirI.size} / ${mv.clirJ.size}</td>`;
                 tbody.appendChild(tr);
             }
-            // Average row
+            // Average row — auto-selected for first pair
             const avgTr = document.createElement('tr');
-            avgTr.className = 'clickable';
+            avgTr.className = 'clickable avg-row';
             avgTr.dataset.pinned = 'true';
-            avgTr.style.background = '#f0f7fc';
-            avgTr.style.fontWeight = '600';
             avgTr.onclick = () => selectRow(key, 'avg', avgTr);
             avgTr.innerHTML = `<td>Average</td><td>${avg.ci} \u2014 ${avg.cj}</td><td>${avg.iLIS.toFixed(3)}</td><td>${(avg.iLIA||0).toFixed(1)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.ipTM||0).toFixed(2)}</td><td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td><td>${avg.lirI.size} / ${avg.lirJ.size}</td><td>${avg.clirI.size} / ${avg.clirJ.size}</td>`;
             tbody.appendChild(avgTr);
         } else {
-            // Single model row
+            // Single model row — auto-selected for first pair
             const tr = document.createElement('tr');
-            tr.className = 'clickable';
+            tr.className = isFirstPair ? 'clickable selected' : 'clickable';
             tr.onclick = () => selectRow(key, '0', tr);
             tr.innerHTML = `<td>${uniState.modelData[0]?.label || '0'}</td><td>${avg.ci} \u2014 ${avg.cj}</td><td>${avg.iLIS.toFixed(3)}</td><td>${(avg.iLIA||0).toFixed(1)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.ipTM||0).toFixed(2)}</td><td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td><td>${avg.lirI.size} / ${avg.lirJ.size}</td><td>${avg.clirI.size} / ${avg.clirJ.size}</td>`;
             tbody.appendChild(tr);
@@ -2066,8 +2109,6 @@ function displayResults(results, jobName) {
 
     // Show/hide multi-chain cards
     const nc = uniState.chainNames ? uniState.chainNames.length : 0;
-    document.getElementById('score-matrix-card').style.display = nc > 1 ? '' : 'none';
-
     makeSortable(document.getElementById('pairs-table'));
 
     document.getElementById('results').classList.add('active');
@@ -2075,11 +2116,9 @@ function displayResults(results, jobName) {
     drawAllMaps();
     document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
 
-    // Auto-select first pair
+    // Trigger data load for auto-selected first pair
     if (pairKeys.length > 0) {
-        const firstRow = tbody.querySelector('tr:last-child') || tbody.querySelector('tr');
-        const firstModelIdx = hasMultipleModels ? 'avg' : '0';
-        selectRow(pairKeys[0], firstModelIdx, firstRow);
+        selectRow(autoSelectKey, autoSelectIdx, tbody.querySelector('tr.selected'));
     }
 }
 
@@ -2092,6 +2131,11 @@ function selectRow(pairKey, modelIdx, trEl) {
     }
     document.querySelectorAll('#pairs-tbody tr').forEach(tr => tr.classList.remove('selected'));
     if (trEl) trEl.classList.add('selected');
+
+    // Update model badge on visualization headers
+    const badgeText = modelIdx === 'avg' ? 'Average' : (uniState.modelData[parseInt(modelIdx)]?.label || 'model_' + modelIdx);
+    document.querySelectorAll('.model-badge').forEach(el => { el.textContent = badgeText; });
+
     selectPair(pairKey);
 }
 
@@ -2691,107 +2735,6 @@ function dilateMap(map2d, radius) {
     return result;
 }
 
-function drawCombinedHeatmap(canvas, ilisGrid, clirGrid, chainNames, globalClirMax) {
-    const nc = chainNames.length;
-    const displaySize = calcMapDisplaySize();
-    const leftMargin = 20;
-    const bottomMargin = 22;
-    const cellDisplaySize = Math.floor(displaySize / nc);
-    const gridDisplay = cellDisplaySize * nc;
-    const leftPx = leftMargin * HIRES;
-    const gridPx = gridDisplay * HIRES;
-    const cPx = cellDisplaySize * HIRES;
-
-    canvas.width = gridPx + leftPx;
-    canvas.height = gridPx + bottomMargin * HIRES;
-    canvas.style.width = (gridDisplay + leftMargin) + 'px';
-    canvas.style.height = (gridDisplay + bottomMargin) + 'px';
-
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const maxClir = globalClirMax || 1;
-
-    for (let i = 0; i < nc; i++) {
-        for (let j = 0; j < nc; j++) {
-            const x = leftPx + j * cPx;
-            const y = i * cPx;
-
-            if (i === j) {
-                ctx.fillStyle = '#f0f0f0';
-                ctx.fillRect(x, y, cPx, cPx);
-                continue;
-            }
-
-            if (i > j) {
-                // Bottom-left: iLIS (Oranges)
-                const val = ilisGrid[i][j];
-                const [r, g, b] = orangesColor(val, 0, 1);
-                ctx.fillStyle = `rgb(${r},${g},${b})`;
-                ctx.fillRect(x, y, cPx, cPx);
-
-                const fontSize = Math.max(8, Math.min(14, cellDisplaySize / 3.5)) * HIRES;
-                ctx.font = `bold ${fontSize}px sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = val > 0.5 ? 'white' : '#333';
-                ctx.fillText(val.toFixed(3), x + cPx / 2, y + cPx / 2);
-            } else {
-                // Top-right: cLIR (white → green, 0 = pure white)
-                const val = clirGrid[i][j];
-                if (val === 0) {
-                    ctx.fillStyle = '#ffffff';
-                } else {
-                    const t = Math.min(1, val / maxClir);
-                    const r2 = Math.round(255 * (1 - t));
-                    const g2 = Math.round(255 - t * 85);
-                    const b2 = Math.round(255 * (1 - t));
-                    ctx.fillStyle = `rgb(${r2},${g2},${b2})`;
-                }
-                ctx.fillRect(x, y, cPx, cPx);
-
-                const fontSize = Math.max(8, Math.min(14, cellDisplaySize / 3.5)) * HIRES;
-                ctx.font = `bold ${fontSize}px sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                const t = maxClir > 0 ? val / maxClir : 0;
-                ctx.fillStyle = t > 0.6 ? 'white' : '#333';
-                ctx.fillText(val.toFixed(0), x + cPx / 2, y + cPx / 2);
-            }
-        }
-    }
-
-    // Grid lines
-    ctx.strokeStyle = '#ccc';
-    ctx.lineWidth = 0.5 * HIRES;
-    for (let i = 0; i <= nc; i++) {
-        ctx.beginPath(); ctx.moveTo(leftPx, i * cPx); ctx.lineTo(leftPx + nc * cPx, i * cPx); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(leftPx + i * cPx, 0); ctx.lineTo(leftPx + i * cPx, nc * cPx); ctx.stroke();
-    }
-
-    // Diagonal line
-    ctx.strokeStyle = '#999';
-    ctx.lineWidth = 1.5 * HIRES;
-    ctx.beginPath();
-    ctx.moveTo(leftPx, 0);
-    ctx.lineTo(leftPx + gridPx, gridPx);
-    ctx.stroke();
-
-    // Labels
-    const labelFont = Math.max(9, Math.min(12, cellDisplaySize / 3)) * HIRES;
-    ctx.font = `bold ${labelFont}px sans-serif`;
-    ctx.fillStyle = '#333';
-    for (let k = 0; k < nc; k++) {
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(chainNames[k], leftPx - 3 * HIRES, k * cPx + cPx / 2);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(chainNames[k], leftPx + k * cPx + cPx / 2, gridPx + 4 * HIRES);
-    }
-}
-
 function drawAllMaps() {
     const chainNames = uniState.chainNames || [];
     const chainSizes = uniState.chainSizes || [];
@@ -2811,34 +2754,6 @@ function drawAllMaps() {
         item.appendChild(canvas);
         paeRow.appendChild(item);
         drawMapCanvas(canvas, model.pae, model.nTotal, chainSizes, chainNames, bwrColor, 0, 30);
-    }
-
-    // Combined iLIS/cLIR Heatmaps (multi-chain only)
-    if (chainNames.length > 1) {
-        // Find global max cLIR across all models
-        let globalClirMax = 0;
-        for (const model of uniState.modelData) {
-            const nc = model.clirGrid.length;
-            for (let i = 0; i < nc; i++)
-                for (let j = 0; j < nc; j++)
-                    if (i !== j) globalClirMax = Math.max(globalClirMax, model.clirGrid[i][j]);
-        }
-
-        const combinedRow = document.getElementById('combined-row');
-        combinedRow.innerHTML = '';
-        for (let mi = 0; mi < uniState.modelData.length; mi++) {
-            const model = uniState.modelData[mi];
-            const item = document.createElement('div');
-            item.className = 'map-item';
-            const canvas = document.createElement('canvas');
-            const label = document.createElement('div');
-            label.className = 'map-label';
-            label.textContent = model.label;
-            item.appendChild(label);
-            item.appendChild(canvas);
-            combinedRow.appendChild(item);
-            drawCombinedHeatmap(canvas, model.ilisGrid, model.clirGrid, chainNames, globalClirMax);
-        }
     }
 
     // LIS Maps
@@ -2881,8 +2796,6 @@ function drawAllMaps() {
     drawColorbar('colorbar-pae', bwrColor, 0, 30);
     drawColorbar('colorbar-lis', bluesColor, 0, 1);
     drawColorbar('colorbar-clis', greensColor, 0, 1);
-    drawColorbar('colorbar-ilis', orangesColor, 0, 1);
-    drawColorbar('colorbar-clir', greensColor, 0, 1);
 }
 
 function drawColorbar(canvasId, colorFn, vmin, vmax) {
@@ -2906,7 +2819,7 @@ function downloadCSV() {
     if (!uniState.modelPairs || !uniState.avgResults || !uniState.chainNames) return;
     const jobName = document.getElementById('result-title')?.textContent || 'prediction';
     const cs = uniState.confidenceScores || {};
-    const header = 'name,model,chain_A,chain_B,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
+    const header = 'name,model,protein_A,protein_B,chain_A,chain_B,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
     const rows = [header];
     const platform = platformLabel(uniState.platform);
 
@@ -2914,7 +2827,7 @@ function downloadCSV() {
         const sym = symmetrizePairs(uniState.modelPairs[mi]);
         for (const [key, v] of Object.entries(sym)) {
             rows.push([
-                jobName, `model_${mi}`, v.ci, v.cj,
+                jobName, `model_${mi}`, v.ci, v.cj, v.ci, v.cj,
                 v.iLIS.toFixed(6), (v.iLIA||0).toFixed(1), (v.iLISA||0).toFixed(1), (v.ipSAE||0).toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
                 v.ipTM.toFixed(6),
                 cs.pLDDT != null ? cs.pLDDT.toFixed(1) : '', cs.pTM != null ? cs.pTM.toFixed(3) : '',
@@ -2930,7 +2843,7 @@ function downloadCSV() {
     if (uniState.modelPairs.length > 1) {
         for (const [key, v] of Object.entries(uniState.avgResults)) {
             rows.push([
-                jobName, 'average', v.ci, v.cj,
+                jobName, 'average', v.ci, v.cj, v.ci, v.cj,
                 v.iLIS.toFixed(6), (v.iLIA||0).toFixed(1), (v.iLISA||0).toFixed(1), (v.ipSAE||0).toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
                 v.ipTM.toFixed(6),
                 cs.pLDDT != null ? cs.pLDDT.toFixed(1) : '', cs.pTM != null ? cs.pTM.toFixed(3) : '',
@@ -3336,8 +3249,8 @@ function buildContactMap(pairKey) {
         return;
     }
 
-    // Find contact pairs (cLIR_A near cLIR_B within 10 Angstrom)
-    const contactDist = 10;
+    // Find contact pairs (cLIR_A near cLIR_B within 8 Angstrom)
+    const contactDist = 8;
     const contacts = [];
     for (const resA of v.clirI) {
         const cA = coordA.get(resA);
@@ -3392,12 +3305,12 @@ function buildContactMap(pairKey) {
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_B, barW, barH);
 
     // Labels
-    ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     ctx.fillStyle = colors.clir_a; ctx.fillText(`${v.ci}`, barLeft - 5, barY_A + barH / 2);
     ctx.fillStyle = colors.clir_b; ctx.fillText(`${v.cj}`, barLeft - 5, barY_B + barH / 2);
 
     // Ticks
-    ctx.fillStyle = '#888'; ctx.font = '8px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (const t of [1, Math.round(v.lenI/2), v.lenI]) ctx.fillText(t, xA(t), barY_A + barH + 3);
     ctx.textBaseline = 'bottom';
@@ -3423,57 +3336,89 @@ function buildContactMap(pairKey) {
     }
 
     // Label
-    ctx.fillStyle = '#888'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText(`${contacts.length} cLIR contact pairs`, width / 2, barY_B + barH + 18);
+    ctx.fillStyle = '#888'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width / 2, barY_B + barH + 18);
 
     ctx.restore();
 }
 
-function buildChordDiagram() {
-    const card = document.getElementById('chord-card');
-    const canvas = document.getElementById('chord-canvas');
-    if (!card || !canvas) return;
-
-    const chainNames = uniState.chainNames || [];
-    const chainSizes = uniState.chainSizes || [];
+function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, contacts, chainColors) {
+    // Draws pre-computed contacts without distance re-filtering
     const nc = chainNames.length;
-    if (nc < 2) { card.style.display = 'none'; return; }
+    const S = 2;
+    const cxC = size / 2, cyC = size / 2;
+    const outerR = size / 2 - 30, innerR = outerR - 18, chordR = innerR - 4;
+    ctx.clearRect(0, 0, size * S, size * S);
+    ctx.save(); ctx.scale(S, S);
 
-    // Get structure coordinates
-    const seedVal = document.getElementById('seed-select')?.value || '0';
-    const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
-    const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
-    if (!structText) { card.style.display = 'none'; return; }
-
-    const coords = parseStructureCoords(structText, uniState.structureFormat);
-    const chainCoordMap = new Map();
-    for (const c of coords) {
-        if (!chainCoordMap.has(c.chain)) chainCoordMap.set(c.chain, new Map());
-        chainCoordMap.get(c.chain).set(c.resnum, c);
+    const totalRes = chainSizes.reduce((a, b) => a + b, 0);
+    const gapAngle = 0.04, totalGap = gapAngle * nc;
+    const availAngle = 2 * Math.PI - totalGap;
+    const arcs = [];
+    let angle = -Math.PI / 2;
+    for (let i = 0; i < nc; i++) {
+        const sweep = (chainSizes[i] / totalRes) * availAngle;
+        let displayName = chainNames[i];
+        if (chainTypes[i] === 'ion') {
+            const seq = chainSeqs.get(chainNames[i]);
+            if (seq && seq.length > 0) displayName = seq[0].aa.charAt(0) + seq[0].aa.slice(1).toLowerCase();
+        }
+        arcs.push({ start: angle, end: angle + sweep, mid: angle + sweep / 2, name: chainNames[i], displayName, size: chainSizes[i], idx: i, type: chainTypes[i] || 'protein' });
+        angle += sweep + gapAngle;
     }
 
-    // Get chain sequences (for ion names)
-    const chainSeqs = uniState.structureFormat === 'pdb' ? parsePdbSequence(structText) : parseCifSequence(structText);
+    function resToAngle(chainName, resnum) {
+        const arcIdx = chainNames.indexOf(chainName);
+        if (arcIdx < 0) return 0;
+        const arc = arcs[arcIdx];
+        return arc.start + ((resnum - 1) / Math.max(1, chainSizes[arcIdx] - 1)) * (arc.end - arc.start);
+    }
 
-    // Get current results (all pairs)
-    const results = uniState.results || uniState.avgResults;
-    if (!results) { card.style.display = 'none'; return; }
+    // Draw contact lines with distance-based alpha
+    const maxDist = contacts.length > 0 ? Math.max(...contacts.map(c => c.dist || 8)) : 8;
+    const minDist = contacts.length > 0 ? Math.min(...contacts.map(c => c.dist || 0)) : 0;
+    for (const c of contacts) {
+        const colI = chainColors[c.ci] || '#888', colJ = chainColors[c.cj] || '#888';
+        const angA = resToAngle(c.ci, c.resA), angB = resToAngle(c.cj, c.resB);
+        const xA = cxC + Math.cos(angA) * chordR, yA = cyC + Math.sin(angA) * chordR;
+        const xB = cxC + Math.cos(angB) * chordR, yB = cyC + Math.sin(angB) * chordR;
+        const t = maxDist > minDist ? 1 - ((c.dist || 0) - minDist) / (maxDist - minDist) : 1;
+        const alpha = 0.08 + t * 0.2;
+        ctx.beginPath(); ctx.moveTo(xA, yA);
+        ctx.quadraticCurveTo(cxC, cyC, xB, yB);
+        const grad = ctx.createLinearGradient(xA, yA, xB, yB);
+        grad.addColorStop(0, hexToRgba(colI, alpha));
+        grad.addColorStop(1, hexToRgba(colJ, alpha));
+        ctx.strokeStyle = grad; ctx.lineWidth = 1.2; ctx.stroke();
+    }
 
-    card.style.display = '';
+    // Draw arcs and labels (same as drawChord)
+    for (const arc of arcs) {
+        ctx.beginPath(); ctx.arc(cxC, cyC, outerR, arc.start, arc.end); ctx.arc(cxC, cyC, innerR, arc.end, arc.start, true); ctx.closePath();
+        ctx.fillStyle = chainColors[arc.name] || '#888'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+        const labelAngle = arc.mid;
+        let textAngle = labelAngle + Math.PI / 2;
+        const normA = ((textAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+        if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
+        ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+14), cyC + Math.sin(labelAngle) * (outerR+14));
+        ctx.rotate(textAngle); ctx.fillStyle = '#333'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(arc.type === 'ion' ? arc.displayName : arc.name, 0, 0); ctx.restore();
+        ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+24), cyC + Math.sin(labelAngle) * (outerR+24));
+        ctx.rotate(textAngle); ctx.fillStyle = '#888'; ctx.font = '7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`, 0, 0); ctx.restore();
+    }
+    ctx.restore();
+}
 
+function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors) {
+    const nc = chainNames.length;
     const S = 2;
-    const size = 350;
     const cxC = size / 2, cyC = size / 2;
     const outerR = size / 2 - 30;
     const innerR = outerR - 18;
     const chordR = innerR - 4;
 
-    canvas.width = size * S;
-    canvas.height = size * S;
-    canvas.style.width = size + 'px';
-    canvas.style.height = size + 'px';
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, size * S, size * S);
     ctx.save();
     ctx.scale(S, S);
 
@@ -3483,7 +3428,6 @@ function buildChordDiagram() {
     const totalGap = gapAngle * nc;
     const availAngle = 2 * Math.PI - totalGap;
 
-    const chainTypes = uniState.chainTypes || chainNames.map(() => 'protein');
     const arcs = [];
     let angle = -Math.PI / 2;
     for (let i = 0; i < nc; i++) {
@@ -3500,18 +3444,6 @@ function buildChordDiagram() {
         angle += sweep + gapAngle;
     }
 
-    // Get chain colors — use color pickers for 2-chain, multi-chain palette for >2
-    const chainColors = {};
-    if (nc === 2) {
-        chainColors[chainNames[0]] = document.getElementById('color-clir-a')?.value || '#00897B';
-        chainColors[chainNames[1]] = document.getElementById('color-clir-b')?.value || '#E64A19';
-    } else {
-        setupMultiChainColors();
-        for (const name of chainNames) {
-            chainColors[name] = (uniState.multiChainColors && uniState.multiChainColors[name]) || '#888';
-        }
-    }
-
     // Draw outer arcs
     for (const arc of arcs) {
         ctx.beginPath();
@@ -3524,7 +3456,7 @@ function buildChordDiagram() {
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        // Label (rotated along arc, matching subdomain interaction map style)
+        // Label (rotated along arc)
         const labelAngle = arc.mid;
         const labelR = outerR + 14;
         const lx = cxC + Math.cos(labelAngle) * labelR;
@@ -3567,22 +3499,22 @@ function buildChordDiagram() {
         return arc.start + frac * (arc.end - arc.start);
     }
 
-    // Draw residue-level contact lines for all pairs
-    const contactDist = 10;
-    for (const [key, v] of Object.entries(results)) {
-        // Use cLIR if available, fall back to LIR for ion pairs
-        const idxI = chainNames.indexOf(v.ci), idxJ = chainNames.indexOf(v.cj);
+    // Draw residue-level contact lines
+    const contactDist = 8;
+    for (const cp of contactPairs) {
+        const idxI = chainNames.indexOf(cp.ci), idxJ = chainNames.indexOf(cp.cj);
         const typeI = chainTypes[idxI], typeJ = chainTypes[idxJ];
         const isIonPair = typeI === 'ion' || typeJ === 'ion';
-        const setI = (v.clirI && v.clirI.size > 0) ? v.clirI : isIonPair ? (v.lirI || new Set()) : new Set();
-        const setJ = (v.clirJ && v.clirJ.size > 0) ? v.clirJ : isIonPair ? (v.lirJ || new Set()) : new Set();
+        const setI = (cp.clirI && cp.clirI.size > 0) ? cp.clirI : isIonPair ? (cp.lirI || new Set()) : new Set();
+        const setJ = (cp.clirJ && cp.clirJ.size > 0) ? cp.clirJ : isIonPair ? (cp.lirJ || new Set()) : new Set();
         if (setI.size === 0 || setJ.size === 0) continue;
-        const coordsI = chainCoordMap.get(v.ci);
-        const coordsJ = chainCoordMap.get(v.cj);
-        if (!coordsI || !coordsJ) continue;
 
-        const colI = chainColors[v.ci] || '#888';
-        const colJ = chainColors[v.cj] || '#888';
+        const colI = chainColors[cp.ci] || '#888';
+        const colJ = chainColors[cp.cj] || '#888';
+
+        const coordsI = chainCoordMap.get(cp.ci);
+        const coordsJ = chainCoordMap.get(cp.cj);
+        if (!coordsI || !coordsJ) continue;
 
         for (const resA of setI) {
             const cA = coordsI.get(resA);
@@ -3594,8 +3526,8 @@ function buildChordDiagram() {
                 const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
                 if (dist >= contactDist) continue;
 
-                const angA = resToAngle(v.ci, resA);
-                const angB = resToAngle(v.cj, resB);
+                const angA = resToAngle(cp.ci, resA);
+                const angB = resToAngle(cp.cj, resB);
                 const xA = cxC + Math.cos(angA) * chordR;
                 const yA = cyC + Math.sin(angA) * chordR;
                 const xB = cxC + Math.cos(angB) * chordR;
@@ -3618,6 +3550,127 @@ function buildChordDiagram() {
     }
 
     ctx.restore();
+}
+
+function buildChordDiagram() {
+    const card = document.getElementById('chord-card');
+    const canvas = document.getElementById('chord-canvas');
+    const canvasAll = document.getElementById('chord-canvas-all');
+    const chordAllWrap = document.getElementById('chord-all-wrap');
+    if (!card || !canvas) return;
+
+    const chainNames = uniState.chainNames || [];
+    const chainSizes = uniState.chainSizes || [];
+    const nc = chainNames.length;
+    if (nc < 2) { card.style.display = 'none'; return; }
+
+    // Get structure coordinates for the selected model
+    const seedVal = document.getElementById('seed-select')?.value || '0';
+    const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
+    const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
+    if (!structText) { card.style.display = 'none'; return; }
+
+    const coords = parseStructureCoords(structText, uniState.structureFormat);
+    const chainCoordMap = new Map();
+    for (const c of coords) {
+        if (!chainCoordMap.has(c.chain)) chainCoordMap.set(c.chain, new Map());
+        chainCoordMap.get(c.chain).set(c.resnum, c);
+    }
+
+    // Get chain sequences (for ion names)
+    const chainSeqs = uniState.structureFormat === 'pdb' ? parsePdbSequence(structText) : parseCifSequence(structText);
+
+    // Get current results (all pairs)
+    const results = uniState.results || uniState.avgResults;
+    if (!results) { card.style.display = 'none'; return; }
+
+    card.style.display = '';
+
+    const chainTypes = uniState.chainTypes || chainNames.map(() => 'protein');
+
+    // Get chain colors
+    const chainColors = {};
+    if (nc === 2) {
+        chainColors[chainNames[0]] = document.getElementById('color-clir-a')?.value || '#00897B';
+        chainColors[chainNames[1]] = document.getElementById('color-clir-b')?.value || '#E64A19';
+    } else {
+        setupMultiChainColors();
+        for (const name of chainNames) {
+            chainColors[name] = (uniState.multiChainColors && uniState.multiChainColors[name]) || '#888';
+        }
+    }
+
+    const S = 2;
+    const size = 350;
+
+    // --- Draw individual model chord ---
+    const contactPairs = Object.values(results);
+    canvas.width = size * S;
+    canvas.height = size * S;
+    canvas.style.width = size + 'px';
+    canvas.style.height = size + 'px';
+    drawChord(canvas.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors);
+
+    // --- Draw combined all-models chord ---
+    const hasMultipleModels = uniState.modelPairs && uniState.modelPairs.length > 1;
+    if (chordAllWrap) chordAllWrap.style.display = hasMultipleModels ? '' : 'none';
+
+    if (hasMultipleModels && canvasAll) {
+        // Collect contacts from each model using its own structure coordinates
+        const contactDist = 8;
+        const allContactsByPair = {}; // pairKey → Map("resA-resB" → {resA, resB, dist, ci, cj})
+        for (let mi = 0; mi < uniState.modelPairs.length; mi++) {
+            const miStructText = uniState.structureContents[String(mi)];
+            if (!miStructText) continue;
+            const miCoords = parseStructureCoords(miStructText, uniState.structureFormat);
+            const miCoordMap = new Map();
+            for (const c of miCoords) {
+                if (!miCoordMap.has(c.chain)) miCoordMap.set(c.chain, new Map());
+                miCoordMap.get(c.chain).set(c.resnum, c);
+            }
+            const sym = symmetrizePairs(uniState.modelPairs[mi]);
+            for (const [key, v] of Object.entries(sym)) {
+                if (!allContactsByPair[key]) allContactsByPair[key] = new Map();
+                const idxI = chainNames.indexOf(v.ci), idxJ = chainNames.indexOf(v.cj);
+                const typeI = chainTypes[idxI], typeJ = chainTypes[idxJ];
+                const isIonPair = typeI === 'ion' || typeJ === 'ion';
+                const setI = (v.clirI && v.clirI.size > 0) ? v.clirI : isIonPair ? (v.lirI || new Set()) : new Set();
+                const setJ = (v.clirJ && v.clirJ.size > 0) ? v.clirJ : isIonPair ? (v.lirJ || new Set()) : new Set();
+                const coordsI = miCoordMap.get(v.ci), coordsJ = miCoordMap.get(v.cj);
+                if (!coordsI || !coordsJ) continue;
+                for (const resA of setI) {
+                    const cA = coordsI.get(resA);
+                    if (!cA) continue;
+                    for (const resB of setJ) {
+                        const cKey = `${resA}-${resB}`;
+                        if (allContactsByPair[key].has(cKey)) continue;
+                        const cB = coordsJ.get(resB);
+                        if (!cB) continue;
+                        const dx = cA.x-cB.x, dy = cA.y-cB.y, dz = cA.z-cB.z;
+                        const dist = Math.sqrt(dx*dx+dy*dy+dz*dz);
+                        if (dist < contactDist) {
+                            allContactsByPair[key].set(cKey, { ci: v.ci, cj: v.cj, resA, resB, dist });
+                        }
+                    }
+                }
+            }
+        }
+        // Flatten all contacts into a single list for drawing
+        const allContacts = [];
+        for (const [key, contactMap] of Object.entries(allContactsByPair)) {
+            for (const c of contactMap.values()) {
+                allContacts.push(c);
+            }
+        }
+
+        if (allContacts.length > 0) {
+            canvasAll.width = size * S;
+            canvasAll.height = size * S;
+            canvasAll.style.width = size + 'px';
+            canvasAll.style.height = size + 'px';
+            drawChordFromContacts(canvasAll.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, allContacts, chainColors);
+        }
+    }
 }
 
 function copyScript() {

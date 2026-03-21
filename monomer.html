@@ -71,7 +71,7 @@
         .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 1rem; }
         .data-table th { text-align: left; padding: 0.5rem 0.8rem; background: #f8f9fa; font-weight: 600; font-size: 0.8rem; color: #666; }
         .data-table td { padding: 0.5rem 0.8rem; border-top: 1px solid #eee; }
-        .data-table tr.selected { background: #eaf2f8; }
+        .data-table tr.selected { background: #d4e6f6; box-shadow: inset 4px 0 0 #2471A3; }
         .script-preview { background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 1rem; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; line-height: 1.5; max-height: 400px; overflow-y: auto; white-space: pre; margin-bottom: 1rem; }
         .script-preview .comment { color: #6c7086; }
         .script-preview .command { color: #89b4fa; }
@@ -281,18 +281,20 @@
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
             <h2>Sequence Viewer</h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                Light background = LIR (PAE &le; 12 &Aring;). Dark background with white text = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each region uses its own color. Colored bars below each row show UniProt domain annotations.
+                Light background = LIR (PAE &le; 12 &Aring;). Dark background with white text = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each region uses its own color.
+                <span id="seq-uniprot-link"></span>
             </div>
             <div id="seq-viewer" style="font-family:'SF Mono','Fira Code',monospace; overflow-x:auto;"></div>
         </div>
 
-        <!-- Domain Comparison -->
+        <!-- Domain Map -->
         <div class="card result-card" id="domain-comparison-card" style="display:none;">
-            <h2>Auto-detected Regions vs UniProt Domains</h2>
+            <h2>Region &amp; Domain Map</h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                Compares auto-detected subdomains (from pLDDT segmentation) with annotated UniProt domains. Overlap shows the percentage of each auto-detected region covered by each UniProt domain.
+                Auto-detected regions (top) vs UniProt domains (bottom). Aligned to residue position.
             </div>
-            <div id="domain-comparison-content"></div>
+            <canvas id="domain-map-canvas" style="width:100%; max-width:900px; display:block; margin:0 auto;"></canvas>
+            <div id="domain-comparison-content" style="margin-top:1rem;"></div>
         </div>
 
         <!-- Region Pair Table -->
@@ -1473,41 +1475,6 @@ function buildSequenceViewer(validRegions) {
         row.appendChild(endLabel);
 
         container.appendChild(row);
-
-        // Domain annotation bar below the sequence row
-        if (hasDomains) {
-            const domRow = document.createElement('div');
-            domRow.className = 'seq-domain-row';
-
-            const domNum = document.createElement('span');
-            domNum.className = 'seq-num';
-            domNum.textContent = '';
-            domRow.appendChild(domNum);
-
-            const domBar = document.createElement('span');
-            domBar.className = 'seq-domain-bar';
-
-            for (let i = rowStart; i < rowEnd; i++) {
-                const res = monSequence[i];
-                const dom = resDomain.get(res.resnum);
-                const cell = document.createElement('span');
-                cell.className = 'seq-domain-cell';
-                if (dom) {
-                    cell.style.background = DOMAIN_PALETTE[dom.colorIdx % DOMAIN_PALETTE.length];
-                    cell.title = `${dom.name} (${monDomains[dom.colorIdx].start}-${monDomains[dom.colorIdx].end})`;
-                }
-                domBar.appendChild(cell);
-
-                // Matching gap every 10 residues
-                if ((i - rowStart + 1) % 10 === 0 && i < rowEnd - 1) {
-                    const gap = document.createElement('span');
-                    gap.style.cssText = 'width:3px; display:inline-block;';
-                    domBar.appendChild(gap);
-                }
-            }
-            domRow.appendChild(domBar);
-            container.appendChild(domRow);
-        }
     }
 
     // Domain legend below sequence viewer
@@ -1535,6 +1502,138 @@ function buildSequenceViewer(validRegions) {
     }
 }
 
+function drawDomainMap(validRegions) {
+    const canvas = document.getElementById('domain-map-canvas');
+    if (!canvas || !monSequence.length) return;
+    const hasDomains = monDomains && monDomains.length > 0;
+    if (!hasDomains && (!validRegions || validRegions.length === 0)) return;
+
+    const S = 2;
+    const totalRes = monSequence[monSequence.length - 1].resnum;
+    const width = Math.min(900, Math.max(600, totalRes));
+    const barH = 22;
+    const gap = 6;
+    const labelW = 120;
+    const padR = 40;
+    const barW = width - labelW - padR;
+    const topPad = 10;
+
+    // Height: region bar + gap + domain bar + tick labels
+    const rows = hasDomains ? 2 : 1;
+    const height = topPad + rows * barH + (rows - 1) * gap + 30;
+
+    canvas.width = width * S;
+    canvas.height = height * S;
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(S, S);
+
+    function resX(resnum) { return labelW + (resnum - 1) / (totalRes - 1) * barW; }
+
+    // --- Row 1: Auto-detected regions ---
+    const y1 = topPad;
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(labelW, y1, barW, barH);
+    ctx.strokeStyle = '#ddd';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(labelW, y1, barW, barH);
+
+    ctx.fillStyle = '#555';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Detected Regions', labelW - 6, y1 + barH / 2);
+
+    if (validRegions) {
+        for (const r of validRegions) {
+            const x0 = resX(r.start);
+            const x1 = resX(r.end);
+            ctx.fillStyle = r.color;
+            ctx.fillRect(x0, y1, x1 - x0, barH);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x0, y1, x1 - x0, barH);
+            // Label
+            const rw = x1 - x0;
+            if (rw > 18) {
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 9px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(r.name, x0 + rw / 2, y1 + barH / 2);
+            }
+        }
+    }
+
+    // --- Row 2: UniProt domains ---
+    if (hasDomains) {
+        const y2 = y1 + barH + gap;
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(labelW, y2, barW, barH);
+        ctx.strokeStyle = '#ddd';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(labelW, y2, barW, barH);
+
+        ctx.fillStyle = '#555';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('UniProt Domains', labelW - 6, y2 + barH / 2);
+
+        for (let di = 0; di < monDomains.length; di++) {
+            const d = monDomains[di];
+            const x0 = resX(d.start);
+            const x1 = resX(d.end);
+            ctx.fillStyle = DOMAIN_PALETTE[di % DOMAIN_PALETTE.length];
+            ctx.globalAlpha = 0.7;
+            ctx.fillRect(x0, y2, x1 - x0, barH);
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x0, y2, x1 - x0, barH);
+            const rw = x1 - x0;
+            if (rw > 25) {
+                ctx.fillStyle = '#333';
+                ctx.font = '8px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const label = d.name.length > rw / 5 ? d.name.substring(0, Math.floor(rw / 5)) + '..' : d.name;
+                ctx.fillText(label, x0 + rw / 2, y2 + barH / 2);
+            }
+        }
+    }
+
+    // --- Tick marks ---
+    const tickY = topPad + rows * barH + (rows - 1) * gap + 2;
+    ctx.strokeStyle = '#aaa';
+    ctx.fillStyle = '#888';
+    ctx.font = '7px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.lineWidth = 0.5;
+    const tickInterval = totalRes <= 200 ? 50 : totalRes <= 500 ? 100 : totalRes <= 1000 ? 200 : 500;
+    for (let t = 1; t <= totalRes; t += tickInterval) {
+        const tx = resX(t);
+        ctx.beginPath();
+        ctx.moveTo(tx, tickY);
+        ctx.lineTo(tx, tickY + 4);
+        ctx.stroke();
+        ctx.fillText(t, tx, tickY + 5);
+    }
+    // Last residue
+    const txEnd = resX(totalRes);
+    ctx.beginPath();
+    ctx.moveTo(txEnd, tickY);
+    ctx.lineTo(txEnd, tickY + 4);
+    ctx.stroke();
+    ctx.fillText(totalRes, txEnd, tickY + 5);
+
+    ctx.restore();
+}
+
 function buildDomainComparison(validRegions) {
     const card = document.getElementById('domain-comparison-card');
     const content = document.getElementById('domain-comparison-content');
@@ -1544,6 +1643,9 @@ function buildDomainComparison(validRegions) {
         card.style.display = 'none';
         return;
     }
+
+    // Draw the visual domain map
+    drawDomainMap(validRegions);
 
     card.style.display = '';
     content.innerHTML = '';
@@ -1640,6 +1742,12 @@ function lightenColor(hex, amount) {
 
 function displayResults(validRegions) {
     document.getElementById('result-title').textContent = `${monUniprotId} \u2014 Region Pair Summary`;
+
+    // UniProt link in sequence viewer
+    const seqLink = document.getElementById('seq-uniprot-link');
+    if (seqLink && monUniprotId) {
+        seqLink.innerHTML = `<a href="https://www.uniprot.org/uniprot/${monUniprotId}" target="_blank" style="color:#2471A3;">UniProt: ${monUniprotId}</a>`;
+    }
 
     // Metrics for first/primary pair
     const metricsDiv = document.getElementById('pair-metrics');
@@ -1831,11 +1939,11 @@ function generateAndShowScript(validRegions) {
 
 function downloadCSV() {
     if (!monPairResults.length) return;
-    const header = 'name,model,chain_A,chain_B,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
+    const header = 'name,model,protein_A,protein_B,chain_A,chain_B,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
     const rows = [header];
     for (const v of monPairResults) {
         rows.push([
-            monUniprotId, 'monomer', v.ri.name, v.rj.name,
+            monUniprotId, 'monomer', v.ri.name, v.rj.name, v.ri.name, v.rj.name,
             v.iLIS.toFixed(6), v.iLIA.toFixed(1), v.iLISA.toFixed(1), v.ipSAE.toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
             '', '', '',
             v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
@@ -2073,49 +2181,107 @@ function buildMonomerColorComponents(validRegions) {
             components.push({ chain, ranges: toRanges(allRes), color: reg.color });
         }
     } else {
-        // Default: LIR in light region color, cLIR in dark region color
-        // Collect all LIR and cLIR per region across all pairs
-        const regionLIR = new Map();  // region index -> Set of LIR residues
-        const regionCLIR = new Map(); // region index -> Set of cLIR residues
+        // Default: show interacting regions with background + LIR/cLIR highlights
+        // Boundary residues included in LIR/cLIR via full-range PAE scan
+        const regionLIR = new Map();
+        const regionCLIR = new Map();
+        const interactingRegions = new Set();
 
         for (let ri = 0; ri < validRegions.length; ri++) {
             regionLIR.set(ri, new Set());
             regionCLIR.set(ri, new Set());
         }
 
+        // Collect LIR/cLIR from analysis results (excludes boundary)
         for (const v of monPairResults) {
             const idxI = validRegions.indexOf(v.ri);
             const idxJ = validRegions.indexOf(v.rj);
-            if (idxI >= 0) {
+            if (idxI >= 0 && v.iLIS > 0) {
                 for (const r of v.lirI) regionLIR.get(idxI).add(r);
                 for (const r of v.clirI) regionCLIR.get(idxI).add(r);
+                interactingRegions.add(idxI);
             }
-            if (idxJ >= 0) {
+            if (idxJ >= 0 && v.iLIS > 0) {
                 for (const r of v.lirJ) regionLIR.get(idxJ).add(r);
                 for (const r of v.clirJ) regionCLIR.get(idxJ).add(r);
+                interactingRegions.add(idxJ);
+            }
+        }
+
+        // Also compute LIR/cLIR for boundary residues directly from PAE
+        // (only for interacting region pairs, to include residues at region edges)
+        const paeCutoff = parseFloat(document.getElementById('pae-cutoff')?.value) || 12;
+        const cbCutoff = parseFloat(document.getElementById('cb-cutoff')?.value) || 8;
+        const boundaryMargin = parseInt(document.getElementById('detect-boundary-margin')?.value) || 2;
+        const coordMap = new Map();
+        for (const c of monCoords) coordMap.set(c.resnum, c);
+        for (let ri = 0; ri < validRegions.length; ri++) {
+            if (!interactingRegions.has(ri)) continue;
+            const regA = validRegions[ri];
+            for (let rj = ri + 1; rj < validRegions.length; rj++) {
+                if (!interactingRegions.has(rj)) continue;
+                const regB = validRegions[rj];
+                // Only scan boundary residues (the margin zones excluded from analysis)
+                const boundaryZonesA = [];
+                for (let a = regA.start; a < regA.start + boundaryMargin && a <= regA.end; a++) boundaryZonesA.push(a);
+                for (let a = regA.end - boundaryMargin + 1; a <= regA.end; a++) boundaryZonesA.push(a);
+                const boundaryZonesB = [];
+                for (let b = regB.start; b < regB.start + boundaryMargin && b <= regB.end; b++) boundaryZonesB.push(b);
+                for (let b = regB.end - boundaryMargin + 1; b <= regB.end; b++) boundaryZonesB.push(b);
+                // Check boundary A vs full B, and full A vs boundary B
+                const pairsToCheck = [];
+                for (const a of boundaryZonesA) for (let b = regB.start; b <= regB.end; b++) pairsToCheck.push([a, b, ri, rj]);
+                for (let a = regA.start; a <= regA.end; a++) for (const b of boundaryZonesB) pairsToCheck.push([a, b, ri, rj]);
+                for (const [a, b, idxA, idxB] of pairsToCheck) {
+                    if (!monPae[a-1] || monPae[a-1][b-1] === undefined) continue;
+                    const paeAvg = (monPae[a-1][b-1] + monPae[b-1][a-1]) / 2;
+                    if (paeAvg < paeCutoff) {
+                        regionLIR.get(idxA).add(a);
+                        regionLIR.get(idxB).add(b);
+                        const ci = coordMap.get(a), cj = coordMap.get(b);
+                        if (ci && cj) {
+                            const dx=ci.x-cj.x, dy=ci.y-cj.y, dz=ci.z-cj.z;
+                            if (Math.sqrt(dx*dx+dy*dy+dz*dz) < cbCutoff) {
+                                regionCLIR.get(idxA).add(a);
+                                regionCLIR.get(idxB).add(b);
+                            }
+                        }
+                    }
+                }
             }
         }
 
         const isBinary = monRegions.length <= 2;
 
         for (let ri = 0; ri < validRegions.length; ri++) {
+            if (!interactingRegions.has(ri)) continue;
             const reg = validRegions[ri];
             const clirSet = regionCLIR.get(ri);
             const lirSet = regionLIR.get(ri);
-            const lirOnly = new Set([...fillGaps(lirSet)].filter(r => !clirSet.has(r)));
 
             let lirColor, clirColor;
             if (isBinary) {
-                // Use the 4-color picker values (gradient mode)
                 const colors = getColorsForRegionPair(0, 1);
                 lirColor = ri === 0 ? colors.lir_a : colors.lir_b;
                 clirColor = ri === 0 ? colors.clir_a : colors.clir_b;
             } else {
-                // Multi-region: light for LIR, dark (original) for cLIR
                 lirColor = lightenColorHex(reg.color, 0.55);
                 clirColor = reg.color;
             }
 
+            // Light background: fill gaps around LIR/cLIR to create connected segments
+            // (avoids showing entire disordered regions as spaghetti)
+            const allInteracting = new Set([...lirSet, ...clirSet]);
+            if (allInteracting.size > 0) {
+                const filled = fillGaps(allInteracting);
+                const bgOnly = new Set([...filled].filter(r => !lirSet.has(r) && !clirSet.has(r)));
+                if (bgOnly.size > 0) {
+                    components.push({ chain, ranges: toRanges(bgOnly), color: lightenColorHex(reg.color, 0.8) });
+                }
+            }
+
+            // LIR only (excluding cLIR)
+            const lirOnly = new Set([...lirSet].filter(r => !clirSet.has(r)));
             if (lirOnly.size > 0) {
                 components.push({ chain, ranges: toRanges(lirOnly), color: lirColor });
             }

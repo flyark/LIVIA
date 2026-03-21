@@ -250,7 +250,11 @@
             padding: 0.5rem 0.8rem;
             border-top: 1px solid #eee;
         }
-        .data-table tr.selected { background: #eaf2f8; }
+        .data-table tr.selected td { background: #d4e6f6; }
+        .data-table tr.selected td:first-child { box-shadow: inset 4px 0 0 #2471A3; }
+        .model-badge { font-size: 0.7rem; font-weight: 500; color: #2471A3; background: #eaf2f8; padding: 0.15rem 0.5rem; border-radius: 4px; vertical-align: middle; }
+        .data-table tr.clickable { cursor: pointer; }
+        .data-table tr.clickable:hover { background: #f0f7fc; }
 
         /* ── Script Preview ── */
         .script-preview {
@@ -461,7 +465,8 @@
 
         <!-- All Ranks (click to select) -->
         <div class="card result-card">
-            <h2 id="result-title">All Ranks</h2>
+            <h2 id="result-title">Interaction Analysis Summary</h2>
+            <div class="info-box">Click a row to switch between ranks. This updates all visualizations, metrics, and the ChimeraX script.</div>
             <div style="overflow-x:auto;">
                 <table class="data-table" id="ranks-table">
                     <thead>
@@ -473,11 +478,14 @@
             <div style="margin-top:0.5rem;">
                 <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem; cursor:pointer;" onclick="downloadFlyCSV()">&#8595; Download CSV</a>
             </div>
+            <div style="margin-top:0.6rem; font-size:0.75rem; color:#999; line-height:1.5;">
+                <strong>Avg row:</strong> iLIS, iLIA, iLISA, and ipTM are averaged across all ranks. LIR and cLIR counts represent the union of all ranks (every residue identified as LIR or cLIR in any rank is included).
+            </div>
         </div>
 
         <!-- Sequence Viewer -->
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
-            <h2>Sequence Viewer</h2>
+            <h2>Sequence Viewer <span class="model-badge" id="seq-model-badge"></span></h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Light background = LIR (PAE &le; 12 &Aring;). Dark background = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each chain uses its own color.
             </div>
@@ -486,7 +494,7 @@
 
         <!-- Interaction Connection Diagram -->
         <div class="card result-card" id="connection-diagram-card" style="display:none;">
-            <h2>Interface Contact Map</h2>
+            <h2>Interface Contact Map <span class="model-badge" id="contact-model-badge"></span></h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Per-rank structures fetched automatically.
             </div>
@@ -496,18 +504,25 @@
 
         <!-- Chain Interaction Map (circular) -->
         <div class="card result-card" id="chord-card" style="display:none;">
-            <h2>Chain Interaction Map</h2>
+            <h2>Chain Interaction Map <span class="model-badge" id="chord-model-badge"></span></h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent chains (proportional to length). Lines connect cLIR residue pairs in physical contact.
             </div>
-            <div style="text-align:center;">
-                <canvas id="chord-canvas"></canvas>
+            <div style="display:flex; justify-content:center; gap:2rem; flex-wrap:wrap;">
+                <div style="text-align:center;">
+                    <canvas id="chord-canvas"></canvas>
+                    <div style="font-size:0.75rem; color:#999; margin-top:0.25rem;">Selected Rank</div>
+                </div>
+                <div id="chord-all-wrap" style="text-align:center; display:none;">
+                    <canvas id="chord-canvas-all"></canvas>
+                    <div style="font-size:0.75rem; color:#999; margin-top:0.25rem;">All Ranks Combined</div>
+                </div>
             </div>
         </div>
 
         <!-- 3D Structure Viewer -->
         <div class="card result-card" id="viewer3d-card" style="display:none;">
-            <h2>3D Structure Viewer</h2>
+            <h2>3D Structure Viewer <span class="model-badge" id="viewer3d-model-badge"></span></h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Interactive 3D preview matching ChimeraX script output. LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom, right-click to translate.
             </div>
@@ -518,7 +533,7 @@
 
         <!-- Script -->
         <div class="card result-card">
-            <div class="step-header">ChimeraX Script</div>
+            <div class="step-header">ChimeraX Script <span class="model-badge" id="script-model-badge"></span></div>
 
             <!-- Options -->
             <div style="margin-bottom:1rem;">
@@ -920,6 +935,7 @@ let flyPdbText = null;     // raw PDB text for connection diagram
 let flyPdbPerRank = {};    // cached PDB text per rank
 let flyBaseUrl = '';       // base FlyPredictome URL for per-rank fetching
 let flyCurrentRank = 1;    // currently selected rank
+let flyAverageRow = null;  // averaged metrics across all ranks
 let flyDomains = { A: [], B: [] }; // UniProt domain annotations per chain
 let flyDomainInfo = { A: null, B: null }; // { accession, offset, fullLength, predLength, isPartial }
 let domainCache = new Map();       // cache UniProt domain results
@@ -1036,10 +1052,16 @@ async function generate() {
                 if (flyDomains.A.length > 0 || flyDomains.B.length > 0) {
                     buildConnectionDiagram(target, sym1, sym2, colors, flyPdbText);
                 }
-                // Rebuild sequence viewer to show partial protein info
-                if (flyDomainInfo.A?.isPartial || flyDomainInfo.B?.isPartial) {
-                    buildFlySeqViewer(target, sym1, sym2, colors, flyChainSeqs);
-                }
+                // Rebuild sequence viewer to show partial protein info and UniProt links
+                buildFlySeqViewer(target, sym1, sym2, colors, flyChainSeqs);
+            }
+            // Populate UniProt links in sequence viewer
+            const seqLink = document.getElementById('seq-uniprot-link');
+            if (seqLink) {
+                const links = [];
+                if (flyDomainInfo.A?.accession) links.push(`<a href="https://www.uniprot.org/uniprot/${flyDomainInfo.A.accession}" target="_blank" style="color:#2471A3;">UniProt: ${flyDomainInfo.A.accession}</a>`);
+                if (flyDomainInfo.B?.accession && flyDomainInfo.B.accession !== flyDomainInfo.A?.accession) links.push(`<a href="https://www.uniprot.org/uniprot/${flyDomainInfo.B.accession}" target="_blank" style="color:#2471A3;">UniProt: ${flyDomainInfo.B.accession}</a>`);
+                seqLink.innerHTML = links.join(' &middot; ');
             }
         });
     }
@@ -1068,41 +1090,166 @@ async function generate() {
         </tr>`;
     }).join('');
 
+    // Compute and append Average row
+    const rows = flyParsed.rows;
+    const n = rows.length;
+    if (n > 1) {
+        let sumILIS = 0, sumIpTM = 0, sumLIA = 0, sumCLIA = 0;
+        const unionLIR_A = new Set(), unionLIR_B = new Set(), unionCLIR_A = new Set(), unionCLIR_B = new Set();
+        for (const r of rows) {
+            sumILIS += parseFloat(r['iLIS'] || 0);
+            sumIpTM += parseFloat(r['ipTM'] || 0);
+            const lia = parseFloat(r['LIA'] || 0) || (parseFloat(r['LIA (AB)'] || 0) + parseFloat(r['LIA (BA)'] || 0));
+            const clia = parseFloat(r['cLIA'] || 0) || (parseFloat(r['cLIA (AB)'] || 0) + parseFloat(r['cLIA (BA)'] || 0));
+            sumLIA += lia;
+            sumCLIA += clia;
+            for (const v of r._LIR_A) unionLIR_A.add(v);
+            for (const v of r._LIR_B) unionLIR_B.add(v);
+            for (const v of r._cLIR_A) unionCLIR_A.add(v);
+            for (const v of r._cLIR_B) unionCLIR_B.add(v);
+        }
+        const avgILIS = (sumILIS / n).toFixed(3);
+        const avgIpTM = (sumIpTM / n).toFixed(2);
+        const avgILIA = Math.sqrt((sumLIA / n) * (sumCLIA / n));
+        const avgILISA = parseFloat(avgILIS) * avgILIA;
+        const iliaStr = avgILIA > 0 ? avgILIA.toFixed(1) : '';
+        const ilisaStr = avgILISA > 0 ? avgILISA.toFixed(1) : '';
+
+        // Store average data for loadRank('avg')
+        flyAverageRow = {
+            'Rank': 'Avg', 'Symbol 1': rows[0]['Symbol 1'], 'Symbol 2': rows[0]['Symbol 2'],
+            'iLIS': avgILIS, 'ipTM': avgIpTM,
+            'Len A': rows[0]['Len A'], 'Len B': rows[0]['Len B'],
+            _LIR_A: unionLIR_A, _LIR_B: unionLIR_B,
+            _cLIR_A: unionCLIR_A, _cLIR_B: unionCLIR_B
+        };
+
+        const tbody = document.getElementById('ranks-tbody');
+        const avgTr = document.createElement('tr');
+        avgTr.className = 'clickable';
+        avgTr.style.background = '#f0f7fc';
+        avgTr.style.fontWeight = '600';
+        avgTr.onclick = () => loadRank('avg');
+        avgTr.innerHTML = `<td>Avg</td><td>${rows[0]['Symbol 1']||''}</td><td>${rows[0]['Symbol 2']||''}</td>` +
+            `<td>${avgILIS}</td><td>${iliaStr}</td><td>${ilisaStr}</td><td>${avgIpTM}</td>` +
+            `<td>${unionLIR_A.size} / ${unionLIR_B.size}</td>` +
+            `<td>${unionCLIR_A.size} / ${unionCLIR_B.size}</td>` +
+            `<td>${rows[0]['Len A']||'?'} / ${rows[0]['Len B']||'?'}</td>`;
+        tbody.appendChild(avgTr);
+    }
+
     makeSortable(document.getElementById('ranks-table'));
 
     // Load the selected rank
     loadRank(rank);
 
     document.getElementById('results').classList.add('active');
+
+    // Background: fetch all other rank PDBs and progressively update combined chord
+    fetchAllRankPdbs();
+}
+
+async function fetchRankPdb(rankNum) {
+    if (flyPdbPerRank[rankNum] || !flyBaseUrl) return false;
+    try {
+        const rankUrl = flyBaseUrl.replace('famdb_details/', 'famdb_details_with_rank/').replace(/\/$/, '') + '/' + rankNum;
+        const rankHtml = await fetchTextViaProxy(rankUrl);
+        if (rankHtml) {
+            const pdbMatch = rankHtml.match(/["']([^"']*colabfold-output[^"']*\.pdb)["']/);
+            if (pdbMatch) {
+                let pdbUrl = pdbMatch[1];
+                if (!pdbUrl.startsWith('http')) pdbUrl = 'https://www.flyrnai.org' + pdbUrl;
+                const pdbText = await fetchTextViaProxy(pdbUrl);
+                if (pdbText && pdbText.includes('ATOM')) {
+                    flyPdbPerRank[rankNum] = pdbText;
+                    return true;
+                }
+            }
+        }
+    } catch (e) { console.warn('Background fetch rank', rankNum, 'PDB:', e); }
+    return false;
+}
+
+async function fetchAllRankPdbs() {
+    if (!flyParsed || !flyParsed.rows || flyParsed.rows.length <= 1) return;
+    for (const r of flyParsed.rows) {
+        const rankNum = parseInt(r['Rank']);
+        if (flyPdbPerRank[rankNum]) continue;
+        const fetched = await fetchRankPdb(rankNum);
+        if (fetched) {
+            // Update combined chord diagram with newly available data
+            updateCombinedChord();
+        }
+    }
+}
+
+function updateCombinedChord() {
+    if (!flyParsed || !flyAverageRow) return;
+    const canvasAll = document.getElementById('chord-canvas-all');
+    const chordAllWrap = document.getElementById('chord-all-wrap');
+    if (!canvasAll || !chordAllWrap) return;
+
+    const row0 = flyParsed.rows[0];
+    const sym1 = row0['Symbol 1'] || '?';
+    const sym2 = row0['Symbol 2'] || '?';
+    const lenA = parseInt(row0['Len A'] || row0['protein_1_size']) || 0;
+    const lenB = parseInt(row0['Len B'] || row0['protein_2_size']) || 0;
+    if (lenA === 0 || lenB === 0) return;
+
+    const colors = {
+        clir_a: document.getElementById('color-clir-a').value,
+        clir_b: document.getElementById('color-clir-b').value,
+    };
+
+    // Collect contacts from all available rank PDBs
+    const contactDist = 8;
+    const allContacts = new Map();
+    for (const r of flyParsed.rows) {
+        const rankNum = parseInt(r['Rank']);
+        const rankPdb = flyPdbPerRank[rankNum];
+        if (!rankPdb) continue;
+        const rankCoords = parsePdbCbCoords(rankPdb);
+        const rCoordA = rankCoords.get('A');
+        const rCoordB = rankCoords.get('B');
+        if (!rCoordA || !rCoordB) continue;
+        for (const resA of r._cLIR_A) {
+            const cA = rCoordA.get(resA);
+            if (!cA) continue;
+            for (const resB of r._cLIR_B) {
+                const key = `${resA}-${resB}`;
+                if (allContacts.has(key)) continue;
+                const cB = rCoordB.get(resB);
+                if (!cB) continue;
+                const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
+                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                if (dist < contactDist) allContacts.set(key, { resA, resB, dist });
+            }
+        }
+    }
+
+    const unionContacts = [...allContacts.values()];
+    if (unionContacts.length > 0) {
+        chordAllWrap.style.display = '';
+        drawFlyChordFromContacts(canvasAll, unionContacts, lenA, lenB, sym1, sym2, colors);
+    }
 }
 
 async function loadRank(rankNum) {
     if (!flyParsed) return;
     flyCurrentRank = rankNum;
 
-    // Fetch per-rank PDB if not cached
-    if (!flyPdbPerRank[rankNum] && flyBaseUrl) {
-        try {
-            // Construct per-rank URL: famdb_details/X/Y/SET_N/ → famdb_details_with_rank/X/Y/SET_N/{rank}
-            const rankUrl = flyBaseUrl.replace('famdb_details/', 'famdb_details_with_rank/').replace(/\/$/, '') + '/' + rankNum;
-            const rankHtml = await fetchTextViaProxy(rankUrl);
-            if (rankHtml) {
-                const pdbMatch = rankHtml.match(/["']([^"']*colabfold-output[^"']*\.pdb)["']/);
-                if (pdbMatch) {
-                    let pdbUrl = pdbMatch[1];
-                    if (!pdbUrl.startsWith('http')) pdbUrl = 'https://www.flyrnai.org' + pdbUrl;
-                    const pdbText = await fetchTextViaProxy(pdbUrl);
-                    if (pdbText && pdbText.includes('ATOM')) {
-                        flyPdbPerRank[rankNum] = pdbText;
-                    }
-                }
-            }
-        } catch (e) { console.warn('Could not fetch rank', rankNum, 'PDB:', e); }
+    const isAvg = rankNum === 'avg';
+
+    // Fetch per-rank PDB if not cached (skip for average)
+    if (!isAvg && !flyPdbPerRank[rankNum]) {
+        await fetchRankPdb(rankNum);
     }
     // Use rank-specific PDB if available, else fall back to rank 1
-    flyPdbText = flyPdbPerRank[rankNum] || flyPdbPerRank[1] || flyPdbText;
+    if (!isAvg) flyPdbText = flyPdbPerRank[rankNum] || flyPdbPerRank[1] || flyPdbText;
+    // For average, use rank 1 PDB
+    if (isAvg) flyPdbText = flyPdbPerRank[1] || flyPdbText;
 
-    const target = flyParsed.rows.find(r => parseInt(r['Rank']) === rankNum) || flyParsed.rows[0];
+    const target = isAvg ? flyAverageRow : (flyParsed.rows.find(r => parseInt(r['Rank']) === rankNum) || flyParsed.rows[0]);
     const sym1 = target['Symbol 1'] || '?';
     const sym2 = target['Symbol 2'] || '?';
 
@@ -1120,11 +1267,15 @@ async function loadRank(rankNum) {
     const cxcScript = generateCxc(target, pdbFilename, colors);
 
     // Populate UI
-    document.getElementById('result-title').textContent = `${sym1} \u2014 ${sym2} (Rank ${rankNum})`;
+    const titleLabel = isAvg ? 'Average' : `Rank ${rankNum}`;
+    document.getElementById('result-title').textContent = `${sym1} \u2014 ${sym2} (${titleLabel})`;
+
+    // Update model badges on visualization headers
+    document.querySelectorAll('.model-badge').forEach(el => { el.textContent = titleLabel; });
 
     // Highlight selected rank row
     document.querySelectorAll('#ranks-tbody tr').forEach(tr => {
-        tr.classList.toggle('selected', tr.cells[0].textContent.trim() === String(rankNum));
+        tr.classList.toggle('selected', tr.cells[0].textContent.trim() === String(isAvg ? 'Avg' : rankNum));
     });
 
     // Script preview
@@ -1134,7 +1285,7 @@ async function loadRank(rankNum) {
     const cxcBlob = new Blob([cxcScript], { type: 'text/plain' });
     const dlCxc = document.getElementById('dl-cxc');
     dlCxc.href = URL.createObjectURL(cxcBlob);
-    dlCxc.download = `${sym1}_${sym2}_rank${rankNum}_interface.cxc`;
+    dlCxc.download = `${sym1}_${sym2}_${isAvg ? 'average' : 'rank' + rankNum}_interface.cxc`;
 
     // PDB download link
     const dlPdb = document.getElementById('dl-pdb');
@@ -1231,8 +1382,10 @@ async function fetchFlyDomains(chainSeqs, urlInput) {
     const symbols = [row0?.['Symbol 1'] || '', row0?.['Symbol 2'] || ''];
 
     // Also extract identifiers from URL as fallback
-    const urlMatch = (urlInput || '').match(/famdb_details\/([^/]+)\/([^/]+)\//);
+    const urlMatch = (urlInput || '').match(/famdb_details(?:_ortho)?\/([^/]+)\/([^/]+)\//);
     const urlIds = urlMatch ? [urlMatch[1], urlMatch[2]] : ['', ''];
+    // Detect if ortho (non-fly): URL IDs like AKT1_HUMAN contain underscore with species
+    const isOrtho = (urlInput || '').includes('famdb_details_ortho');
 
     const chainKeys = ['A', 'B'];
 
@@ -1245,11 +1398,19 @@ async function fetchFlyDomains(chainSeqs, urlInput) {
         const predLen = predSeq.length;
 
         try {
-            // Try gene symbol first (most reliable), then FBgn ID
-            // Note: UniProt search API doesn't support 'features' field — only accession,sequence
             let results = [];
-            if (symbol) {
-                const url = `https://rest.uniprot.org/uniprotkb/search?query=gene:${symbol}+AND+organism_id:7227&format=json&fields=accession,sequence&size=20`;
+
+            // For ortho (non-fly): URL ID is like AKT1_HUMAN — try as UniProt mnemonic
+            if (isOrtho && urlId && urlId.includes('_')) {
+                const url = `https://rest.uniprot.org/uniprotkb/search?query=id:${urlId}&format=json&fields=accession,sequence&size=5`;
+                const resp = await fetch(url);
+                if (resp.ok) { const data = await resp.json(); results = data.results || []; }
+            }
+
+            // Try gene symbol search (detect organism from URL or default to fly)
+            if (results.length === 0 && symbol) {
+                const orgQuery = isOrtho ? '' : '+AND+organism_id:7227';
+                const url = `https://rest.uniprot.org/uniprotkb/search?query=gene:${symbol}${orgQuery}&format=json&fields=accession,sequence&size=20`;
                 const resp = await fetch(url);
                 if (resp.ok) { const data = await resp.json(); results = data.results || []; }
             }
@@ -1408,8 +1569,8 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     const coordB = coordChains.get('B');
     if (!coordA || !coordB) { card.style.display = 'none'; return; }
 
-    // Find cLIR-cLIR contact pairs (Cβ distance < 10 Å)
-    const contactDist = 10;
+    // Find cLIR-cLIR contact pairs (Cβ distance < 8 Å)
+    const contactDist = 8;
     const contacts = [];
     for (const resA of cLIR_A) {
         const cA = coordA.get(resA);
@@ -1490,7 +1651,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
 
     // Labels
     ctx.fillStyle = colors.clir_a;
-    ctx.font = 'bold 11px sans-serif';
+    ctx.font = 'bold 13px sans-serif';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     ctx.fillText(`${sym1} (A)`, barLeft - 5, barY_A + barH / 2);
@@ -1499,7 +1660,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
 
     // Residue number ticks
     ctx.fillStyle = '#888';
-    ctx.font = '8px sans-serif';
+    ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (const t of [1, Math.round(lenA/2), lenA]) {
@@ -1540,7 +1701,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
 
     // Contact count label (below the diagram, not overlapping)
     ctx.fillStyle = '#888';
-    ctx.font = '9px sans-serif';
+    ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width / 2, barY_B + barH + (hasDomains ? 22 : 18));
@@ -1568,7 +1729,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
             ctx.strokeStyle = domBorderPalette[di % domBorderPalette.length];
             ctx.lineWidth = 0.8;
             ctx.strokeRect(x1, dy, dw, domBlockH);
-            ctx.fillStyle = '#444'; ctx.font = '7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#444'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             const label = d.name, labelW = ctx.measureText(label).width;
             if (labelW < dw - 2) ctx.fillText(label, x1 + dw/2, dy + domBlockH/2);
             else { const abbr = label.length > 6 ? label.substring(0,5)+'..' : label; if (ctx.measureText(abbr).width < dw-2) ctx.fillText(abbr, x1+dw/2, dy+domBlockH/2); }
@@ -1583,7 +1744,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
             ctx.strokeStyle = domBorderPalette[di % domBorderPalette.length];
             ctx.lineWidth = 0.8;
             ctx.strokeRect(x1, dy, dw, domBlockH);
-            ctx.fillStyle = '#444'; ctx.font = '7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#444'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             const label = d.name, labelW = ctx.measureText(label).width;
             if (labelW < dw - 2) ctx.fillText(label, x1 + dw/2, dy + domBlockH/2);
             else { const abbr = label.length > 6 ? label.substring(0,5)+'..' : label; if (ctx.measureText(abbr).width < dw-2) ctx.fillText(abbr, x1+dw/2, dy+domBlockH/2); }
@@ -1645,9 +1806,198 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     }
 }
 
+function drawFlyChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coordA, coordB, skipDistFilter) {
+    const S = 2;
+    const size = 350;
+    canvas.width = size * S; canvas.height = size * S;
+    canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(S, S);
+
+    const cx = size / 2, cy = size / 2;
+    const outerR = size / 2 - 30, innerR = outerR - 18, chordR = innerR - 4;
+    const gap = 0.04;
+    const totalLen = lenA + lenB;
+    const totalAngle = 2 * Math.PI - 2 * gap;
+    const angleA = (lenA / totalLen) * totalAngle;
+    const angleB = (lenB / totalLen) * totalAngle;
+
+    const startA = -Math.PI / 2;
+    const endA = startA + angleA;
+    const startB = endA + gap;
+    const endB = startB + angleB;
+
+    const colA = colors.clir_a || '#00897B';
+    const colB = colors.clir_b || '#E64A19';
+
+    const resAngleA = (res) => startA + ((res - 1) / Math.max(1, lenA - 1)) * angleA;
+    const resAngleB = (res) => startB + ((res - 1) / Math.max(1, lenB - 1)) * angleB;
+
+    // Draw contact lines
+    if (skipDistFilter) {
+        // All cLIR pairs without distance filtering
+        for (const resA of cLIR_A) {
+            for (const resB of cLIR_B) {
+                const aA = resAngleA(resA), aB = resAngleB(resB);
+                const xA = cx + Math.cos(aA) * chordR, yA = cy + Math.sin(aA) * chordR;
+                const xB = cx + Math.cos(aB) * chordR, yB = cy + Math.sin(aB) * chordR;
+                ctx.beginPath();
+                ctx.moveTo(xA, yA);
+                ctx.quadraticCurveTo(cx, cy, xB, yB);
+                const grad = ctx.createLinearGradient(xA, yA, xB, yB);
+                grad.addColorStop(0, hexToRgba(colA, 0.12));
+                grad.addColorStop(1, hexToRgba(colB, 0.12));
+                ctx.strokeStyle = grad;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+    } else {
+        const contactDist = 8;
+        const contacts = [];
+        for (const resA of cLIR_A) {
+            const cA = coordA.get(resA);
+            if (!cA) continue;
+            for (const resB of cLIR_B) {
+                const cB = coordB.get(resB);
+                if (!cB) continue;
+                const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
+                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                if (dist < contactDist) contacts.push({ resA, resB, dist });
+            }
+        }
+        const minDist = contacts.length > 0 ? Math.min(...contacts.map(c => c.dist)) : 0;
+        const maxDist = contacts.length > 0 ? Math.max(...contacts.map(c => c.dist)) : 1;
+        for (const c of contacts) {
+            const aA = resAngleA(c.resA), aB = resAngleB(c.resB);
+            const pA = { x: cx + Math.cos(aA) * chordR, y: cy + Math.sin(aA) * chordR };
+            const pB = { x: cx + Math.cos(aB) * chordR, y: cy + Math.sin(aB) * chordR };
+            const t = maxDist > minDist ? 1 - (c.dist - minDist) / (maxDist - minDist) : 1;
+            const alpha = 0.08 + t * 0.2;
+            const grad = ctx.createLinearGradient(pA.x, pA.y, pB.x, pB.y);
+            grad.addColorStop(0, hexToRgba(colA, alpha));
+            grad.addColorStop(1, hexToRgba(colB, alpha));
+            ctx.beginPath();
+            ctx.moveTo(pA.x, pA.y);
+            ctx.quadraticCurveTo(cx, cy, pB.x, pB.y);
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+        }
+    }
+
+    // Draw arcs
+    for (const [sA, eA, col] of [[startA, endA, colA], [startB, endB, colB]]) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, outerR, sA, eA);
+        ctx.arc(cx, cy, innerR, eA, sA, true);
+        ctx.closePath();
+        ctx.fillStyle = col;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    // Labels
+    for (const arc of [
+        { mid: (startA + endA) / 2, name: `${sym1} (A)`, size: lenA },
+        { mid: (startB + endB) / 2, name: `${sym2} (B)`, size: lenB }
+    ]) {
+        const labelR = outerR + 14;
+        const lx = cx + Math.cos(arc.mid) * labelR;
+        const ly = cy + Math.sin(arc.mid) * labelR;
+        let textAngle = arc.mid + Math.PI / 2;
+        const normA = ((textAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+        if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
+        ctx.save();
+        ctx.translate(lx, ly);
+        ctx.rotate(textAngle);
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(arc.name, 0, 0);
+        ctx.restore();
+        const rx = cx + Math.cos(arc.mid) * (outerR + 24);
+        const ry = cy + Math.sin(arc.mid) * (outerR + 24);
+        ctx.save();
+        ctx.translate(rx, ry);
+        ctx.rotate(textAngle);
+        ctx.fillStyle = '#888';
+        ctx.font = '7px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${arc.size}`, 0, 0);
+        ctx.restore();
+    }
+    ctx.restore();
+}
+
+function drawFlyChordFromContacts(canvas, contacts, lenA, lenB, sym1, sym2, colors) {
+    const S = 2, size = 350;
+    canvas.width = size * S; canvas.height = size * S;
+    canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save(); ctx.scale(S, S);
+
+    const cx = size/2, cy = size/2;
+    const outerR = size/2 - 30, innerR = outerR - 18, chordR = innerR - 4;
+    const gap = 0.04, totalLen = lenA + lenB;
+    const totalAngle = 2*Math.PI - 2*gap;
+    const angleA = (lenA/totalLen)*totalAngle, angleB = (lenB/totalLen)*totalAngle;
+    const startA = -Math.PI/2, endA = startA + angleA;
+    const startB = endA + gap, endB = startB + angleB;
+    const colA = colors.clir_a || '#00897B', colB = colors.clir_b || '#E64A19';
+    const resAngleA = r => startA + ((r-1)/Math.max(1,lenA-1)) * angleA;
+    const resAngleB = r => startB + ((r-1)/Math.max(1,lenB-1)) * angleB;
+
+    // Draw contact lines
+    const minDist = Math.min(...contacts.map(c => c.dist));
+    const maxDist = Math.max(...contacts.map(c => c.dist));
+    for (const c of contacts) {
+        const aA = resAngleA(c.resA), aB = resAngleB(c.resB);
+        const pA = {x: cx+Math.cos(aA)*chordR, y: cy+Math.sin(aA)*chordR};
+        const pB = {x: cx+Math.cos(aB)*chordR, y: cy+Math.sin(aB)*chordR};
+        const t = maxDist > minDist ? 1-(c.dist-minDist)/(maxDist-minDist) : 1;
+        const alpha = 0.08 + t*0.2;
+        const grad = ctx.createLinearGradient(pA.x, pA.y, pB.x, pB.y);
+        grad.addColorStop(0, hexToRgba(colA, alpha));
+        grad.addColorStop(1, hexToRgba(colB, alpha));
+        ctx.beginPath(); ctx.moveTo(pA.x, pA.y);
+        ctx.quadraticCurveTo(cx, cy, pB.x, pB.y);
+        ctx.strokeStyle = grad; ctx.lineWidth = 1.2; ctx.stroke();
+    }
+
+    // Arcs
+    for (const [sA, eA, col] of [[startA,endA,colA],[startB,endB,colB]]) {
+        ctx.beginPath(); ctx.arc(cx,cy,outerR,sA,eA); ctx.arc(cx,cy,innerR,eA,sA,true); ctx.closePath();
+        ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+    }
+
+    // Labels
+    for (const arc of [{mid:(startA+endA)/2, name:`${sym1} (A)`, size:lenA}, {mid:(startB+endB)/2, name:`${sym2} (B)`, size:lenB}]) {
+        let textAngle = arc.mid + Math.PI/2;
+        const normA = ((textAngle%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+        if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
+        ctx.save(); ctx.translate(cx+Math.cos(arc.mid)*(outerR+14), cy+Math.sin(arc.mid)*(outerR+14));
+        ctx.rotate(textAngle); ctx.fillStyle='#333'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(arc.name, 0, 0); ctx.restore();
+        ctx.save(); ctx.translate(cx+Math.cos(arc.mid)*(outerR+24), cy+Math.sin(arc.mid)*(outerR+24));
+        ctx.rotate(textAngle); ctx.fillStyle='#888'; ctx.font='7px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(`${arc.size}`, 0, 0); ctx.restore();
+    }
+    ctx.restore();
+}
+
 function buildChordDiagram(row, sym1, sym2, colors, pdbText) {
     const card = document.getElementById('chord-card');
     const canvas = document.getElementById('chord-canvas');
+    const canvasAll = document.getElementById('chord-canvas-all');
+    const chordAllWrap = document.getElementById('chord-all-wrap');
     if (!card || !canvas || !pdbText) { if (card) card.style.display = 'none'; return; }
 
     const cLIR_A = row._cLIR_A, cLIR_B = row._cLIR_B;
@@ -1662,138 +2012,48 @@ function buildChordDiagram(row, sym1, sym2, colors, pdbText) {
     const coordB = coordChains.get('B');
     if (!coordA || !coordB) { card.style.display = 'none'; return; }
 
-    // Find cLIR-cLIR contact pairs (Cβ < 10 Å)
-    const contactDist = 10;
-    const contacts = [];
-    for (const resA of cLIR_A) {
-        const cA = coordA.get(resA);
-        if (!cA) continue;
-        for (const resB of cLIR_B) {
-            const cB = coordB.get(resB);
-            if (!cB) continue;
-            const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
-            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-            if (dist < contactDist) contacts.push({ resA, resB, dist });
-        }
-    }
-    if (contacts.length === 0) { card.style.display = 'none'; return; }
     card.style.display = '';
 
-    const S = 2;
-    const size = 350;
-    canvas.width = size * S; canvas.height = size * S;
-    canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.save();
-    ctx.scale(S, S);
+    // Draw selected rank chord
+    drawFlyChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coordA, coordB, false);
 
-    const cx = size / 2, cy = size / 2;
-    const outerR = size / 2 - 30, innerR = outerR - 18, chordR = innerR - 4;
-    const gap = 0.04; // radians gap between chains
-    const totalLen = lenA + lenB;
-    const totalAngle = 2 * Math.PI - 2 * gap;
-    const angleA = (lenA / totalLen) * totalAngle;
-    const angleB = (lenB / totalLen) * totalAngle;
+    // Draw combined all-ranks chord — union of contacts from each rank's own PDB
+    const hasMultipleRanks = flyParsed && flyParsed.rows && flyParsed.rows.length > 1;
+    if (chordAllWrap) chordAllWrap.style.display = hasMultipleRanks ? '' : 'none';
 
-    // Chain A: starts at top (−π/2), goes clockwise
-    const startA = -Math.PI / 2;
-    const endA = startA + angleA;
-    const startB = endA + gap;
-    const endB = startB + angleB;
-
-    const colA = colors.clir_a || '#00897B';
-    const colB = colors.clir_b || '#E64A19';
-
-    // Helper: residue → angle on arc
-    const resAngleA = (res) => startA + ((res - 1) / Math.max(1, lenA - 1)) * angleA;
-    const resAngleB = (res) => startB + ((res - 1) / Math.max(1, lenB - 1)) * angleB;
-
-    // Helper: angle → point on inner circle
-    const pt = (angle, r) => ({ x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) });
-
-    // Draw contact lines first (behind arcs)
-    const minDist = Math.min(...contacts.map(c => c.dist));
-    const maxDist = Math.max(...contacts.map(c => c.dist));
-    for (const c of contacts) {
-        const aA = resAngleA(c.resA);
-        const aB = resAngleB(c.resB);
-        const pA = pt(aA, chordR);
-        const pB = pt(aB, chordR);
-        const t = maxDist > minDist ? 1 - (c.dist - minDist) / (maxDist - minDist) : 1;
-        const alpha = 0.08 + t * 0.2;
-        const grad = ctx.createLinearGradient(pA.x, pA.y, pB.x, pB.y);
-        grad.addColorStop(0, hexToRgba(colA, alpha));
-        grad.addColorStop(1, hexToRgba(colB, alpha));
-        ctx.beginPath();
-        ctx.moveTo(pA.x, pA.y);
-        ctx.quadraticCurveTo(cx, cy, pB.x, pB.y);
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
+    if (hasMultipleRanks && canvasAll && flyAverageRow) {
+        // Collect contacts from each rank using its own PDB structure
+        const contactDist = 8;
+        const allContacts = new Map(); // "resA-resB" → {resA, resB, dist}
+        for (const r of flyParsed.rows) {
+            const rankNum = parseInt(r['Rank']);
+            const rankPdb = flyPdbPerRank[rankNum];
+            if (!rankPdb) continue;
+            const rankCoords = parsePdbCbCoords(rankPdb);
+            const rCoordA = rankCoords.get('A');
+            const rCoordB = rankCoords.get('B');
+            if (!rCoordA || !rCoordB) continue;
+            for (const resA of r._cLIR_A) {
+                const cA = rCoordA.get(resA);
+                if (!cA) continue;
+                for (const resB of r._cLIR_B) {
+                    const key = `${resA}-${resB}`;
+                    if (allContacts.has(key)) continue;
+                    const cB = rCoordB.get(resB);
+                    if (!cB) continue;
+                    const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
+                    const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                    if (dist < contactDist) allContacts.set(key, { resA, resB, dist });
+                }
+            }
+        }
+        // Draw using rank 1 coordinates for positioning, but with union of all contacts
+        const unionContacts = [...allContacts.values()];
+        if (unionContacts.length > 0) {
+            // Use a modified draw that takes pre-computed contacts
+            drawFlyChordFromContacts(canvasAll, unionContacts, lenA, lenB, sym1, sym2, colors);
+        }
     }
-
-    // Draw Chain A arc
-    ctx.beginPath();
-    ctx.arc(cx, cy, outerR, startA, endA);
-    ctx.arc(cx, cy, innerR, endA, startA, true);
-    ctx.closePath();
-    ctx.fillStyle = colA;
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // Draw Chain B arc
-    ctx.beginPath();
-    ctx.arc(cx, cy, outerR, startB, endB);
-    ctx.arc(cx, cy, innerR, endB, startB, true);
-    ctx.closePath();
-    ctx.fillStyle = colB;
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // Labels — rotated along arc (matching subdomain interaction map style)
-    const chainArcs = [
-        { mid: (startA + endA) / 2, name: `${sym1} (A)`, size: lenA },
-        { mid: (startB + endB) / 2, name: `${sym2} (B)`, size: lenB }
-    ];
-    for (const arc of chainArcs) {
-        const labelAngle = arc.mid;
-        const labelR = outerR + 14;
-        const lx = cx + Math.cos(labelAngle) * labelR;
-        const ly = cy + Math.sin(labelAngle) * labelR;
-        ctx.save();
-        ctx.translate(lx, ly);
-        let textAngle = labelAngle + Math.PI / 2;
-        const normA = ((textAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
-        if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
-        ctx.rotate(textAngle);
-        ctx.fillStyle = '#333';
-        ctx.font = 'bold 9px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(arc.name, 0, 0);
-        ctx.restore();
-
-        // Residue count label (smaller, below name)
-        const rangeR = outerR + 24;
-        const rx = cx + Math.cos(labelAngle) * rangeR;
-        const ry = cy + Math.sin(labelAngle) * rangeR;
-        ctx.save();
-        ctx.translate(rx, ry);
-        ctx.rotate(textAngle);
-        ctx.fillStyle = '#888';
-        ctx.font = '7px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(`${arc.size}`, 0, 0);
-        ctx.restore();
-    }
-
-    ctx.restore();
 }
 
 function buildFlySeqViewer(row, sym1, sym2, colors, chainSeqs) {
@@ -1824,12 +2084,15 @@ function buildFlySeqViewer(row, sym1, sym2, colors, chainSeqs) {
         const label = document.createElement('div');
         label.className = 'seq-chain-label';
         const chainKey = cc.name.includes('A') || cc === chainConfigs[0] ? 'A' : 'B';
-        const dInfo = flyDomainInfo[chainKey];
-        let labelText = `${cc.name} (${cc.len} residues)`;
+        const dInfo = flyDomainInfo ? flyDomainInfo[chainKey] : null;
+        let labelHtml = `${cc.name} (${cc.len} residues)`;
         if (dInfo && dInfo.isPartial) {
-            labelText += ` \u2014 partial (aa ${dInfo.startInFull}\u2013${dInfo.endInFull} of ${dInfo.fullLength} in full-length)`;
+            labelHtml += ` <span style="font-weight:400; font-size:0.78rem; color:#c0392b; font-style:italic;">\u2014 partial (aa ${dInfo.startInFull}\u2013${dInfo.endInFull} of ${dInfo.fullLength})</span>`;
         }
-        label.textContent = labelText;
+        if (dInfo && dInfo.accession) {
+            labelHtml += ` <a href="https://www.uniprot.org/uniprot/${dInfo.accession}" target="_blank" style="font-weight:400; font-size:0.78rem; color:#2471A3;">UniProt: ${dInfo.accession}</a>`;
+        }
+        label.innerHTML = labelHtml;
         container.appendChild(label);
 
         const hasSeq = cc.seq && cc.seq.length > 0;

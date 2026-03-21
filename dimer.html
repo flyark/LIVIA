@@ -71,7 +71,8 @@
         .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 1rem; }
         .data-table th { text-align: left; padding: 0.5rem 0.8rem; background: #f8f9fa; font-weight: 600; font-size: 0.8rem; color: #666; }
         .data-table td { padding: 0.5rem 0.8rem; border-top: 1px solid #eee; }
-        .data-table tr.selected { background: #eaf2f8; }
+        .data-table tr.selected td { background: #d4e6f6; }
+        .data-table tr.selected td:first-child { box-shadow: inset 4px 0 0 #2471A3; }
         .data-table tr.clickable { cursor: pointer; }
         .data-table tr.clickable:hover { background: #f0f7fc; }
         .script-preview { background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 1rem; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; line-height: 1.5; max-height: 400px; overflow-y: auto; white-space: pre; margin-bottom: 1rem; }
@@ -103,7 +104,7 @@
         .dimer-table td { padding: 0.5rem 0.8rem; border-top: 1px solid #eee; }
         .dimer-table tr.clickable { cursor: pointer; }
         .dimer-table tr.clickable:hover { background: #f0f7fc; }
-        .dimer-table tr.selected { background: #eaf2f8; font-weight: 600; }
+        .dimer-table tr.selected { background: #d4e6f6; box-shadow: inset 4px 0 0 #2471A3; font-weight: 600; }
 
         /* Autocomplete */
         .ac-wrap { position: relative; flex: 1; min-width: 250px; }
@@ -203,6 +204,7 @@
         <div style="font-size:0.8rem; color:#888; margin-top:0.4rem;">Not all proteins have dimer predictions. Browse <a href="https://alphafold.ebi.ac.uk" target="_blank" style="color:#2471A3;">AlphaFold DB</a> to find available complexes, then paste the URL or model ID here.</div>
         <div class="status" id="status"></div>
         <div id="external-links" style="display:none; font-size:0.82rem; margin-top:0.3rem;"></div>
+        <div id="protein-info" style="display:none; margin-top:0.5rem; padding:0.6rem 0.8rem; background:#f8f9fa; border-radius:8px; font-size:0.82rem; line-height:1.5; border:1px solid #e8e8e8;"></div>
 
         <!-- Dimer results table -->
         <div id="dimer-results" style="display:none; margin-top:1rem;">
@@ -221,28 +223,22 @@
 
     <!-- Results -->
     <div class="results" id="results">
+        <!-- Interaction Analysis Summary -->
+        <div class="card result-card">
+            <h2>Interaction Analysis Summary</h2>
+            <table class="data-table" id="pairs-table">
+                <thead><tr><th>Protein A</th><th>Protein B</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipSAE</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th>LIR (A/B)</th><th>cLIR (A/B)</th></tr></thead>
+                <tbody id="pairs-tbody"></tbody>
+            </table>
+            <div style="margin-top:0.5rem;">
+                <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem; cursor:pointer;" onclick="downloadCSV()">&#8595; Download CSV</a>
+            </div>
+        </div>
+
         <!-- PAE / LIS / cLIS Maps -->
         <div class="card result-card">
             <h2>Maps</h2>
             <div id="maps-flex" style="display:flex; gap:0.4rem; justify-content:center; overflow:hidden;"></div>
-        </div>
-
-        <!-- iLIS / cLIR Score Matrix -->
-        <div class="card result-card" id="score-matrix-card" style="display:none;">
-            <h2>iLIS / cLIR Matrix <span style="font-weight:400; font-size:0.8rem; color:#888;">(lower-left: iLIS, upper-right: cLIR count)</span></h2>
-            <div style="text-align:center;">
-                <canvas id="score-matrix-canvas"></canvas>
-            </div>
-            <div style="display:flex; justify-content:center; gap:1rem; margin-top:0.3rem; font-size:0.7rem;">
-                <div style="display:flex; align-items:center; gap:0.3rem;">
-                    <canvas id="colorbar-ilis" width="60" height="8"></canvas>
-                    <span style="color:#888;">iLIS (0&ndash;1)</span>
-                </div>
-                <div style="display:flex; align-items:center; gap:0.3rem;">
-                    <canvas id="colorbar-clir" width="60" height="8"></canvas>
-                    <span style="color:#888;">cLIR</span>
-                </div>
-            </div>
         </div>
 
         <!-- Sequence Viewer -->
@@ -286,18 +282,6 @@
             </div>
         </div>
 
-        <!-- Chain Pair Table -->
-        <div class="card result-card">
-            <h2>Chain Pair Details</h2>
-            <table class="data-table" id="pairs-table">
-                <thead><tr><th>Pair</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipSAE</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th>LIR (A/B)</th><th>cLIR (A/B)</th></tr></thead>
-                <tbody id="pairs-tbody"></tbody>
-            </table>
-            <div style="margin-top:0.5rem;">
-                <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem; cursor:pointer;" onclick="downloadCSV()">&#8595; Download CSV</a>
-            </div>
-        </div>
-
         <!-- Script -->
         <div class="card result-card" id="script-card">
             <div class="step-header">ChimeraX Script</div>
@@ -318,7 +302,33 @@
                     </div>
                 </div>
 
-                <label>Color Scheme</label>
+                <label>Presets &mdash; gradient (LIR light, cLIR dark)</label>
+                <div class="presets-row">
+                    <div class="preset-chip active" onclick="applyPreset('#80CBC4','#00897B','#FFAB91','#E64A19',this)"><div class="preset-strip"><span style="background:#80CBC4"></span><span style="background:#00897B"></span><span style="background:#E64A19"></span><span style="background:#FFAB91"></span></div>Teal / Coral</div>
+                    <div class="preset-chip" onclick="applyPreset('#b3d4e8','#2471A3','#f5cba7','#E67E22',this)"><div class="preset-strip"><span style="background:#b3d4e8"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#f5cba7"></span></div>Blue / Orange</div>
+                    <div class="preset-chip" onclick="applyPreset('#d1c4e9','#5e35b1','#fff3b0','#f9a825',this)"><div class="preset-strip"><span style="background:#d1c4e9"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#fff3b0"></span></div>Purple / Gold</div>
+                    <div class="preset-chip" onclick="applyPreset('#cfd8dc','#546e7a','#f8bbd0','#c2185b',this)"><div class="preset-strip"><span style="background:#cfd8dc"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#f8bbd0"></span></div>Slate / Rose</div>
+                    <div class="preset-chip" onclick="applyPreset('#c5cae9','#303f9f','#ffe0b2','#e65100',this)"><div class="preset-strip"><span style="background:#c5cae9"></span><span style="background:#303f9f"></span><span style="background:#e65100"></span><span style="background:#ffe0b2"></span></div>Indigo / Tangerine</div>
+                    <div class="preset-chip" onclick="applyPreset('#a8d5ba','#2e7d32','#ef9a9a','#c62828',this)"><div class="preset-strip"><span style="background:#a8d5ba"></span><span style="background:#2e7d32"></span><span style="background:#c62828"></span><span style="background:#ef9a9a"></span></div>Green / Red</div>
+                </div>
+                <label style="margin-top:0.5rem">Presets &mdash; solid</label>
+                <div class="presets-row">
+                    <div class="preset-chip" onclick="applyPreset('#00897B','#00897B','#E64A19','#E64A19',this)"><div class="preset-strip"><span style="background:#00897B"></span><span style="background:#00897B"></span><span style="background:#E64A19"></span><span style="background:#E64A19"></span></div>Teal / Coral</div>
+                    <div class="preset-chip" onclick="applyPreset('#5e35b1','#5e35b1','#f9a825','#f9a825',this)"><div class="preset-strip"><span style="background:#5e35b1"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#f9a825"></span></div>Purple / Gold</div>
+                    <div class="preset-chip" onclick="applyPreset('#546e7a','#546e7a','#c2185b','#c2185b',this)"><div class="preset-strip"><span style="background:#546e7a"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#c2185b"></span></div>Slate / Rose</div>
+                    <div class="preset-chip" onclick="applyPreset('#6A9EC6','#6A9EC6','#D4A76A','#D4A76A',this)"><div class="preset-strip"><span style="background:#6A9EC6"></span><span style="background:#6A9EC6"></span><span style="background:#D4A76A"></span><span style="background:#D4A76A"></span></div>Steel / Wheat</div>
+                    <div class="preset-chip" onclick="applyPreset('#6495ED','#6495ED','#FF6347','#FF6347',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#FF6347"></span></div>Cornflower / Tomato</div>
+                    <div class="preset-chip" onclick="applyPreset('#87CEEB','#87CEEB','#FFD700','#FFD700',this)"><div class="preset-strip"><span style="background:#87CEEB"></span><span style="background:#87CEEB"></span><span style="background:#FFD700"></span><span style="background:#FFD700"></span></div>SkyBlue / Gold</div>
+                    <div class="preset-chip" onclick="applyPreset('#90EE90','#90EE90','#DDA0DD','#DDA0DD',this)"><div class="preset-strip"><span style="background:#90EE90"></span><span style="background:#90EE90"></span><span style="background:#DDA0DD"></span><span style="background:#DDA0DD"></span></div>LightGreen / Plum</div>
+                    <div class="preset-chip" onclick="applyPreset('#FFA07A','#FFA07A','#20B2AA','#20B2AA',this)"><div class="preset-strip"><span style="background:#FFA07A"></span><span style="background:#FFA07A"></span><span style="background:#20B2AA"></span><span style="background:#20B2AA"></span></div>Salmon / Teal</div>
+                </div>
+                <label style="margin-top:0.5rem">Presets &mdash; ChimeraX commands</label>
+                <div class="presets-row">
+                    <div class="preset-chip" onclick="applyCxcPreset('plddt',this)"><div class="preset-strip"><span style="background:#0053D6"></span><span style="background:#65CBF3"></span><span style="background:#FFDB13"></span><span style="background:#FF7D45"></span></div>pLDDT</div>
+                    <div class="preset-chip" onclick="applyCxcPreset('bychain',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#90EE90"></span><span style="background:#DDA0DD"></span></div>bychain</div>
+                    <div class="preset-chip" onclick="applyCxcPreset('bypolymer',this)"><div class="preset-strip"><span style="background:#87CEEB"></span><span style="background:#FFA07A"></span><span style="background:#98FB98"></span><span style="background:#DDA0DD"></span></div>bypolymer</div>
+                </div>
+                <label style="margin-top:1rem">Color Scheme</label>
                 <div class="color-section">
                     <div class="color-group">
                         <h3>Chain A</h3>
@@ -348,32 +358,6 @@
                         <div style="background:#80CBC4"></div><div style="background:#00897B"></div><div style="background:#E64A19"></div><div style="background:#FFAB91"></div>
                     </div>
                     <button onclick="swapColors()" style="padding:0.3rem 0.8rem; border:2px solid #e0e0e0; border-radius:6px; background:white; cursor:pointer; font-size:0.82rem; color:#666; white-space:nowrap;">Swap A &#8596; B</button>
-                </div>
-                <label style="margin-top:1rem">Presets &mdash; gradient (LIR light, cLIR dark)</label>
-                <div class="presets-row">
-                    <div class="preset-chip active" onclick="applyPreset('#80CBC4','#00897B','#FFAB91','#E64A19',this)"><div class="preset-strip"><span style="background:#80CBC4"></span><span style="background:#00897B"></span><span style="background:#E64A19"></span><span style="background:#FFAB91"></span></div>Teal / Coral</div>
-                    <div class="preset-chip" onclick="applyPreset('#b3d4e8','#2471A3','#f5cba7','#E67E22',this)"><div class="preset-strip"><span style="background:#b3d4e8"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#f5cba7"></span></div>Blue / Orange</div>
-                    <div class="preset-chip" onclick="applyPreset('#d1c4e9','#5e35b1','#fff3b0','#f9a825',this)"><div class="preset-strip"><span style="background:#d1c4e9"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#fff3b0"></span></div>Purple / Gold</div>
-                    <div class="preset-chip" onclick="applyPreset('#cfd8dc','#546e7a','#f8bbd0','#c2185b',this)"><div class="preset-strip"><span style="background:#cfd8dc"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#f8bbd0"></span></div>Slate / Rose</div>
-                    <div class="preset-chip" onclick="applyPreset('#c5cae9','#303f9f','#ffe0b2','#e65100',this)"><div class="preset-strip"><span style="background:#c5cae9"></span><span style="background:#303f9f"></span><span style="background:#e65100"></span><span style="background:#ffe0b2"></span></div>Indigo / Tangerine</div>
-                    <div class="preset-chip" onclick="applyPreset('#a8d5ba','#2e7d32','#ef9a9a','#c62828',this)"><div class="preset-strip"><span style="background:#a8d5ba"></span><span style="background:#2e7d32"></span><span style="background:#c62828"></span><span style="background:#ef9a9a"></span></div>Green / Red</div>
-                </div>
-                <label style="margin-top:0.5rem">Presets &mdash; solid</label>
-                <div class="presets-row">
-                    <div class="preset-chip" onclick="applyPreset('#00897B','#00897B','#E64A19','#E64A19',this)"><div class="preset-strip"><span style="background:#00897B"></span><span style="background:#00897B"></span><span style="background:#E64A19"></span><span style="background:#E64A19"></span></div>Teal / Coral</div>
-                    <div class="preset-chip" onclick="applyPreset('#5e35b1','#5e35b1','#f9a825','#f9a825',this)"><div class="preset-strip"><span style="background:#5e35b1"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#f9a825"></span></div>Purple / Gold</div>
-                    <div class="preset-chip" onclick="applyPreset('#546e7a','#546e7a','#c2185b','#c2185b',this)"><div class="preset-strip"><span style="background:#546e7a"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#c2185b"></span></div>Slate / Rose</div>
-                    <div class="preset-chip" onclick="applyPreset('#6A9EC6','#6A9EC6','#D4A76A','#D4A76A',this)"><div class="preset-strip"><span style="background:#6A9EC6"></span><span style="background:#6A9EC6"></span><span style="background:#D4A76A"></span><span style="background:#D4A76A"></span></div>Steel / Wheat</div>
-                    <div class="preset-chip" onclick="applyPreset('#6495ED','#6495ED','#FF6347','#FF6347',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#FF6347"></span></div>Cornflower / Tomato</div>
-                    <div class="preset-chip" onclick="applyPreset('#87CEEB','#87CEEB','#FFD700','#FFD700',this)"><div class="preset-strip"><span style="background:#87CEEB"></span><span style="background:#87CEEB"></span><span style="background:#FFD700"></span><span style="background:#FFD700"></span></div>SkyBlue / Gold</div>
-                    <div class="preset-chip" onclick="applyPreset('#90EE90','#90EE90','#DDA0DD','#DDA0DD',this)"><div class="preset-strip"><span style="background:#90EE90"></span><span style="background:#90EE90"></span><span style="background:#DDA0DD"></span><span style="background:#DDA0DD"></span></div>LightGreen / Plum</div>
-                    <div class="preset-chip" onclick="applyPreset('#FFA07A','#FFA07A','#20B2AA','#20B2AA',this)"><div class="preset-strip"><span style="background:#FFA07A"></span><span style="background:#FFA07A"></span><span style="background:#20B2AA"></span><span style="background:#20B2AA"></span></div>Salmon / Teal</div>
-                </div>
-                <label style="margin-top:0.5rem">Presets &mdash; ChimeraX commands</label>
-                <div class="presets-row">
-                    <div class="preset-chip" onclick="applyCxcPreset('plddt',this)"><div class="preset-strip"><span style="background:#0053D6"></span><span style="background:#65CBF3"></span><span style="background:#FFDB13"></span><span style="background:#FF7D45"></span></div>pLDDT</div>
-                    <div class="preset-chip" onclick="applyCxcPreset('bychain',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#90EE90"></span><span style="background:#DDA0DD"></span></div>bychain</div>
-                    <div class="preset-chip" onclick="applyCxcPreset('bypolymer',this)"><div class="preset-strip"><span style="background:#87CEEB"></span><span style="background:#FFA07A"></span><span style="background:#98FB98"></span><span style="background:#DDA0DD"></span></div>bypolymer</div>
                 </div>
             </div>
             <hr style="border:none; border-top:1px solid #e0e0e0; margin-bottom:1rem;">
@@ -632,6 +616,51 @@ function showExternalLinks(entry) {
     el.style.display = parts.length > 0 ? '' : 'none';
 }
 
+async function showProteinInfo(entry) {
+    const el = document.getElementById('protein-info');
+    el.style.display = 'none';
+    el.innerHTML = '';
+    const uniprotIds = [...new Set(entry.uniprotAccession || [])];
+    if (uniprotIds.length === 0) return;
+
+    try {
+        const infos = await Promise.all(uniprotIds.map(async uid => {
+            const resp = await fetch(`https://rest.uniprot.org/uniprotkb/${uid}.json`);
+            if (!resp.ok) return null;
+            return resp.json();
+        }));
+
+        const parts = [];
+        for (const data of infos) {
+            if (!data) continue;
+            const acc = data.primaryAccession;
+            const entryName = data.uniProtkbId || '';
+            const protName = data.proteinDescription?.recommendedName?.fullName?.value
+                          || data.proteinDescription?.submissionNames?.[0]?.fullName?.value || '';
+            const org = data.organism?.scientificName || '';
+            const len = data.sequence?.length || '';
+            const funcComment = (data.comments || []).find(c => c.commentType === 'FUNCTION');
+            let funcText = funcComment?.texts?.[0]?.value || '';
+            // Strip "(By similarity)" etc. and truncate
+            funcText = funcText.replace(/\s*\(By similarity\)/gi, '').replace(/\s*\(PubMed:\d+\)/gi, '');
+
+            const lines = [];
+            lines.push(`<strong>${esc(entryName)}</strong> · ${esc(protName)}`);
+            const meta = [];
+            if (org) meta.push(`<strong>${esc(org)}</strong>`);
+            if (len) meta.push(`${len} aa`);
+            if (meta.length > 0) lines.push(`<span style="color:#666;">${meta.join(' · ')}</span>`);
+            if (funcText) lines.push(`<span style="color:#555;">${esc(funcText)}</span>`);
+            parts.push(lines.join('<br>'));
+        }
+
+        if (parts.length > 0) {
+            el.innerHTML = parts.join('<div style="border-top:1px solid #e0e0e0; margin:0.4rem 0;"></div>');
+            el.style.display = '';
+        }
+    } catch (e) { console.warn('Protein info fetch error:', e); }
+}
+
 // ============================================================================
 // FETCH DIMERS
 // ============================================================================
@@ -646,6 +675,7 @@ async function fetchDimers() {
     document.getElementById('results').classList.remove('active');
     document.getElementById('error-msg').classList.remove('active');
     document.getElementById('dimer-results').style.display = 'none';
+    document.getElementById('protein-info').style.display = 'none';
 
     try {
         if (parsed.type === 'model') {
@@ -657,9 +687,8 @@ async function fetchDimers() {
 
             dimerList = [entry];
             setStatus(`Found: ${entry.complexName || parsed.id}. Loading...`, 'success');
-            displayDimerTable();
-            // Auto-select the single result
-            selectDimer(0, document.querySelector('#dimer-tbody tr'));
+            // Single result — skip dimer selection table, load directly
+            selectDimer(0, null);
 
         } else {
             // UniProt ID — search for complexes
@@ -680,9 +709,9 @@ async function fetchDimers() {
             }
             displayDimerTable();
 
-            // Auto-select if only one result
             if (dimerList.length === 1) {
-                selectDimer(0, document.querySelector('#dimer-tbody tr'));
+                // Single result — skip dimer selection table, load directly
+                selectDimer(0, null);
             }
         }
 
@@ -727,8 +756,9 @@ async function selectDimer(idx, trEl) {
     const entry = dimerList[idx];
     selectedDimer = entry;
 
-    // Show external links
+    // Show external links and protein info
     showExternalLinks(entry);
+    showProteinInfo(entry);
 
     // Highlight row
     document.querySelectorAll('#dimer-tbody tr').forEach(tr => tr.classList.remove('selected'));
@@ -757,7 +787,7 @@ async function selectDimer(idx, trEl) {
         const paeUrl = `https://alphafold.ebi.ac.uk/files/${modelEntityId}-predicted_aligned_error_v${version}.json`;
         dimerPaeData = await fetchJsonViaProxy(paeUrl);
 
-        // Fetch UniProt domain annotations per chain
+        // Fetch UniProt domain annotations and gene symbols per chain
         const uniprotIds = entry.uniprotAccession || [];
         console.log('Dimer UniProt IDs:', uniprotIds, 'Entry keys:', Object.keys(entry));
         chainDomains = { A: [], B: [] };
@@ -765,6 +795,26 @@ async function selectDimer(idx, trEl) {
         if (uniprotIds[0]) domainPromises.push(fetchDomains(uniprotIds[0]).then(d => { chainDomains.A = d; console.log('Chain A domains:', d); }));
         if (uniprotIds[1]) domainPromises.push(fetchDomains(uniprotIds[1]).then(d => { chainDomains.B = d; console.log('Chain B domains:', d); }));
         else if (uniprotIds[0]) domainPromises.push(fetchDomains(uniprotIds[0]).then(d => { chainDomains.B = d; })); // homodimer
+
+        // Fetch gene symbols from UniProt if not provided by AlphaFold DB
+        if (!entry.gene || entry.gene.length === 0) {
+            const genePromises = [...new Set(uniprotIds)].map(async uid => {
+                try {
+                    const resp = await fetch(`https://rest.uniprot.org/uniprotkb/${uid}.json`);
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        return data.genes?.[0]?.geneName?.value || data.uniProtkbId || uid;
+                    }
+                } catch {}
+                return uid;
+            });
+            domainPromises.push(Promise.all(genePromises).then(symbols => {
+                // Map UniProt accessions to gene symbols
+                const symbolMap = {};
+                [...new Set(uniprotIds)].forEach((uid, i) => { symbolMap[uid] = symbols[i]; });
+                entry.gene = uniprotIds.map(uid => symbolMap[uid]);
+            }));
+        }
         await Promise.allSettled(domainPromises);
         console.log('Final chainDomains:', chainDomains);
 
@@ -894,7 +944,7 @@ function buildDimerContactMap() {
     if (!coordA || !coordB) { card.style.display = 'none'; return; }
 
     // Find contact pairs
-    const contactDist = 10;
+    const contactDist = 8;
     const contacts = [];
     for (const resA of v.clirI) {
         const cA = coordA.get(resA);
@@ -954,12 +1004,12 @@ function buildDimerContactMap() {
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_B, barW, barH);
 
     // Labels
-    ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     ctx.fillStyle = colors.clir_a; ctx.fillText(`Chain ${v.ci}`, barLeft - 5, barY_A + barH/2);
     ctx.fillStyle = colors.clir_b; ctx.fillText(`Chain ${v.cj}`, barLeft - 5, barY_B + barH/2);
 
     // Ticks
-    ctx.fillStyle = '#888'; ctx.font = '8px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (const t of [1, Math.round(v.lenI/2), v.lenI]) ctx.fillText(t, xA(t), barY_A + barH + 3);
     ctx.textBaseline = 'bottom';
@@ -984,8 +1034,8 @@ function buildDimerContactMap() {
         ctx.stroke();
     }
 
-    ctx.fillStyle = '#888'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText(`${contacts.length} cLIR contact pairs`, width/2, barY_B + barH + (hasDomains ? 22 : 18));
+    ctx.fillStyle = '#888'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width/2, barY_B + barH + (hasDomains ? 22 : 18));
 
     // Domain palettes (used for both canvas drawing and legend)
     const domPalette = [
@@ -1018,7 +1068,7 @@ function buildDimerContactMap() {
             ctx.strokeRect(x1, dy, dw, domBlockH);
             // Label
             ctx.fillStyle = '#444';
-            ctx.font = '7px sans-serif';
+            ctx.font = '9px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             const label = d.name;
@@ -1049,7 +1099,7 @@ function buildDimerContactMap() {
             ctx.strokeRect(x1, dy, dw, domBlockH);
             // Label
             ctx.fillStyle = '#444';
-            ctx.font = '7px sans-serif';
+            ctx.font = '9px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             const label = d.name;
@@ -1140,8 +1190,8 @@ function buildChordDiagram() {
     const coordB = chainCoordMap.get(v.cj);
     if (!coordA || !coordB) { card.style.display = 'none'; return; }
 
-    // Find cLIR-cLIR contact pairs (Cβ < 10 Å)
-    const contactDist = 10;
+    // Find cLIR-cLIR contact pairs (Cβ < 8 Å)
+    const contactDist = 8;
     const contacts = [];
     for (const resA of v.clirI) {
         const cA = coordA.get(resA);
@@ -1302,10 +1352,18 @@ function buildDimerSequenceViewer() {
         { name: v.cj, seq: chainSeqs.get(v.cj) || [], lir: v.lirJ, clir: v.clirJ, lirColor: colors.lir_b, clirColor: colors.clir_b },
     ];
 
+    const accs = selectedDimer?.uniprotAccession || [];
+    const genes = selectedDimer?.gene || [];
+
     for (const cc of chainConfigs) {
         const label = document.createElement('div');
         label.className = 'seq-chain-label';
-        label.textContent = `Chain ${cc.name} (${cc.seq.length} residues)`;
+        const ci = cc === chainConfigs[0] ? 0 : 1;
+        const geneName = genes[ci] || genes[0] || '';
+        const acc = accs[ci] || accs[0] || '';
+        let labelHtml = `Chain ${cc.name}${geneName ? ': ' + geneName : ''} (${cc.seq.length} residues)`;
+        if (acc) labelHtml += ` <a href="https://www.uniprot.org/uniprot/${acc}" target="_blank" style="font-weight:400; font-size:0.78rem; color:#2471A3;">UniProt: ${acc}</a>`;
+        label.innerHTML = labelHtml;
         container.appendChild(label);
 
         const perRow = 80;
@@ -1639,11 +1697,25 @@ function displayDimerResults() {
     const v = dimerPairResult;
     const complexName = selectedDimer.complexName || selectedDimer.modelEntityId || 'Dimer';
 
-    // Chain pair table
+    // UniProt links in sequence viewer
+    const seqLink = document.getElementById('seq-uniprot-link');
+    if (seqLink) {
+        const accs = selectedDimer.uniprotAccession || [];
+        if (accs.length > 0) {
+            seqLink.innerHTML = accs.map(a => `<a href="https://www.uniprot.org/uniprot/${a}" target="_blank" style="color:#2471A3;">UniProt: ${a}</a>`).join(' &middot; ');
+        } else { seqLink.innerHTML = ''; }
+    }
+
+    // Chain pair table — include protein symbol from UniProt metadata
+    const genes = selectedDimer?.gene || [];
+    const accessions = selectedDimer?.uniprotAccession || [];
+    const geneA = genes[0] || accessions[0] || v.ci;
+    const geneB = genes[1] || genes[0] || accessions[1] || accessions[0] || v.cj;
     const tbody = document.getElementById('pairs-tbody');
     tbody.innerHTML = `
         <tr>
-            <td>${v.ci} &mdash; ${v.cj}</td>
+            <td>${esc(geneA)}</td>
+            <td>${esc(geneB)}</td>
             <td>${v.iLIS.toFixed(3)}</td>
             <td>${v.iLIA.toFixed(1)}</td>
             <td>${v.iLISA.toFixed(1)}</td>
@@ -1658,9 +1730,6 @@ function displayDimerResults() {
 
     // Draw maps
     drawAllMaps();
-
-    // Score matrix (iLIS / cLIR)
-    drawScoreMatrix();
 
     // Sequence viewer
     buildDimerSequenceViewer();
@@ -1721,131 +1790,6 @@ function greensColor(value, vmin, vmax) {
         const s = (t - 0.5) / 0.5;
         return [Math.round(116 - s * 116), Math.round(196 - s * 128), Math.round(118 - s * 91)];
     }
-}
-
-// matplotlib Oranges: white → orange
-function orangesColor(value, vmin, vmax) {
-    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
-    return [255, Math.round(255 - t * 128), Math.round(255 - t * 220)];
-}
-
-function drawScoreMatrix() {
-    const card = document.getElementById('score-matrix-card');
-    const canvas = document.getElementById('score-matrix-canvas');
-    const v = dimerPairResult;
-    if (!v || !card || !canvas) { if (card) card.style.display = 'none'; return; }
-
-    card.style.display = '';
-
-    const nc = 2;
-    const cellSize = 55;
-    const leftMargin = 70;
-    const bottomMargin = 22;
-    const gridPx = cellSize * nc * HIRES;
-    const leftPx = leftMargin * HIRES;
-    const cPx = cellSize * HIRES;
-
-    canvas.width = gridPx + leftPx;
-    canvas.height = gridPx + bottomMargin * HIRES;
-    canvas.style.width = (cellSize * nc + leftMargin) + 'px';
-    canvas.style.height = (cellSize * nc + bottomMargin) + 'px';
-
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // 2x2 grid: chains ci, cj
-    const labels = [v.ci, v.cj];
-    const ilisVal = v.iLIS;
-    const clirCount = v.clirI.size + v.clirJ.size;
-
-    // Draw cells
-    for (let i = 0; i < nc; i++) {
-        for (let j = 0; j < nc; j++) {
-            const x = leftPx + j * cPx;
-            const y = i * cPx;
-
-            if (i === j) {
-                // Diagonal: gray
-                ctx.fillStyle = '#f0f0f0';
-                ctx.fillRect(x, y, cPx, cPx);
-                continue;
-            }
-
-            const fontSize = Math.max(9, Math.min(15, cellSize / 3)) * HIRES;
-
-            if (i > j) {
-                // Bottom-left: iLIS (Oranges)
-                const [r, g, b] = orangesColor(ilisVal, 0, 1);
-                ctx.fillStyle = `rgb(${r},${g},${b})`;
-                ctx.fillRect(x, y, cPx, cPx);
-
-                ctx.font = `bold ${fontSize}px sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = ilisVal > 0.5 ? 'white' : '#333';
-                ctx.fillText(ilisVal.toFixed(3), x + cPx / 2, y + cPx / 2);
-            } else {
-                // Top-right: cLIR count (white → green, 0 = pure white)
-                if (clirCount === 0) {
-                    ctx.fillStyle = '#ffffff';
-                } else {
-                    const t = 1; // single cell, use full intensity
-                    const r2 = Math.round(255 * (1 - t));
-                    const g2 = Math.round(255 - t * 85);
-                    const b2 = Math.round(255 * (1 - t));
-                    ctx.fillStyle = `rgb(${r2},${g2},${b2})`;
-                }
-                ctx.fillRect(x, y, cPx, cPx);
-
-                ctx.font = `bold ${fontSize}px sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = clirCount > 0 ? 'white' : '#333';
-                ctx.fillText(clirCount.toFixed(0), x + cPx / 2, y + cPx / 2);
-            }
-        }
-    }
-
-    // Grid lines
-    ctx.strokeStyle = '#ccc';
-    ctx.lineWidth = 0.5 * HIRES;
-    for (let i = 0; i <= nc; i++) {
-        ctx.beginPath(); ctx.moveTo(leftPx, i * cPx); ctx.lineTo(leftPx + nc * cPx, i * cPx); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(leftPx + i * cPx, 0); ctx.lineTo(leftPx + i * cPx, nc * cPx); ctx.stroke();
-    }
-
-    // Diagonal separator line
-    ctx.strokeStyle = '#999';
-    ctx.lineWidth = 1.5 * HIRES;
-    ctx.beginPath();
-    ctx.moveTo(leftPx, 0);
-    ctx.lineTo(leftPx + gridPx, gridPx);
-    ctx.stroke();
-
-    // Labels
-    const labelFont = Math.max(8, Math.min(12, cellSize / 3.5)) * HIRES;
-    ctx.fillStyle = '#333';
-    for (let k = 0; k < nc; k++) {
-        // Y-axis labels
-        ctx.font = `bold ${labelFont}px sans-serif`;
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(labels[k], leftPx - 4 * HIRES, k * cPx + cPx / 2);
-
-        // X-axis labels
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(labels[k], leftPx + k * cPx + cPx / 2, gridPx + 4 * HIRES);
-    }
-
-    // Draw colorbars
-    drawColorbar('colorbar-ilis', orangesColor, 0, 1);
-    drawColorbar('colorbar-clir', function(value, vmin, vmax) {
-        const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
-        if (t === 0) return [255, 255, 255];
-        return [Math.round(255 * (1 - t)), Math.round(255 - t * 85), Math.round(255 * (1 - t))];
-    }, 0, 1);
 }
 
 function drawColorbar(canvasId, colorFn, vmin, vmax) {
@@ -2302,10 +2246,14 @@ function downloadCSV() {
     const v = dimerPairResult;
     const complexName = selectedDimer.complexName || selectedDimer.modelEntityId || 'dimer';
 
+    const genes = selectedDimer?.gene || [];
+    const accessions = selectedDimer?.uniprotAccession || [];
+    const protA = genes[0] || accessions[0] || v.ci;
+    const protB = genes[1] || genes[0] || accessions[1] || accessions[0] || v.cj;
     const afdbPlddt = selectedDimer.globalMetricValue || 0;
-    const header = 'name,model,chain_A,chain_B,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
+    const header = 'name,model,protein_A,protein_B,chain_A,chain_B,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
     const row = [
-        `"${complexName}"`, 'dimer', v.ci, v.cj,
+        `"${complexName}"`, 'dimer', `"${protA}"`, `"${protB}"`, v.ci, v.cj,
         v.iLIS.toFixed(6), v.iLIA.toFixed(1), v.iLISA.toFixed(1), v.ipSAE.toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
         v.ipTM.toFixed(6), afdbPlddt.toFixed(1), '',
         v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
