@@ -2049,7 +2049,13 @@ function initViewer3d() {
     viewer3d = $3Dmol.createViewer(container, {
         backgroundColor: 'white',
         antialias: true,
+        cartoonQuality: 8,
+        disableFog: true,
     });
+    // Enable outline (silhouettes) for cartoon edges
+    viewer3d.setViewStyle({style: 'outline', color: 'black', width: 0.02});
+    // Disable context menu so right-drag translates
+    container.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
 function setsToResiArray(positions) {
@@ -2103,8 +2109,10 @@ function applyViewer3dColors(v) {
     const clirIResi = setsToResiArray(v.clirI);
     const clirJResi = setsToResiArray(v.clirJ);
 
+    // Cartoon base style: flat/matte look (no specular highlights)
+    const cStyle = {style: 'oval', thickness: 0.4, opacity: 1};
+
     if (mode === 'plddt') {
-        // Show LIR regions colored by pLDDT (b-factor)
         const plddt = function(atom) {
             var b = atom.b;
             if (b > 90) return '#0053D6';
@@ -2112,22 +2120,21 @@ function applyViewer3dColors(v) {
             if (b > 50) return '#FFDB13';
             return '#FF7D45';
         };
-        if (lirIResi) viewer3d.setStyle({chain: v.ci, resi: lirIResi}, {cartoon: {colorfunc: plddt}});
-        if (lirJResi) viewer3d.setStyle({chain: v.cj, resi: lirJResi}, {cartoon: {colorfunc: plddt}});
+        if (lirIResi) viewer3d.setStyle({chain: v.ci, resi: lirIResi}, {cartoon: {...cStyle, colorfunc: plddt}});
+        if (lirJResi) viewer3d.setStyle({chain: v.cj, resi: lirJResi}, {cartoon: {...cStyle, colorfunc: plddt}});
     } else if (mode === 'bychain') {
-        if (lirIResi) viewer3d.setStyle({chain: v.ci, resi: lirIResi}, {cartoon: {color: colors.clir_a}});
-        if (lirJResi) viewer3d.setStyle({chain: v.cj, resi: lirJResi}, {cartoon: {color: colors.clir_b}});
+        if (lirIResi) viewer3d.setStyle({chain: v.ci, resi: lirIResi}, {cartoon: {...cStyle, color: colors.clir_a}});
+        if (lirJResi) viewer3d.setStyle({chain: v.cj, resi: lirJResi}, {cartoon: {...cStyle, color: colors.clir_b}});
     } else if (mode === 'bypolymer') {
-        if (lirIResi) viewer3d.setStyle({chain: v.ci, resi: lirIResi}, {cartoon: {colorscheme: 'chain'}});
-        if (lirJResi) viewer3d.setStyle({chain: v.cj, resi: lirJResi}, {cartoon: {colorscheme: 'chain'}});
+        if (lirIResi) viewer3d.setStyle({chain: v.ci, resi: lirIResi}, {cartoon: {...cStyle, colorscheme: 'chain'}});
+        if (lirJResi) viewer3d.setStyle({chain: v.cj, resi: lirJResi}, {cartoon: {...cStyle, colorscheme: 'chain'}});
     } else {
         // Gradient/solid: LIR in light color, cLIR overridden with dark color
-        if (lirIResi) viewer3d.setStyle({chain: v.ci, resi: lirIResi}, {cartoon: {color: colors.lir_a}});
-        if (lirJResi) viewer3d.setStyle({chain: v.cj, resi: lirJResi}, {cartoon: {color: colors.lir_b}});
+        if (lirIResi) viewer3d.setStyle({chain: v.ci, resi: lirIResi}, {cartoon: {...cStyle, color: colors.lir_a}});
+        if (lirJResi) viewer3d.setStyle({chain: v.cj, resi: lirJResi}, {cartoon: {...cStyle, color: colors.lir_b}});
 
-        // Override cLIR residues with darker color
-        if (clirIResi) viewer3d.setStyle({chain: v.ci, resi: clirIResi}, {cartoon: {color: colors.clir_a}});
-        if (clirJResi) viewer3d.setStyle({chain: v.cj, resi: clirJResi}, {cartoon: {color: colors.clir_b}});
+        if (clirIResi) viewer3d.setStyle({chain: v.ci, resi: clirIResi}, {cartoon: {...cStyle, color: colors.clir_a}});
+        if (clirJResi) viewer3d.setStyle({chain: v.cj, resi: clirJResi}, {cartoon: {...cStyle, color: colors.clir_b}});
     }
 
     viewer3d.render();
