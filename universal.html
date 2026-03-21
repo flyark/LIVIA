@@ -2109,8 +2109,21 @@ function applyViewer3dColors(v) {
     const clirIResi = setsToResiArray(v.clirI);
     const clirJResi = setsToResiArray(v.clirJ);
 
-    // Cartoon base style: flat/matte look (no specular highlights)
+    // Cartoon base style: flat/matte look
     const cStyle = {style: 'oval', thickness: 0.4, opacity: 1};
+    const nc = uniState.chainNames ? uniState.chainNames.length : 0;
+
+    // For multi-chain: show all chains with LIR regions, non-selected chains in light gray
+    const otherChains = (uniState.chainNames || []).filter(c => c !== v.ci && c !== v.cj);
+
+    // Build union LIR for other chains (across all pairs involving that chain)
+    const otherLIR = {};
+    for (const c of otherChains) otherLIR[c] = new Set();
+    const currentResults = uniState.results || {};
+    for (const [, pv] of Object.entries(currentResults)) {
+        if (pv.lirI) for (const c of otherChains) { if (pv.ci === c) for (const r of pv.lirI) otherLIR[c].add(r); }
+        if (pv.lirJ) for (const c of otherChains) { if (pv.cj === c) for (const r of pv.lirJ) otherLIR[c].add(r); }
+    }
 
     if (mode === 'plddt') {
         const plddt = function(atom) {
@@ -2122,19 +2135,30 @@ function applyViewer3dColors(v) {
         };
         if (lirIResi) viewer3d.setStyle({chain: v.ci, resi: lirIResi}, {cartoon: {...cStyle, colorfunc: plddt}});
         if (lirJResi) viewer3d.setStyle({chain: v.cj, resi: lirJResi}, {cartoon: {...cStyle, colorfunc: plddt}});
-    } else if (mode === 'bychain') {
+        for (const c of otherChains) {
+            const resi = setsToResiArray(fillGaps(otherLIR[c]));
+            if (resi) viewer3d.setStyle({chain: c, resi}, {cartoon: {...cStyle, colorfunc: plddt, opacity: 0.5}});
+        }
+    } else if (mode === 'bychain' || mode === 'bypolymer') {
         if (lirIResi) viewer3d.setStyle({chain: v.ci, resi: lirIResi}, {cartoon: {...cStyle, color: colors.clir_a}});
         if (lirJResi) viewer3d.setStyle({chain: v.cj, resi: lirJResi}, {cartoon: {...cStyle, color: colors.clir_b}});
-    } else if (mode === 'bypolymer') {
-        if (lirIResi) viewer3d.setStyle({chain: v.ci, resi: lirIResi}, {cartoon: {...cStyle, colorscheme: 'chain'}});
-        if (lirJResi) viewer3d.setStyle({chain: v.cj, resi: lirJResi}, {cartoon: {...cStyle, colorscheme: 'chain'}});
+        for (const c of otherChains) {
+            const resi = setsToResiArray(fillGaps(otherLIR[c]));
+            const chainColor = (uniState.multiChainColors && uniState.multiChainColors[c]) || '#cccccc';
+            if (resi) viewer3d.setStyle({chain: c, resi}, {cartoon: {...cStyle, color: chainColor, opacity: 0.4}});
+        }
     } else {
-        // Gradient/solid: LIR in light color, cLIR overridden with dark color
+        // Gradient/solid: selected pair in full color, others semi-transparent gray
         if (lirIResi) viewer3d.setStyle({chain: v.ci, resi: lirIResi}, {cartoon: {...cStyle, color: colors.lir_a}});
         if (lirJResi) viewer3d.setStyle({chain: v.cj, resi: lirJResi}, {cartoon: {...cStyle, color: colors.lir_b}});
-
         if (clirIResi) viewer3d.setStyle({chain: v.ci, resi: clirIResi}, {cartoon: {...cStyle, color: colors.clir_a}});
         if (clirJResi) viewer3d.setStyle({chain: v.cj, resi: clirJResi}, {cartoon: {...cStyle, color: colors.clir_b}});
+
+        // Other chains: show LIR regions in semi-transparent gray for context
+        for (const c of otherChains) {
+            const resi = setsToResiArray(fillGaps(otherLIR[c]));
+            if (resi) viewer3d.setStyle({chain: c, resi}, {cartoon: {...cStyle, color: '#dddddd', opacity: 0.35}});
+        }
     }
 
     viewer3d.render();
