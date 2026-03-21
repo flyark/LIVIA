@@ -208,7 +208,7 @@
                 <li><strong>PAE/LIS/cLIS maps</strong> &mdash; same colormaps as the Universal tool (bwr, Blues, Greens)</li>
                 <li><strong>Score matrix</strong> &mdash; iLIS (Oranges) / cLIR count (Greens)</li>
                 <li><strong>Sequence viewer</strong> &mdash; amino acid letters with LIR (light) and cLIR (dark) highlighting per chain</li>
-                <li><strong>ipSAE metric</strong> &mdash; interface predicted Squared Aligned Error from AlphaFold DB, shown alongside iLIS, LIS, cLIS, and ipTM</li>
+                <li><strong>ipSAE metric</strong> &mdash; interface predicted Squared Aligned Error (<a href="https://www.biorxiv.org/content/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack, 2025</a>), shown alongside iLIS, LIS, cLIS, and ipTM</li>
                 <li><strong>ChimeraX script</strong> &mdash; color presets with Swap A &harr; B support</li>
                 <li><strong>Downloads</strong> &mdash; .cxc script, .cif structure, CSV with full metrics and LIR/cLIR indices</li>
             </ul>
@@ -335,7 +335,7 @@
     <!-- METRICS -->
     <!-- ================================================================ -->
     <div class="tool-section">
-        <h2 class="tool-title">AFM-LIS Metrics Reference</h2>
+        <h2 class="tool-title">AFM-LIS Metrics</h2>
 
         <div style="margin-bottom:1.5rem;">
             <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
@@ -347,8 +347,6 @@
                 <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><strong>cLIR</strong></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">contact-filtered LIR</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">Residues in direct physical contact (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</td></tr>
                 <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><strong>LIA</strong></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">Local Interaction Area</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">Confident interaction area (PAE &le; 12 &Aring;)</td></tr>
                 <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><strong>cLIA</strong></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">contact-filtered LIA</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">Confident interaction area within contact distance (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</td></tr>
-                <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><strong>ipTM</strong></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">interface predicted TM-score</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">AlphaFold's global interface structural confidence metric</td></tr>
-                <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><strong>ipSAE</strong></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">interface predicted Squared Aligned Error</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">AlphaFold DB confidence metric for dimer complexes</td></tr>
             </table>
         </div>
 
@@ -390,6 +388,10 @@
             <ul style="padding-left:1.2rem; margin-bottom:1rem;">
                 <li><a href="https://doi.org/10.1038/s41586-024-07487-w" target="_blank" style="color:#2471A3;">Abramson et al. 2024</a> &mdash; Accurate structure prediction of biomolecular interactions with AlphaFold 3. <em>Nature</em> 630, 493&ndash;500.</li>
                 <li><a href="https://doi.org/10.1101/2021.10.04.463034" target="_blank" style="color:#2471A3;">Evans et al. 2022</a> &mdash; Protein complex prediction with AlphaFold-Multimer. <em>bioRxiv</em>.</li>
+            </ul>
+            <p><strong>ipSAE</strong></p>
+            <ul style="padding-left:1.2rem; margin-bottom:1rem;">
+                <li><a href="https://www.biorxiv.org/content/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack 2025</a> &mdash; <em>R&emacr;s ipSAE loquuntur</em>: What&rsquo;s wrong with AlphaFold&rsquo;s ipTM score and how to fix it. <em>bioRxiv</em>.</li>
             </ul>
             <p><strong>ChimeraX</strong></p>
             <ul style="padding-left:1.2rem; margin-bottom:1rem;">
