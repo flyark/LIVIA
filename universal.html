@@ -191,7 +191,7 @@
     <div class="results" id="results">
         <!-- PAE Maps -->
         <div class="card result-card">
-            <h2>PAE Maps</h2>
+            <h2>Predicted Aligned Error (PAE) Maps</h2>
             <div class="map-row" id="pae-row"></div>
             <div class="colorbar-row">
                 <canvas id="colorbar-pae" width="300" height="14"></canvas>
@@ -217,7 +217,7 @@
 
         <!-- LIS Maps -->
         <div class="card result-card">
-            <h2>LIS Maps <span style="font-weight:400; font-size:0.8rem; color:#888;">(Local Interaction Score, PAE &le; 12 &Aring;)</span></h2>
+            <h2>Local Interaction Score (LIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#888;">(PAE &le; 12 &Aring;)</span></h2>
             <div class="map-row" id="lis-row"></div>
             <div class="colorbar-row">
                 <canvas id="colorbar-lis" width="300" height="14"></canvas>
@@ -227,7 +227,7 @@
 
         <!-- cLIS Maps -->
         <div class="card result-card">
-            <h2>cLIS Maps <span style="font-weight:400; font-size:0.8rem; color:#888;">(contact LIS, PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</span></h2>
+            <h2>contact Local Interaction Score (cLIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#888;">(PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</span></h2>
             <div class="map-row" id="clis-row"></div>
             <div class="colorbar-row">
                 <canvas id="colorbar-clis" width="300" height="14"></canvas>
@@ -285,9 +285,6 @@
                 Interactive 3D preview matching ChimeraX script output. LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom, right-click to translate.
             </div>
             <iframe id="viewer3d-frame" style="width:100%; height:600px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin"></iframe>
-            <div style="text-align:center; margin-top:0.3rem;">
-                <a style="display:inline-block; font-size:0.7rem; color:#2471A3; cursor:pointer; opacity:0.6;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.6'" onclick="downloadMolstarPng()">PNG</a>
-            </div>
         </div>
 
         <!-- Script -->
@@ -2261,6 +2258,20 @@ async function init() {
         console.warn('MVS failed, falling back:', e);
         viewer.loadStructureFromData(structData, fmt);
     }
+
+    // Apply illustrative style AFTER loading (with delay to let MVS finish)
+    setTimeout(function() {
+        if (viewer.plugin && viewer.plugin.canvas3d) {
+            var c3d = viewer.plugin.canvas3d;
+            c3d.setProps({
+                postprocessing: {
+                    occlusion: { name: 'on', params: { multiScale: { name: 'off', params: {} }, radius: 5, bias: 0.8, blurKernelSize: 15, resolutionScale: 1, color: 0x000000 } },
+                    outline: { name: 'on', params: { scale: 1, threshold: 0.33, color: 0x000000, includeTransparent: true } },
+                },
+                renderer: { ...c3d.props.renderer, style: { name: 'flat-shaded', params: {} } },
+            });
+        }
+    }, 2000);
 }
 init().catch(function(e) { console.error('Mol* error:', e); });
 <\/script>
@@ -2290,21 +2301,6 @@ async function updateViewer3d(pairKey) {
     if (viewer3dBlobUrl) URL.revokeObjectURL(viewer3dBlobUrl);
     viewer3dBlobUrl = URL.createObjectURL(blob);
     frame.src = viewer3dBlobUrl;
-}
-
-function downloadMolstarPng() {
-    try {
-        const frame = document.getElementById('viewer3d-frame');
-        if (frame && frame.contentDocument) {
-            const canvas = frame.contentDocument.querySelector('canvas');
-            if (canvas) {
-                const a = document.createElement('a');
-                a.download = 'structure_3d.png';
-                a.href = canvas.toDataURL('image/png');
-                a.click();
-            }
-        }
-    } catch(e) { console.warn('PNG download failed (cross-origin?):', e); }
 }
 
 function selectPair(key) {
@@ -2754,7 +2750,6 @@ function drawAllMaps() {
         item.appendChild(canvas);
         paeRow.appendChild(item);
         drawMapCanvas(canvas, model.pae, model.nTotal, chainSizes, chainNames, bwrColor, 0, 30);
-        addDownloadBtn(canvas, 'pae_model_' + mi);
     }
 
     // Combined iLIS/cLIR Heatmaps (multi-chain only)
@@ -2782,7 +2777,6 @@ function drawAllMaps() {
             item.appendChild(canvas);
             combinedRow.appendChild(item);
             drawCombinedHeatmap(canvas, model.ilisGrid, model.clirGrid, chainNames, globalClirMax);
-            addDownloadBtn(canvas, 'score_matrix_model_' + mi);
         }
     }
 
@@ -2801,7 +2795,6 @@ function drawAllMaps() {
         item.appendChild(canvas);
         lisRow.appendChild(item);
         drawMapCanvas(canvas, model.lisMap, model.nTotal, chainSizes, chainNames, bluesColor, 0, 1);
-        addDownloadBtn(canvas, 'lis_model_' + mi);
     }
 
     // cLIS Maps (dilated)
@@ -2821,7 +2814,6 @@ function drawAllMaps() {
         clisRow.appendChild(item);
         const dilated = dilateMap(model.clisMap, clisDilateRadius);
         drawMapCanvas(canvas, dilated, model.nTotal, chainSizes, chainNames, greensColor, 0, 1);
-        addDownloadBtn(canvas, 'clis_model_' + mi);
     }
 
     // Colorbars
@@ -3253,22 +3245,6 @@ function hexToRgba(hex, alpha) {
     return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function addDownloadBtn(canvas, filename) {
-    if (!canvas || canvas.dataset.dlBtn) return;
-    canvas.dataset.dlBtn = '1';
-    const btn = document.createElement('a');
-    btn.textContent = '\u2B07 PNG';
-    btn.style.cssText = 'display:inline-block; font-size:0.7rem; color:#2471A3; cursor:pointer; margin-top:0.2rem; text-decoration:none; opacity:0.6;';
-    btn.onmouseenter = () => btn.style.opacity = '1';
-    btn.onmouseleave = () => btn.style.opacity = '0.6';
-    btn.onclick = () => {
-        const link = document.createElement('a');
-        link.download = filename + '.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-    };
-    canvas.parentElement.appendChild(btn);
-}
 
 function buildContactMap(pairKey) {
     // Get the selected pair result
@@ -3390,7 +3366,6 @@ function buildContactMap(pairKey) {
     ctx.fillText(`${contacts.length} cLIR contact pairs`, width / 2, barY_B + barH + 18);
 
     ctx.restore();
-    addDownloadBtn(canvas, 'contact_map');
 }
 
 function buildChordDiagram() {
@@ -3582,7 +3557,6 @@ function buildChordDiagram() {
     }
 
     ctx.restore();
-    addDownloadBtn(canvas, 'chord_diagram');
 }
 
 function copyScript() {
