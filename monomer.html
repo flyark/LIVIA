@@ -132,6 +132,29 @@
         .data-table th.sort-asc::after { content: ' ▲'; color: #2471A3; }
         .data-table th.sort-desc::after { content: ' ▼'; color: #2471A3; }
 
+        @media (max-width: 768px) {
+            .header { padding: 1rem; }
+            .header h1 { font-size: 1.2rem; }
+            .header-links { gap: 0.4rem; }
+            .header-links a { font-size: 0.72rem; padding: 0.15rem 0.4rem; }
+            .container { padding: 0.75rem; }
+            .card, .result-card { padding: 1rem; border-radius: 8px; overflow-x: auto; }
+            .result-card h2 { font-size: 1rem; }
+            .map-row { flex-wrap: wrap; justify-content: center; }
+            canvas { max-width: 100%; height: auto; }
+            .data-table th, .data-table td { white-space: nowrap; padding: 0.3rem 0.5rem; font-size: 0.75rem; }
+            #viewer3d-frame { height: 400px !important; }
+            .script-preview { font-size: 0.68rem; max-height: 250px; overflow-x: auto; }
+            .seq-blocks { font-size: 0.68rem; }
+            .seq-res { width: 0.6em; }
+            .seq-num { font-size: 0.62rem; width: 28px; }
+            .download-row { flex-direction: column; }
+            .btn-download { width: 100%; text-align: center; }
+            .colorbar-labels { width: 100%; max-width: 300px; }
+            .color-section { gap: 0.8rem; }
+            .color-group { min-width: 140px; }
+            .preset-chip { font-size: 0.72rem; padding: 0.25rem 0.5rem; }
+        }
     </style>
 </head>
 <body>
@@ -235,7 +258,7 @@
         <!-- Subdomain Interaction Map (chord diagram) -->
         <div class="card result-card" id="chord-diagram-container" style="display:none;">
             <h2>Subdomain Interaction Map</h2>
-            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent subdomains (proportional to length). Lines connect cLIR residue pairs in physical contact.
             </div>
             <div style="text-align:center;">
@@ -245,11 +268,11 @@
 
         <!-- 3D Structure Viewer -->
         <div class="card result-card" id="viewer3d-card" style="display:none;">
-            <h2>3D Structure Preview</h2>
-            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+            <h2>3D Structure Viewer</h2>
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Interactive 3D preview matching ChimeraX script output. LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom, right-click to translate.
             </div>
-            <iframe id="viewer3d-frame" style="width:100%; height:600px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin"></iframe>
+            <iframe id="viewer3d-frame" style="width:100%; height:660px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin"></iframe>
             <div style="text-align:center; margin-top:0.3rem;">
             </div>
         </div>
@@ -257,7 +280,7 @@
         <!-- Sequence Viewer -->
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
             <h2>Sequence Viewer</h2>
-            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Light background = LIR (PAE &le; 12 &Aring;). Dark background with white text = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each region uses its own color. Colored bars below each row show UniProt domain annotations.
             </div>
             <div id="seq-viewer" style="font-family:'SF Mono','Fira Code',monospace; overflow-x:auto;"></div>
@@ -266,7 +289,7 @@
         <!-- Domain Comparison -->
         <div class="card result-card" id="domain-comparison-card" style="display:none;">
             <h2>Auto-detected Regions vs UniProt Domains</h2>
-            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Compares auto-detected subdomains (from pLDDT segmentation) with annotated UniProt domains. Overlap shows the percentage of each auto-detected region covered by each UniProt domain.
             </div>
             <div id="domain-comparison-content"></div>
@@ -276,10 +299,12 @@
         <div class="card result-card">
             <h2 id="result-title">Region Pair Summary</h2>
             <div class="metrics-grid" id="pair-metrics"></div>
+            <div style="overflow-x:auto;">
             <table class="data-table" id="pairs-table">
-                <thead><tr><th>Region Pair</th><th>iLIS</th><th>ipSAE</th><th>LIS</th><th>cLIS</th><th>LIR(i)</th><th>LIR(j)</th><th>cLIR(i)</th><th>cLIR(j)</th></tr></thead>
+                <thead><tr><th>Region Pair</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipSAE</th><th>LIS</th><th>cLIS</th><th>LIR (i/j)</th><th>cLIR (i/j)</th></tr></thead>
                 <tbody id="pairs-tbody"></tbody>
             </table>
+            </div>
             <div style="margin-top:0.5rem;">
                 <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem; cursor:pointer;" onclick="downloadCSV()">&#8595; Download CSV</a>
             </div>
@@ -316,18 +341,17 @@
                     </div>
                     <label style="margin-top:1rem">Presets &mdash; gradient (LIR light, cLIR dark)</label>
                     <div class="presets-row">
-                        <div class="preset-chip active" onclick="applyPreset('#b3d4e8','#2471A3','#f5cba7','#E67E22',this)"><div class="preset-strip"><span style="background:#b3d4e8"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#f5cba7"></span></div>Blue / Orange</div>
+                        <div class="preset-chip active" onclick="applyPreset('#80CBC4','#00897B','#FFAB91','#E64A19',this)"><div class="preset-strip"><span style="background:#80CBC4"></span><span style="background:#00897B"></span><span style="background:#E64A19"></span><span style="background:#FFAB91"></span></div>Teal / Coral</div>
+                        <div class="preset-chip" onclick="applyPreset('#b3d4e8','#2471A3','#f5cba7','#E67E22',this)"><div class="preset-strip"><span style="background:#b3d4e8"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#f5cba7"></span></div>Blue / Orange</div>
                         <div class="preset-chip" onclick="applyPreset('#d1c4e9','#5e35b1','#fff3b0','#f9a825',this)"><div class="preset-strip"><span style="background:#d1c4e9"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#fff3b0"></span></div>Purple / Gold</div>
-                        <div class="preset-chip" onclick="applyPreset('#b2dfdb','#00897b','#ffccbc','#e64a19',this)"><div class="preset-strip"><span style="background:#b2dfdb"></span><span style="background:#00897b"></span><span style="background:#e64a19"></span><span style="background:#ffccbc"></span></div>Teal / Coral</div>
                         <div class="preset-chip" onclick="applyPreset('#cfd8dc','#546e7a','#f8bbd0','#c2185b',this)"><div class="preset-strip"><span style="background:#cfd8dc"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#f8bbd0"></span></div>Slate / Rose</div>
                         <div class="preset-chip" onclick="applyPreset('#c5cae9','#303f9f','#ffe0b2','#e65100',this)"><div class="preset-strip"><span style="background:#c5cae9"></span><span style="background:#303f9f"></span><span style="background:#e65100"></span><span style="background:#ffe0b2"></span></div>Indigo / Tangerine</div>
                         <div class="preset-chip" onclick="applyPreset('#a8d5ba','#2e7d32','#ef9a9a','#c62828',this)"><div class="preset-strip"><span style="background:#a8d5ba"></span><span style="background:#2e7d32"></span><span style="background:#c62828"></span><span style="background:#ef9a9a"></span></div>Green / Red</div>
                     </div>
                     <label style="margin-top:0.5rem">Presets &mdash; solid</label>
                     <div class="presets-row">
-                        <div class="preset-chip" onclick="applyPreset('#2471A3','#2471A3','#E67E22','#E67E22',this)"><div class="preset-strip"><span style="background:#2471A3"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#E67E22"></span></div>Blue / Orange</div>
+                        <div class="preset-chip" onclick="applyPreset('#00897B','#00897B','#E64A19','#E64A19',this)"><div class="preset-strip"><span style="background:#00897B"></span><span style="background:#00897B"></span><span style="background:#E64A19"></span><span style="background:#E64A19"></span></div>Teal / Coral</div>
                         <div class="preset-chip" onclick="applyPreset('#5e35b1','#5e35b1','#f9a825','#f9a825',this)"><div class="preset-strip"><span style="background:#5e35b1"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#f9a825"></span></div>Purple / Gold</div>
-                        <div class="preset-chip" onclick="applyPreset('#00897b','#00897b','#e64a19','#e64a19',this)"><div class="preset-strip"><span style="background:#00897b"></span><span style="background:#00897b"></span><span style="background:#e64a19"></span><span style="background:#e64a19"></span></div>Teal / Coral</div>
                         <div class="preset-chip" onclick="applyPreset('#546e7a','#546e7a','#c2185b','#c2185b',this)"><div class="preset-strip"><span style="background:#546e7a"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#c2185b"></span></div>Slate / Rose</div>
                         <div class="preset-chip" onclick="applyPreset('#6A9EC6','#6A9EC6','#D4A76A','#D4A76A',this)"><div class="preset-strip"><span style="background:#6A9EC6"></span><span style="background:#6A9EC6"></span><span style="background:#D4A76A"></span><span style="background:#D4A76A"></span></div>Steel / Wheat</div>
                         <div class="preset-chip" onclick="applyPreset('#6495ED','#6495ED','#FF6347','#FF6347',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#FF6347"></span></div>Cornflower / Tomato</div>
@@ -380,6 +404,8 @@
                 <h4 style="font-size:0.9rem; color:#1a5276; margin-bottom:0.5rem;">Metrics (<a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3;">AFM-LIS</a>)</h4>
                 <table style="font-size:0.85rem;">
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLIS</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LIS &mdash; &radic;(LIS &times; cLIS)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLIA</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LIA &mdash; &radic;(LIA &times; cLIA), geometric mean of interface area counts</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLISA</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LISA &mdash; iLIS &times; iLIA, overall binding strength</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIS</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Score &mdash; normalized PAE confidence (0&ndash;1)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIS</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIS &mdash; restricted to direct contacts</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIR</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Residues (PAE &le; 12 &Aring;)</td></tr>
@@ -435,7 +461,7 @@ const DOMAIN_PALETTE_LIGHT = [
 ];
 
 const REGION_COLORS = [
-    '#2471A3', '#E67E22', '#27ae60', '#c0392b', '#8e44ad',
+    '#00897B', '#E64A19', '#27ae60', '#c0392b', '#8e44ad',
     '#16a085', '#d35400', '#2c3e50', '#f39c12', '#1abc9c'
 ];
 
@@ -993,7 +1019,7 @@ function detectRegions() {
 
 // Multi-region palette presets
 const MULTI_PALETTES = [
-    { name: 'Default', colors: ['#2471A3', '#E67E22', '#27ae60', '#c0392b', '#8e44ad', '#16a085', '#d35400', '#2c3e50'] },
+    { name: 'Default', colors: ['#00897B', '#E64A19', '#27ae60', '#c0392b', '#8e44ad', '#16a085', '#d35400', '#2c3e50'] },
     { name: 'Pastel', colors: ['#6495ED', '#FF6347', '#90EE90', '#DDA0DD', '#FFD700', '#87CEEB', '#FFA07A', '#20B2AA'] },
     { name: 'Vivid', colors: ['#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45'] },
     { name: 'Earth', colors: ['#546e7a', '#8d6e63', '#00897b', '#d35400', '#5e35b1', '#2e7d32', '#c62828', '#1565c0'] },
@@ -1017,27 +1043,27 @@ function updateColorSection() {
             <div class="color-group">
                 <h3>Region ${monRegions[0]?.name || 'A'}</h3>
                 <div class="color-pair">
-                    <input type="color" id="color-lir-a" value="#b3d4e8" oninput="onColorChange()">
-                    <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-a">#b3d4e8</div></div>
+                    <input type="color" id="color-lir-a" value="#80CBC4" oninput="onColorChange()">
+                    <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-a">#80CBC4</div></div>
                 </div>
                 <div class="color-pair">
-                    <input type="color" id="color-clir-a" value="#2471A3" oninput="onColorChange()">
-                    <div><div class="color-label">cLIR</div><div class="color-hex" id="hex-clir-a">#2471A3</div></div>
+                    <input type="color" id="color-clir-a" value="#00897B" oninput="onColorChange()">
+                    <div><div class="color-label">cLIR</div><div class="color-hex" id="hex-clir-a">#00897B</div></div>
                 </div>
             </div>
             <div class="color-group">
                 <h3>Region ${monRegions[1]?.name || 'B'}</h3>
                 <div class="color-pair">
-                    <input type="color" id="color-lir-b" value="#f5cba7" oninput="onColorChange()">
-                    <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-b">#f5cba7</div></div>
+                    <input type="color" id="color-lir-b" value="#FFAB91" oninput="onColorChange()">
+                    <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-b">#FFAB91</div></div>
                 </div>
                 <div class="color-pair">
-                    <input type="color" id="color-clir-b" value="#E67E22" oninput="onColorChange()">
-                    <div><div class="color-label">cLIR</div><div class="color-hex" id="hex-clir-b">#E67E22</div></div>
+                    <input type="color" id="color-clir-b" value="#E64A19" oninput="onColorChange()">
+                    <div><div class="color-label">cLIR</div><div class="color-hex" id="hex-clir-b">#E64A19</div></div>
                 </div>
             </div>
         `;
-        strip.innerHTML = `<div style="background:#b3d4e8"></div><div style="background:#2471A3"></div><div style="background:#E67E22"></div><div style="background:#f5cba7"></div>`;
+        strip.innerHTML = `<div style="background:#80CBC4"></div><div style="background:#00897B"></div><div style="background:#E64A19"></div><div style="background:#FFAB91"></div>`;
     } else {
         // Hide binary presets, show multi
         binaryPresets.style.display = 'none';
@@ -1157,14 +1183,14 @@ function swapColors() {
 function getColorsForRegionPair(idxI, idxJ) {
     if (monRegions.length <= 2) {
         return {
-            lir_a: document.getElementById('color-lir-a')?.value || '#b3d4e8',
-            clir_a: document.getElementById('color-clir-a')?.value || '#2471A3',
-            lir_b: document.getElementById('color-lir-b')?.value || '#f5cba7',
-            clir_b: document.getElementById('color-clir-b')?.value || '#E67E22',
+            lir_a: document.getElementById('color-lir-a')?.value || '#80CBC4',
+            clir_a: document.getElementById('color-clir-a')?.value || '#00897B',
+            lir_b: document.getElementById('color-lir-b')?.value || '#FFAB91',
+            clir_b: document.getElementById('color-clir-b')?.value || '#E64A19',
         };
     }
-    const colA = monRegions[idxI]?.color || '#2471A3';
-    const colB = monRegions[idxJ]?.color || '#E67E22';
+    const colA = monRegions[idxI]?.color || '#00897B';
+    const colB = monRegions[idxJ]?.color || '#E64A19';
     return { lir_a: colA, clir_a: colA, lir_b: colB, clir_b: colB };
 }
 
@@ -1253,28 +1279,30 @@ function calcIpSAE(pae, si, ei, sj, ej, paeCutoff) {
 
 function calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap, boundaryMargin) {
     const margin = boundaryMargin || 0;
-    let lisSum = 0, lisCount = 0;
-    let clisSum = 0, clisCount = 0;
+    let lisSum = 0, lisCountAvg = 0;
+    let clisSum = 0, clisCountAvg = 0;
+    let lisCountAB = 0, lisCountBA = 0;
+    let clisCountAB = 0, clisCountBA = 0;
     const lirI = new Set(), lirJ = new Set();
     const clirI = new Set(), clirJ = new Set();
 
     // Exclude boundary residues (margin from each edge)
     const startI = ri.start + margin, endI = ri.end - margin;
     const startJ = rj.start + margin, endJ = rj.end - margin;
-    if (startI > endI || startJ > endJ) return { iLIS: 0, LIS: 0, cLIS: 0, lirI, lirJ, clirI, clirJ, lenI: ri.end - ri.start + 1, lenJ: rj.end - rj.start + 1 };
+    if (startI > endI || startJ > endJ) return { iLIS: 0, iLIA: 0, iLISA: 0, ipSAE: 0, LIS: 0, cLIS: 0, lirI, lirJ, clirI, clirJ, lenI: ri.end - ri.start + 1, lenJ: rj.end - rj.start + 1 };
 
     for (let a = startI; a <= endI; a++) {
         for (let b = startJ; b <= endJ; b++) {
             // PAE indices are 0-based
             const paeVal = monPae[a - 1][b - 1];
             const paeValRev = monPae[b - 1][a - 1];
-            // Use the average of both directions
+            // Use the average of both directions for LIS/cLIS scores
             const paeAvg = (paeVal + paeValRev) / 2;
 
             if (paeAvg < paeCutoff) {
                 const score = 1 - paeAvg / paeCutoff;
                 lisSum += score;
-                lisCount++;
+                lisCountAvg++;
                 lirI.add(a);
                 lirJ.add(b);
 
@@ -1288,23 +1316,42 @@ function calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap, boundaryMargin) {
                     const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
                     if (dist < cbCutoff) {
                         clisSum += score;
-                        clisCount++;
+                        clisCountAvg++;
                         clirI.add(a);
                         clirJ.add(b);
                     }
                 }
             }
+            // Count each PAE direction separately for LIA
+            if (paeVal < paeCutoff) lisCountAB++;
+            if (paeValRev < paeCutoff) lisCountBA++;
+            const ci2 = coordMap.get(a);
+            const cj2 = coordMap.get(b);
+            if (ci2 && cj2) {
+                const dx2 = ci2.x - cj2.x;
+                const dy2 = ci2.y - cj2.y;
+                const dz2 = ci2.z - cj2.z;
+                const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2 + dz2 * dz2);
+                if (dist2 < cbCutoff) {
+                    if (paeVal < paeCutoff) clisCountAB++;
+                    if (paeValRev < paeCutoff) clisCountBA++;
+                }
+            }
         }
     }
 
-    const lis = lisCount > 0 ? lisSum / lisCount : 0;
-    const clis = clisCount > 0 ? clisSum / clisCount : 0;
+    const lis = lisCountAvg > 0 ? lisSum / lisCountAvg : 0;
+    const clis = clisCountAvg > 0 ? clisSum / clisCountAvg : 0;
     const ilis = Math.sqrt(lis * clis);
+    const liaCount = lisCountAB + lisCountBA;
+    const cliaCount = clisCountAB + clisCountBA;
+    const ilia = Math.sqrt(liaCount * cliaCount);
+    const ilisa = ilis * ilia;
     const ipSAE = calcIpSAE(monPae, ri.start - 1, ri.end, rj.start - 1, rj.end, paeCutoff);
 
     return {
         ri, rj,
-        iLIS: ilis, ipSAE, LIS: lis, cLIS: clis,
+        iLIS: ilis, iLIA: ilia, iLISA: ilisa, ipSAE, LIS: lis, cLIS: clis,
         lirI, lirJ, clirI, clirJ,
         lenI: ri.end - ri.start + 1,
         lenJ: rj.end - rj.start + 1,
@@ -1600,12 +1647,12 @@ function displayResults(validRegions) {
         const v = monPairResults[0];
         metricsDiv.innerHTML = `
             <div class="metric"><div class="value">${v.iLIS.toFixed(3)}</div><div class="label">iLIS</div></div>
+            <div class="metric"><div class="value">${v.iLIA.toFixed(1)}</div><div class="label">iLIA</div></div>
+            <div class="metric"><div class="value">${v.iLISA.toFixed(1)}</div><div class="label">iLISA</div></div>
             <div class="metric"><div class="value">${v.LIS.toFixed(3)}</div><div class="label">LIS</div></div>
             <div class="metric"><div class="value">${v.cLIS.toFixed(3)}</div><div class="label">cLIS</div></div>
-            <div class="metric"><div class="value">${v.lirI.size}</div><div class="label">LIR (${v.ri.name})</div></div>
-            <div class="metric"><div class="value">${v.lirJ.size}</div><div class="label">LIR (${v.rj.name})</div></div>
-            <div class="metric"><div class="value">${v.clirI.size}</div><div class="label">cLIR (${v.ri.name})</div></div>
-            <div class="metric"><div class="value">${v.clirJ.size}</div><div class="label">cLIR (${v.rj.name})</div></div>
+            <div class="metric"><div class="value">${v.lirI.size} / ${v.lirJ.size}</div><div class="label">LIR (${v.ri.name}/${v.rj.name})</div></div>
+            <div class="metric"><div class="value">${v.clirI.size} / ${v.clirJ.size}</div><div class="label">cLIR (${v.ri.name}/${v.rj.name})</div></div>
         `;
     } else {
         metricsDiv.innerHTML = '';
@@ -1617,7 +1664,7 @@ function displayResults(validRegions) {
     for (const v of monPairResults) {
         if (v.iLIS === 0) continue; // skip non-interacting pairs
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${v.ri.name} (${v.ri.start}-${v.ri.end}) &mdash; ${v.rj.name} (${v.rj.start}-${v.rj.end})</td><td>${v.iLIS.toFixed(3)}</td><td>${v.ipSAE.toFixed(3)}</td><td>${v.LIS.toFixed(3)}</td><td>${v.cLIS.toFixed(3)}</td><td>${v.lirI.size}</td><td>${v.lirJ.size}</td><td>${v.clirI.size}</td><td>${v.clirJ.size}</td>`;
+        tr.innerHTML = `<td>${v.ri.name} (${v.ri.start}-${v.ri.end}) &mdash; ${v.rj.name} (${v.rj.start}-${v.rj.end})</td><td>${v.iLIS.toFixed(3)}</td><td>${v.iLIA.toFixed(1)}</td><td>${v.iLISA.toFixed(1)}</td><td>${v.ipSAE.toFixed(3)}</td><td>${v.LIS.toFixed(3)}</td><td>${v.cLIS.toFixed(3)}</td><td>${v.lirI.size} / ${v.lirJ.size}</td><td>${v.clirI.size} / ${v.clirJ.size}</td>`;
         tbody.appendChild(tr);
     }
 
@@ -1710,7 +1757,7 @@ function generateAndShowScript(validRegions) {
         for (let ri = 0; ri < validRegions.length; ri++) {
             const r = validRegions[ri];
             const color = monRegions.length <= 2
-                ? (ri === 0 ? (document.getElementById('color-lir-a')?.value || '#b3d4e8') : (document.getElementById('color-lir-b')?.value || '#f5cba7'))
+                ? (ri === 0 ? (document.getElementById('color-lir-a')?.value || '#80CBC4') : (document.getElementById('color-lir-b')?.value || '#FFAB91'))
                 : r.color;
             lines.push(`color #1/A:${r.start}-${r.end} ${color}`);
         }
@@ -1784,12 +1831,12 @@ function generateAndShowScript(validRegions) {
 
 function downloadCSV() {
     if (!monPairResults.length) return;
-    const header = 'name,model,chain_A,chain_B,iLIS,ipSAE,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
+    const header = 'name,model,chain_A,chain_B,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
     const rows = [header];
     for (const v of monPairResults) {
         rows.push([
             monUniprotId, 'monomer', v.ri.name, v.rj.name,
-            v.iLIS.toFixed(6), v.ipSAE.toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
+            v.iLIS.toFixed(6), v.iLIA.toFixed(1), v.iLISA.toFixed(1), v.ipSAE.toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
             '', '', '',
             v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
             v.lenI, v.lenJ,
@@ -1888,6 +1935,16 @@ function toRanges(positions) {
 
 function buildMolstarPage(structData, fmt, colorComponents) {
     const structureChildren = [];
+    // Add full polymer as hidden non-LIR (users can toggle via eye icon in Mol* panel)
+    structureChildren.push({
+        kind: 'component',
+        params: { selector: 'polymer' },
+        children: [{
+            kind: 'representation',
+            params: { type: 'cartoon' },
+            children: [{ kind: 'color', params: { color: 'white' } }]
+        }]
+    });
     for (const comp of colorComponents) {
         const selector = comp.ranges.map(r => ({
             label_asym_id: comp.chain,

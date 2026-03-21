@@ -127,6 +127,8 @@
         .btn-primary { background: #2471A3; color: white; }
         .btn-primary:hover { background: #1a5276; }
         .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+        .example-btn { padding: 0.25rem 0.65rem; border: none; border-radius: 20px; background: #eaf2f8; cursor: pointer; font-size: 0.78rem; color: #2471A3; transition: all 0.2s; font-weight: 500; }
+        .example-btn:hover { background: #2471A3; color: white; }
 
         .btn-download {
             padding: 0.6rem 1.2rem;
@@ -347,7 +349,7 @@
         .seq-blocks { display:flex; flex-wrap:nowrap; font-family:'SF Mono','Fira Code',monospace; font-size:0.82rem; line-height:1.4; letter-spacing:0.5px; }
         .seq-res { display:inline-block; width:0.75em; text-align:center; cursor:default; color:#333; }
         .seq-res.clir { color:white; font-weight:700; }
-        .seq-chain-label { font-size:0.75rem; font-weight:700; color:#1a5276; margin-top:0.5rem; margin-bottom:0.2rem; }
+        .seq-chain-label { font-size:0.88rem; font-weight:700; color:#1a5276; margin-top:0.5rem; margin-bottom:0.2rem; }
         .seq-tooltip { position:fixed; background:#333; color:white; padding:2px 6px; border-radius:4px; font-size:0.72rem; pointer-events:none; z-index:200; display:none; font-family:'SF Mono',monospace; }
 
         /* ── Preset chips (in Options card) ── */
@@ -378,6 +380,30 @@
         .data-table th.sortable::after { content: ' ⇅'; font-size: 0.7em; color: #aaa; }
         .data-table th.sort-asc::after { content: ' ▲'; color: #2471A3; }
         .data-table th.sort-desc::after { content: ' ▼'; color: #2471A3; }
+
+        @media (max-width: 768px) {
+            .header { padding: 1rem; }
+            .header h1 { font-size: 1.2rem; }
+            .header-links { gap: 0.4rem; }
+            .header-links a { font-size: 0.72rem; padding: 0.15rem 0.4rem; }
+            .container { padding: 0.75rem; }
+            .card, .result-card { padding: 1rem; border-radius: 8px; overflow-x: auto; }
+            .result-card h2 { font-size: 1rem; }
+            .map-row { flex-wrap: wrap; justify-content: center; }
+            canvas { max-width: 100%; height: auto; }
+            .data-table th, .data-table td { white-space: nowrap; padding: 0.3rem 0.5rem; font-size: 0.75rem; }
+            #viewer3d-frame { height: 400px !important; }
+            .script-preview { font-size: 0.68rem; max-height: 250px; overflow-x: auto; }
+            .seq-blocks { font-size: 0.68rem; }
+            .seq-res { width: 0.6em; }
+            .seq-num { font-size: 0.62rem; width: 28px; }
+            .download-row { flex-direction: column; }
+            .btn-download { width: 100%; text-align: center; }
+            .colorbar-labels { width: 100%; max-width: 300px; }
+            .color-section { gap: 0.8rem; }
+            .color-group { min-width: 140px; }
+            .preset-chip { font-size: 0.72rem; padding: 0.25rem 0.5rem; }
+        }
     </style>
 </head>
 <body>
@@ -401,11 +427,27 @@
     <!-- Input -->
     <div class="card">
         <div class="step-header"><a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" class="step-link">FlyPredictome</a>&nbsp; URL</div>
+        <div style="font-size:0.8rem; color:#888; margin-bottom:0.6rem;">Precomputed PPI predictions for <em>Drosophila</em> can be searched at <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3;">FlyPredictome</a>. Paste a prediction page URL below, or click an example.</div>
         <div class="url-row">
             <input type="text" id="url-input"
                    placeholder="https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/..."
-                   value="https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/Akt1/foxo/SET_47/">
+                   value="">
             <button class="btn btn-primary" id="btn-generate" onclick="generate()">Generate</button>
+        </div>
+        <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.5rem; align-items:center;">
+            <span style="font-size:0.8rem; color:#888;">Examples:</span>
+            <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/Akt1/foxo/SET_47/';generate()">Akt1–Foxo</button>
+            <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/FBgn0283499/FBgn0036046/SET_487/';generate()">Ilp2–InR</button>
+            <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/FBgn0003731/FBgn0005672/SET_590/';generate()">Spi–Egfr</button>
+            <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/Dl/N/SET_71/';generate()">Dl–N</button>
+            <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/yki/sd/SET_49/';generate()">Yki–Sd</button>
+            <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/dsh/Axn/SET_69/';generate()">Dsh–Axn</button>
+            <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/FBgn0004644/FBgn0031872/SET_585/';generate()">Hh–Ihog</button>
+            <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/FBgn0004107/FBgn0010382/SET_119/';generate()">Cdk2–CycE</button>
+            <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/Mad/Med/SET_69/';generate()">Mad–Med</button>
+            <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/FBgn0011706/FBgn0260635/SET_563/';generate()">Rpr–Diap1</button>
+            <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/spz/Tl/SET_69/';generate()">Spz–Tl</button>
+            <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/FBgn0032006/FBgn0030964/SET_454/';generate()">Pvr–Pvf1</button>
         </div>
         <div id="fetch-status" class="fetch-status"></div>
         <textarea id="html-input" style="display:none"></textarea>
@@ -423,7 +465,7 @@
             <div style="overflow-x:auto;">
                 <table class="data-table" id="ranks-table">
                     <thead>
-                        <tr><th>Rank</th><th>Symbol 1</th><th>Symbol 2</th><th>iLIS</th><th>ipTM</th><th>LIR (A/B)</th><th>cLIR (A/B)</th><th>Len (A/B)</th></tr>
+                        <tr><th>Rank</th><th>Symbol 1</th><th>Symbol 2</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipTM</th><th>LIR (A/B)</th><th>cLIR (A/B)</th><th>Len (A/B)</th></tr>
                     </thead>
                     <tbody id="ranks-tbody"></tbody>
                 </table>
@@ -436,7 +478,7 @@
         <!-- Sequence Viewer -->
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
             <h2>Sequence Viewer</h2>
-            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Light background = LIR (PAE &le; 12 &Aring;). Dark background = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each chain uses its own color.
             </div>
             <div id="seq-viewer" style="overflow-x:auto;"></div>
@@ -445,16 +487,17 @@
         <!-- Interaction Connection Diagram -->
         <div class="card result-card" id="connection-diagram-card" style="display:none;">
             <h2>Interface Contact Map</h2>
-            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Per-rank structures fetched automatically.
             </div>
             <canvas id="connection-canvas"></canvas>
+            <div id="fly-domain-legend" style="margin-top:0.4rem; font-size:0.72rem; color:#666; display:flex; gap:0.8rem; flex-wrap:wrap;"></div>
         </div>
 
         <!-- Chain Interaction Map (circular) -->
         <div class="card result-card" id="chord-card" style="display:none;">
             <h2>Chain Interaction Map</h2>
-            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent chains (proportional to length). Lines connect cLIR residue pairs in physical contact.
             </div>
             <div style="text-align:center;">
@@ -464,11 +507,11 @@
 
         <!-- 3D Structure Viewer -->
         <div class="card result-card" id="viewer3d-card" style="display:none;">
-            <h2>3D Structure Preview</h2>
-            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+            <h2>3D Structure Viewer</h2>
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Interactive 3D preview matching ChimeraX script output. LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom, right-click to translate.
             </div>
-            <iframe id="viewer3d-frame" style="width:100%; height:600px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin"></iframe>
+            <iframe id="viewer3d-frame" style="width:100%; height:660px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin"></iframe>
             <div style="text-align:center; margin-top:0.3rem;">
             </div>
         </div>
@@ -486,59 +529,58 @@
                     <div class="color-group">
                         <h3>Chain A (Protein 1)</h3>
                         <div class="color-pair">
-                            <input type="color" id="color-lir-a" value="#b3d4e8">
+                            <input type="color" id="color-lir-a" value="#80CBC4">
                             <div>
                                 <div class="color-label">LIR — confident domain <span class="color-def">(PAE &le; 12)</span></div>
-                                <div class="color-hex" id="hex-lir-a">#b3d4e8</div>
+                                <div class="color-hex" id="hex-lir-a">#80CBC4</div>
                             </div>
                         </div>
                         <div class="color-pair">
-                            <input type="color" id="color-clir-a" value="#2471A3">
+                            <input type="color" id="color-clir-a" value="#00897B">
                             <div>
                                 <div class="color-label">cLIR — confident interface <span class="color-def">(PAE &le; 12 &amp; C&beta; &le; 8 &Aring;)</span></div>
-                                <div class="color-hex" id="hex-clir-a">#2471A3</div>
+                                <div class="color-hex" id="hex-clir-a">#00897B</div>
                             </div>
                         </div>
                     </div>
                     <div class="color-group">
                         <h3>Chain B (Protein 2)</h3>
                         <div class="color-pair">
-                            <input type="color" id="color-lir-b" value="#f5cba7">
+                            <input type="color" id="color-lir-b" value="#FFAB91">
                             <div>
                                 <div class="color-label">LIR — confident domain <span class="color-def">(PAE &le; 12)</span></div>
-                                <div class="color-hex" id="hex-lir-b">#f5cba7</div>
+                                <div class="color-hex" id="hex-lir-b">#FFAB91</div>
                             </div>
                         </div>
                         <div class="color-pair">
-                            <input type="color" id="color-clir-b" value="#E67E22">
+                            <input type="color" id="color-clir-b" value="#E64A19">
                             <div>
                                 <div class="color-label">cLIR — confident interface <span class="color-def">(PAE &le; 12 &amp; C&beta; &le; 8 &Aring;)</span></div>
-                                <div class="color-hex" id="hex-clir-b">#E67E22</div>
+                                <div class="color-hex" id="hex-clir-b">#E64A19</div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:0.8rem; margin-top:0.5rem;">
                     <div class="color-preview-strip" id="color-strip" style="flex:1; margin:0;">
-                        <div style="background:#b3d4e8"></div><div style="background:#2471A3"></div><div style="background:#E67E22"></div><div style="background:#f5cba7"></div>
+                        <div style="background:#80CBC4"></div><div style="background:#00897B"></div><div style="background:#E64A19"></div><div style="background:#FFAB91"></div>
                     </div>
                     <button onclick="swapColors()" style="padding:0.3rem 0.8rem; border:2px solid #e0e0e0; border-radius:6px; background:white; cursor:pointer; font-size:0.82rem; color:#666; white-space:nowrap;">Swap A &#8596; B</button>
                 </div>
 
                 <label style="margin-top:1rem">Presets &mdash; gradient (LIR light, cLIR dark)</label>
                 <div class="presets-row">
-                    <div class="preset-chip active" onclick="applyPreset('#b3d4e8','#2471A3','#f5cba7','#E67E22',this)"><div class="preset-strip"><span style="background:#b3d4e8"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#f5cba7"></span></div>Blue / Orange</div>
+                    <div class="preset-chip active" onclick="applyPreset('#80CBC4','#00897B','#FFAB91','#E64A19',this)"><div class="preset-strip"><span style="background:#80CBC4"></span><span style="background:#00897B"></span><span style="background:#E64A19"></span><span style="background:#FFAB91"></span></div>Teal / Coral</div>
+                    <div class="preset-chip" onclick="applyPreset('#b3d4e8','#2471A3','#f5cba7','#E67E22',this)"><div class="preset-strip"><span style="background:#b3d4e8"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#f5cba7"></span></div>Blue / Orange</div>
                     <div class="preset-chip" onclick="applyPreset('#d1c4e9','#5e35b1','#fff3b0','#f9a825',this)"><div class="preset-strip"><span style="background:#d1c4e9"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#fff3b0"></span></div>Purple / Gold</div>
-                    <div class="preset-chip" onclick="applyPreset('#b2dfdb','#00897b','#ffccbc','#e64a19',this)"><div class="preset-strip"><span style="background:#b2dfdb"></span><span style="background:#00897b"></span><span style="background:#e64a19"></span><span style="background:#ffccbc"></span></div>Teal / Coral</div>
                     <div class="preset-chip" onclick="applyPreset('#cfd8dc','#546e7a','#f8bbd0','#c2185b',this)"><div class="preset-strip"><span style="background:#cfd8dc"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#f8bbd0"></span></div>Slate / Rose</div>
                     <div class="preset-chip" onclick="applyPreset('#c5cae9','#303f9f','#ffe0b2','#e65100',this)"><div class="preset-strip"><span style="background:#c5cae9"></span><span style="background:#303f9f"></span><span style="background:#e65100"></span><span style="background:#ffe0b2"></span></div>Indigo / Tangerine</div>
                     <div class="preset-chip" onclick="applyPreset('#a8d5ba','#2e7d32','#ef9a9a','#c62828',this)"><div class="preset-strip"><span style="background:#a8d5ba"></span><span style="background:#2e7d32"></span><span style="background:#c62828"></span><span style="background:#ef9a9a"></span></div>Green / Red</div>
                 </div>
                 <label style="margin-top:0.5rem">Presets &mdash; solid</label>
                 <div class="presets-row">
-                    <div class="preset-chip" onclick="applyPreset('#2471A3','#2471A3','#E67E22','#E67E22',this)"><div class="preset-strip"><span style="background:#2471A3"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#E67E22"></span></div>Blue / Orange</div>
+                    <div class="preset-chip" onclick="applyPreset('#00897B','#00897B','#E64A19','#E64A19',this)"><div class="preset-strip"><span style="background:#00897B"></span><span style="background:#00897B"></span><span style="background:#E64A19"></span><span style="background:#E64A19"></span></div>Teal / Coral</div>
                     <div class="preset-chip" onclick="applyPreset('#5e35b1','#5e35b1','#f9a825','#f9a825',this)"><div class="preset-strip"><span style="background:#5e35b1"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#f9a825"></span></div>Purple / Gold</div>
-                    <div class="preset-chip" onclick="applyPreset('#00897b','#00897b','#e64a19','#e64a19',this)"><div class="preset-strip"><span style="background:#00897b"></span><span style="background:#00897b"></span><span style="background:#e64a19"></span><span style="background:#e64a19"></span></div>Teal / Coral</div>
                     <div class="preset-chip" onclick="applyPreset('#546e7a','#546e7a','#c2185b','#c2185b',this)"><div class="preset-strip"><span style="background:#546e7a"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#c2185b"></span></div>Slate / Rose</div>
                     <div class="preset-chip" onclick="applyPreset('#6A9EC6','#6A9EC6','#D4A76A','#D4A76A',this)"><div class="preset-strip"><span style="background:#6A9EC6"></span><span style="background:#6A9EC6"></span><span style="background:#D4A76A"></span><span style="background:#D4A76A"></span></div>Steel / Wheat</div>
                     <div class="preset-chip" onclick="applyPreset('#6495ED','#6495ED','#FF6347','#FF6347',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#FF6347"></span></div>Cornflower / Tomato</div>
@@ -587,6 +629,8 @@
                 <h4>Metrics (<a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS</a>)</h4>
                 <table class="help-table">
                     <tr><td><strong>iLIS</strong></td><td>integrated LIS &mdash; &radic;(LIS &times; cLIS)</td></tr>
+                    <tr><td><strong>iLIA</strong></td><td>integrated LIA &mdash; &radic;(LIA &times; cLIA), geometric mean of interface area counts</td></tr>
+                    <tr><td><strong>iLISA</strong></td><td>integrated LISA &mdash; iLIS &times; iLIA, overall binding strength</td></tr>
                     <tr><td><strong>LIS</strong></td><td>Local Interaction Score &mdash; normalized PAE confidence (0&ndash;1)</td></tr>
                     <tr><td><strong>cLIS</strong></td><td>contact-filtered LIS &mdash; restricted to direct contacts</td></tr>
                     <tr><td><strong>LIR</strong></td><td>Local Interaction Residues (PAE &le; 12 &Aring;)</td></tr>
@@ -756,10 +800,16 @@ function generateCxc(row, pdbFilename, colors) {
     const xposB = (0.03 + partA.length * 0.009 + 0.015).toFixed(3);
     const xposC = (parseFloat(xposB) + partB.length * 0.009 + 0.015).toFixed(3);
 
+    // Add partial protein info if available
+    const infoA = flyDomainInfo?.A;
+    const infoB = flyDomainInfo?.B;
+    const partialNoteA = infoA?.isPartial ? ` [partial: aa ${infoA.startInFull}-${infoA.endInFull} of ${infoA.fullLength}]` : '';
+    const partialNoteB = infoB?.isPartial ? ` [partial: aa ${infoB.startInFull}-${infoB.endInFull} of ${infoB.fullLength}]` : '';
+
     let lines = [
         `# ChimeraX visualization: ${sym1} \u2014 ${sym2} (iLIS=${iLIS}, ipTM=${ipTM})`,
-        `# Chain /A: ${sym1} (${lenA} residues, LIR: ${lirAStr})`,
-        `# Chain /B: ${sym2} (${lenB} residues, LIR: ${lirBStr})`,
+        `# Chain /A: ${sym1} (${lenA} residues, LIR: ${lirAStr})${partialNoteA}`,
+        `# Chain /B: ${sym2} (${lenB} residues, LIR: ${lirBStr})${partialNoteB}`,
         `# Generated by FlyPredictome-ChimeraX Tool`,
         ``,
         `close`,
@@ -788,6 +838,15 @@ function generateCxc(row, pdbFilename, colors) {
         `2dlabels create title text "${partA}" xpos 0.03 ypos 0.95 size 16 color ${colors.clir_a} bold true`,
         `2dlabels create title2 text "${partB}" xpos ${xposB} ypos 0.95 size 16 color ${colors.clir_b} bold true`,
         `2dlabels create title3 text "${partC}" xpos ${xposC} ypos 0.95 size 16 color black bold true`,
+    );
+    // Add partial protein subtitle if applicable
+    const partialParts = [];
+    if (infoA?.isPartial) partialParts.push(`${sym1}: aa ${infoA.startInFull}-${infoA.endInFull} of ${infoA.fullLength}`);
+    if (infoB?.isPartial) partialParts.push(`${sym2}: aa ${infoB.startInFull}-${infoB.endInFull} of ${infoB.fullLength}`);
+    if (partialParts.length > 0) {
+        lines.push(`2dlabels create subtitle text "Partial: ${partialParts.join(', ')}" xpos 0.03 ypos 0.92 size 11 color gray bold false`);
+    }
+    lines.push(
         ``,
         `# \u2500\u2500 Show ONLY LIR regions as cartoons \u2500\u2500`,
         `# LIR_A: ${sym1}, ${LIR_A.size} residues`,
@@ -861,6 +920,9 @@ let flyPdbText = null;     // raw PDB text for connection diagram
 let flyPdbPerRank = {};    // cached PDB text per rank
 let flyBaseUrl = '';       // base FlyPredictome URL for per-rank fetching
 let flyCurrentRank = 1;    // currently selected rank
+let flyDomains = { A: [], B: [] }; // UniProt domain annotations per chain
+let flyDomainInfo = { A: null, B: null }; // { accession, offset, fullLength, predLength, isPartial }
+let domainCache = new Map();       // cache UniProt domain results
 let viewer3dBlobUrl = null; // blob URL for current Mol* iframe page
 
 // ── CORS proxy fetch ──
@@ -962,14 +1024,44 @@ async function generate() {
         } catch (e) { console.warn('Could not fetch PDB for sequence:', e); }
     }
 
+    // Fetch domain annotations (non-blocking — runs in background)
+    if (flyChainSeqs) {
+        fetchFlyDomains(flyChainSeqs, urlInput).then(() => {
+            // Redraw contact map and sequence viewer with domain/partial info
+            const target = flyParsed.rows.find(r => parseInt(r['Rank']) === flyCurrentRank);
+            if (target && flyPdbText) {
+                const sym1 = target['Symbol 1'] || 'Protein1';
+                const sym2 = target['Symbol 2'] || 'Protein2';
+                const colors = { lir_a: document.getElementById('color-lir-a')?.value || '#80CBC4', clir_a: document.getElementById('color-clir-a')?.value || '#00897B', lir_b: document.getElementById('color-lir-b')?.value || '#FFAB91', clir_b: document.getElementById('color-clir-b')?.value || '#E64A19' };
+                if (flyDomains.A.length > 0 || flyDomains.B.length > 0) {
+                    buildConnectionDiagram(target, sym1, sym2, colors, flyPdbText);
+                }
+                // Rebuild sequence viewer to show partial protein info
+                if (flyDomainInfo.A?.isPartial || flyDomainInfo.B?.isPartial) {
+                    buildFlySeqViewer(target, sym1, sym2, colors, flyChainSeqs);
+                }
+            }
+        });
+    }
+
     flyCurrentRank = rank;
 
     // Build All Ranks table (clickable rows)
     document.getElementById('ranks-tbody').innerHTML = flyParsed.rows.map(r => {
         const rk = r['Rank'] || '?';
+        // Compute iLIA from LIA/cLIA columns
+        // LIA = LIA_AB + LIA_BA (sum, not average — area is additive)
+        // FlyPredictome columns: "LIA (AB)", "LIA (BA)", "LIA", "cLIA (AB)", "cLIA (BA)", "cLIA"
+        const liaVal = parseFloat(r['LIA'] || 0) || (parseFloat(r['LIA (AB)'] || 0) + parseFloat(r['LIA (BA)'] || 0));
+        const cliaVal = parseFloat(r['cLIA'] || 0) || (parseFloat(r['cLIA (AB)'] || 0) + parseFloat(r['cLIA (BA)'] || 0));
+        const iliaVal = Math.sqrt(liaVal * cliaVal);
+        const ilisVal = parseFloat(r['iLIS'] || 0);
+        const ilisaVal = ilisVal * iliaVal;
+        const ilia = iliaVal > 0 ? iliaVal.toFixed(1) : '';
+        const ilisa = ilisaVal > 0 ? ilisaVal.toFixed(1) : '';
         return `<tr class="clickable ${parseInt(rk) === rank ? 'selected' : ''}" onclick="loadRank(${parseInt(rk)})">
             <td>${rk}</td><td>${r['Symbol 1']||''}</td><td>${r['Symbol 2']||''}</td>
-            <td>${r['iLIS']||''}</td><td>${r['ipTM']||''}</td>
+            <td>${r['iLIS']||''}</td><td>${ilia}</td><td>${ilisa}</td><td>${r['ipTM']||''}</td>
             <td>${r._LIR_A.size} / ${r._LIR_B.size}</td>
             <td>${r._cLIR_A.size} / ${r._cLIR_B.size}</td>
             <td>${r['Len A']||'?'} / ${r['Len B']||'?'}</td>
@@ -1127,6 +1219,151 @@ function parsePdbSequence(pdbText) {
     return chains;
 }
 
+// ── Domain lookup for FlyPredictome ──
+// Match predicted sequence against UniProt isoforms to find domain annotations
+async function fetchFlyDomains(chainSeqs, urlInput) {
+    flyDomains = { A: [], B: [] };
+    flyDomainInfo = { A: null, B: null };
+    if (!chainSeqs || !flyParsed) return;
+
+    // Get gene symbols from parsed table data (more reliable than URL)
+    const row0 = flyParsed.rows[0];
+    const symbols = [row0?.['Symbol 1'] || '', row0?.['Symbol 2'] || ''];
+
+    // Also extract identifiers from URL as fallback
+    const urlMatch = (urlInput || '').match(/famdb_details\/([^/]+)\/([^/]+)\//);
+    const urlIds = urlMatch ? [urlMatch[1], urlMatch[2]] : ['', ''];
+
+    const chainKeys = ['A', 'B'];
+
+    for (let ci = 0; ci < 2; ci++) {
+        const symbol = symbols[ci];
+        const urlId = urlIds[ci];
+        const seq = chainSeqs.get(chainKeys[ci]);
+        if (!seq || seq.length === 0) continue;
+        const predSeq = seq.map(r => r.aa).join('');
+        const predLen = predSeq.length;
+
+        try {
+            // Try gene symbol first (most reliable), then FBgn ID
+            // Note: UniProt search API doesn't support 'features' field — only accession,sequence
+            let results = [];
+            if (symbol) {
+                const url = `https://rest.uniprot.org/uniprotkb/search?query=gene:${symbol}+AND+organism_id:7227&format=json&fields=accession,sequence&size=20`;
+                const resp = await fetch(url);
+                if (resp.ok) { const data = await resp.json(); results = data.results || []; }
+            }
+            if (results.length === 0 && urlId && urlId.startsWith('FBgn')) {
+                const url = `https://rest.uniprot.org/uniprotkb/search?query=xref:flybase-${urlId}+AND+organism_id:7227&format=json&fields=accession,sequence&size=20`;
+                const resp = await fetch(url);
+                if (resp.ok) { const data = await resp.json(); results = data.results || []; }
+            }
+            if (results.length === 0) continue;
+
+            // Try to match by sequence: exact match or substring
+            let matched = null;
+            let offset = 0;
+            for (const entry of results) {
+                const uniSeq = entry.sequence?.value || '';
+                if (uniSeq.length === predLen && uniSeq === predSeq) {
+                    // Exact full-length match
+                    matched = entry;
+                    offset = 0;
+                    break;
+                }
+                const idx = uniSeq.indexOf(predSeq);
+                if (idx >= 0) {
+                    // Predicted sequence is a substring (partial prediction)
+                    matched = entry;
+                    offset = idx; // domain positions need to be shifted
+                    break;
+                }
+            }
+
+            // Fallback: match by length only (for full-length predictions)
+            if (!matched) {
+                for (const entry of results) {
+                    if (entry.sequence?.length === predLen) {
+                        matched = entry;
+                        offset = 0;
+                        break;
+                    }
+                }
+            }
+
+            if (!matched) continue;
+
+            const fullLength = matched.sequence?.length || 0;
+            const isPartial = offset > 0 || predLen < fullLength;
+            flyDomainInfo[chainKeys[ci]] = {
+                accession: matched.primaryAccession,
+                offset, fullLength, predLength: predLen, isPartial,
+                startInFull: offset + 1,
+                endInFull: offset + predLen,
+            };
+
+            // Fetch domains from the full UniProt entry (search API doesn't include features)
+            const accession = matched.primaryAccession;
+            let domains = [];
+            try {
+                const entryResp = await fetch(`https://rest.uniprot.org/uniprotkb/${accession}.json`);
+                if (entryResp.ok) {
+                    const entryData = await entryResp.json();
+                    domains = (entryData.features || [])
+                        .filter(f => f.type === 'Domain')
+                        .map(f => ({ name: f.description || 'Domain', start: f.location?.start?.value, end: f.location?.end?.value }))
+                        .filter(d => d.start != null && d.end != null);
+                }
+            } catch (e) { /* ignore */ }
+
+            // Fallback to InterPro/Pfam if no curated domains
+            if (domains.length === 0) {
+                domains = await fetchDomainsFromPfam(accession);
+            }
+
+            // Adjust domain positions for partial predictions and filter to within prediction range
+            if (offset > 0 || domains.length > 0) {
+                domains = domains
+                    .map(d => ({ name: d.name, start: d.start - offset, end: d.end - offset }))
+                    .filter(d => d.end > 0 && d.start <= predLen)
+                    .map(d => ({ name: d.name, start: Math.max(1, d.start), end: Math.min(predLen, d.end) }));
+            }
+
+            flyDomains[chainKeys[ci]] = domains;
+        } catch (e) {
+            console.warn(`Domain lookup failed for ${geneId}:`, e);
+        }
+    }
+}
+
+async function fetchDomainsFromPfam(uniprotId) {
+    if (domainCache.has(uniprotId)) return domainCache.get(uniprotId);
+    try {
+        const resp = await fetch(`https://www.ebi.ac.uk/interpro/api/entry/pfam/protein/uniprot/${uniprotId}?format=json`);
+        if (!resp.ok) { domainCache.set(uniprotId, []); return []; }
+        const data = await resp.json();
+        const domains = [];
+        for (const entry of (data.results || [])) {
+            const name = entry.metadata?.name || 'Pfam domain';
+            for (const prot of (entry.proteins || [])) {
+                for (const loc of (prot.entry_protein_locations || [])) {
+                    for (const frag of (loc.fragments || [])) {
+                        if (frag.start != null && frag.end != null) {
+                            domains.push({ name, start: frag.start, end: frag.end });
+                        }
+                    }
+                }
+            }
+        }
+        domains.sort((a, b) => a.start - b.start);
+        domainCache.set(uniprotId, domains);
+        return domains;
+    } catch (e) {
+        domainCache.set(uniprotId, []);
+        return [];
+    }
+}
+
 function parsePdbCbCoords(pdbText) {
     // Extract Cβ (or CA for GLY) coordinates per chain
     const chains = new Map(); // chain -> Map(resnum -> {x,y,z})
@@ -1193,9 +1430,11 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
 
     // Drawing
     const S = 2; // HiDPI
-    const width = 900, height = 300;
+    const hasDomains = (flyDomains.A.length > 0 || flyDomains.B.length > 0);
+    const domRowH = hasDomains ? 20 : 0;
+    const width = 900, height = 300 + domRowH * 2;
     const barH = 14;
-    const barY_A = 50, barY_B = height - 50;
+    const barY_A = 50 + domRowH, barY_B = height - 50 - domRowH;
     const barLeft = 60, barRight = width - 20;
     const barW = barRight - barLeft;
 
@@ -1276,8 +1515,8 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     const maxDist = Math.max(...contacts.map(c => c.dist));
 
     // Parse colors to rgba
-    const colA = colors.clir_a || '#2471A3';
-    const colB = colors.clir_b || '#E67E22';
+    const colA = colors.clir_a || '#00897B';
+    const colB = colors.clir_b || '#E64A19';
 
     for (const c of contacts) {
         const ax = xA(c.resA);
@@ -1304,9 +1543,106 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     ctx.font = '9px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width / 2, barY_B + barH + 18);
+    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width / 2, barY_B + barH + (hasDomains ? 22 : 18));
+
+    // Domain annotations
+    const domPalette = [
+        'rgba(102,194,165,0.35)', 'rgba(252,141,98,0.35)', 'rgba(141,160,203,0.35)',
+        'rgba(231,138,195,0.35)', 'rgba(166,216,84,0.35)', 'rgba(255,217,47,0.35)',
+        'rgba(229,196,148,0.35)', 'rgba(179,179,179,0.35)'
+    ];
+    const domBorderPalette = [
+        'rgba(102,194,165,0.7)', 'rgba(252,141,98,0.7)', 'rgba(141,160,203,0.7)',
+        'rgba(231,138,195,0.7)', 'rgba(166,216,84,0.7)', 'rgba(255,217,47,0.7)',
+        'rgba(229,196,148,0.7)', 'rgba(179,179,179,0.7)'
+    ];
+    if (hasDomains) {
+        const domBlockH = 14, domGap = 2;
+        // Chain A domains above bar
+        for (let di = 0; di < flyDomains.A.length; di++) {
+            const d = flyDomains.A[di];
+            const x1 = xA(Math.max(1, d.start)), x2 = xA(Math.min(lenA, d.end));
+            const dw = x2 - x1, dy = barY_A - domGap - domBlockH;
+            ctx.fillStyle = domPalette[di % domPalette.length];
+            ctx.fillRect(x1, dy, dw, domBlockH);
+            ctx.strokeStyle = domBorderPalette[di % domBorderPalette.length];
+            ctx.lineWidth = 0.8;
+            ctx.strokeRect(x1, dy, dw, domBlockH);
+            ctx.fillStyle = '#444'; ctx.font = '7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            const label = d.name, labelW = ctx.measureText(label).width;
+            if (labelW < dw - 2) ctx.fillText(label, x1 + dw/2, dy + domBlockH/2);
+            else { const abbr = label.length > 6 ? label.substring(0,5)+'..' : label; if (ctx.measureText(abbr).width < dw-2) ctx.fillText(abbr, x1+dw/2, dy+domBlockH/2); }
+        }
+        // Chain B domains below bar
+        for (let di = 0; di < flyDomains.B.length; di++) {
+            const d = flyDomains.B[di];
+            const x1 = xB(Math.max(1, d.start)), x2 = xB(Math.min(lenB, d.end));
+            const dw = x2 - x1, dy = barY_B + barH + domGap;
+            ctx.fillStyle = domPalette[di % domPalette.length];
+            ctx.fillRect(x1, dy, dw, domBlockH);
+            ctx.strokeStyle = domBorderPalette[di % domBorderPalette.length];
+            ctx.lineWidth = 0.8;
+            ctx.strokeRect(x1, dy, dw, domBlockH);
+            ctx.fillStyle = '#444'; ctx.font = '7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            const label = d.name, labelW = ctx.measureText(label).width;
+            if (labelW < dw - 2) ctx.fillText(label, x1 + dw/2, dy + domBlockH/2);
+            else { const abbr = label.length > 6 ? label.substring(0,5)+'..' : label; if (ctx.measureText(abbr).width < dw-2) ctx.fillText(abbr, x1+dw/2, dy+domBlockH/2); }
+        }
+    }
 
     ctx.restore();
+
+    // Domain legend — each chain on its own row, with partial protein note
+    const legendEl = document.getElementById('fly-domain-legend');
+    if (legendEl) {
+        legendEl.innerHTML = '';
+        legendEl.style.flexDirection = 'column';
+        legendEl.style.gap = '0.3rem';
+        const chainLabels = [
+            { key: 'A', label: `${sym1} (A)`, domains: flyDomains.A, info: flyDomainInfo.A },
+            { key: 'B', label: `${sym2} (B)`, domains: flyDomains.B, info: flyDomainInfo.B },
+        ];
+        for (const cl of chainLabels) {
+            if (cl.domains.length === 0 && !cl.info) continue;
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;';
+            const chainLabel = document.createElement('span');
+            chainLabel.style.cssText = 'font-weight:600; color:#444;';
+            chainLabel.textContent = cl.label + ':';
+            row.appendChild(chainLabel);
+            // Partial protein note
+            if (cl.info && cl.info.isPartial) {
+                const note = document.createElement('span');
+                note.style.cssText = 'font-size:0.68rem; color:#c0392b; font-style:italic;';
+                note.textContent = `partial (aa ${cl.info.startInFull}\u2013${cl.info.endInFull} of ${cl.info.fullLength})`;
+                row.appendChild(note);
+            }
+            // Domain items with full-length positions
+            for (let di = 0; di < cl.domains.length; di++) {
+                const d = cl.domains[di];
+                const item = document.createElement('span');
+                // Show predicted positions, and full-length positions if partial
+                let posText = `${d.start}\u2013${d.end}`;
+                if (cl.info && cl.info.offset > 0) {
+                    const fullStart = d.start + cl.info.offset;
+                    const fullEnd = d.end + cl.info.offset;
+                    posText += ` [${fullStart}\u2013${fullEnd} in full]`;
+                }
+                item.innerHTML = `<span style="display:inline-block; width:10px; height:10px; background:${domPalette[di % domPalette.length]}; border:1px solid ${domBorderPalette[di % domBorderPalette.length]}; vertical-align:middle; margin-right:3px; border-radius:2px;"></span>${d.name} (${posText})`;
+                row.appendChild(item);
+            }
+            // UniProt link
+            if (cl.info && cl.info.accession) {
+                const link = document.createElement('a');
+                link.href = `https://www.uniprot.org/uniprot/${cl.info.accession}`;
+                link.target = '_blank';
+                link.style.cssText = 'font-size:0.68rem; color:#2471A3;';
+                link.textContent = `UniProt: ${cl.info.accession}`;
+                row.appendChild(link);
+            }
+            legendEl.appendChild(row);
+        }
+    }
 }
 
 function buildChordDiagram(row, sym1, sym2, colors, pdbText) {
@@ -1366,8 +1702,8 @@ function buildChordDiagram(row, sym1, sym2, colors, pdbText) {
     const startB = endA + gap;
     const endB = startB + angleB;
 
-    const colA = colors.clir_a || '#2471A3';
-    const colB = colors.clir_b || '#E67E22';
+    const colA = colors.clir_a || '#00897B';
+    const colB = colors.clir_b || '#E64A19';
 
     // Helper: residue → angle on arc
     const resAngleA = (res) => startA + ((res - 1) / Math.max(1, lenA - 1)) * angleA;
@@ -1487,7 +1823,13 @@ function buildFlySeqViewer(row, sym1, sym2, colors, chainSeqs) {
         if (cc.len === 0) continue;
         const label = document.createElement('div');
         label.className = 'seq-chain-label';
-        label.textContent = `${cc.name} (${cc.len} residues)`;
+        const chainKey = cc.name.includes('A') || cc === chainConfigs[0] ? 'A' : 'B';
+        const dInfo = flyDomainInfo[chainKey];
+        let labelText = `${cc.name} (${cc.len} residues)`;
+        if (dInfo && dInfo.isPartial) {
+            labelText += ` \u2014 partial (aa ${dInfo.startInFull}\u2013${dInfo.endInFull} of ${dInfo.fullLength} in full-length)`;
+        }
+        label.textContent = labelText;
         container.appendChild(label);
 
         const hasSeq = cc.seq && cc.seq.length > 0;
@@ -1549,7 +1891,7 @@ function buildFlySeqViewer(row, sym1, sym2, colors, chainSeqs) {
 
 function downloadFlyCSV() {
     if (!flyParsed || flyParsed.rows.length === 0) return;
-    const header = 'name,model,chain_A,chain_B,iLIS,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
+    const header = 'name,model,chain_A,chain_B,iLIS,iLIA,iLISA,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
     const rows = [header];
     for (const r of flyParsed.rows) {
         const sym1 = r['Symbol 1'] || '';
@@ -1557,8 +1899,13 @@ function downloadFlyCSV() {
         rows.push([
             `${sym1}_${sym2}`, r['Rank'] || '', sym1, sym2,
             r['iLIS'] != null ? parseFloat(r['iLIS']).toFixed(6) : '',
-            '', '',
-            r['ipTM'] != null ? parseFloat(r['ipTM']).toFixed(6) : '', '', '',
+            (() => { const la=parseFloat(r['LIA']||0)||(parseFloat(r['LIA (AB)']||0)+parseFloat(r['LIA (BA)']||0)),cl=parseFloat(r['cLIA']||0)||(parseFloat(r['cLIA (AB)']||0)+parseFloat(r['cLIA (BA)']||0)); return la>0&&cl>0?Math.sqrt(la*cl).toFixed(1):''; })(),
+            (() => { const la=parseFloat(r['LIA']||0)||(parseFloat(r['LIA (AB)']||0)+parseFloat(r['LIA (BA)']||0)),cl=parseFloat(r['cLIA']||0)||(parseFloat(r['cLIA (AB)']||0)+parseFloat(r['cLIA (BA)']||0)),il=parseFloat(r['iLIS']||0); const ilia=Math.sqrt(la*cl); return il>0&&ilia>0?(il*ilia).toFixed(1):''; })(),
+            r['LIS'] != null ? parseFloat(r['LIS']).toFixed(6) : '',
+            r['cLIS'] != null ? parseFloat(r['cLIS']).toFixed(6) : '',
+            r['ipTM'] != null ? parseFloat(r['ipTM']).toFixed(6) : '',
+            r['pLDDT'] != null ? parseFloat(r['pLDDT']).toFixed(1) : '',
+            r['pTM'] != null ? parseFloat(r['pTM']).toFixed(6) : '',
             r._LIR_A.size, r._LIR_B.size, r._cLIR_A.size, r._cLIR_B.size,
             r['Len A'] || '', r['Len B'] || '',
             `"[${[...r._LIR_A].sort((a,b)=>a-b).join(', ')}]"`,
@@ -1736,6 +2083,16 @@ function buildFlyColorComponents(row, colors, pdbText) {
 
 function buildMolstarPage(structData, fmt, colorComponents) {
     const structureChildren = [];
+    // Add full polymer as hidden non-LIR (users can toggle via eye icon in Mol* panel)
+    structureChildren.push({
+        kind: 'component',
+        params: { selector: 'polymer' },
+        children: [{
+            kind: 'representation',
+            params: { type: 'cartoon' },
+            children: [{ kind: 'color', params: { color: 'white' } }]
+        }]
+    });
     for (const comp of colorComponents) {
         const selector = comp.ranges.map(r => ({
             label_asym_id: comp.chain,

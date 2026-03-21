@@ -122,7 +122,7 @@
         .seq-blocks { display:flex; flex-wrap:nowrap; font-family:'SF Mono','Fira Code',monospace; font-size:0.82rem; line-height:1.4; letter-spacing:0.5px; }
         .seq-res { display:inline-block; width:0.75em; text-align:center; cursor:default; color:#333; }
         .seq-res.clir { color:white; font-weight:700; }
-        .seq-chain-label { font-size:0.75rem; font-weight:700; color:#1a5276; margin-top:0.5rem; margin-bottom:0.2rem; }
+        .seq-chain-label { font-size:0.88rem; font-weight:700; color:#1a5276; margin-top:0.5rem; margin-bottom:0.2rem; }
         .seq-tooltip { position:fixed; background:#333; color:white; padding:2px 6px; border-radius:4px; font-size:0.72rem; pointer-events:none; z-index:200; display:none; font-family:'SF Mono',monospace; }
 
         /* Tag */
@@ -141,6 +141,32 @@
         .dimer-table th.sortable::after { content: ' ⇅'; font-size: 0.7em; color: #aaa; }
         .dimer-table th.sort-asc::after { content: ' ▲'; color: #2471A3; }
         .dimer-table th.sort-desc::after { content: ' ▼'; color: #2471A3; }
+
+        @media (max-width: 768px) {
+            .header { padding: 1rem; }
+            .header h1 { font-size: 1.2rem; }
+            .header-links { gap: 0.4rem; }
+            .header-links a { font-size: 0.72rem; padding: 0.15rem 0.4rem; }
+            .container { padding: 0.75rem; }
+            .card, .result-card { padding: 1rem; border-radius: 8px; overflow-x: auto; }
+            .result-card h2 { font-size: 1rem; }
+            .map-row { flex-wrap: wrap; justify-content: center; }
+            canvas { max-width: 100%; height: auto; }
+            .data-table th, .data-table td { white-space: nowrap; padding: 0.3rem 0.5rem; font-size: 0.75rem; }
+            .dimer-table th, .dimer-table td { white-space: nowrap; padding: 0.3rem 0.5rem; font-size: 0.75rem; }
+            #maps-flex { flex-wrap: wrap !important; overflow: visible !important; }
+            #viewer3d-frame { height: 400px !important; }
+            .script-preview { font-size: 0.68rem; max-height: 250px; overflow-x: auto; }
+            .seq-blocks { font-size: 0.68rem; }
+            .seq-res { width: 0.6em; }
+            .seq-num { font-size: 0.62rem; width: 28px; }
+            .download-row { flex-direction: column; }
+            .btn-download { width: 100%; text-align: center; }
+            .colorbar-labels { width: 100%; max-width: 300px; }
+            .color-section { gap: 0.8rem; }
+            .color-group { min-width: 140px; }
+            .preset-chip { font-size: 0.72rem; padding: 0.25rem 0.5rem; }
+        }
     </style>
 </head>
 <body>
@@ -222,7 +248,7 @@
         <!-- Sequence Viewer -->
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
             <h2>Sequence Viewer</h2>
-            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Light background = LIR (PAE &le; 12 &Aring;). Dark background with white text = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each chain uses its own color.
             </div>
             <div id="seq-viewer" style="font-family:'SF Mono','Fira Code',monospace; overflow-x:auto;"></div>
@@ -231,16 +257,17 @@
         <!-- Interface Contact Map -->
         <div class="card result-card" id="contact-map-card" style="display:none;">
             <h2>Interface Contact Map</h2>
-            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B. UniProt domain annotations shown when available.
             </div>
             <canvas id="contact-canvas"></canvas>
+            <div id="contact-domain-legend" style="margin-top:0.4rem; font-size:0.72rem; color:#666; display:flex; gap:0.8rem; flex-wrap:wrap;"></div>
         </div>
 
         <!-- Chain Interaction Map (circular) -->
         <div class="card result-card" id="chord-card" style="display:none;">
             <h2>Chain Interaction Map</h2>
-            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent chains (proportional to length). Lines connect cLIR residue pairs in physical contact.
             </div>
             <div style="text-align:center;">
@@ -250,11 +277,11 @@
 
         <!-- 3D Structure Viewer -->
         <div class="card result-card" id="viewer3d-card" style="display:none;">
-            <h2>3D Structure Preview</h2>
-            <div style="font-size:0.75rem; color:#888; margin-bottom:0.5rem;">
+            <h2>3D Structure Viewer</h2>
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Interactive 3D preview matching ChimeraX script output. LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom, right-click to translate.
             </div>
-            <iframe id="viewer3d-frame" style="width:100%; height:600px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin"></iframe>
+            <iframe id="viewer3d-frame" style="width:100%; height:660px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin"></iframe>
             <div style="text-align:center; margin-top:0.3rem;">
             </div>
         </div>
@@ -263,7 +290,7 @@
         <div class="card result-card">
             <h2>Chain Pair Details</h2>
             <table class="data-table" id="pairs-table">
-                <thead><tr><th>Pair</th><th>iLIS</th><th>ipSAE</th><th>LIS</th><th>cLIS</th><th>LIR (A)</th><th>LIR (B)</th><th>cLIR (A)</th><th>cLIR (B)</th></tr></thead>
+                <thead><tr><th>Pair</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipSAE</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th>LIR (A/B)</th><th>cLIR (A/B)</th></tr></thead>
                 <tbody id="pairs-tbody"></tbody>
             </table>
             <div style="margin-top:0.5rem;">
@@ -296,46 +323,45 @@
                     <div class="color-group">
                         <h3>Chain A</h3>
                         <div class="color-pair">
-                            <input type="color" id="color-lir-a" value="#b3d4e8">
-                            <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-a">#b3d4e8</div></div>
+                            <input type="color" id="color-lir-a" value="#80CBC4">
+                            <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-a">#80CBC4</div></div>
                         </div>
                         <div class="color-pair">
-                            <input type="color" id="color-clir-a" value="#2471A3">
-                            <div><div class="color-label">cLIR</div><div class="color-hex" id="hex-clir-a">#2471A3</div></div>
+                            <input type="color" id="color-clir-a" value="#00897B">
+                            <div><div class="color-label">cLIR</div><div class="color-hex" id="hex-clir-a">#00897B</div></div>
                         </div>
                     </div>
                     <div class="color-group">
                         <h3>Chain B</h3>
                         <div class="color-pair">
-                            <input type="color" id="color-lir-b" value="#f5cba7">
-                            <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-b">#f5cba7</div></div>
+                            <input type="color" id="color-lir-b" value="#FFAB91">
+                            <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-b">#FFAB91</div></div>
                         </div>
                         <div class="color-pair">
-                            <input type="color" id="color-clir-b" value="#E67E22">
-                            <div><div class="color-label">cLIR</div><div class="color-hex" id="hex-clir-b">#E67E22</div></div>
+                            <input type="color" id="color-clir-b" value="#E64A19">
+                            <div><div class="color-label">cLIR</div><div class="color-hex" id="hex-clir-b">#E64A19</div></div>
                         </div>
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:0.8rem; margin-top:0.5rem;">
                     <div class="color-preview-strip" id="color-strip" style="flex:1; margin:0;">
-                        <div style="background:#b3d4e8"></div><div style="background:#2471A3"></div><div style="background:#E67E22"></div><div style="background:#f5cba7"></div>
+                        <div style="background:#80CBC4"></div><div style="background:#00897B"></div><div style="background:#E64A19"></div><div style="background:#FFAB91"></div>
                     </div>
                     <button onclick="swapColors()" style="padding:0.3rem 0.8rem; border:2px solid #e0e0e0; border-radius:6px; background:white; cursor:pointer; font-size:0.82rem; color:#666; white-space:nowrap;">Swap A &#8596; B</button>
                 </div>
                 <label style="margin-top:1rem">Presets &mdash; gradient (LIR light, cLIR dark)</label>
                 <div class="presets-row">
-                    <div class="preset-chip active" onclick="applyPreset('#b3d4e8','#2471A3','#f5cba7','#E67E22',this)"><div class="preset-strip"><span style="background:#b3d4e8"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#f5cba7"></span></div>Blue / Orange</div>
+                    <div class="preset-chip active" onclick="applyPreset('#80CBC4','#00897B','#FFAB91','#E64A19',this)"><div class="preset-strip"><span style="background:#80CBC4"></span><span style="background:#00897B"></span><span style="background:#E64A19"></span><span style="background:#FFAB91"></span></div>Teal / Coral</div>
+                    <div class="preset-chip" onclick="applyPreset('#b3d4e8','#2471A3','#f5cba7','#E67E22',this)"><div class="preset-strip"><span style="background:#b3d4e8"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#f5cba7"></span></div>Blue / Orange</div>
                     <div class="preset-chip" onclick="applyPreset('#d1c4e9','#5e35b1','#fff3b0','#f9a825',this)"><div class="preset-strip"><span style="background:#d1c4e9"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#fff3b0"></span></div>Purple / Gold</div>
-                    <div class="preset-chip" onclick="applyPreset('#b2dfdb','#00897b','#ffccbc','#e64a19',this)"><div class="preset-strip"><span style="background:#b2dfdb"></span><span style="background:#00897b"></span><span style="background:#e64a19"></span><span style="background:#ffccbc"></span></div>Teal / Coral</div>
                     <div class="preset-chip" onclick="applyPreset('#cfd8dc','#546e7a','#f8bbd0','#c2185b',this)"><div class="preset-strip"><span style="background:#cfd8dc"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#f8bbd0"></span></div>Slate / Rose</div>
                     <div class="preset-chip" onclick="applyPreset('#c5cae9','#303f9f','#ffe0b2','#e65100',this)"><div class="preset-strip"><span style="background:#c5cae9"></span><span style="background:#303f9f"></span><span style="background:#e65100"></span><span style="background:#ffe0b2"></span></div>Indigo / Tangerine</div>
                     <div class="preset-chip" onclick="applyPreset('#a8d5ba','#2e7d32','#ef9a9a','#c62828',this)"><div class="preset-strip"><span style="background:#a8d5ba"></span><span style="background:#2e7d32"></span><span style="background:#c62828"></span><span style="background:#ef9a9a"></span></div>Green / Red</div>
                 </div>
                 <label style="margin-top:0.5rem">Presets &mdash; solid</label>
                 <div class="presets-row">
-                    <div class="preset-chip" onclick="applyPreset('#2471A3','#2471A3','#E67E22','#E67E22',this)"><div class="preset-strip"><span style="background:#2471A3"></span><span style="background:#2471A3"></span><span style="background:#E67E22"></span><span style="background:#E67E22"></span></div>Blue / Orange</div>
+                    <div class="preset-chip" onclick="applyPreset('#00897B','#00897B','#E64A19','#E64A19',this)"><div class="preset-strip"><span style="background:#00897B"></span><span style="background:#00897B"></span><span style="background:#E64A19"></span><span style="background:#E64A19"></span></div>Teal / Coral</div>
                     <div class="preset-chip" onclick="applyPreset('#5e35b1','#5e35b1','#f9a825','#f9a825',this)"><div class="preset-strip"><span style="background:#5e35b1"></span><span style="background:#5e35b1"></span><span style="background:#f9a825"></span><span style="background:#f9a825"></span></div>Purple / Gold</div>
-                    <div class="preset-chip" onclick="applyPreset('#00897b','#00897b','#e64a19','#e64a19',this)"><div class="preset-strip"><span style="background:#00897b"></span><span style="background:#00897b"></span><span style="background:#e64a19"></span><span style="background:#e64a19"></span></div>Teal / Coral</div>
                     <div class="preset-chip" onclick="applyPreset('#546e7a','#546e7a','#c2185b','#c2185b',this)"><div class="preset-strip"><span style="background:#546e7a"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#c2185b"></span></div>Slate / Rose</div>
                     <div class="preset-chip" onclick="applyPreset('#6A9EC6','#6A9EC6','#D4A76A','#D4A76A',this)"><div class="preset-strip"><span style="background:#6A9EC6"></span><span style="background:#6A9EC6"></span><span style="background:#D4A76A"></span><span style="background:#D4A76A"></span></div>Steel / Wheat</div>
                     <div class="preset-chip" onclick="applyPreset('#6495ED','#6495ED','#FF6347','#FF6347',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#FF6347"></span></div>Cornflower / Tomato</div>
@@ -381,6 +407,8 @@
                 <h4 style="font-size:0.9rem; color:#1a5276; margin-bottom:0.5rem;">Metrics (<a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3;">AFM-LIS</a>)</h4>
                 <table style="font-size:0.85rem;">
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLIS</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LIS &mdash; &radic;(LIS &times; cLIS)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLIA</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LIA &mdash; &radic;(LIA &times; cLIA), geometric mean of interface area counts</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLISA</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LISA &mdash; iLIS &times; iLIA, overall binding strength</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIS</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Score &mdash; normalized PAE confidence (0&ndash;1)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIS</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIS &mdash; restricted to direct contacts</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIR</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Residues (PAE &le; 12 &Aring;)</td></tr>
@@ -884,10 +912,10 @@ function buildDimerContactMap() {
     card.style.display = '';
 
     const colors = {
-        lir_a: document.getElementById('color-lir-a')?.value || '#b3d4e8',
-        clir_a: document.getElementById('color-clir-a')?.value || '#2471A3',
-        lir_b: document.getElementById('color-lir-b')?.value || '#f5cba7',
-        clir_b: document.getElementById('color-clir-b')?.value || '#E67E22',
+        lir_a: document.getElementById('color-lir-a')?.value || '#80CBC4',
+        clir_a: document.getElementById('color-clir-a')?.value || '#00897B',
+        lir_b: document.getElementById('color-lir-b')?.value || '#FFAB91',
+        clir_b: document.getElementById('color-clir-b')?.value || '#E64A19',
     };
 
     const S = 2;
@@ -959,18 +987,20 @@ function buildDimerContactMap() {
     ctx.fillStyle = '#888'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.fillText(`${contacts.length} cLIR contact pairs`, width/2, barY_B + barH + (hasDomains ? 22 : 18));
 
+    // Domain palettes (used for both canvas drawing and legend)
+    const domPalette = [
+        'rgba(102,194,165,0.35)', 'rgba(252,141,98,0.35)', 'rgba(141,160,203,0.35)',
+        'rgba(231,138,195,0.35)', 'rgba(166,216,84,0.35)', 'rgba(255,217,47,0.35)',
+        'rgba(229,196,148,0.35)', 'rgba(179,179,179,0.35)'
+    ];
+    const domBorderPalette = [
+        'rgba(102,194,165,0.7)', 'rgba(252,141,98,0.7)', 'rgba(141,160,203,0.7)',
+        'rgba(231,138,195,0.7)', 'rgba(166,216,84,0.7)', 'rgba(255,217,47,0.7)',
+        'rgba(229,196,148,0.7)', 'rgba(179,179,179,0.7)'
+    ];
+
     // Draw UniProt domain annotations
     if (hasDomains) {
-        const domPalette = [
-            'rgba(102,194,165,0.35)', 'rgba(252,141,98,0.35)', 'rgba(141,160,203,0.35)',
-            'rgba(231,138,195,0.35)', 'rgba(166,216,84,0.35)', 'rgba(255,217,47,0.35)',
-            'rgba(229,196,148,0.35)', 'rgba(179,179,179,0.35)'
-        ];
-        const domBorderPalette = [
-            'rgba(102,194,165,0.7)', 'rgba(252,141,98,0.7)', 'rgba(141,160,203,0.7)',
-            'rgba(231,138,195,0.7)', 'rgba(166,216,84,0.7)', 'rgba(255,217,47,0.7)',
-            'rgba(229,196,148,0.7)', 'rgba(179,179,179,0.7)'
-        ];
         const domBlockH = 14;
         const domGap = 2;
 
@@ -1037,6 +1067,49 @@ function buildDimerContactMap() {
     }
 
     ctx.restore();
+
+    // Domain legend below the contact map canvas
+    const legendEl = document.getElementById('contact-domain-legend');
+    if (legendEl) {
+        legendEl.innerHTML = '';
+        legendEl.style.flexDirection = 'column';
+        legendEl.style.gap = '0.3rem';
+        // Get gene names from API response
+        const genes = selectedDimer?.gene || [];
+        const accessions = selectedDimer?.uniprotAccession || [];
+        const geneA = genes[0] || v.ci;
+        const geneB = genes[1] || genes[0] || v.cj; // homodimer: same gene
+        const accA = accessions[0] || '';
+        const accB = accessions[1] || accessions[0] || '';
+        const chainLabels = [
+            { label: `${geneA} (${v.ci})`, domains: chainDomains.A, acc: accA },
+            { label: `${geneB} (${v.cj})`, domains: chainDomains.B, acc: accB },
+        ];
+        for (const cl of chainLabels) {
+            if (cl.domains.length === 0) continue;
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;';
+            const chainLabel = document.createElement('span');
+            chainLabel.style.cssText = 'font-weight:600; color:#444;';
+            chainLabel.textContent = cl.label + ':';
+            row.appendChild(chainLabel);
+            for (let di = 0; di < cl.domains.length; di++) {
+                const d = cl.domains[di];
+                const item = document.createElement('span');
+                item.innerHTML = `<span style="display:inline-block; width:10px; height:10px; background:${domPalette[di % domPalette.length]}; border:1px solid ${domBorderPalette[di % domBorderPalette.length]}; vertical-align:middle; margin-right:3px; border-radius:2px;"></span>${d.name} (${d.start}\u2013${d.end})`;
+                row.appendChild(item);
+            }
+            if (cl.acc) {
+                const link = document.createElement('a');
+                link.href = `https://www.uniprot.org/uniprot/${cl.acc}`;
+                link.target = '_blank';
+                link.style.cssText = 'font-size:0.68rem; color:#2471A3;';
+                link.textContent = `UniProt: ${cl.acc}`;
+                row.appendChild(link);
+            }
+            legendEl.appendChild(row);
+        }
+    }
 }
 
 function buildChordDiagram() {
@@ -1048,8 +1121,8 @@ function buildChordDiagram() {
     if (v.clirI.size === 0 || v.clirJ.size === 0) { card.style.display = 'none'; return; }
 
     const colors = {
-        clir_a: document.getElementById('color-clir-a')?.value || '#2471A3',
-        clir_b: document.getElementById('color-clir-b')?.value || '#E67E22',
+        clir_a: document.getElementById('color-clir-a')?.value || '#00897B',
+        clir_b: document.getElementById('color-clir-b')?.value || '#E64A19',
     };
     const colA = colors.clir_a;
     const colB = colors.clir_b;
@@ -1214,19 +1287,15 @@ function buildDimerSequenceViewer() {
     const v = dimerPairResult;
     const chainSeqs = parseCifSequence(dimerCifText);
     const colors = {
-        lir_a: document.getElementById('color-lir-a')?.value || '#b3d4e8',
-        clir_a: document.getElementById('color-clir-a')?.value || '#2471A3',
-        lir_b: document.getElementById('color-lir-b')?.value || '#f5cba7',
-        clir_b: document.getElementById('color-clir-b')?.value || '#E67E22',
+        lir_a: document.getElementById('color-lir-a')?.value || '#80CBC4',
+        clir_a: document.getElementById('color-clir-a')?.value || '#00897B',
+        lir_b: document.getElementById('color-lir-b')?.value || '#FFAB91',
+        clir_b: document.getElementById('color-clir-b')?.value || '#E64A19',
     };
 
     // Tooltip
     let tooltip = document.querySelector('.seq-tooltip');
     if (!tooltip) { tooltip = document.createElement('div'); tooltip.className = 'seq-tooltip'; document.body.appendChild(tooltip); }
-
-    // Build domain lookup per chain
-    const domPalette = ['#66c2a5','#fc8d62','#8da0cb','#e78ac3','#a6d854','#ffd92f','#e5c494','#b3b3b3'];
-    const chainDomainMap = { [v.ci]: chainDomains.A || [], [v.cj]: chainDomains.B || [] };
 
     const chainConfigs = [
         { name: v.ci, seq: chainSeqs.get(v.ci) || [], lir: v.lirI, clir: v.clirI, lirColor: colors.lir_a, clirColor: colors.clir_a },
@@ -1234,14 +1303,6 @@ function buildDimerSequenceViewer() {
     ];
 
     for (const cc of chainConfigs) {
-        const domains = chainDomainMap[cc.name] || [];
-        // Build per-residue domain lookup
-        const resDomain = {};
-        for (let di = 0; di < domains.length; di++) {
-            const d = domains[di];
-            for (let r = d.start; r <= d.end; r++) resDomain[r] = { name: d.name, idx: di };
-        }
-
         const label = document.createElement('div');
         label.className = 'seq-chain-label';
         label.textContent = `Chain ${cc.name} (${cc.seq.length} residues)`;
@@ -1265,17 +1326,12 @@ function buildDimerSequenceViewer() {
                 const res = cc.seq[i];
                 const isClir = cc.clir.has(res.resnum);
                 const isLir = cc.lir.has(res.resnum);
-                const dom = resDomain[res.resnum];
                 const el = document.createElement('span');
                 el.className = 'seq-res' + (isClir ? ' clir' : '');
                 el.style.background = isClir ? cc.clirColor : isLir ? lightenColor(cc.clirColor.replace('#',''), 0.4) : 'transparent';
                 el.textContent = res.aa;
                 el.addEventListener('mouseenter', (e) => {
-                    let tip = `${res.aa}${res.resnum}`;
-                    if (isClir) tip += ' (cLIR)';
-                    else if (isLir) tip += ' (LIR)';
-                    if (dom) tip += ` [${dom.name}]`;
-                    tooltip.textContent = tip;
+                    tooltip.textContent = `${res.aa}${res.resnum}` + (isClir ? ' (cLIR)' : isLir ? ' (LIR)' : '');
                     tooltip.style.display = '';
                     tooltip.style.left = (e.clientX + 8) + 'px';
                     tooltip.style.top = (e.clientY - 20) + 'px';
@@ -1299,58 +1355,7 @@ function buildDimerSequenceViewer() {
             row.appendChild(endLabel);
 
             container.appendChild(row);
-
-            // Domain bar row — uses same seq-blocks class for identical character width
-            if (domains.length > 0) {
-                const domRow = document.createElement('div');
-                domRow.className = 'seq-row';
-                domRow.style.marginTop = '3px';
-                domRow.style.marginBottom = '5px';
-                const domSpacer = document.createElement('span');
-                domSpacer.className = 'seq-num';
-                domSpacer.textContent = '';
-                domRow.appendChild(domSpacer);
-
-                const domBlocks = document.createElement('span');
-                domBlocks.className = 'seq-blocks';
-                domBlocks.style.lineHeight = '0';
-                for (let i = rowStart; i < rowEnd; i++) {
-                    const res = cc.seq[i];
-                    const dom = resDomain[res.resnum];
-                    const cell = document.createElement('span');
-                    cell.className = 'seq-res';
-                    cell.style.height = '3px';
-                    cell.style.lineHeight = '3px';
-                    cell.textContent = '\u00A0';
-                    if (dom) {
-                        cell.style.background = domPalette[dom.idx % domPalette.length];
-                    }
-                    domBlocks.appendChild(cell);
-                    // Match the 10-residue gap spacers from the sequence row
-                    if ((i - rowStart + 1) % 10 === 0 && i < rowEnd - 1) {
-                        const gap = document.createElement('span');
-                        gap.style.cssText = 'width:3px; display:inline-block;';
-                        domBlocks.appendChild(gap);
-                    }
-                }
-                domRow.appendChild(domBlocks);
-                container.appendChild(domRow);
-            }
         }
-    }
-
-    // Domain legend — show all instances with positions (use chain A domains as reference)
-    const refDomains = chainDomains.A.length > 0 ? chainDomains.A : chainDomains.B;
-    if (refDomains.length > 0) {
-        const legend = document.createElement('div');
-        legend.style.cssText = 'margin-top:0.5rem; font-size:0.72rem; color:#666; display:flex; gap:0.8rem; flex-wrap:wrap;';
-        for (let di = 0; di < refDomains.length; di++) {
-            const d = refDomains[di];
-            const item = document.createElement('span');
-            item.innerHTML = `<span style="display:inline-block; width:12px; height:3px; background:${domPalette[di % domPalette.length]}; vertical-align:middle; margin-right:3px;"></span>${d.name} (${d.start}\u2013${d.end})`;
-            legend.appendChild(item);
-        }
-        container.appendChild(legend);
     }
 }
 
@@ -1559,6 +1564,8 @@ function processDimer() {
 
     const abResult = computePairMetrics(paeMatrix, contact, nUse, offA, lenA, offB, lenB, paeCutoff);
     const iLIS = Math.sqrt(abResult.lis * abResult.clis);
+    const iLIA = Math.sqrt(abResult.liaCount * abResult.cliaCount);
+    const iLISA = iLIS * iLIA;
     const ipSAE = calcIpSAE(paeMatrix, offA, offA + lenA, offB, offB + lenB, paeCutoff);
 
     // Metrics from AlphaFold DB API
@@ -1568,7 +1575,7 @@ function processDimer() {
 
     dimerPairResult = {
         ci: chainNames[0], cj: chainNames[1],
-        iLIS, ipSAE, LIS: abResult.lis, cLIS: abResult.clis, ipTM, pDockQ2, pLDDT,
+        iLIS, iLIA, iLISA, ipSAE, LIS: abResult.lis, cLIS: abResult.clis, ipTM, pDockQ2, pLDDT,
         lirI: abResult.lirI, lirJ: abResult.lirJ,
         clirI: abResult.clirI, clirJ: abResult.clirJ,
         lenI: lenA, lenJ: lenB,
@@ -1581,8 +1588,10 @@ function processDimer() {
 }
 
 function computePairMetrics(pae, contact, nUse, offI, lenI, offJ, lenJ, paeCutoff) {
-    let lisSum = 0, lisCount = 0;
-    let clisSum = 0, clisCount = 0;
+    let lisSum = 0, lisCountAvg = 0;
+    let clisSum = 0, clisCountAvg = 0;
+    let lisCountAB = 0, lisCountBA = 0;
+    let clisCountAB = 0, clisCountBA = 0;
     const lirI = new Set(), lirJ = new Set();
     const clirI = new Set(), clirJ = new Set();
 
@@ -1595,23 +1604,32 @@ function computePairMetrics(pae, contact, nUse, offI, lenI, offJ, lenJ, paeCutof
             if (v < paeCutoff) {
                 const tv = 1 - v / paeCutoff;
                 lisSum += tv;
-                lisCount++;
+                lisCountAvg++;
                 lirI.add(i + 1);
                 lirJ.add(j + 1);
                 if (ri < nUse && rj < nUse && contact[ri * nUse + rj]) {
                     clisSum += tv;
-                    clisCount++;
+                    clisCountAvg++;
                     clirI.add(i + 1);
                     clirJ.add(j + 1);
                 }
             }
+            // Count each PAE direction separately for LIA
+            if (pae[ri][rj] < paeCutoff) lisCountAB++;
+            if (pae[rj][ri] < paeCutoff) lisCountBA++;
+            if (ri < nUse && rj < nUse && contact[ri * nUse + rj]) {
+                if (pae[ri][rj] < paeCutoff) clisCountAB++;
+                if (pae[rj][ri] < paeCutoff) clisCountBA++;
+            }
         }
     }
 
-    const lis = lisCount > 0 ? lisSum / lisCount : 0;
-    const clis = clisCount > 0 ? clisSum / clisCount : 0;
+    const lis = lisCountAvg > 0 ? lisSum / lisCountAvg : 0;
+    const clis = clisCountAvg > 0 ? clisSum / clisCountAvg : 0;
+    const liaCount = lisCountAB + lisCountBA;
+    const cliaCount = clisCountAB + clisCountBA;
 
-    return { lis, clis, lirI, lirJ, clirI, clirJ, lisCount, clisCount };
+    return { lis, clis, lirI, lirJ, clirI, clirJ, liaCount, cliaCount };
 }
 
 // ============================================================================
@@ -1627,13 +1645,14 @@ function displayDimerResults() {
         <tr>
             <td>${v.ci} &mdash; ${v.cj}</td>
             <td>${v.iLIS.toFixed(3)}</td>
+            <td>${v.iLIA.toFixed(1)}</td>
+            <td>${v.iLISA.toFixed(1)}</td>
             <td>${v.ipSAE.toFixed(3)}</td>
+            <td>${v.ipTM.toFixed(2)}</td>
             <td>${v.LIS.toFixed(3)}</td>
             <td>${v.cLIS.toFixed(3)}</td>
-            <td>${v.lirI.size} (of ${v.lenI})</td>
-            <td>${v.lirJ.size} (of ${v.lenJ})</td>
-            <td>${v.clirI.size}</td>
-            <td>${v.clirJ.size}</td>
+            <td>${v.lirI.size} / ${v.lirJ.size}</td>
+            <td>${v.clirI.size} / ${v.clirJ.size}</td>
         </tr>
     `;
 
@@ -2284,10 +2303,10 @@ function downloadCSV() {
     const complexName = selectedDimer.complexName || selectedDimer.modelEntityId || 'dimer';
 
     const afdbPlddt = selectedDimer.globalMetricValue || 0;
-    const header = 'name,model,chain_A,chain_B,iLIS,ipSAE,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
+    const header = 'name,model,chain_A,chain_B,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
     const row = [
         `"${complexName}"`, 'dimer', v.ci, v.cj,
-        v.iLIS.toFixed(6), v.ipSAE.toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
+        v.iLIS.toFixed(6), v.iLIA.toFixed(1), v.iLISA.toFixed(1), v.ipSAE.toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
         v.ipTM.toFixed(6), afdbPlddt.toFixed(1), '',
         v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
         v.lenI, v.lenJ,
@@ -2397,6 +2416,16 @@ function buildColorComponents(v) {
 
 function buildMolstarPage(structData, fmt, colorComponents) {
     const structureChildren = [];
+    // Add full polymer as hidden non-LIR (users can toggle via eye icon in Mol* panel)
+    structureChildren.push({
+        kind: 'component',
+        params: { selector: 'polymer' },
+        children: [{
+            kind: 'representation',
+            params: { type: 'cartoon' },
+            children: [{ kind: 'color', params: { color: 'white' } }]
+        }]
+    });
     for (const comp of colorComponents) {
         const selector = comp.ranges.map(r => ({
             label_asym_id: comp.chain,
