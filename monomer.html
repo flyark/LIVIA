@@ -1830,9 +1830,23 @@ function displayResults(validRegions) {
         seqLink.innerHTML = `<a href="https://www.uniprot.org/uniprot/${monUniprotId}" target="_blank" style="color:#2471A3;">UniProt: ${monUniprotId}</a>`;
     }
 
-    // Metrics for first/primary pair
+    // Check if any pair has interaction
+    const hasInteraction = monPairResults.some(v => v.iLIS > 0);
     const metricsDiv = document.getElementById('pair-metrics');
-    if (monPairResults.length === 1) {
+
+    if (!hasInteraction) {
+        metricsDiv.innerHTML = '<div style="color:#888; font-size:0.9rem; padding:0.5rem 0;">No intramolecular interaction detected between the defined regions.</div>';
+        document.getElementById('pairs-tbody').innerHTML = '';
+        // Still show other results (maps, etc.)
+        buildMonomerSeqViewer(validRegions);
+        buildDomainComparison(validRegions);
+        makeSortable(document.getElementById('pairs-table'));
+        document.getElementById('results').classList.add('active');
+        return;
+    }
+
+    // Metrics for first/primary pair (only show cards for single pair)
+    if (monPairResults.length === 1 && hasInteraction) {
         const v = monPairResults[0];
         metricsDiv.innerHTML = `
             <div class="metric"><div class="value">${v.iLIS.toFixed(3)}</div><div class="label">iLIS</div></div>
@@ -1851,7 +1865,7 @@ function displayResults(validRegions) {
     const tbody = document.getElementById('pairs-tbody');
     tbody.innerHTML = '';
     for (const v of monPairResults) {
-        if (v.iLIS === 0) continue; // skip non-interacting pairs
+        if (v.iLIS === 0) continue;
         const tr = document.createElement('tr');
         tr.innerHTML = `<td>${v.ri.name} (${v.ri.start}-${v.ri.end}) &mdash; ${v.rj.name} (${v.rj.start}-${v.rj.end})</td><td>${v.iLIS.toFixed(3)}</td><td>${v.iLIA.toFixed(1)}</td><td>${v.iLISA.toFixed(1)}</td><td>${v.LIS.toFixed(3)}</td><td>${v.cLIS.toFixed(3)}</td><td>${v.lirI.size} / ${v.lirJ.size}</td><td>${v.clirI.size} / ${v.clirJ.size}</td>`;
         tbody.appendChild(tr);
