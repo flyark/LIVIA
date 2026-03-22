@@ -186,6 +186,7 @@
             </div>
             <button class="btn btn-primary" style="margin:0;" id="btn-fetch" onclick="fetchData()">Fetch</button>
             <button class="btn-secondary" style="white-space:nowrap;" onclick="loadExample()">Try Example (Haspin)</button>
+            <button class="btn-secondary" style="white-space:nowrap;" onclick="loadExample('Q15858')">Try Example (SCN9A)</button>
         </div>
         <div class="status" id="status"></div>
         <div id="external-links" style="display:none; font-size:0.82rem; margin-top:0.3rem;"></div>
@@ -571,9 +572,8 @@ async function searchUniprot(query) {
 // FETCH DATA
 // ============================================================================
 
-function loadExample() {
-    document.getElementById('uniprot-input').value = 'Q8TF76';
-    // Reset regions so fetchData will apply the preset
+function loadExample(uid) {
+    document.getElementById('uniprot-input').value = uid || 'Q8TF76';
     monRegions = [];
     monRegionCounter = 0;
     fetchData();

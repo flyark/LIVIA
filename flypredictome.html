@@ -1770,8 +1770,8 @@ async function queryMIST() {
                                 : p
                         ).join(' ');
                     }
-                    const SPECIES = {'9606':'Human','10090':'Mouse','10116':'Rat','6239':'C. elegans','4932':'S. cerevisiae','4896':'S. pombe','7955':'Zebrafish','3702':'Arabidopsis'};
-                    const interologNote = r.TaxID_interolog ? ' <span style="color:#999; font-size:0.72rem;">(' + (SPECIES[r.TaxID_interolog] || 'taxid:' + r.TaxID_interolog) + ')</span>' : '';
+                    const SPECIES = {'9606':'Human','10090':'Mouse','10116':'Rat','6239':'C. elegans','4932':'S. cerevisiae','4896':'S. pombe','7955':'Zebrafish','3702':'Arabidopsis','8364':'Xenopus','7227':'Drosophila'};
+                    const interologNote = r.TaxID_interolog ? ' <span style="color:#999; font-size:0.72rem;">(from ' + (SPECIES[r.TaxID_interolog] || 'taxid:' + r.TaxID_interolog) + ')</span>' : '';
 
                     html += '<tr style="border-top:1px solid #eee;">';
                     html += '<td style="padding:0.4rem 0.6rem; white-space:nowrap;">' + typeLabels[type] + interologNote + '</td>';
