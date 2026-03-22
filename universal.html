@@ -90,9 +90,9 @@
         .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 1rem; }
         .data-table th { text-align: left; padding: 0.5rem 0.8rem; background: #f8f9fa; font-weight: 600; font-size: 0.8rem; color: #666; }
         .data-table td { padding: 0.5rem 0.8rem; border-top: 1px solid #eee; }
-        .data-table tr.selected td { background: #e8f0f8; }
-        .data-table tr.selected td:first-child { box-shadow: inset 4px 0 0 #2471A3; }
-        .data-table tr.avg-row { background: #f0f7fc; font-weight: 600; }
+        .data-table tr.selected td { background: #faf8f4; }
+        .data-table tr.selected td:first-child { box-shadow: inset 4px 0 0 #c4a35a; }
+        .data-table tr.avg-row { font-weight: 600; border-top: 2px solid #999; }
         .model-badge { font-size: 0.7rem; font-weight: 500; color: #2471A3; background: #eaf2f8; padding: 0.15rem 0.5rem; border-radius: 4px; vertical-align: middle; }
         .data-table tr.clickable { cursor: pointer; }
         .data-table tr.clickable:hover { background: #f0f7fc; }
@@ -112,7 +112,7 @@
         #viewer3d-container .msp-plugin .msp-highlight-info,
         #viewer3d-container .msp-plugin .msp-sequence,
         #viewer3d-container .msp-plugin .msp-left-panel-controls { display: none !important; }
-        .info-box { background: #eaf2f8; border-left: 4px solid #2471A3; padding: 0.8rem 1rem; border-radius: 0 8px 8px 0; font-size: 0.85rem; color: #1a5276; margin-bottom: 1rem; }
+        .info-box { background: #faf8f4; border-left: 4px solid #c4a35a; padding: 0.8rem 1rem; border-radius: 0 8px 8px 0; font-size: 0.85rem; color: #555; margin-bottom: 1rem; }
         .warning-box { background: #fff8e1; border-left: 4px solid #f9a825; padding: 0.8rem 1rem; border-radius: 0 8px 8px 0; font-size: 0.85rem; color: #795548; margin-bottom: 1rem; }
 
         /* Map rows */
@@ -212,11 +212,11 @@
             <div style="margin-top:0.8rem;">
                 <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
                     <span style="color:#888; font-size:0.82rem;">p53&ndash;MDM2 examples:</span>
-                    <button onclick="loadExample('alphafold3')" class="example-btn">AlphaFold3</button>
-                    <button onclick="loadExample('colabfold')" class="example-btn">ColabFold</button>
-                    <button onclick="loadExample('boltz2')" class="example-btn">Boltz-2</button>
-                    <button onclick="loadExample('chai-1')" class="example-btn">Chai-1</button>
-                    <button onclick="loadExample('openfold3')" class="example-btn">OpenFold3</button>
+                    <button onclick="loadExample('alphafold3')" class="example-btn">AlphaFold3 (5 MB)</button>
+                    <button onclick="loadExample('colabfold')" class="example-btn">ColabFold (8 MB)</button>
+                    <button onclick="loadExample('boltz2')" class="example-btn">Boltz-2 (26 MB)</button>
+                    <button onclick="loadExample('chai-1')" class="example-btn">Chai-1 (63 MB)</button>
+                    <button onclick="loadExample('openfold3')" class="example-btn">OpenFold3 (33 MB)</button>
                 </div>
                 <div style="font-size:0.72rem; color:#aaa; margin-top:0.3rem;">AlphaFold3 predicted via <a href="https://alphafoldserver.com" target="_blank" style="color:#aaa;">AlphaFold Server</a>. ColabFold, Boltz-2, Chai-1, and OpenFold3 predicted via <a href="https://www.tamarind.bio" target="_blank" style="color:#aaa;">Tamarind Bio</a>.</div>
             </div>
@@ -231,7 +231,10 @@
     <div class="results" id="results">
         <!-- Interaction Analysis Summary -->
         <div class="card result-card">
-            <h2 id="result-title">Interaction Analysis Summary</h2>
+            <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+                <h2 id="result-title" style="margin-bottom:0;">Interaction Analysis Summary</h2>
+                <a style="font-size:0.8rem; color:#2471A3; cursor:pointer; text-decoration:none; border-bottom:1px dashed #2471A3;" onclick="downloadCSV()">&#8595; Download CSV</a>
+            </div>
             <div class="info-box">Click a row to switch between models. This updates all visualizations, metrics, and the ChimeraX script.</div>
             <input type="hidden" id="seed-select" value="0">
             <div style="overflow-x:auto;">
@@ -240,25 +243,22 @@
                 <tbody id="pairs-tbody"></tbody>
             </table>
             </div>
-            <div style="margin-top:0.5rem;">
-                <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem;" onclick="downloadCSV()">&#8595; Download CSV</a>
-            </div>
             <div style="margin-top:0.6rem; font-size:0.75rem; color:#999; line-height:1.8;">
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
                     <strong style="min-width:90px;">iLIS:</strong>
-                    <span><span style="color:#7D3C98; font-weight:700;">&ge;0.551</span> (1% FDR)</span>
-                    <span><span style="color:#27ae60; font-weight:700;">&ge;0.339</span> (5% FDR)</span>
-                    <span><span style="color:#e67e22; font-weight:700;">&ge;0.223</span> (10% FDR)</span>
-                    <span><span style="color:#999; font-weight:700;">&lt;0.223</span> (below threshold)</span>
+                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.551</span> (1% FDR)</span>
+                    <span><span style="color:#0e8a6e; font-weight:700;">&ge;0.339</span> (5% FDR)</span>
+                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.223</span> (10% FDR)</span>
+                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.223</span> (below threshold)</span>
                 </div>
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
                     <strong style="min-width:90px;">iLIS (average):</strong>
-                    <span><span style="color:#7D3C98; font-weight:700;">&ge;0.303</span> (1% FDR)</span>
-                    <span><span style="color:#27ae60; font-weight:700;">&ge;0.120</span> (5% FDR)</span>
-                    <span><span style="color:#e67e22; font-weight:700;">&ge;0.073</span> (10% FDR)</span>
-                    <span><span style="color:#999; font-weight:700;">&lt;0.073</span> (below threshold)</span>
+                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.303</span> (1% FDR)</span>
+                    <span><span style="color:#0e8a6e; font-weight:700;">&ge;0.120</span> (5% FDR)</span>
+                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.073</span> (10% FDR)</span>
+                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.073</span> (below threshold)</span>
                 </div>
-                <div><strong>Average row:</strong> iLIS, iLIA, iLISA, ipSAE, and ipTM are averaged across all models. LIR and cLIR counts represent the union of all models (every residue identified as LIR or cLIR in any model is included).</div>
+                <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.1101/2025.10.10.681672" target="_blank" style="color:#2471A3;">Kim et al. 2025</a> for iLIS benchmark details. Different platforms may require different thresholds.</div>
             </div>
         </div>
 
@@ -2020,6 +2020,10 @@ function averageModels(allPairs) {
             lirJ: new Set(vals.flatMap(v => [...v.lirJ])),
             clirI: new Set(vals.flatMap(v => [...v.clirI])),
             clirJ: new Set(vals.flatMap(v => [...v.clirJ])),
+            avgLirI: Math.round(vals.reduce((s, v) => s + v.lirI.size, 0) / n),
+            avgLirJ: Math.round(vals.reduce((s, v) => s + v.lirJ.size, 0) / n),
+            avgClirI: Math.round(vals.reduce((s, v) => s + v.clirI.size, 0) / n),
+            avgClirJ: Math.round(vals.reduce((s, v) => s + v.clirJ.size, 0) / n),
         };
         averaged[key].iLIS = Math.sqrt(averaged[key].LIS * averaged[key].cLIS);
         averaged[key].iLIA = Math.sqrt(averaged[key].LIA * averaged[key].cLIA);
@@ -2050,6 +2054,8 @@ function symmetrizePairsFromComma(pairs) {
                 lenI: val.lenI, lenJ: val.lenJ,
                 lirI: val.lirI, lirJ: rv.lirI,
                 clirI: val.clirI, clirJ: rv.clirI,
+                avgLirI: val.avgLirI, avgLirJ: rv.avgLirI,
+                avgClirI: val.avgClirI, avgClirJ: rv.avgClirI,
             };
             s.iLIS = Math.sqrt(s.LIS * s.cLIS);
             s.iLIA = Math.sqrt(s.LIA * s.cLIA);
@@ -2163,7 +2169,7 @@ function displayResults(results, jobName) {
             avgTr.className = 'clickable avg-row';
             avgTr.dataset.pinned = 'true';
             avgTr.onclick = () => selectRow(key, 'avg', avgTr);
-            avgTr.innerHTML = `<td>Average</td><td>${avg.ci} \u2014 ${avg.cj}</td><td>${ilisHtml(avg.iLIS, true)}</td><td>${(avg.iLIA||0).toFixed(1)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.ipTM||0).toFixed(2)}</td><td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td><td>${avg.lirI.size} / ${avg.lirJ.size}</td><td>${avg.clirI.size} / ${avg.clirJ.size}</td>`;
+            avgTr.innerHTML = `<td>Average</td><td>${avg.ci} \u2014 ${avg.cj}</td><td>${ilisHtml(avg.iLIS, true)}</td><td>${(avg.iLIA||0).toFixed(1)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.ipTM||0).toFixed(2)}</td><td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td><td>${avg.avgLirI ?? avg.lirI.size} / ${avg.avgLirJ ?? avg.lirJ.size}</td><td>${avg.avgClirI ?? avg.clirI.size} / ${avg.avgClirJ ?? avg.clirJ.size}</td>`;
             tbody.appendChild(avgTr);
         } else {
             // Single model row — auto-selected for first pair
@@ -2669,8 +2675,8 @@ function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(
 
 function ilisHtml(val, isAvg) {
     const color = isAvg
-        ? (val >= 0.303 ? '#7D3C98' : val >= 0.120 ? '#27ae60' : val >= 0.073 ? '#e67e22' : '#999')
-        : (val >= 0.551 ? '#7D3C98' : val >= 0.339 ? '#27ae60' : val >= 0.223 ? '#e67e22' : '#999');
+        ? (val >= 0.303 ? '#6B21A8' : val >= 0.120 ? '#0e8a6e' : val >= 0.073 ? '#bf8700' : '#8b949e')
+        : (val >= 0.551 ? '#6B21A8' : val >= 0.339 ? '#0e8a6e' : val >= 0.223 ? '#bf8700' : '#8b949e');
     return `<span style="color:${color}; font-weight:700;">${val.toFixed(3)}</span>`;
 }
 

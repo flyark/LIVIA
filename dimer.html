@@ -71,8 +71,8 @@
         .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 1rem; }
         .data-table th { text-align: left; padding: 0.5rem 0.8rem; background: #f8f9fa; font-weight: 600; font-size: 0.8rem; color: #666; }
         .data-table td { padding: 0.5rem 0.8rem; border-top: 1px solid #eee; }
-        .data-table tr.selected td { background: #e8f0f8; }
-        .data-table tr.selected td:first-child { box-shadow: inset 4px 0 0 #2471A3; }
+        .data-table tr.selected td { background: #faf8f4; }
+        .data-table tr.selected td:first-child { box-shadow: inset 4px 0 0 #c4a35a; }
         .data-table tr.clickable { cursor: pointer; }
         .data-table tr.clickable:hover { background: #f0f7fc; }
         .script-preview { background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 1rem; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; line-height: 1.5; max-height: 400px; overflow-y: auto; white-space: pre; margin-bottom: 1rem; }
@@ -104,7 +104,7 @@
         .dimer-table td { padding: 0.5rem 0.8rem; border-top: 1px solid #eee; }
         .dimer-table tr.clickable { cursor: pointer; }
         .dimer-table tr.clickable:hover { background: #f0f7fc; }
-        .dimer-table tr.selected { background: #d4e6f6; box-shadow: inset 4px 0 0 #2471A3; font-weight: 600; }
+        .dimer-table tr.selected { background: #d4e6f6; box-shadow: inset 4px 0 0 #c4a35a; font-weight: 600; }
 
         /* Autocomplete */
         .ac-wrap { position: relative; flex: 1; min-width: 250px; }
@@ -236,11 +236,12 @@
             <div style="margin-top:0.6rem; font-size:0.75rem; color:#999; line-height:1.8;">
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
                     <strong>iLIS:</strong>
-                    <span><span style="color:#7D3C98; font-weight:700;">&ge;0.551</span> (1% FDR)</span>
-                    <span><span style="color:#27ae60; font-weight:700;">&ge;0.339</span> (5% FDR)</span>
-                    <span><span style="color:#e67e22; font-weight:700;">&ge;0.223</span> (10% FDR)</span>
-                    <span><span style="color:#999; font-weight:700;">&lt;0.223</span> (below threshold)</span>
+                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.551</span> (1% FDR)</span>
+                    <span><span style="color:#0e8a6e; font-weight:700;">&ge;0.339</span> (5% FDR)</span>
+                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.223</span> (10% FDR)</span>
+                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.223</span> (below threshold)</span>
                 </div>
+                <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.1101/2025.10.10.681672" target="_blank" style="color:#2471A3;">Kim et al. 2025</a> for iLIS benchmark details.</div>
             </div>
         </div>
 

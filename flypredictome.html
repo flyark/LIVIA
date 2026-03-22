@@ -250,8 +250,8 @@
             padding: 0.5rem 0.8rem;
             border-top: 1px solid #eee;
         }
-        .data-table tr.selected td { background: #e8f0f8; }
-        .data-table tr.selected td:first-child { box-shadow: inset 4px 0 0 #2471A3; }
+        .data-table tr.selected td { background: #faf8f4; }
+        .data-table tr.selected td:first-child { box-shadow: inset 4px 0 0 #c4a35a; }
         .model-badge { font-size: 0.7rem; font-weight: 500; color: #2471A3; background: #eaf2f8; padding: 0.15rem 0.5rem; border-radius: 4px; vertical-align: middle; }
         .data-table tr.clickable { cursor: pointer; }
         .data-table tr.clickable:hover { background: #f0f7fc; }
@@ -289,8 +289,8 @@
 
         /* ── Info box ── */
         .info-box {
-            background: #eaf2f8;
-            border-left: 4px solid #2471A3;
+            background: #faf8f4;
+            border-left: 4px solid #c4a35a;
             padding: 0.8rem 1rem;
             border-radius: 0 8px 8px 0;
             font-size: 0.85rem;
@@ -506,7 +506,10 @@
 
         <!-- All Ranks (click to select) -->
         <div class="card result-card">
-            <h2 id="result-title">Interaction Analysis Summary</h2>
+            <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+                <h2 id="result-title" style="margin-bottom:0;">Interaction Analysis Summary</h2>
+                <a style="font-size:0.8rem; color:#2471A3; cursor:pointer; text-decoration:none; border-bottom:1px dashed #2471A3;" onclick="downloadFlyCSV()">&#8595; Download CSV</a>
+            </div>
             <div class="info-box">Click a row to switch between ranks. This updates all visualizations, metrics, and the ChimeraX script.</div>
             <div style="overflow-x:auto;">
                 <table class="data-table" id="ranks-table">
@@ -516,25 +519,22 @@
                     <tbody id="ranks-tbody"></tbody>
                 </table>
             </div>
-            <div style="margin-top:0.5rem;">
-                <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem; cursor:pointer;" onclick="downloadFlyCSV()">&#8595; Download CSV</a>
-            </div>
             <div style="margin-top:0.6rem; font-size:0.75rem; color:#999; line-height:1.8;">
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
                     <strong style="min-width:90px;">iLIS:</strong>
-                    <span><span style="color:#7D3C98; font-weight:700;">&ge;0.551</span> (1% FDR)</span>
-                    <span><span style="color:#27ae60; font-weight:700;">&ge;0.339</span> (5% FDR)</span>
-                    <span><span style="color:#e67e22; font-weight:700;">&ge;0.223</span> (10% FDR)</span>
-                    <span><span style="color:#999; font-weight:700;">&lt;0.223</span> (below threshold)</span>
+                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.551</span> (1% FDR)</span>
+                    <span><span style="color:#0e8a6e; font-weight:700;">&ge;0.339</span> (5% FDR)</span>
+                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.223</span> (10% FDR)</span>
+                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.223</span> (below threshold)</span>
                 </div>
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
                     <strong style="min-width:90px;">iLIS (average):</strong>
-                    <span><span style="color:#7D3C98; font-weight:700;">&ge;0.303</span> (1% FDR)</span>
-                    <span><span style="color:#27ae60; font-weight:700;">&ge;0.120</span> (5% FDR)</span>
-                    <span><span style="color:#e67e22; font-weight:700;">&ge;0.073</span> (10% FDR)</span>
-                    <span><span style="color:#999; font-weight:700;">&lt;0.073</span> (below threshold)</span>
+                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.303</span> (1% FDR)</span>
+                    <span><span style="color:#0e8a6e; font-weight:700;">&ge;0.120</span> (5% FDR)</span>
+                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.073</span> (10% FDR)</span>
+                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.073</span> (below threshold)</span>
                 </div>
-                <div><strong>Avg row:</strong> iLIS, iLIA, iLISA, and ipTM are averaged across all ranks. LIR and cLIR counts represent the union of all ranks (every residue identified as LIR or cLIR in any rank is included).</div>
+                <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.1101/2025.10.10.681672" target="_blank" style="color:#2471A3;">Kim et al. 2025</a> for iLIS benchmark details. Rank 1 (determined by ipTM) may not have the highest iLIS.</div>
             </div>
         </div>
 
@@ -1240,11 +1240,19 @@ function parseTable(html) {
         if (!pdbUrl.startsWith('http')) pdbUrl = 'https://www.flyrnai.org' + pdbUrl;
     }
 
-    // Extract NCBI gene IDs
+    // Extract NCBI gene IDs (try class selector first, then regex fallback)
     const ncbi1El = doc.querySelector('.ncbi_gene_id1');
     const ncbi2El = doc.querySelector('.ncbi_gene_id2');
-    const ncbiGeneId1 = ncbi1El ? ncbi1El.textContent.trim() : '';
-    const ncbiGeneId2 = ncbi2El ? ncbi2El.textContent.trim() : '';
+    let ncbiGeneId1 = ncbi1El ? ncbi1El.textContent.trim() : '';
+    let ncbiGeneId2 = ncbi2El ? ncbi2El.textContent.trim() : '';
+    if (!ncbiGeneId1) {
+        const m1 = html.match(/ncbi_gene_id1[^>]*>\s*(\d+)/);
+        if (m1) ncbiGeneId1 = m1[1];
+    }
+    if (!ncbiGeneId2) {
+        const m2 = html.match(/ncbi_gene_id2[^>]*>\s*(\d+)/);
+        if (m2) ncbiGeneId2 = m2[1];
+    }
 
     // Extract PAE image URL (prefer colabfold-output path which is publicly accessible)
     let paeImgUrl = '';
@@ -1444,8 +1452,8 @@ function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 
 function ilisColor(val, isAvg) {
     const color = isAvg
-        ? (val >= 0.303 ? '#7D3C98' : val >= 0.120 ? '#27ae60' : val >= 0.073 ? '#e67e22' : '#999')
-        : (val >= 0.551 ? '#7D3C98' : val >= 0.339 ? '#27ae60' : val >= 0.223 ? '#e67e22' : '#999');
+        ? (val >= 0.303 ? '#6B21A8' : val >= 0.120 ? '#0e8a6e' : val >= 0.073 ? '#bf8700' : '#8b949e')
+        : (val >= 0.551 ? '#6B21A8' : val >= 0.339 ? '#0e8a6e' : val >= 0.223 ? '#bf8700' : '#8b949e');
     return '<span style="color:' + color + '; font-weight:700;">' + val.toFixed(3) + '</span>';
 }
 
@@ -1617,6 +1625,7 @@ async function generate() {
     const n = rows.length;
     if (n > 1) {
         let sumILIS = 0, sumIpTM = 0, sumLIA = 0, sumCLIA = 0;
+        let sumLirA = 0, sumLirB = 0, sumClirA = 0, sumClirB = 0;
         const unionLIR_A = new Set(), unionLIR_B = new Set(), unionCLIR_A = new Set(), unionCLIR_B = new Set();
         for (const r of rows) {
             sumILIS += parseFloat(r['iLIS'] || 0);
@@ -1625,11 +1634,17 @@ async function generate() {
             const clia = parseFloat(r['cLIA'] || 0) || (parseFloat(r['cLIA (AB)'] || 0) + parseFloat(r['cLIA (BA)'] || 0));
             sumLIA += lia;
             sumCLIA += clia;
+            sumLirA += r._LIR_A.size;
+            sumLirB += r._LIR_B.size;
+            sumClirA += r._cLIR_A.size;
+            sumClirB += r._cLIR_B.size;
             for (const v of r._LIR_A) unionLIR_A.add(v);
             for (const v of r._LIR_B) unionLIR_B.add(v);
             for (const v of r._cLIR_A) unionCLIR_A.add(v);
             for (const v of r._cLIR_B) unionCLIR_B.add(v);
         }
+        const avgLirA = Math.round(sumLirA / n), avgLirB = Math.round(sumLirB / n);
+        const avgClirA = Math.round(sumClirA / n), avgClirB = Math.round(sumClirB / n);
         const avgILIS = (sumILIS / n).toFixed(3);
         const avgIpTM = (sumIpTM / n).toFixed(2);
         const avgILIA = Math.sqrt((sumLIA / n) * (sumCLIA / n));
@@ -1649,13 +1664,13 @@ async function generate() {
         const tbody = document.getElementById('ranks-tbody');
         const avgTr = document.createElement('tr');
         avgTr.className = 'clickable';
-        avgTr.style.background = '#f0f7fc';
         avgTr.style.fontWeight = '600';
+        avgTr.style.borderTop = '2px solid #999';
         avgTr.onclick = () => loadRank('avg');
         avgTr.innerHTML = `<td>Avg</td><td>${rows[0]['Symbol 1']||''}</td><td>${rows[0]['Symbol 2']||''}</td>` +
             `<td>${ilisColor(parseFloat(avgILIS), true)}</td><td>${iliaStr}</td><td>${ilisaStr}</td><td>${avgIpTM}</td>` +
-            `<td>${unionLIR_A.size} / ${unionLIR_B.size}</td>` +
-            `<td>${unionCLIR_A.size} / ${unionCLIR_B.size}</td>` +
+            `<td>${avgLirA} / ${avgLirB}</td>` +
+            `<td>${avgClirA} / ${avgClirB}</td>` +
             `<td>${rows[0]['Len A']||'?'} / ${rows[0]['Len B']||'?'}</td>`;
         tbody.appendChild(avgTr);
     }
@@ -1720,12 +1735,30 @@ async function queryMIST() {
     const linkEl = document.getElementById('mist-link');
     if (!card || !content || !flyParsed) return;
 
-    const id1 = flyParsed.ncbiGeneId1;
-    const id2 = flyParsed.ncbiGeneId2;
-    if (!id1 || !id2) { card.style.display = 'none'; return; }
-
+    let id1 = flyParsed.ncbiGeneId1;
+    let id2 = flyParsed.ncbiGeneId2;
     const sym1 = flyParsed.rows[0]?.['Symbol 1'] || '';
     const sym2 = flyParsed.rows[0]?.['Symbol 2'] || '';
+
+    // Fallback: if NCBI IDs not found from HTML, try to get them via UniProt → FBgn → NCBI
+    if (!id1 || !id2) {
+        try {
+            const lookupId = async (sym) => {
+                // Search UniProt for FBgn, then use NCBI to convert
+                const uniResp = await fetch(`https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent(sym)}+AND+organism_id:7227&fields=xref_flybase,xref_geneid&size=1&format=json`);
+                if (!uniResp.ok) return null;
+                const uniData = await uniResp.json();
+                const entry = uniData.results?.[0];
+                if (!entry) return null;
+                const geneIdXref = (entry.uniProtKBCrossReferences || []).find(x => x.database === 'GeneID');
+                return geneIdXref?.id || null;
+            };
+            if (!id1) id1 = await lookupId(sym1);
+            if (!id2) id2 = await lookupId(sym2);
+        } catch (e) { console.warn('NCBI ID lookup failed:', e); }
+    }
+
+    if (!id1 || !id2) { card.style.display = 'none'; return; }
 
     content.innerHTML = '<span style="color:#888; font-size:0.85rem;">Querying MIST for ' + esc(sym1) + ' \u2014 ' + esc(sym2) + '...</span>';
     card.style.display = '';
@@ -1775,30 +1808,56 @@ async function queryMIST() {
             for (const [type, records] of Object.entries(byType)) {
                 for (const r of records) {
                     const rankColor = rankColors[r.Rank] || '#999';
-                    // Format evidence codes as separate lines
-                    const evParts = [r.Exp_Direct, r.Exp_Indirect].filter(Boolean).join(';').split(';').filter(Boolean);
-                    const evidenceHtml = evParts.length > 0 ? evParts.map(e => esc(e.trim())).join('<br>') : '\u2014';
-                    const sources = (r.Source_databases || '\u2014').split(';').join(', ');
-                    // Build PMID links — one per line
+                    // Evidence codes — collapsed if many
+                    const evParts = [r.Exp_Direct, r.Exp_Indirect].filter(Boolean).join(';').split(';').map(e => e.trim()).filter(Boolean);
+                    let evidenceHtml = '\u2014';
+                    if (evParts.length > 0) {
+                        if (evParts.length <= 3) {
+                            evidenceHtml = evParts.map(e => esc(e)).join(', ');
+                        } else {
+                            const eid = 'ev_' + Math.random().toString(36).slice(2, 8);
+                            evidenceHtml = evParts.slice(0, 3).map(e => esc(e)).join(', ') +
+                                ' <a href="javascript:void(0)" onclick="document.getElementById(\'' + eid + '\').style.display=\'\';this.style.display=\'none\'" style="color:#888; font-size:0.72rem;">+' + (evParts.length - 3) + ' more</a>' +
+                                '<span id="' + eid + '" style="display:none;">, ' + evParts.slice(3).map(e => esc(e)).join(', ') + '</span>';
+                        }
+                    }
+                    // Sources — collapsed if many
+                    const srcParts = (r.Source_databases || '').split(';').map(s => s.trim()).filter(Boolean);
+                    let sourcesHtml = '\u2014';
+                    if (srcParts.length > 0) {
+                        if (srcParts.length <= 3) {
+                            sourcesHtml = esc(srcParts.join(', '));
+                        } else {
+                            const sid = 'src_' + Math.random().toString(36).slice(2, 8);
+                            sourcesHtml = esc(srcParts.slice(0, 3).join(', ')) +
+                                ' <a href="javascript:void(0)" onclick="document.getElementById(\'' + sid + '\').style.display=\'\';this.style.display=\'none\'" style="color:#888; font-size:0.72rem;">+' + (srcParts.length - 3) + ' more</a>' +
+                                '<span id="' + sid + '" style="display:none;">, ' + esc(srcParts.slice(3).join(', ')) + '</span>';
+                        }
+                    }
+                    // PMID links — show first 3 inline, rest collapsed
                     let pmidHtml = '\u2014';
                     if (r.Reference) {
                         const pmids = String(r.Reference).split(';').map(p => p.trim()).filter(Boolean);
+                        const makePmidLink = (p) => r.Reference_type?.includes('PMID')
+                            ? '<a href="https://pubmed.ncbi.nlm.nih.gov/' + p + '/" target="_blank" style="color:#2471A3;">' + p + '</a>' : p;
                         const count = pmids.length;
-                        pmidHtml = '<span style="color:#888; font-size:0.72rem;">(' + count + ')</span> ';
-                        pmidHtml += pmids.map(p =>
-                            r.Reference_type?.includes('PMID')
-                                ? '<a href="https://pubmed.ncbi.nlm.nih.gov/' + p + '/" target="_blank" style="color:#2471A3;">' + p + '</a>'
-                                : p
-                        ).join(' ');
+                        const countTag = '<span style="color:#888; font-size:0.72rem;">(' + count + ')</span> ';
+                        if (pmids.length <= 3) {
+                            pmidHtml = countTag + pmids.map(makePmidLink).join(', ');
+                        } else {
+                            const id = 'pmid_' + Math.random().toString(36).slice(2, 8);
+                            pmidHtml = countTag + pmids.slice(0, 3).map(makePmidLink).join(', ') +
+                                ' <a href="javascript:void(0)" onclick="document.getElementById(\'' + id + '\').style.display=\'\';this.style.display=\'none\'" style="color:#888; font-size:0.72rem;">+' + (pmids.length - 3) + ' more</a>' +
+                                '<span id="' + id + '" style="display:none;">, ' + pmids.slice(3).map(makePmidLink).join(', ') + '</span>';
+                        }
                     }
-                    const interologNote = '';
 
                     html += '<tr style="border-top:1px solid #eee;">';
-                    html += '<td style="padding:0.4rem 0.6rem; white-space:nowrap;">' + typeLabels[type] + interologNote + '</td>';
+                    html += '<td style="padding:0.4rem 0.6rem; white-space:nowrap;">' + typeLabels[type] + '</td>';
                     html += '<td style="padding:0.4rem 0.6rem; color:' + rankColor + '; font-weight:600;">' + (r.Rank || '\u2014') + '</td>';
                     html += '<td style="padding:0.4rem 0.6rem; font-size:0.78rem; color:#666;">' + evidenceHtml + '</td>';
-                    html += '<td style="padding:0.4rem 0.6rem; font-size:0.78rem; color:#666;">' + esc(sources) + '</td>';
-                    html += '<td style="padding:0.4rem 0.6rem; font-size:0.78rem; word-break:break-all;">' + pmidHtml + '</td>';
+                    html += '<td style="padding:0.4rem 0.6rem; font-size:0.78rem; color:#666;">' + sourcesHtml + '</td>';
+                    html += '<td style="padding:0.4rem 0.6rem; font-size:0.78rem;">' + pmidHtml + '</td>';
                     html += '</tr>';
                 }
             }
@@ -1808,7 +1867,7 @@ async function queryMIST() {
         content.innerHTML = html;
 
         // MIST link
-        linkEl.innerHTML = '<a href="https://fgrtools.hms.harvard.edu/MIST/MistShowData?species=drosophila&gene_list=' + encodeURIComponent(sym1 + ',' + sym2) + '&filter=none&type=ppi_interactions,interologs,genetic,interologs_genetic" target="_blank" style="color:#2471A3;">View full network in MIST \u2192</a>';
+        linkEl.innerHTML = '';
 
     } catch (e) {
         content.innerHTML = '<span style="color:#999; font-size:0.85rem;">Could not query MIST: ' + esc(e.message) + '</span>';
