@@ -278,7 +278,10 @@
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Interactive 3D preview matching ChimeraX script output. LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom, right-click to translate.
             </div>
-            <iframe id="viewer3d-frame" style="width:100%; height:660px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin"></iframe>
+            <iframe id="viewer3d-frame" style="width:100%; height:660px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin" allowfullscreen></iframe>
+            <div style="text-align:right; margin-top:0.3rem;">
+                <button onclick="document.getElementById('viewer3d-frame').requestFullscreen()" style="padding:0.25rem 0.6rem; border:1px solid #ddd; border-radius:4px; background:#f8f9fa; cursor:pointer; font-size:0.78rem; color:#555;">Fullscreen</button>
+            </div>
             <div style="text-align:center; margin-top:0.3rem;">
             </div>
         </div>
@@ -337,6 +340,19 @@
                         <input type="number" id="cb-cutoff" value="8" min="1" max="20" step="1" style="width:60px; padding:0.3rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.9rem;">
                     </div>
                 </div>
+
+                <label>LIR Display Options</label>
+                <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem; font-size:0.85rem; color:#555; flex-wrap:wrap;">
+                    <span>Fill gaps &le;</span>
+                    <input type="number" id="gap-fill-input" value="10" min="0" max="200" style="width:55px; padding:0.3rem 0.4rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.85rem; text-align:center;">
+                    <span>residues</span>
+                    <span style="color:#ccc;">|</span>
+                    <span>Min segment &ge;</span>
+                    <input type="number" id="min-segment-input" value="3" min="1" max="50" style="width:55px; padding:0.3rem 0.4rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.85rem; text-align:center;">
+                    <span>residues</span>
+                    <button class="btn btn-primary" style="font-size:0.82rem; padding:0.3rem 0.8rem;" onclick="updateGapFill()">Apply</button>
+                </div>
+                <div style="font-size:0.78rem; color:#999; margin-bottom:1rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
 
                 <label>Color Scheme</label>
                 <div class="color-section" id="color-section"></div>
@@ -2021,7 +2037,48 @@ function resSpec(positions, chain) {
     return `/${chain}:${ranges.join(',')}`;
 }
 
-function fillGaps(positions, maxGap = 20) {
+function getGapFillValue() {
+    const el = document.getElementById('gap-fill-input');
+    return el ? parseInt(el.value) || 10 : 10;
+}
+
+function getMinSegmentValue() {
+    const el = document.getElementById('min-segment-input');
+    return el ? parseInt(el.value) || 3 : 3;
+}
+
+function updateGapFill() {
+    // Re-run the current analysis
+    const selectedRow = document.querySelector('#region-pair-tbody tr.selected');
+    if (selectedRow) selectedRow.click();
+}
+
+function filterSmallSegments(positions, minSize) {
+    if (minSize === undefined) minSize = getMinSegmentValue();
+    if (minSize <= 1 || positions.size === 0) return positions;
+    const sorted = [...positions].sort((a, b) => a - b);
+    const segments = [];
+    let seg = [sorted[0]];
+    for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i] === seg[seg.length - 1] + 1) {
+            seg.push(sorted[i]);
+        } else {
+            segments.push(seg);
+            seg = [sorted[i]];
+        }
+    }
+    segments.push(seg);
+    const result = new Set();
+    for (const s of segments) {
+        if (s.length >= minSize) {
+            for (const r of s) result.add(r);
+        }
+    }
+    return result;
+}
+
+function fillGaps(positions, maxGap) {
+    if (maxGap === undefined) maxGap = getGapFillValue();
     if (positions.size === 0) return new Set();
     const sorted = [...positions].sort((a, b) => a - b);
     const filled = new Set(sorted);
@@ -2212,7 +2269,7 @@ function buildMonomerColorComponents(validRegions) {
             for (const r of v.lirI) allLIR.add(r);
             for (const r of v.lirJ) allLIR.add(r);
         }
-        const filled = fillGaps(allLIR);
+        const filled = fillGaps(filterSmallSegments(allLIR));
         const byColor = {};
         for (const resnum of filled) {
             const bf = bfactors.get(`${chain}:${resnum}`);
@@ -2322,8 +2379,9 @@ function buildMonomerColorComponents(validRegions) {
             // Light background: fill gaps around LIR/cLIR to create connected segments
             // (avoids showing entire disordered regions as spaghetti)
             const allInteracting = new Set([...lirSet, ...clirSet]);
-            if (allInteracting.size > 0) {
-                const filled = fillGaps(allInteracting);
+            const allFiltered = filterSmallSegments(allInteracting);
+            if (allFiltered.size > 0) {
+                const filled = fillGaps(allFiltered);
                 const bgOnly = new Set([...filled].filter(r => !lirSet.has(r) && !clirSet.has(r)));
                 if (bgOnly.size > 0) {
                     components.push({ chain, ranges: toRanges(bgOnly), color: lightenColorHex(reg.color, 0.8) });
@@ -2375,7 +2433,10 @@ function updateViewer3d(validRegions) {
     const blob = new Blob([page], { type: 'text/html' });
     if (viewer3dBlobUrl) URL.revokeObjectURL(viewer3dBlobUrl);
     viewer3dBlobUrl = URL.createObjectURL(blob);
-    frame.src = viewer3dBlobUrl;
+    const parent = frame.parentNode;
+    const newFrame = frame.cloneNode(false);
+    newFrame.src = viewer3dBlobUrl;
+    parent.replaceChild(newFrame, frame);
 }
 
 function highlightCxc(text) {
