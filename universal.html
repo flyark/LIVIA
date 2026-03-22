@@ -301,13 +301,26 @@
             <div id="seq-viewer" style="font-family:'SF Mono','Fira Code',monospace; overflow-x:auto;"></div>
         </div>
 
-        <!-- Residue Profile -->
-        <div class="card result-card" id="residue-profile-card" style="display:none;">
-            <h2>Residue Profile <span class="model-badge" id="profile-model-badge"></span></h2>
+        <!-- pLDDT Profile -->
+        <div class="card result-card" id="plddt-profile-card" style="display:none;">
+            <h2>pLDDT Profile</h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                Upper: pLDDT per residue across all models. Lower: LIR/cLIR residue count across models.
+                Per-residue pLDDT confidence across all models. Dashed lines at 50 and 70.
             </div>
-            <canvas id="residue-profile-canvas" style="width:100%;"></canvas>
+            <div style="overflow-x:auto;">
+                <canvas id="plddt-profile-canvas"></canvas>
+            </div>
+        </div>
+
+        <!-- LIR/cLIR Residue Count -->
+        <div class="card result-card" id="lir-profile-card" style="display:none;">
+            <h2>LIR / cLIR Residue Count</h2>
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+                Number of models where each residue is identified as LIR or cLIR.
+            </div>
+            <div style="overflow-x:auto;">
+                <canvas id="lir-profile-canvas"></canvas>
+            </div>
         </div>
 
         <!-- Linear Contact Map (2-chain linear) -->
@@ -3173,22 +3186,41 @@ function lightenColor(hex, amount) {
 // ============================================================================
 
 function buildResidueProfile(pairKey) {
-    const card = document.getElementById('residue-profile-card');
-    const canvas = document.getElementById('residue-profile-canvas');
-    if (!card || !canvas || !uniState.chainNames) { if (card) card.style.display = 'none'; return; }
+    const plddtCard = document.getElementById('plddt-profile-card');
+    const lirCard = document.getElementById('lir-profile-card');
+    const plddtCanvas = document.getElementById('plddt-profile-canvas');
+    const lirCanvas = document.getElementById('lir-profile-canvas');
+    if (!uniState.chainNames) {
+        if (plddtCard) plddtCard.style.display = 'none';
+        if (lirCard) lirCard.style.display = 'none';
+        return;
+    }
 
     const v = uniState.results[pairKey];
-    if (!v) { card.style.display = 'none'; return; }
+    if (!v) {
+        if (plddtCard) plddtCard.style.display = 'none';
+        if (lirCard) lirCard.style.display = 'none';
+        return;
+    }
 
     const ci = v.ci, cj = v.cj;
     const sizeI = uniState.chainSizes[uniState.chainNames.indexOf(ci)] || 0;
     const sizeJ = uniState.chainSizes[uniState.chainNames.indexOf(cj)] || 0;
-    if (sizeI === 0 || sizeJ === 0) { card.style.display = 'none'; return; }
+    if (sizeI === 0 || sizeJ === 0) {
+        if (plddtCard) plddtCard.style.display = 'none';
+        if (lirCard) lirCard.style.display = 'none';
+        return;
+    }
 
     const nModels = uniState.modelPairs.length;
-    if (nModels === 0) { card.style.display = 'none'; return; }
+    if (nModels === 0) {
+        if (plddtCard) plddtCard.style.display = 'none';
+        if (lirCard) lirCard.style.display = 'none';
+        return;
+    }
 
-    card.style.display = '';
+    if (plddtCard) plddtCard.style.display = '';
+    if (lirCard) lirCard.style.display = '';
 
     // Collect per-residue pLDDT for each model, and LIR/cLIR counts
     const chains = [
@@ -3238,217 +3270,114 @@ function buildResidueProfile(pairKey) {
         return { name: ch.name, size: ch.size, plddtPerModel, lirCount, clirCount };
     });
 
-    // Canvas layout
+    // Draw on two separate canvases
     const HIRES = 2;
-    const containerWidth = canvas.parentElement.clientWidth || 900;
+    const containerWidth = plddtCanvas.parentElement?.clientWidth || 900;
     const marginLeft = 50;
     const marginRight = 15;
     const plotWidth = containerWidth - marginLeft - marginRight;
-    const plddtHeight = 60;
-    const countHeight = 60;
-    const subplotHeight = plddtHeight + countHeight;
-    const gap = 30;
-    const topMargin = 10;
-    const bottomMargin = 25;
-    const totalHeight = topMargin + subplotHeight + gap + subplotHeight + bottomMargin;
-
-    canvas.width = containerWidth * HIRES;
-    canvas.height = totalHeight * HIRES;
-    canvas.style.width = containerWidth + 'px';
-    canvas.style.height = totalHeight + 'px';
-
-    const ctx = canvas.getContext('2d');
-    ctx.scale(HIRES, HIRES);
-    ctx.clearRect(0, 0, containerWidth, totalHeight);
-
+    const plotH = 70;
+    const gap = 25;
+    const topM = 5;
+    const botM = 20;
     const colors = getColorsForPair(ci, cj);
     const chainColors = [colors.clir_a, colors.clir_b];
+    const hexToRgb = (hex) => { const h = hex.replace('#',''); return {r:parseInt(h.substring(0,2),16),g:parseInt(h.substring(2,4),16),b:parseInt(h.substring(4,6),16)}; };
 
-    for (let cIdx = 0; cIdx < 2; cIdx++) {
-        const cd = chainData[cIdx];
-        const yBase = topMargin + cIdx * (subplotHeight + gap);
-        const yPlddt0 = yBase + plddtHeight; // bottom of pLDDT area (= 0 line)
-        const yCount0 = yPlddt0; // top of count area (same line)
-        const xScale = plotWidth / cd.size;
-        const chainColor = chainColors[cIdx];
+    // Helper: draw one profile on a canvas
+    function drawProfile(canvas, chainDataArr, type) {
+        const totalH = topM + plotH + gap + plotH + botM;
+        canvas.width = containerWidth * HIRES;
+        canvas.height = totalH * HIRES;
+        canvas.style.width = containerWidth + 'px';
+        canvas.style.height = totalH + 'px';
+        const ctx = canvas.getContext('2d');
+        ctx.scale(HIRES, HIRES);
+        ctx.clearRect(0, 0, containerWidth, totalH);
 
-        // Parse chainColor to get RGB
-        const hexToRgb = (hex) => {
-            const h = hex.replace('#', '');
-            return { r: parseInt(h.substring(0, 2), 16), g: parseInt(h.substring(2, 4), 16), b: parseInt(h.substring(4, 6), 16) };
-        };
+        for (let cIdx = 0; cIdx < 2; cIdx++) {
+            const cd = chainDataArr[cIdx];
+            const yBase = topM + cIdx * (plotH + gap);
+            const y0 = yBase + plotH;
+            const xScale = plotWidth / cd.size;
+            const chainColor = chainColors[cIdx];
+            const rgb = hexToRgb(chainColor);
 
-        // --- Draw pLDDT reference lines ---
-        ctx.save();
-        ctx.setLineDash([4, 4]);
-        ctx.strokeStyle = '#ddd';
-        ctx.lineWidth = 0.5;
-        // pLDDT = 50
-        const y50 = yPlddt0 - (50 / 100) * plddtHeight;
-        ctx.beginPath(); ctx.moveTo(marginLeft, y50); ctx.lineTo(marginLeft + plotWidth, y50); ctx.stroke();
-        // pLDDT = 70
-        const y70 = yPlddt0 - (70 / 100) * plddtHeight;
-        ctx.beginPath(); ctx.moveTo(marginLeft, y70); ctx.lineTo(marginLeft + plotWidth, y70); ctx.stroke();
-        ctx.restore();
+            if (type === 'plddt') {
+                // Reference lines
+                ctx.save(); ctx.setLineDash([4,4]); ctx.strokeStyle='#ddd'; ctx.lineWidth=0.5;
+                const y50 = y0-(50/100)*plotH, y70 = y0-(70/100)*plotH;
+                ctx.beginPath(); ctx.moveTo(marginLeft,y50); ctx.lineTo(marginLeft+plotWidth,y50); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(marginLeft,y70); ctx.lineTo(marginLeft+plotWidth,y70); ctx.stroke();
+                ctx.restore();
 
-        // --- Draw pLDDT per model ---
-        for (let mi = 0; mi < nModels; mi++) {
-            const plddt = cd.plddtPerModel[mi];
-            ctx.beginPath();
-            let started = false;
-            for (let r = 0; r < cd.size; r++) {
-                if (plddt[r] === null) continue;
-                const x = marginLeft + (r + 0.5) * xScale;
-                const y = yPlddt0 - (plddt[r] / 100) * plddtHeight;
-                if (!started) { ctx.moveTo(x, y); started = true; }
-                else ctx.lineTo(x, y);
+                // pLDDT per model
+                for (let mi = 0; mi < nModels; mi++) {
+                    const plddt = cd.plddtPerModel[mi];
+                    ctx.beginPath(); let started = false;
+                    for (let r = 0; r < cd.size; r++) {
+                        if (plddt[r] === null) continue;
+                        const x = marginLeft+(r+0.5)*xScale, y = y0-(plddt[r]/100)*plotH;
+                        if (!started) { ctx.moveTo(x,y); started=true; } else ctx.lineTo(x,y);
+                    }
+                    if (started) {
+                        ctx.lineTo(marginLeft+(cd.size-0.5)*xScale, y0);
+                        let fv=0; for(let r=0;r<cd.size;r++){if(plddt[r]!==null){fv=r;break;}}
+                        ctx.lineTo(marginLeft+(fv+0.5)*xScale, y0); ctx.closePath();
+                        ctx.fillStyle='rgba(100,160,210,0.12)'; ctx.fill();
+                    }
+                    ctx.beginPath(); started=false;
+                    for (let r=0;r<cd.size;r++) {
+                        if(plddt[r]===null) continue;
+                        const x=marginLeft+(r+0.5)*xScale, y=y0-(plddt[r]/100)*plotH;
+                        if(!started){ctx.moveTo(x,y);started=true;} else ctx.lineTo(x,y);
+                    }
+                    ctx.strokeStyle='rgba(80,130,180,0.35)'; ctx.lineWidth=1; ctx.stroke();
+                }
+                // Labels
+                ctx.fillStyle='#bbb'; ctx.font='9px sans-serif'; ctx.textAlign='right';
+                ctx.fillText('100',marginLeft-3,yBase+10); ctx.fillText('70',marginLeft-3,y0-(70/100)*plotH+3);
+                ctx.fillText('50',marginLeft-3,y0-(50/100)*plotH+3); ctx.fillText('0',marginLeft-3,y0+3);
+            } else {
+                // LIR/cLIR bars
+                const maxCount = nModels;
+                const barW = Math.max(1, xScale);
+                for (let r = 0; r < cd.size; r++) {
+                    const x = marginLeft + r * xScale;
+                    if (cd.lirCount[r] > 0) {
+                        ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.3)`;
+                        ctx.fillRect(x, y0-(cd.lirCount[r]/maxCount)*plotH, barW, (cd.lirCount[r]/maxCount)*plotH);
+                    }
+                    if (cd.clirCount[r] > 0) {
+                        ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.75)`;
+                        ctx.fillRect(x, y0-(cd.clirCount[r]/maxCount)*plotH, barW, (cd.clirCount[r]/maxCount)*plotH);
+                    }
+                }
+                // Labels
+                ctx.fillStyle='#bbb'; ctx.font='9px sans-serif'; ctx.textAlign='right';
+                ctx.fillText(maxCount.toString(),marginLeft-3,yBase+10); ctx.fillText('0',marginLeft-3,y0+3);
             }
-            // Fill below the line
-            if (started) {
-                // close path along the baseline
-                ctx.lineTo(marginLeft + (cd.size - 0.5) * xScale, yPlddt0);
-                // find first valid residue
-                let firstValid = 0;
-                for (let r = 0; r < cd.size; r++) { if (plddt[r] !== null) { firstValid = r; break; } }
-                ctx.lineTo(marginLeft + (firstValid + 0.5) * xScale, yPlddt0);
-                ctx.closePath();
-                ctx.fillStyle = 'rgba(100,160,210,0.12)';
-                ctx.fill();
-            }
 
-            // Draw the line on top
-            ctx.beginPath();
-            started = false;
-            for (let r = 0; r < cd.size; r++) {
-                if (plddt[r] === null) continue;
-                const x = marginLeft + (r + 0.5) * xScale;
-                const y = yPlddt0 - (plddt[r] / 100) * plddtHeight;
-                if (!started) { ctx.moveTo(x, y); started = true; }
-                else ctx.lineTo(x, y);
-            }
-            ctx.strokeStyle = 'rgba(80,130,180,0.35)';
-            ctx.lineWidth = 1;
-            ctx.stroke();
+            // Baseline
+            ctx.strokeStyle='#ccc'; ctx.lineWidth=0.5;
+            ctx.beginPath(); ctx.moveTo(marginLeft,y0); ctx.lineTo(marginLeft+plotWidth,y0); ctx.stroke();
+
+            // Chain label
+            ctx.save(); ctx.fillStyle=chainColor; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
+            ctx.translate(12, yBase+plotH/2); ctx.rotate(-Math.PI/2);
+            ctx.fillText('Chain '+cd.name, 0, 0); ctx.restore();
+
+            // X-axis ticks
+            ctx.fillStyle='#999'; ctx.font='9px sans-serif'; ctx.textAlign='center';
+            const xY = y0+12;
+            ctx.fillText('1', marginLeft+0.5*xScale, xY);
+            ctx.fillText(Math.round(cd.size/2).toString(), marginLeft+(Math.round(cd.size/2)-0.5)*xScale, xY);
+            ctx.fillText(cd.size.toString(), marginLeft+(cd.size-0.5)*xScale, xY);
         }
-
-        // --- Draw pLDDT reference labels ---
-        ctx.fillStyle = '#bbb';
-        ctx.font = '9px -apple-system, sans-serif';
-        ctx.textAlign = 'right';
-        ctx.fillText('50', marginLeft - 3, y50 + 3);
-        ctx.fillText('70', marginLeft - 3, y70 + 3);
-        ctx.fillText('100', marginLeft - 3, yBase + 10);
-        ctx.fillText('0', marginLeft - 3, yPlddt0 + 3);
-
-        // --- Draw 0-line (baseline between pLDDT and counts) ---
-        ctx.strokeStyle = '#ccc';
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(marginLeft, yPlddt0); ctx.lineTo(marginLeft + plotWidth, yPlddt0); ctx.stroke();
-
-        // --- Draw LIR/cLIR count bars (downward) ---
-        const maxCount = nModels;
-        const barWidth = Math.max(1, xScale);
-        const rgb = hexToRgb(chainColor);
-
-        for (let r = 0; r < cd.size; r++) {
-            const x = marginLeft + r * xScale;
-
-            // LIR bar (lighter)
-            if (cd.lirCount[r] > 0) {
-                const barH = (cd.lirCount[r] / maxCount) * countHeight;
-                ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.3)`;
-                ctx.fillRect(x, yCount0, barWidth, barH);
-            }
-
-            // cLIR bar (darker, overlaid)
-            if (cd.clirCount[r] > 0) {
-                const barH = (cd.clirCount[r] / maxCount) * countHeight;
-                ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.75)`;
-                ctx.fillRect(x, yCount0, barWidth, barH);
-            }
-        }
-
-        // --- Count axis labels ---
-        ctx.fillStyle = '#bbb';
-        ctx.font = '9px -apple-system, sans-serif';
-        ctx.textAlign = 'right';
-        ctx.fillText(maxCount.toString(), marginLeft - 3, yCount0 + countHeight);
-
-        // --- Chain label ---
-        ctx.save();
-        ctx.fillStyle = chainColor;
-        ctx.font = 'bold 11px -apple-system, sans-serif';
-        ctx.textAlign = 'center';
-        const labelY = yBase + subplotHeight / 2;
-        ctx.translate(12, labelY);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillText('Chain ' + cd.name, 0, 0);
-        ctx.restore();
-
-        // --- pLDDT / Count side labels ---
-        ctx.save();
-        ctx.fillStyle = '#aaa';
-        ctx.font = '8px -apple-system, sans-serif';
-        ctx.textAlign = 'center';
-        const plddtLabelY = yBase + plddtHeight / 2;
-        ctx.translate(25, plddtLabelY);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillText('pLDDT', 0, 0);
-        ctx.restore();
-
-        ctx.save();
-        ctx.fillStyle = '#aaa';
-        ctx.font = '8px -apple-system, sans-serif';
-        ctx.textAlign = 'center';
-        const countLabelY = yCount0 + countHeight / 2;
-        ctx.translate(25, countLabelY);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillText('count', 0, 0);
-        ctx.restore();
-
-        // --- X-axis ticks ---
-        ctx.fillStyle = '#999';
-        ctx.font = '9px -apple-system, sans-serif';
-        ctx.textAlign = 'center';
-        const xAxisY = yCount0 + countHeight + 12;
-        // Start
-        ctx.fillText('1', marginLeft + 0.5 * xScale, xAxisY);
-        // Middle
-        const mid = Math.round(cd.size / 2);
-        ctx.fillText(mid.toString(), marginLeft + (mid - 0.5) * xScale, xAxisY);
-        // End
-        ctx.fillText(cd.size.toString(), marginLeft + (cd.size - 0.5) * xScale, xAxisY);
     }
 
-    // --- Legend ---
-    const legendY = totalHeight - 8;
-    ctx.font = '9px -apple-system, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillStyle = 'rgba(80,130,180,0.5)';
-    ctx.fillRect(marginLeft, legendY - 7, 20, 2);
-    ctx.fillStyle = '#999';
-    ctx.fillText('pLDDT', marginLeft + 24, legendY - 3);
-
-    const lx1 = marginLeft + 70;
-    ctx.fillStyle = `rgba(${120},${120},${120},0.3)`;
-    ctx.fillRect(lx1, legendY - 9, 8, 8);
-    ctx.fillStyle = '#999';
-    ctx.fillText('LIR', lx1 + 12, legendY - 3);
-
-    const lx2 = marginLeft + 110;
-    ctx.fillStyle = `rgba(${120},${120},${120},0.75)`;
-    ctx.fillRect(lx2, legendY - 9, 8, 8);
-    ctx.fillStyle = '#999';
-    ctx.fillText('cLIR', lx2 + 12, legendY - 3);
-
-    const lx3 = marginLeft + 155;
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = '#ddd';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath(); ctx.moveTo(lx3, legendY - 5); ctx.lineTo(lx3 + 20, legendY - 5); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#999';
-    ctx.fillText('pLDDT 50/70', lx3 + 24, legendY - 3);
+    if (plddtCanvas) drawProfile(plddtCanvas, chainData, 'plddt');
+    if (lirCanvas) drawProfile(lirCanvas, chainData, 'lir');
 }
 
 function buildSequenceViewer(pairKey) {
