@@ -452,7 +452,16 @@
                        onkeydown="if(event.key==='Enter')searchGene()">
                 <button class="btn btn-primary" onclick="searchGene()">Search</button>
             </div>
-            <div id="search-status" style="font-size:0.85rem; color:#666; min-height:1.2rem; margin-bottom:0.5rem;"></div>
+            <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.5rem; align-items:center;">
+                <span style="font-size:0.8rem; color:#888;">Examples:</span>
+                <button class="example-btn" onclick="document.getElementById('gene-search-input').value='Akt1';searchGene()">Akt1</button>
+                <button class="example-btn" onclick="document.getElementById('gene-search-input').value='foxo';searchGene()">foxo</button>
+                <button class="example-btn" onclick="document.getElementById('gene-search-input').value='Dl';searchGene()">Dl</button>
+                <button class="example-btn" onclick="document.getElementById('gene-search-input').value='dpp';searchGene()">dpp</button>
+                <button class="example-btn" onclick="document.getElementById('gene-search-input').value='Egfr';searchGene()">Egfr</button>
+                <button class="example-btn" onclick="document.getElementById('gene-search-input').value='wg';searchGene()">wg</button>
+            </div>
+            <div id="search-status" style="font-size:0.85rem; color:#666; min-height:1.2rem; margin-top:0.5rem; margin-bottom:0.5rem;"></div>
             <div id="search-results" style="display:none;"></div>
         </div>
 
