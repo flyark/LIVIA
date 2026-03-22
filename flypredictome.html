@@ -536,7 +536,7 @@
             <h2>Predicted Aligned Error (PAE) <span class="model-badge" id="pae-model-badge"></span></h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">PAE matrix showing prediction confidence between all residue pairs. Blue = low error (high confidence).</div>
             <div style="text-align:center;">
-                <img id="pae-img" style="max-width:500px; width:100%; border-radius:4px;" alt="PAE plot">
+                <img id="pae-img" style="width:100%; border-radius:4px;" alt="PAE plot">
             </div>
         </div>
 
@@ -1716,8 +1716,14 @@ async function queryMIST() {
         const data = resp ? JSON.parse(resp) : null;
         const allResults = data?.mist_data?.results || [];
 
-        // Filter to only interactions between this pair
-        const pairResults = allResults.filter(r => r.GeneA == id2 || r.GeneB == id2);
+        // Filter to only interactions between this pair, deduplicate by MasterNetID
+        const seen = new Set();
+        const pairResults = allResults.filter(r => {
+            if (r.GeneA != id2 && r.GeneB != id2) return false;
+            if (r.MasterNetID && seen.has(r.MasterNetID)) return false;
+            if (r.MasterNetID) seen.add(r.MasterNetID);
+            return true;
+        });
 
         // Group by type
         const byType = { ppi: [], genetic: [], interolog: [], 'interolog-genetic': [] };
