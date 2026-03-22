@@ -446,11 +446,16 @@
 
         <!-- Search by Gene panel -->
         <div id="search-panel">
-            <div class="url-row">
-                <input type="text" id="gene-search-input"
-                       placeholder="e.g., Akt1, foxo, sgg..."
-                       onkeydown="if(event.key==='Enter')searchGene()">
-                <button class="btn btn-primary" onclick="searchGene()">Search</button>
+            <div class="url-row" style="position:relative;">
+                <div style="position:relative; flex:1;">
+                    <input type="text" id="gene-search-input"
+                           placeholder="e.g., Akt1, foxo, Dl, sgg..."
+                           autocomplete="off"
+                           oninput="searchUniprotAc(this.value)"
+                           onkeydown="if(event.key==='Enter'){hideGeneAc();searchGene();}">
+                    <div id="gene-ac-list" class="ac-list" style="display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #ddd; border-radius:0 0 8px 8px; max-height:250px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
+                <button class="btn btn-primary" onclick="hideGeneAc();searchGene()">Search</button>
             </div>
             <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.5rem; align-items:center;">
                 <span style="font-size:0.8rem; color:#888;">Examples:</span>
@@ -721,6 +726,52 @@ function switchTab(tab) {
 }
 
 // ── Gene search ──
+let geneAcDebounce = null;
+function hideGeneAc() { document.getElementById('gene-ac-list').style.display = 'none'; }
+
+async function searchUniprotAc(query) {
+    clearTimeout(geneAcDebounce);
+    const list = document.getElementById('gene-ac-list');
+    if (query.length < 2) { list.style.display = 'none'; return; }
+    geneAcDebounce = setTimeout(async () => {
+        try {
+            const url = `https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent(query)}+AND+organism_id:7227&fields=accession,gene_names,protein_name,organism_name&size=8&format=json`;
+            const resp = await fetch(url);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const results = data.results || [];
+            list.innerHTML = '';
+            if (results.length === 0) { list.style.display = 'none'; return; }
+            for (const r of results) {
+                const acc = r.primaryAccession || '';
+                const gene = (r.genes || [{}])[0]?.geneName?.value || '';
+                const synonyms = (r.genes || [{}])[0]?.synonyms?.map(s => s.value).join(', ') || '';
+                const name = r.proteinDescription?.recommendedName?.fullName?.value
+                          || r.proteinDescription?.submissionNames?.[0]?.fullName?.value || '';
+                const item = document.createElement('div');
+                item.style.cssText = 'padding:0.5rem 0.8rem; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;';
+                item.innerHTML = '<strong style="color:#2471A3;">' + esc(gene) + '</strong>' +
+                    (synonyms ? ' <span style="color:#999; font-size:0.75rem;">(' + esc(synonyms) + ')</span>' : '') +
+                    '<br><span style="color:#555; font-size:0.78rem;">' + esc(name.substring(0, 60)) + '</span>' +
+                    ' <span style="color:#aaa; font-size:0.72rem;">' + esc(acc) + '</span>';
+                item.addEventListener('mouseenter', () => { item.style.background = '#eaf2f8'; });
+                item.addEventListener('mouseleave', () => { item.style.background = ''; });
+                item.addEventListener('click', () => {
+                    document.getElementById('gene-search-input').value = gene;
+                    list.style.display = 'none';
+                    searchGene();
+                });
+                list.appendChild(item);
+            }
+            list.style.display = '';
+        } catch (e) { /* silent */ }
+    }, 300);
+}
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('#search-panel')) hideGeneAc();
+});
+
 async function searchGene() {
     const query = document.getElementById('gene-search-input').value.trim();
     if (!query) return;
@@ -924,6 +975,10 @@ function displayPartnerTable(partners, querySymbol) {
             '<input type="checkbox" id="filter-mist" onchange="filterPartnerTable()"> ' +
             'Has experimental evidence (MIST)' +
         '</label>' +
+        '<label style="font-size:0.82rem; color:#555;">' +
+            '<input type="checkbox" id="filter-fulllength" onchange="filterPartnerTable()"> ' +
+            'Full-length only' +
+        '</label>' +
         '<span style="font-size:0.78rem; color:#999;" id="filter-count"></span>';
     container.appendChild(filterDiv);
 
@@ -969,6 +1024,7 @@ function filterPartnerTable() {
     const positiveOnly = document.getElementById('filter-positive')?.checked;
     const thresholdOnly = document.getElementById('filter-threshold')?.checked;
     const mistOnly = document.getElementById('filter-mist')?.checked;
+    const fullLengthOnly = document.getElementById('filter-fulllength')?.checked;
 
     tbody.innerHTML = '';
     let count = 0;
@@ -976,6 +1032,7 @@ function filterPartnerTable() {
     for (const p of partners) {
         if (positiveOnly && p.ilisBest <= 0) continue;
         if (thresholdOnly && p.ilisBest < 0.223) continue;
+        if (fullLengthOnly && (p.isPartnerPartial || p.isQueryPartial)) continue;
         if (mistOnly && p.mistPPI === 0 && p.mistGI === 0) continue;
 
         count++;
