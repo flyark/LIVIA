@@ -961,11 +961,17 @@ function filterPartnerTable() {
             '<td>' + (p.mistGI || '\u2014') + '</td>';
 
         if (p.detailUrl) {
-            tr.onclick = ((url) => () => {
-                document.getElementById('url-input').value = url;
-                switchTab('url');
-                generate();
-            })(p.detailUrl);
+            tr.addEventListener('click', ((url) => (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    // Ctrl/Cmd+click: open in new tab with URL pre-filled
+                    const pageUrl = window.location.pathname + '?url=' + encodeURIComponent(url);
+                    window.open(pageUrl, '_blank');
+                } else {
+                    document.getElementById('url-input').value = url;
+                    switchTab('url');
+                    generate();
+                }
+            })(p.detailUrl));
         }
 
         tbody.appendChild(tr);
@@ -2780,6 +2786,17 @@ function copyScript() {
         setTimeout(() => { btn.textContent = 'Copy to Clipboard'; }, 1500);
     });
 }
+
+// Auto-load from URL parameter (for Ctrl+click new tab support)
+(function() {
+    const params = new URLSearchParams(window.location.search);
+    const url = params.get('url');
+    if (url) {
+        switchTab('url');
+        document.getElementById('url-input').value = url;
+        setTimeout(() => generate(), 300);
+    }
+})();
 </script>
 
 </body>
