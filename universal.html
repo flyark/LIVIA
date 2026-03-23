@@ -20,7 +20,7 @@
 
         /* Layout */
         .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
-        .card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 1.5rem; overflow-x: auto; }
+        .card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 1.5rem; }
         .card label { font-weight: 600; font-size: 0.85rem; color: #555; display: block; margin-bottom: 0.4rem; }
         .step-num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #2471A3; color: white; font-weight: 700; font-size: 0.85rem; margin-right: 0.5rem; }
         .step-header { display: flex; align-items: center; margin-bottom: 0.8rem; font-weight: 600; font-size: 1rem; }
@@ -315,7 +315,7 @@
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B.
             </div>
-            <div style="overflow-x:auto;"><canvas id="contact-canvas"></canvas></div>
+            <canvas id="contact-canvas"></canvas>
         </div>
 
         <!-- Circular Contact Map (multi-chain) -->
@@ -2920,7 +2920,7 @@ function purplesColor(value, vmin, vmax) {
 }
 
 function calcMapDisplaySize() {
-    const containerW = 1100 - 96;
+    const card = document.querySelector("#pae-row")?.closest(".card") || document.querySelector(".container"); const containerW = (card ? card.clientWidth : 1100) - 64;
     const leftMargin = 20;
     const nMaps = uniState.modelData.length || 1;
     const gap = 6;
@@ -3585,7 +3585,7 @@ function buildContactMap(pairKey) {
 
     // Draw
     const S = 2;
-    const width = 900, height = 280;
+    const width = Math.min(900, (card.clientWidth || 900) - 32), height = 280;
     const barH = 14;
     const barY_A = 45, barY_B = height - 55;
     const barLeft = 60, barRight = width - 20;

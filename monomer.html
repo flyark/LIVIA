@@ -2801,9 +2801,11 @@ function drawPaeMap() {
     const container = document.getElementById('monomer-maps-flex');
     container.innerHTML = '';
 
-    // Each panel = ds + 48(left) + 16(right) + 3(gap) + 14(cbar) + 2(gap) + 18(ticks) = ds + 101
-    // 3*(ds+101) + 2*6 = 1052 → ds ≈ 246
-    const displaySize = 240;
+    // Dynamic: fit 3 panels in actual card width
+    const mapsCard = document.getElementById('monomer-maps-flex')?.closest('.card') || document.querySelector('.container');
+    const cardW = (mapsCard ? mapsCard.clientWidth : 1052) - 48;
+    const nPanels = 3, panelOverhead = 101, panelGap = 6;
+    const displaySize = Math.min(280, Math.floor((cardW - panelGap * (nPanels - 1)) / nPanels - panelOverhead));
 
     // PAE
     createMonomerMapPanel(container, 'PAE', monPae, bwrColor, 0, 30, ['30', '15', '0'], displaySize);

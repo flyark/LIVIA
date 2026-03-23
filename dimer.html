@@ -18,7 +18,7 @@
 
         /* Layout */
         .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
-        .card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 1.5rem; overflow-x: auto; }
+        .card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 1.5rem; }
         .card label { font-weight: 600; font-size: 0.85rem; color: #555; display: block; margin-bottom: 0.4rem; }
         .step-num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #2471A3; color: white; font-weight: 700; font-size: 0.85rem; margin-right: 0.5rem; }
         .step-header { display: flex; align-items: center; margin-bottom: 0.8rem; font-weight: 600; font-size: 1rem; flex-wrap: wrap; }
@@ -279,7 +279,7 @@
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B. UniProt domain annotations shown when available.
             </div>
-            <div style="overflow-x:auto;"><canvas id="contact-canvas"></canvas></div>
+            <canvas id="contact-canvas"></canvas>
             <div id="contact-domain-legend" style="margin-top:0.4rem; font-size:0.72rem; color:#666; display:flex; gap:0.8rem; flex-wrap:wrap;"></div>
         </div>
 
@@ -1020,7 +1020,7 @@ function buildDimerContactMap() {
     const S = 2;
     const hasDomains = (chainDomains.A.length > 0 || chainDomains.B.length > 0);
     const domainRowH = hasDomains ? 20 : 0;
-    const width = 900, height = 280 + domainRowH * 2;
+    const width = Math.min(900, (card.clientWidth || 900) - 32), height = 280 + domainRowH * 2;
     const barH = 14;
     const barY_A = 45 + domainRowH, barY_B = height - 55 - domainRowH;
     const barLeft = 60, barRight = width - 20;
@@ -2109,9 +2109,11 @@ function buildFullClisMap(pae, contact, nUse, nTotal, paeCutoff) {
 
 function drawAllMaps() {
     const v = dimerPairResult;
-    // Card inner width ~1052px. Each panel = canvas(ds+28) + 3 + 14 cbar + 2 + 18 labels ≈ ds+65
-    // 3 panels + 2 gaps(6px): 3*(ds+65) + 12 ≤ 1052 → ds ≤ 281
-    const displaySize = 240;
+    // Dynamic: fit 3 panels in actual card width
+    const mapsCard = document.getElementById('maps-flex')?.closest('.card') || document.querySelector('.container');
+    const cardW = (mapsCard ? mapsCard.clientWidth : 1052) - 48;
+    const nPanels = 3, panelOverhead = 65, panelGap = 6;
+    const displaySize = Math.min(280, Math.floor((cardW - panelGap * (nPanels - 1)) / nPanels - panelOverhead));
 
     const container = document.getElementById('maps-flex');
     container.innerHTML = '';

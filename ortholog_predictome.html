@@ -554,7 +554,7 @@
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Per-rank structures fetched automatically.
             </div>
-            <div style="overflow-x:auto;"><canvas id="connection-canvas"></canvas></div>
+            <canvas id="connection-canvas"></canvas>
             <div id="fly-domain-legend" style="margin-top:0.4rem; font-size:0.72rem; color:#666; display:flex; gap:0.8rem; flex-wrap:wrap;"></div>
         </div>
 
@@ -2369,7 +2369,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     const S = 2;
     const hasDomains = (flyDomains.A.length > 0 || flyDomains.B.length > 0);
     const domRowH = hasDomains ? 20 : 0;
-    const width = 900, height = 300 + domRowH * 2;
+    const width = Math.min(900, (card.clientWidth || 900) - 32), height = 300 + domRowH * 2;
     const barH = 14;
     const barY_A = 50 + domRowH, barY_B = height - 50 - domRowH;
     const barLeft = 60, barRight = width - 20;
