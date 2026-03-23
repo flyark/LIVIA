@@ -491,18 +491,9 @@ function switchScriptTab(mode) {
     const scriptEl = document.getElementById('script-preview');
     const dlScript = document.getElementById('dl-script');
     const extEl = document.getElementById('dl-script-ext');
-    if (scriptEl && monPairResults && monPairResults.length > 0 && monRegions) {
+    if (monPairResults && monPairResults.length > 0 && monRegions) {
         const vr = monRegions.filter(r => !isNaN(parseInt(r.start)) && !isNaN(parseInt(r.end)));
-        const isPymol = scriptMode === 'pymol';
-        const script = isPymol ? generatePmlMono(vr) : generateCxcScript(vr);
-        const ext = isPymol ? '.pml' : '.cxc';
-        scriptEl.innerHTML = highlightCxc(script);
-        if (dlScript) {
-            const blob = new Blob([script], { type: 'text/plain' });
-            dlScript.href = URL.createObjectURL(blob);
-            dlScript.download = 'monomer_subdomain' + ext;
-        }
-        if (extEl) extEl.textContent = ext;
+        if (vr.length >= 2) generateAndShowScript(vr);
     }
 }
 let monRegionCounter = 0;   // for naming regions
