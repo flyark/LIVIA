@@ -681,7 +681,7 @@
                     <div class="preset-chip" onclick="applyPreset('#90EE90','#90EE90','#DDA0DD','#DDA0DD',this)"><div class="preset-strip"><span style="background:#90EE90"></span><span style="background:#90EE90"></span><span style="background:#DDA0DD"></span><span style="background:#DDA0DD"></span></div>LightGreen / Plum</div>
                     <div class="preset-chip" onclick="applyPreset('#FFA07A','#FFA07A','#20B2AA','#20B2AA',this)"><div class="preset-strip"><span style="background:#FFA07A"></span><span style="background:#FFA07A"></span><span style="background:#20B2AA"></span><span style="background:#20B2AA"></span></div>Salmon / Teal</div>
                 </div>
-                <label style="margin-top:0.5rem">Presets &mdash; ChimeraX commands</label>
+                <label style="margin-top:0.5rem">Presets Presets &mdash; ChimeraX commandsmdash; coloring modes</label>
                 <div class="presets-row">
                     <div class="preset-chip" onclick="applyCxcPreset('plddt',this)"><div class="preset-strip"><span style="background:#0053D6"></span><span style="background:#65CBF3"></span><span style="background:#FFDB13"></span><span style="background:#FF7D45"></span></div>pLDDT</div>
                     <div class="preset-chip" onclick="applyCxcPreset('bychain',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#90EE90"></span><span style="background:#DDA0DD"></span></div>bychain</div>
@@ -1630,15 +1630,17 @@ function generatePml(row, pdbFilename, colors) {
         `hide everything, all`,
     ];
 
+    // Show only LIR regions
+    if (lirASpec) lines.push(`show cartoon, ${lirASpec}`);
+    if (lirBSpec) lines.push(`show cartoon, ${lirBSpec}`);
+
     if (cxcColorMode === 'plddt') {
-        lines.push('show cartoon, all');
         lines.push('spectrum b, red_yellow_green_cyan_blue, minimum=50, maximum=90');
     } else if (cxcColorMode === 'bychain' || cxcColorMode === 'bypolymer') {
-        lines.push('show cartoon, all');
         lines.push('util.cbc');
     } else {
-        if (lirASpec) { lines.push(`show cartoon, ${lirASpec}`); lines.push(`color lir_a, ${lirASpec}`); }
-        if (lirBSpec) { lines.push(`show cartoon, ${lirBSpec}`); lines.push(`color lir_b, ${lirBSpec}`); }
+        if (lirASpec) lines.push(`color lir_a, ${lirASpec}`);
+        if (lirBSpec) lines.push(`color lir_b, ${lirBSpec}`);
         if (clirASpec) lines.push(`color clir_a, ${clirASpec}`);
         if (clirBSpec) lines.push(`color clir_b, ${clirBSpec}`);
     }

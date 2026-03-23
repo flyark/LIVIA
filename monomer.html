@@ -410,7 +410,7 @@
                     <div class="presets-row" id="multiregion-presets-row"></div>
                 </div>
             </div>
-            <label style="margin-top:0.5rem">Presets &mdash; ChimeraX commands</label>
+            <label style="margin-top:0.5rem">Presets Presets &mdash; ChimeraX commandsmdash; coloring modes</label>
             <div class="presets-row">
                 <div class="preset-chip" onclick="applyCxcPreset('plddt',this)"><div class="preset-strip"><span style="background:#0053D6"></span><span style="background:#65CBF3"></span><span style="background:#FFDB13"></span><span style="background:#FF7D45"></span></div>pLDDT</div>
                 <div class="preset-chip" onclick="applyCxcPreset('bychain',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#90EE90"></span><span style="background:#DDA0DD"></span></div>bychain</div>
@@ -2536,11 +2536,19 @@ function generatePmlMono(validRegions) {
 
     if (monCxcColorMode === 'plddt') {
         lines.push('hide everything, all');
-        lines.push('show cartoon, all');
+        // Show only defined regions
+        for (let ri = 0; ri < validRegions.length; ri++) {
+            const r = validRegions[ri];
+            lines.push(`show cartoon, chain A and resi ${r.start}-${r.end}`);
+        }
         lines.push('spectrum b, red_yellow_green_cyan_blue, minimum=50, maximum=90');
     } else if (monCxcColorMode === 'bychain' || monCxcColorMode === 'bypolymer') {
         lines.push('hide everything, all');
-        lines.push('show cartoon, all');
+        // Show only defined regions
+        for (let ri = 0; ri < validRegions.length; ri++) {
+            const r = validRegions[ri];
+            lines.push(`show cartoon, chain A and resi ${r.start}-${r.end}`);
+        }
         lines.push('util.cbc');
     } else {
         // Define region colors
