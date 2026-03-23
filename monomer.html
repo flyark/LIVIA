@@ -657,9 +657,21 @@ function parseUniprotId(input) {
     // Handle full URL: https://alphafold.ebi.ac.uk/entry/P28482
     const urlMatch = input.match(/alphafold\.ebi\.ac\.uk\/entry\/([A-Za-z0-9_]+)/);
     if (urlMatch) return urlMatch[1].toUpperCase();
-    // Handle plain UniProt ID
+    // Handle plain UniProt ID (6-10 chars, starts with letter/number)
     const idMatch = input.match(/^([A-Za-z0-9_]+)$/);
     if (idMatch) return idMatch[1].toUpperCase();
+    return null;
+}
+
+// If user types a gene name instead of UniProt ID, try to resolve it
+async function resolveGeneToUniprot(query) {
+    try {
+        const url = `https://rest.uniprot.org/uniprotkb/search?query=gene:${encodeURIComponent(query)}+AND+reviewed:true&fields=accession&size=1&format=json`;
+        const resp = await fetch(url);
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        if (data.results && data.results.length > 0) return data.results[0].primaryAccession;
+    } catch {}
     return null;
 }
 
@@ -717,10 +729,25 @@ async function fetchData() {
         setStatus(`Fetching prediction for ${uniprotId}...`, 'loading');
 
         // Step 1: Get prediction metadata
-        const apiUrl = `https://alphafold.ebi.ac.uk/api/prediction/${uniprotId}`;
-        const metaResp = await fetch(apiUrl);
+        let apiUrl = `https://alphafold.ebi.ac.uk/api/prediction/${uniprotId}`;
+        let metaResp = await fetch(apiUrl);
+
+        // If not found, try resolving as gene name
+        if (metaResp.status === 404) {
+            setStatus(`"${uniprotId}" not found directly, searching UniProt...`, 'loading');
+            const resolved = await resolveGeneToUniprot(uniprotId);
+            if (resolved) {
+                document.getElementById('uniprot-input').value = resolved;
+                uniprotId = resolved;
+                monUniprotId = resolved;
+                setStatus(`Resolved to ${resolved}. Fetching prediction...`, 'loading');
+                apiUrl = `https://alphafold.ebi.ac.uk/api/prediction/${resolved}`;
+                metaResp = await fetch(apiUrl);
+            }
+        }
+
         if (!metaResp.ok) {
-            if (metaResp.status === 404) throw new Error(`UniProt ID "${uniprotId}" not found in AlphaFold DB.`);
+            if (metaResp.status === 404) throw new Error(`"${uniprotId}" not found in AlphaFold DB. Try a UniProt ID (e.g., P12931).`);
             throw new Error(`API error: ${metaResp.status} ${metaResp.statusText}`);
         }
         const meta = await metaResp.json();
