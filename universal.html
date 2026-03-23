@@ -2319,6 +2319,7 @@ function selectRow(pairKey, modelIdx, trEl) {
     const badgeText = modelIdx === 'avg' ? 'Average' : (uniState.modelData[parseInt(modelIdx)]?.label || 'model_' + modelIdx);
     document.querySelectorAll('.model-badge').forEach(el => { el.textContent = badgeText; });
 
+    drawScoreMatrix(modelIdx);
     selectPair(pairKey);
 }
 
@@ -2970,11 +2971,27 @@ function drawScoreMatrix(modelIdx) {
         return;
     }
 
-    const idx = modelIdx === 'avg' ? 0 : (parseInt(modelIdx) || 0);
-    const md = uniState.modelData[idx];
-    if (!md || !md.ilisGrid) { if (card) card.style.display = 'none'; return; }
-
+    let ilisG, iliaG;
     const nc = uniState.chainNames.length;
+    if (modelIdx === 'avg' && uniState.modelData.length > 1) {
+        // Average across all models
+        ilisG = Array.from({ length: nc }, () => Array(nc).fill(0));
+        iliaG = Array.from({ length: nc }, () => Array(nc).fill(0));
+        const n = uniState.modelData.length;
+        for (const md of uniState.modelData) {
+            for (let i = 0; i < nc; i++) for (let j = 0; j < nc; j++) {
+                ilisG[i][j] += (md.ilisGrid?.[i]?.[j] || 0) / n;
+                iliaG[i][j] += (md.iliaGrid?.[i]?.[j] || 0) / n;
+            }
+        }
+    } else {
+        const idx = parseInt(modelIdx) || 0;
+        const md = uniState.modelData[idx];
+        if (!md || !md.ilisGrid) { if (card) card.style.display = 'none'; return; }
+        ilisG = md.ilisGrid;
+        iliaG = md.iliaGrid || Array.from({ length: nc }, () => Array(nc).fill(0));
+    }
+
     if (nc < 2) { if (card) card.style.display = 'none'; return; }
 
     card.style.display = '';
@@ -2994,9 +3011,6 @@ function drawScoreMatrix(modelIdx) {
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const ilisG = md.ilisGrid;
-    const iliaG = md.iliaGrid || Array.from({ length: nc }, () => Array(nc).fill(0));
 
     // Find max iLIA for scaling
     let maxIlia = 1;
@@ -3280,18 +3294,36 @@ function downloadCSV() {
     if (!uniState.modelPairs || !uniState.avgResults || !uniState.chainNames) return;
     const jobName = document.getElementById('result-title')?.textContent || 'prediction';
     const cs = uniState.confidenceScores || {};
-    const header = 'name,model,protein_A,protein_B,chain_A,chain_B,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
+    // Compute per-chain pLDDT from B-factors of first model structure
+    const chainPlddt = {};
+    const firstStructKey = Object.keys(uniState.structureContents || {})[0];
+    if (firstStructKey && uniState.structureContents[firstStructKey]) {
+        const bfs = parseBfactorsPerResidue(uniState.structureContents[firstStructKey], uniState.structureFormat);
+        for (const [key, val] of bfs) {
+            const chain = key.split(':')[0];
+            if (!chainPlddt[chain]) chainPlddt[chain] = [];
+            chainPlddt[chain].push(val);
+        }
+        for (const c of Object.keys(chainPlddt)) {
+            const arr = chainPlddt[c];
+            chainPlddt[c] = arr.reduce((a, b) => a + b, 0) / arr.length;
+        }
+    }
+    const header = 'name,model,chain_i,chain_j,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,ipTM,pLDDT_i,pLDDT_j,pTM,LIR_i,LIR_j,cLIR_i,cLIR_j,len_i,len_j,LIR_indices_i,LIR_indices_j,cLIR_indices_i,cLIR_indices_j';
     const rows = [header];
     const platform = platformLabel(uniState.platform);
 
     for (let mi = 0; mi < uniState.modelPairs.length; mi++) {
         const sym = symmetrizePairs(uniState.modelPairs[mi]);
         for (const [key, v] of Object.entries(sym)) {
+            const plddtI = chainPlddt[v.ci] != null ? chainPlddt[v.ci].toFixed(1) : '';
+            const plddtJ = chainPlddt[v.cj] != null ? chainPlddt[v.cj].toFixed(1) : '';
             rows.push([
-                jobName, `model_${mi}`, v.ci, v.cj, v.ci, v.cj,
+                jobName, `model_${mi}`, v.ci, v.cj,
                 v.iLIS.toFixed(6), (v.iLIA||0).toFixed(1), (v.iLISA||0).toFixed(1), (v.ipSAE||0).toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
                 v.ipTM.toFixed(6),
-                cs.pLDDT != null ? cs.pLDDT.toFixed(1) : '', cs.pTM != null ? cs.pTM.toFixed(3) : '',
+                plddtI, plddtJ,
+                cs.pTM != null ? cs.pTM.toFixed(3) : '',
                 v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
                 v.lenI, v.lenJ,
                 `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
@@ -3303,11 +3335,14 @@ function downloadCSV() {
     }
     if (uniState.modelPairs.length > 1) {
         for (const [key, v] of Object.entries(uniState.avgResults)) {
+            const plddtI = chainPlddt[v.ci] != null ? chainPlddt[v.ci].toFixed(1) : '';
+            const plddtJ = chainPlddt[v.cj] != null ? chainPlddt[v.cj].toFixed(1) : '';
             rows.push([
-                jobName, 'average', v.ci, v.cj, v.ci, v.cj,
+                jobName, 'average', v.ci, v.cj,
                 v.iLIS.toFixed(6), (v.iLIA||0).toFixed(1), (v.iLISA||0).toFixed(1), (v.ipSAE||0).toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
                 v.ipTM.toFixed(6),
-                cs.pLDDT != null ? cs.pLDDT.toFixed(1) : '', cs.pTM != null ? cs.pTM.toFixed(3) : '',
+                plddtI, plddtJ,
+                cs.pTM != null ? cs.pTM.toFixed(3) : '',
                 v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
                 v.lenI, v.lenJ,
                 `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
