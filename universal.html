@@ -2973,6 +2973,7 @@ function drawAllScoreMatrices() {
 
     card.style.display = '';
     row.innerHTML = '';
+    const displaySize = calcMapDisplaySize();
 
     // Find global max iLIA across all models for consistent scaling
     let globalMaxIlia = 1;
@@ -2994,24 +2995,25 @@ function drawAllScoreMatrices() {
         title.textContent = md.label || ('model_' + mi);
         wrap.appendChild(title);
         const canvas = document.createElement('canvas');
-        drawOneScoreMatrix(canvas, md.ilisGrid, md.iliaGrid || Array.from({length:nc},()=>Array(nc).fill(0)), nc, globalMaxIlia);
+        drawOneScoreMatrix(canvas, md.ilisGrid, md.iliaGrid || Array.from({length:nc},()=>Array(nc).fill(0)), nc, globalMaxIlia, displaySize);
         wrap.appendChild(canvas);
         row.appendChild(wrap);
     }
 }
 
-function drawOneScoreMatrix(canvas, ilisG, iliaG, nc, maxIlia) {
+function drawOneScoreMatrix(canvas, ilisG, iliaG, nc, maxIlia, displaySize) {
     const S = 2;
-    const cellSize = Math.min(45, Math.floor(360 / nc));
-    const leftMargin = 30;
+    const leftMargin = 20;
     const bottomMargin = 18;
+    const totalW = displaySize + leftMargin;
+    const cellSize = Math.floor(displaySize / nc);
     const gridPx = cellSize * nc * S;
     const leftPx = leftMargin * S;
     const cPx = cellSize * S;
 
     canvas.width = gridPx + leftPx;
     canvas.height = gridPx + bottomMargin * S;
-    canvas.style.width = (cellSize * nc + leftMargin) + 'px';
+    canvas.style.width = totalW + 'px';
     canvas.style.height = (cellSize * nc + bottomMargin) + 'px';
 
     const ctx = canvas.getContext('2d');
