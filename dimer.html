@@ -190,8 +190,6 @@
             <a href="dimer.html">AFDB Dimer</a>
             <a href="monomer.html">AFDB Monomer Subdomain <span style="font-size:0.6rem;color:#e67e22;font-weight:600;">α</span></a>
             <a href="guide.html">Guide</a>
-        
-        
         </div>
     </div>
 </div>
@@ -838,11 +836,11 @@ async function selectDimer(idx, trEl) {
 
         // Fetch UniProt domain annotations and gene symbols per chain
         const uniprotIds = entry.uniprotAccession || [];
-        console.log('Dimer UniProt IDs:', uniprotIds, 'Entry keys:', Object.keys(entry));
+        
         chainDomains = { A: [], B: [] };
         const domainPromises = [];
-        if (uniprotIds[0]) domainPromises.push(fetchDomains(uniprotIds[0]).then(d => { chainDomains.A = d; console.log('Chain A domains:', d); }));
-        if (uniprotIds[1]) domainPromises.push(fetchDomains(uniprotIds[1]).then(d => { chainDomains.B = d; console.log('Chain B domains:', d); }));
+        if (uniprotIds[0]) domainPromises.push(fetchDomains(uniprotIds[0]).then(d => { chainDomains.A = d;}));
+        if (uniprotIds[1]) domainPromises.push(fetchDomains(uniprotIds[1]).then(d => { chainDomains.B = d;}));
         else if (uniprotIds[0]) domainPromises.push(fetchDomains(uniprotIds[0]).then(d => { chainDomains.B = d; })); // homodimer
 
         // Fetch gene symbols from UniProt if not provided by AlphaFold DB
@@ -865,7 +863,7 @@ async function selectDimer(idx, trEl) {
             }));
         }
         await Promise.allSettled(domainPromises);
-        console.log('Final chainDomains:', chainDomains);
+
 
         setStatus('Analyzing...', 'loading');
         await new Promise(r => setTimeout(r, 10));

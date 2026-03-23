@@ -8,7 +8,7 @@
         html { scrollbar-gutter: stable; } * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; min-height: 100vh; display: flex; flex-direction: column; }
         .header { background: white; color: #1a5276; padding: 0.8rem 2rem 0.8rem; border-bottom: 1px solid #e8e8e8; }
-        .header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.15rem; color: #333; letter-spacing: -0.02em; }
+        .header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.15rem; color: #1a5276; letter-spacing: -0.02em; }
         .header h1 .livia { color: #2471A3; font-weight: 700; }
         .header h1 .acro { color: #2471A3; }
         .header .subtitle { font-size: 0.92rem; color: #888; margin-bottom: 0.8rem; font-weight: 400; }
@@ -98,11 +98,11 @@
             <p>Search <em>Drosophila</em> protein interactions from FlyPredictome predictions.</p>
             <div class="examples">e.g., Akt1&ndash;foxo, Dl&ndash;N, Dsh&ndash;Axn</div>
         </a>
-        <div class="small-card" onclick="window.location='ortholog_predictome.html'">
+        <a class="small-card" href="ortholog_predictome.html">
             <h3>Ortholog Interactome</h3>
-            <p>Search human kinase&ndash;TF interactions from ortholog predictions (<a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank" onclick="event.stopPropagation()" style="color:#2471A3;">Kim et al. 2025</a>).</p>
+            <p>Search human kinase&ndash;TF interactions from ortholog predictions (Kim et al. 2025).</p>
             <div class="examples">e.g., TP53, CDK2, AKT1, BRAF</div>
-        </div>
+        </a>
         <a class="small-card" href="dimer.html">
             <h3>AFDB Dimer</h3>
             <p>Fetch dimer predictions from the AlphaFold Protein Structure Database.</p>
