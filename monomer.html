@@ -81,7 +81,7 @@
         .data-table th { text-align: left; padding: 0.5rem 0.8rem; background: #f8f9fa; font-weight: 600; font-size: 0.8rem; color: #666; }
         .data-table td { padding: 0.5rem 0.8rem; border-top: 1px solid #eee; }
         .data-table tr.selected { background: #faf8f4; box-shadow: inset 4px 0 0 #c4a35a; }
-        .script-preview { background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 1rem; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; line-height: 1.5; max-height: 400px; overflow-y: auto; white-space: pre; margin-bottom: 1rem; }
+        .script-preview { background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 1rem; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; line-height: 1.5; max-height: 200px; overflow-y: auto; white-space: pre; margin-bottom: 1rem; }
         .script-preview .comment { color: #6c7086; }
         .script-preview .command { color: #89b4fa; }
         .script-preview .color-val { color: #f9e2af; }
@@ -290,20 +290,6 @@
             </div>
         </div>
 
-        <!-- 3D Structure Viewer -->
-        <div class="card result-card" id="viewer3d-card" style="display:none;">
-            <h2>3D Structure Viewer</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                Interactive 3D preview powered by <a href="https://molstar.org" target="_blank" style="color:#2471A3;">Mol*</a> (<a href="https://doi.org/10.1093/nar/gkab314" target="_blank" style="color:#2471A3;">Sehnal et al. 2021</a>). LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom.
-            </div>
-            <iframe id="viewer3d-frame" style="width:100%; height:660px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin" allowfullscreen></iframe>
-            <div style="text-align:right; margin-top:0.3rem;">
-                <button onclick="document.getElementById('viewer3d-frame').requestFullscreen()" style="padding:0.25rem 0.6rem; border:1px solid #ddd; border-radius:4px; background:#f8f9fa; cursor:pointer; font-size:0.78rem; color:#555;">Fullscreen</button>
-            </div>
-            <div style="text-align:center; margin-top:0.3rem;">
-            </div>
-        </div>
-
         <!-- Sequence Viewer -->
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
             <h2>Sequence Viewer</h2>
@@ -336,6 +322,18 @@
             </div>
             <div style="margin-top:0.5rem;">
                 <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem; cursor:pointer;" onclick="downloadCSV()">&#8595; Download CSV</a>
+            </div>
+        </div>
+
+        <!-- 3D Structure Viewer -->
+        <div class="card result-card" id="viewer3d-card" style="display:none;">
+            <h2>3D Structure Viewer</h2>
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+                Interactive 3D preview powered by <a href="https://molstar.org" target="_blank" style="color:#2471A3;">Mol*</a> (<a href="https://doi.org/10.1093/nar/gkab314" target="_blank" style="color:#2471A3;">Sehnal et al. 2021</a>). LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom.
+            </div>
+            <iframe id="viewer3d-frame" style="width:100%; height:660px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin" allowfullscreen></iframe>
+            <div style="text-align:right; margin-top:0.3rem;">
+                <button onclick="document.getElementById('viewer3d-frame').requestFullscreen()" style="padding:0.25rem 0.6rem; border:1px solid #ddd; border-radius:4px; background:#f8f9fa; cursor:pointer; font-size:0.78rem; color:#555;">Fullscreen</button>
             </div>
         </div>
 
