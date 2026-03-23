@@ -16,15 +16,49 @@
         .header-links a { color: #555; text-decoration: none; font-size: 0.82rem; padding: 0.3rem 0.7rem; border: 1px solid #ddd; border-radius: 6px; transition: all 0.2s; background: #f8f9fa; }
         .header-links a:hover { background: #2471A3; color: white; border-color: #2471A3; }
         .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
-        .tool-card { background: white; border-radius: 12px; padding: 1.2rem 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 1rem; display: flex; gap: 1.2rem; align-items: center; text-decoration: none; color: #333; transition: all 0.2s; border: 2px solid transparent; width: 100%; cursor: pointer; }
-        .tool-card:hover { border-color: #2471A3; box-shadow: 0 4px 16px rgba(36,113,163,0.15); }
 
-        .tool-info h2 { font-size: 1.1rem; color: #1a5276; margin-bottom: 0.2rem; }
-        .tool-info p { font-size: 0.85rem; color: #666; line-height: 1.4; }
-        .links { text-align: center; margin: 1rem 0; }
-        .links a { color: #2471A3; text-decoration: none; font-size: 0.9rem; margin: 0 0.8rem; }
+        /* Hero card */
+        .hero-card { background: white; border-radius: 14px; padding: 2rem 2.5rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 2rem; border: 2px solid transparent; transition: all 0.2s; text-decoration: none; color: #333; display: block; }
+        .hero-card:hover { border-color: #2471A3; box-shadow: 0 6px 24px rgba(36,113,163,0.15); }
+        .hero-card h2 { font-size: 1.5rem; color: #1a5276; margin-bottom: 0.4rem; }
+        .hero-card p { font-size: 0.92rem; color: #555; line-height: 1.5; }
+        .hero-cta { display: inline-block; margin-top: 1rem; padding: 0.5rem 1.2rem; background: #2471A3; color: white; border-radius: 8px; font-weight: 600; font-size: 0.9rem; text-decoration: none; transition: background 0.2s; }
+        .hero-cta:hover { background: #1a5276; }
+        .hero-hint { font-size: 0.8rem; color: #888; margin-top: 0.6rem; }
+
+        /* Section divider */
+        .section-divider { font-size: 0.88rem; font-weight: 600; color: #888; margin-bottom: 1rem; padding-bottom: 0.4rem; border-bottom: 1px solid #e0e0e0; }
+
+        /* Small cards grid */
+        .cards-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+        .small-card { background: white; border-radius: 10px; padding: 1rem 1.2rem; box-shadow: 0 1px 4px rgba(0,0,0,0.06); text-decoration: none; color: #333; transition: all 0.2s; border: 2px solid transparent; cursor: pointer; display: block; }
+        .small-card:hover { border-color: #2471A3; box-shadow: 0 4px 12px rgba(36,113,163,0.12); }
+        .small-card h3 { font-size: 0.95rem; color: #1a5276; margin-bottom: 0.25rem; }
+        .small-card p { font-size: 0.8rem; color: #666; line-height: 1.4; }
+        .small-card .examples { font-size: 0.72rem; color: #999; margin-top: 0.3rem; }
+
+        /* Bottom links */
+        .bottom-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+        .bottom-link { flex: 1; background: #f8f9fa; border-radius: 8px; padding: 0.8rem 1rem; text-decoration: none; color: #555; transition: all 0.2s; border: 1px solid #e8e8e8; display: block; }
+        .bottom-link:hover { border-color: #2471A3; color: #2471A3; }
+        .bottom-link h4 { font-size: 0.88rem; color: #1a5276; margin-bottom: 0.15rem; }
+        .bottom-link p { font-size: 0.78rem; color: #888; }
+
+        .links { text-align: center; margin: 0.5rem 0 1rem; }
+        .links a { color: #2471A3; text-decoration: none; font-size: 0.85rem; margin: 0 0.6rem; }
         .links a:hover { text-decoration: underline; }
-        .footer { text-align: center; padding: 2rem; font-size: 0.8rem; color: #999; }
+        .footer { text-align: center; padding: 1.5rem 2rem; font-size: 0.8rem; color: #999; }
+        .footer a { color: #2471A3; text-decoration: none; }
+
+        @media (max-width: 1024px) {
+            .cards-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 600px) {
+            .cards-grid { grid-template-columns: 1fr; }
+            .hero-card { padding: 1.5rem; }
+            .hero-card h2 { font-size: 1.2rem; }
+            .bottom-row { flex-direction: column; }
+        }
     </style>
 </head>
 <body>
@@ -43,60 +77,63 @@
         </div>
     </div>
 </div>
+
 <div class="container">
-    <a class="tool-card" href="universal.html">
-        <div class="tool-info">
-            <h2>Prediction Analysis</h2>
-            <p>Upload prediction files from AlphaFold3, ColabFold, Boltz, Chai-1, or OpenFold. Calculate iLIS metrics and view PAE/LIS/cLIS maps.</p>
-            <p style="font-size:0.78rem; color:#999; margin-top:0.2rem;">e.g., Upload ColabFold .zip or AlphaFold3 output</p>
-        </div>
+
+    <!-- Hero: Prediction Analysis -->
+    <a class="hero-card" href="universal.html">
+        <h2>Prediction Analysis</h2>
+        <p>Upload prediction files from AlphaFold3, ColabFold, Boltz, Chai-1, or OpenFold. Calculate interface confidence metrics (iLIS, LIS, cLIS), view interactive PAE/LIS/cLIS maps, and generate visualization scripts.</p>
+        <span class="hero-cta">Launch Prediction Analysis &rarr;</span>
+        <div class="hero-hint">Supports any major structure prediction platform &mdash; no installation needed.</div>
     </a>
-    <a class="tool-card" href="flypredictome.html">
-        <div class="tool-info">
-            <h2>FlyPredictome</h2>
-            <p>Search <em>Drosophila</em> protein interactions from FlyPredictome. Calculate iLIS metrics and view contact maps.</p>
-            <p style="font-size:0.78rem; color:#999; margin-top:0.2rem;">e.g., Akt1&ndash;foxo, Dl&ndash;N, Dsh&ndash;Axn</p>
+
+    <!-- Section divider -->
+    <div class="section-divider">Browse Precomputed Interactomes</div>
+
+    <!-- Four small cards -->
+    <div class="cards-grid">
+        <a class="small-card" href="flypredictome.html">
+            <h3>FlyPredictome</h3>
+            <p>Search <em>Drosophila</em> protein interactions from FlyPredictome predictions.</p>
+            <div class="examples">e.g., Akt1&ndash;foxo, Dl&ndash;N, Dsh&ndash;Axn</div>
+        </a>
+        <div class="small-card" onclick="window.location='ortholog_predictome.html'">
+            <h3>Ortholog Interactome</h3>
+            <p>Search human kinase&ndash;transcription factor interactions from ortholog predictions (<a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank" onclick="event.stopPropagation()" style="color:#2471A3;">Kim et al. 2025</a>).</p>
+            <div class="examples">e.g., TP53, CDK2, AKT1, BRAF</div>
         </div>
-    </a>
-    <div class="tool-card" onclick="window.location='ortholog_predictome.html'">
-        <div class="tool-info">
-            <h2>Ortholog Interactome</h2>
-            <p>Search human kinase-transcription factor interactions from FlyPredictome ortholog predictions (<a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank" onclick="event.stopPropagation()" style="color:#2471A3;">Kim et al. 2025</a>).</p>
-            <p style="font-size:0.78rem; color:#999; margin-top:0.2rem;">e.g., TP53, CDK2, AKT1, BRAF, EGFR</p>
-        </div>
+        <a class="small-card" href="dimer.html">
+            <h3>AFDB Dimer</h3>
+            <p>Fetch dimer predictions from the AlphaFold Protein Structure Database.</p>
+            <div class="examples">e.g., Fiber protein 2, pp71</div>
+        </a>
+        <a class="small-card" href="monomer.html">
+            <h3>AFDB Monomer Subdomain <span style="font-size:0.55rem; background:#e67e22; color:white; padding:0.1rem 0.3rem; border-radius:3px; vertical-align:middle; font-weight:600;">alpha</span></h3>
+            <p>Analyze intramolecular domain interactions in AlphaFold monomer predictions.</p>
+            <div class="examples">e.g., Haspin (Q8TF76), SCN9A (Q15858)</div>
+        </a>
     </div>
-    <a class="tool-card" href="dimer.html">
-        <div class="tool-info">
-            <h2>AlphaFold DB Dimer</h2>
-            <p>Search AlphaFold Protein Structure Database for dimer predictions by UniProt ID. Calculate iLIS between chains and generate ChimeraX scripts.</p>
-            <p style="font-size:0.78rem; color:#999; margin-top:0.2rem;">e.g., Fiber protein 2, pp71</p>
-        </div>
-    </a>
-    <a class="tool-card" href="monomer.html">
-        <div class="tool-info">
-            <h2>AlphaFold DB Monomer Subdomain <span style="font-size:0.6rem; background:#e67e22; color:white; padding:0.1rem 0.4rem; border-radius:3px; vertical-align:middle; font-weight:600;">alpha</span></h2>
-            <p>Fetch monomer predictions from AlphaFold DB. Auto-detect domains and calculate intramolecular iLIS between domains.</p>
-            <p style="font-size:0.78rem; color:#999; margin-top:0.2rem;">e.g., Q8TF76 (Haspin), Q15858 (SCN9A)</p>
-        </div>
-    </a>
-    <a class="tool-card" href="guide.html">
-        <div class="tool-info">
-            <h2>Guide</h2>
-            <p>Step-by-step instructions, metric definitions, and color scheme references.</p>
-        </div>
-    </a>
-    <a class="tool-card" href="https://github.com/flyark/LIVIA" target="_blank" style="background:#f8f9fa;">
-        <div class="tool-info">
-            <h2>GitHub</h2>
+
+    <!-- Guide + GitHub -->
+    <div class="bottom-row">
+        <a class="bottom-link" href="guide.html">
+            <h4>Guide</h4>
+            <p>Step-by-step instructions, metric definitions, and references.</p>
+        </a>
+        <a class="bottom-link" href="https://github.com/flyark/LIVIA" target="_blank">
+            <h4>GitHub</h4>
             <p>Source code, documentation, and issue tracker.</p>
-        </div>
-    </a>
+        </a>
+    </div>
+
     <div class="links">
         <a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS</a>
         <a href="https://www.biorxiv.org/content/10.1101/2024.02.19.580970" target="_blank">Kim et al. 2024</a>
         <a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank">Kim et al. 2025</a>
     </div>
 </div>
+
 <div style="max-width:1100px; margin:0 auto; padding:0 1.5rem 1rem;">
     <div style="background:#f8f9fa; border-radius:8px; padding:0.8rem 1.2rem; font-size:0.78rem; color:#888; line-height:1.6;">
         <strong style="color:#555;">Browser:</strong> Tested on Chrome and Safari (macOS/iOS). All analysis runs locally in your browser &mdash; no data leaves your device.
