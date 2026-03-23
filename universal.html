@@ -757,24 +757,27 @@ async function handleInputFiles(fileList) {
     const isFolder = files[0]?.webkitRelativePath?.includes('/');
     const folderName = isFolder ? files[0].webkitRelativePath.split('/')[0] : null;
 
-    // Check if single zip
-    if (files.length === 1 && files[0].name.endsWith('.zip')) {
-        setStatus('Reading zip file...', 'loading');
-        const zip = await JSZip.loadAsync(files[0]);
-        uniState.loadedZip = zip;
-        // Read all files from zip into loadedFiles
-        for (const [path, entry] of Object.entries(zip.files)) {
-            if (entry.dir || path.startsWith('__MACOSX') || path.includes('/__MACOSX/')) continue;
-            const fname = path.split('/').pop();
-            if (!fname) continue;
-            if (fname.endsWith('.cif') || fname.endsWith('.pdb') || fname.endsWith('.json')) {
-                uniState.loadedFiles[path] = await entry.async('string');
-            } else if (fname.endsWith('.npz') || fname.endsWith('.npy')) {
-                uniState.loadedFiles[path] = await entry.async('arraybuffer');
+    // Check if all files are zips (single zip or folder of zips)
+    const zipFiles = files.filter(f => f.name.endsWith('.zip'));
+    const nonZipFiles = files.filter(f => !f.name.endsWith('.zip') && !f.name.endsWith('.md'));
+    if (zipFiles.length > 0 && nonZipFiles.length === 0) {
+        setStatus(`Reading ${zipFiles.length} zip file(s)...`, 'loading');
+        for (const zipFile of zipFiles) {
+            const zip = await JSZip.loadAsync(await zipFile.arrayBuffer());
+            if (!uniState.loadedZip) uniState.loadedZip = zip;
+            for (const [path, entry] of Object.entries(zip.files)) {
+                if (entry.dir || path.startsWith('__MACOSX') || path.includes('/__MACOSX/')) continue;
+                const fname = path.split('/').pop();
+                if (!fname) continue;
+                if (fname.endsWith('.cif') || fname.endsWith('.pdb') || fname.endsWith('.json')) {
+                    uniState.loadedFiles[path] = await entry.async('string');
+                } else if (fname.endsWith('.npz') || fname.endsWith('.npy')) {
+                    uniState.loadedFiles[path] = await entry.async('arraybuffer');
+                }
             }
         }
         dropZone.classList.add('has-file');
-        document.getElementById('file-name').textContent = files[0].name;
+        document.getElementById('file-name').textContent = zipFiles.length === 1 ? zipFiles[0].name : `${zipFiles.length} zip files`;
     } else {
         // Individual files or folder
         setStatus('Reading files...', 'loading');
