@@ -20,7 +20,7 @@
 
         /* Layout */
         .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
-        .card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 1.5rem; }
+        .card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 1.5rem; overflow-x: auto; }
         .card label { font-weight: 600; font-size: 0.85rem; color: #555; display: block; margin-bottom: 0.4rem; }
         .step-num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #2471A3; color: white; font-weight: 700; font-size: 0.85rem; margin-right: 0.5rem; }
         .step-header { display: flex; align-items: center; margin-bottom: 0.8rem; font-weight: 600; font-size: 1rem; }
@@ -315,7 +315,7 @@
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B.
             </div>
-            <div style="overflow-x:auto;"><canvas id="contact-canvas" style="max-width:100%;"></canvas></div>
+            <div style="overflow-x:auto;"><canvas id="contact-canvas"></canvas></div>
         </div>
 
         <!-- Circular Contact Map (multi-chain) -->
