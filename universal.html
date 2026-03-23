@@ -747,17 +747,119 @@ dropZone.addEventListener('drop', async e => {
 fileInput.addEventListener('change', e => { if (e.target.files.length) handleInputFiles(e.target.files); });
 folderInput.addEventListener('change', e => { if (e.target.files.length) handleInputFiles(e.target.files); });
 
+// Store all pending files for multi-job selection
+let pendingJobs = null;
+
 async function handleInputFiles(fileList) {
     uniState.loadedFiles = {};
     uniState.loadedZip = null;
     uniState.predictions = [];
     uniState.platform = null;
+    pendingJobs = null;
 
     const files = Array.from(fileList);
     const isFolder = files[0]?.webkitRelativePath?.includes('/');
     const folderName = isFolder ? files[0].webkitRelativePath.split('/')[0] : null;
 
-    // Check if all files are zips (single zip or folder of zips)
+    // Detect if parent folder contains multiple prediction jobs (subfolders/zips)
+    if (isFolder) {
+        const topDir = folderName;
+        // Get unique second-level directories and zip files
+        const subItems = new Set();
+        for (const f of files) {
+            const parts = f.webkitRelativePath.split('/');
+            if (parts.length >= 3) subItems.add(parts[1]); // subfolder name
+            else if (parts.length === 2 && f.name.endsWith('.zip')) subItems.add(f.name.replace('.zip', ''));
+        }
+        // Remove duplicates where both folder and zip exist (prefer folder)
+        const folderNames = new Set();
+        for (const f of files) {
+            const parts = f.webkitRelativePath.split('/');
+            if (parts.length >= 3) folderNames.add(parts[1]);
+        }
+        const jobs = [...subItems].filter(name => {
+            // Skip if it's a zip name but folder with same name exists
+            const hasFolder = folderNames.has(name);
+            const isZipOnly = !hasFolder && files.some(f => f.name === name + '.zip');
+            return hasFolder || isZipOnly;
+        }).filter(n => n !== 'msas' && n !== 'templates' && !n.endsWith('.md'));
+
+        if (jobs.length > 1) {
+            // Multiple jobs — show selector
+            setStatus(`Found ${jobs.length} predictions. Select one:`, 'loading');
+            dropZone.classList.add('has-file');
+            document.getElementById('file-name').textContent = `${topDir}/ (${jobs.length} predictions)`;
+            pendingJobs = { files, jobs, folderName: topDir };
+            showJobSelector(jobs);
+            return;
+        }
+    }
+
+    // Single job — load directly
+    await loadFilesIntoState(files, isFolder, folderName);
+
+    // Auto-detect platform
+    const platform = detectPlatform();
+    uniState.platform = platform;
+    showPlatformBadge(platform);
+
+    // Check for .pkl files (AF2) — warn user
+    const hasPkl = Array.from(fileList || []).some(f => f.name.endsWith('.pkl'));
+    const pklWarning = hasPkl ? ' Note: .pkl files detected — PAE data must be converted to JSON first (use: python -c "import pickle,json,sys; d=pickle.load(open(sys.argv[1],\'rb\')); json.dump([{\'predicted_aligned_error\':d[\'predicted_aligned_error\'].tolist()}],open(sys.argv[2],\'w\'))" result_model_1.pkl pae_model_1.json)' : '';
+
+    document.getElementById('btn-process').disabled = false;
+    setStatus(`Detected: ${platformLabel(platform)}. Click Process to analyze.${pklWarning}`);
+}
+
+function showJobSelector(jobs) {
+    const existing = document.getElementById('job-selector');
+    if (existing) existing.remove();
+    const div = document.createElement('div');
+    div.id = 'job-selector';
+    div.style.cssText = 'display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.5rem; align-items:center;';
+    const label = document.createElement('span');
+    label.style.cssText = 'font-size:0.82rem; color:#555; font-weight:600;';
+    label.textContent = 'Select prediction:';
+    div.appendChild(label);
+    for (const job of jobs) {
+        const btn = document.createElement('button');
+        btn.className = 'example-btn';
+        btn.textContent = job;
+        btn.onclick = () => selectJob(job);
+        div.appendChild(btn);
+    }
+    const dropArea = document.getElementById('drop-zone') || document.querySelector('.card');
+    dropArea.parentNode.insertBefore(div, dropArea.nextSibling);
+}
+
+async function selectJob(jobName) {
+    if (!pendingJobs) return;
+    const { files, folderName } = pendingJobs;
+    const sel = document.getElementById('job-selector');
+    if (sel) sel.remove();
+
+    // Filter files to only this job's subfolder or zip
+    const jobFiles = files.filter(f => {
+        const parts = f.webkitRelativePath.split('/');
+        if (parts.length >= 3 && parts[1] === jobName) return true;
+        if (parts.length === 2 && f.name === jobName + '.zip') return true;
+        return false;
+    });
+
+    setStatus(`Loading ${jobName}...`, 'loading');
+    document.getElementById('file-name').textContent = `${folderName}/${jobName}`;
+
+    uniState.loadedFiles = {};
+    uniState.loadedZip = null;
+    await loadFilesIntoState(jobFiles, true, folderName);
+
+    const platform = detectPlatform();
+    uniState.platform = platform;
+    showPlatformBadge(platform);
+}
+
+async function loadFilesIntoState(files, isFolder, folderName) {
+    // Check if all files are zips
     const zipFiles = files.filter(f => f.name.endsWith('.zip'));
     const nonZipFiles = files.filter(f => !f.name.endsWith('.zip') && !f.name.endsWith('.md'));
     if (zipFiles.length > 0 && nonZipFiles.length === 0) {
@@ -777,9 +879,9 @@ async function handleInputFiles(fileList) {
             }
         }
         dropZone.classList.add('has-file');
-        document.getElementById('file-name').textContent = zipFiles.length === 1 ? zipFiles[0].name : `${zipFiles.length} zip files`;
+        if (!document.getElementById('file-name').textContent.includes('/'))
+            document.getElementById('file-name').textContent = zipFiles.length === 1 ? zipFiles[0].name : `${zipFiles.length} zip files`;
     } else {
-        // Individual files or folder
         setStatus('Reading files...', 'loading');
         for (const file of files) {
             const path = file.webkitRelativePath || file.name;
@@ -789,7 +891,6 @@ async function handleInputFiles(fileList) {
             } else if (file.name.endsWith('.npz') || file.name.endsWith('.npy')) {
                 uniState.loadedFiles[path] = await file.arrayBuffer();
             } else if (file.name.endsWith('.gz')) {
-                // Gzip compressed file — decompress in browser
                 try {
                     const ds = new DecompressionStream('gzip');
                     const decompressed = file.stream().pipeThrough(ds);
@@ -811,7 +912,6 @@ async function handleInputFiles(fileList) {
                     console.warn('Could not decompress .gz file:', file.name, e);
                 }
             } else if (file.name.endsWith('.zip')) {
-                // Nested zip
                 const zip = await JSZip.loadAsync(await file.arrayBuffer());
                 for (const [zpath, entry] of Object.entries(zip.files)) {
                     if (entry.dir || zpath.startsWith('__MACOSX')) continue;
@@ -825,21 +925,11 @@ async function handleInputFiles(fileList) {
             }
         }
         dropZone.classList.add('has-file');
-        const desc = isFolder ? `${folderName}/ (${files.length} files)` : `${files.length} file(s)`;
-        document.getElementById('file-name').textContent = desc;
+        if (!document.getElementById('file-name').textContent.includes('/')) {
+            const desc = isFolder ? `${folderName}/ (${files.length} files)` : `${files.length} file(s)`;
+            document.getElementById('file-name').textContent = desc;
+        }
     }
-
-    // Auto-detect platform
-    const platform = detectPlatform();
-    uniState.platform = platform;
-    showPlatformBadge(platform);
-
-    // Check for .pkl files (AF2) — warn user
-    const hasPkl = Array.from(fileList || []).some(f => f.name.endsWith('.pkl'));
-    const pklWarning = hasPkl ? ' Note: .pkl files detected — PAE data must be converted to JSON first (use: python -c "import pickle,json,sys; d=pickle.load(open(sys.argv[1],\'rb\')); json.dump([{\'predicted_aligned_error\':d[\'predicted_aligned_error\'].tolist()}],open(sys.argv[2],\'w\'))" result_model_1.pkl pae_model_1.json)' : '';
-
-    document.getElementById('btn-process').disabled = false;
-    setStatus(`Detected: ${platformLabel(platform)}. Click Process to analyze.${pklWarning}`);
 }
 
 function detectPlatform() {
