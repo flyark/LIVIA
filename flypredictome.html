@@ -424,12 +424,12 @@
         <div style="font-size:0.8rem; color:#888; margin-bottom:0.6rem;">Precomputed PPI predictions for <em>Drosophila</em> from <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3;">FlyPredictome</a>. Search by gene name or paste a prediction page URL.</div>
 
         <div class="input-tabs">
-            <button class="input-tab active" data-tab="search" onclick="switchTab('search')">Search by Gene</button>
-            <button class="input-tab" data-tab="url" onclick="switchTab('url')">Paste URL</button>
+            <button class="input-tab" data-tab="search" onclick="switchTab('search')">Search by Gene</button>
+            <button class="input-tab active" data-tab="url" onclick="switchTab('url')">Paste URL</button>
         </div>
 
         <!-- Search by Gene panel -->
-        <div id="search-panel">
+        <div id="search-panel" style="display:none;">
             <div class="url-row" style="position:relative;">
                 <div style="position:relative; flex:1;">
                     <input type="text" id="gene-search-input"
@@ -455,7 +455,7 @@
         </div>
 
         <!-- Paste URL panel -->
-        <div id="url-panel" style="display:none;">
+        <div id="url-panel">
             <div class="url-row">
                 <input type="text" id="url-input"
                        placeholder="https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/..."
