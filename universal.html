@@ -3168,7 +3168,7 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
 
         ctx.font = `${tickFont}px sans-serif`;
         ctx.fillStyle = '#888';
-        const lenText = chainSizes.length <= 4 ? `1-${chainLen}` : `${chainLen}`;
+        const lenText = chainLen <= 1 ? '' : (chainSizes.length <= 4 ? `1-${chainLen}` : `${chainLen}`);
         ctx.fillText(lenText, leftPx + chainMid, plotPx + chainFont + 3 * HIRES + rowOff);
 
         ctx.fillStyle = '#333';

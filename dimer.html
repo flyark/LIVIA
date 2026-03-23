@@ -2108,8 +2108,9 @@ function buildFullClisMap(pae, contact, nUse, nTotal, paeCutoff) {
 function drawAllMaps() {
     const v = dimerPairResult;
     // Dynamic: fit 3 panels in actual card width
-    const mapsCard = document.getElementById('maps-flex')?.closest('.card') || document.querySelector('.container');
-    const cardW = (mapsCard ? mapsCard.clientWidth : 1052) - 48;
+    const mapsCard = document.getElementById('maps-flex')?.closest('.card');
+    const containerEl = document.querySelector('.container');
+    const cardW = (mapsCard && mapsCard.clientWidth > 100 ? mapsCard.clientWidth : containerEl ? containerEl.clientWidth : 1052) - 48;
     const nPanels = 3, panelOverhead = 65, panelGap = 6;
     const displaySize = Math.min(280, Math.floor((cardW - panelGap * (nPanels - 1)) / nPanels - panelOverhead));
 
