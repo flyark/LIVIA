@@ -2541,6 +2541,7 @@ function generatePmlMono(validRegions) {
     lines.push('# Setup');
     lines.push('bg_color white');
     lines.push('set ray_trace_mode, 1');
+    lines.push('set ray_trace_color, black');
     lines.push('set antialias, 2');
     lines.push('set ray_shadows, 1');
     lines.push('set depth_cue, 1');
@@ -2604,19 +2605,23 @@ function generatePmlMono(validRegions) {
         lines.push('');
     }
 
-    lines.push('# Orient and render');
-    lines.push('orient');
-    lines.push('');
-    lines.push('# Title');
-    lines.push('set title_display, 1');
-    lines.push(`set_title 0, 0, "${monUniprotId} subdomain interactions"`);
-    lines.push('');
-    lines.push('# Viewport display');
+    lines.push('# Cartoon style');
     lines.push('set cartoon_fancy_helices, 1');
     lines.push('set cartoon_smooth_loops, 1');
     lines.push('set cartoon_flat_sheets, 1');
     lines.push('');
-    lines.push('# Ray trace for outlines (rotating exits ray mode, type "ray" to re-render)');
+    lines.push('orient');
+    lines.push('');
+    lines.push('# Title label (pseudoatom workaround)');
+    lines.push('pseudoatom title_lbl');
+    lines.push(`label title_lbl, "${monUniprotId} subdomain interactions"`);
+    lines.push('set label_color, black');
+    lines.push('set label_size, 24');
+    lines.push('set label_font_id, 7');
+    lines.push('set label_position, [0, 15, 0]');
+    lines.push('hide nonbonded, title_lbl');
+    lines.push('');
+    lines.push('# Render with outlines (rotate exits ray mode; type "ray" to re-render)');
     lines.push('ray');
     lines.push('');
     lines.push('# To save high-res image:');

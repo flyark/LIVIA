@@ -2841,7 +2841,8 @@ function generatePml(v, structFilename, colors) {
         '# Setup',
         'bg_color white',
         'set ray_trace_mode, 1',
-        'set ray_trace_gain, 0.012',
+    lines.push('set ray_trace_color, black');
+    lines.push('set ray_trace_gain, 0.012',
         'set antialias, 2',
         'set ray_shadows, 0',
         'set depth_cue, 0',
@@ -2877,19 +2878,23 @@ function generatePml(v, structFilename, colors) {
     }
 
     lines.push('');
-    lines.push('# Orient and render');
-    lines.push('orient');
-    lines.push('');
-    lines.push('# Title');
-    lines.push('set title_display, 1');
-    lines.push(`set_title 0, 0, "Chain ${v.ci} \u2014 Chain ${v.cj}   iLIS: ${iLIS}  ipTM: ${ipTM}"`);
-    lines.push('');
-    lines.push('# Viewport display');
+    lines.push('# Cartoon style');
     lines.push('set cartoon_fancy_helices, 1');
     lines.push('set cartoon_smooth_loops, 1');
     lines.push('set cartoon_flat_sheets, 1');
     lines.push('');
-    lines.push('# Ray trace for outlines (rotating exits ray mode, type "ray" to re-render)');
+    lines.push('orient');
+    lines.push('');
+    lines.push('# Title label (pseudoatom workaround)');
+    lines.push('pseudoatom title_lbl');
+    lines.push(`label title_lbl, "Chain ${v.ci} - Chain ${v.cj}  iLIS: ${iLIS}  ipTM: ${ipTM}"`);
+    lines.push('set label_color, black');
+    lines.push('set label_size, 24');
+    lines.push('set label_font_id, 7');
+    lines.push('set label_position, [0, 15, 0]');
+    lines.push('hide nonbonded, title_lbl');
+    lines.push('');
+    lines.push('# Render with outlines (rotate exits ray mode; type "ray" to re-render)');
     lines.push('ray');
     lines.push('');
     lines.push('# To save high-res image:');
