@@ -348,18 +348,6 @@
             <div style="margin-bottom:1rem;">
                 <label style="font-size:0.9rem; font-weight:600; color:#1a5276;">Options</label>
 
-                <label>Cutoffs</label>
-                <div style="display:flex; gap:1.5rem; margin-bottom:1rem; flex-wrap:wrap;">
-                    <div>
-                        <span style="font-size:0.85rem; color:#555;">PAE cutoff (&Aring;):</span>
-                        <input type="number" id="pae-cutoff" value="12" min="1" max="30" step="1" style="width:60px; padding:0.3rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.9rem;">
-                    </div>
-                    <div>
-                        <span style="font-size:0.85rem; color:#555;">C&beta; cutoff (&Aring;):</span>
-                        <input type="number" id="cb-cutoff" value="8" min="1" max="20" step="1" style="width:60px; padding:0.3rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.9rem;">
-                    </div>
-                </div>
-
                 <label>LIR Display Options</label>
                 <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem; font-size:0.85rem; color:#555; flex-wrap:wrap;">
                     <span>Fill gaps &le;</span>
@@ -372,6 +360,18 @@
                     <button class="btn btn-primary" style="font-size:0.82rem; padding:0.3rem 0.8rem;" onclick="updateGapFill()">Apply</button>
                 </div>
                 <div style="font-size:0.78rem; color:#999; margin-bottom:1rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
+
+                <label>Cutoffs</label>
+                <div style="display:flex; gap:1.5rem; margin-bottom:1rem; flex-wrap:wrap;">
+                    <div>
+                        <span style="font-size:0.85rem; color:#555;">PAE cutoff (&Aring;):</span>
+                        <input type="number" id="pae-cutoff" value="12" min="1" max="30" step="1" style="width:60px; padding:0.3rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.9rem;">
+                    </div>
+                    <div>
+                        <span style="font-size:0.85rem; color:#555;">C&beta; cutoff (&Aring;):</span>
+                        <input type="number" id="cb-cutoff" value="8" min="1" max="20" step="1" style="width:60px; padding:0.3rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.9rem;">
+                    </div>
+                </div>
 
                 <label>Color Scheme</label>
                 <div class="color-section" id="color-section"></div>

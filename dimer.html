@@ -318,6 +318,19 @@
             <div style="margin-bottom:1rem;">
                 <label style="font-size:0.9rem; font-weight:600; color:#1a5276;">Options</label>
 
+                <label>LIR Display Options</label>
+                <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem; font-size:0.85rem; color:#555; flex-wrap:wrap;">
+                    <span>Fill gaps &le;</span>
+                    <input type="number" id="gap-fill-input" value="10" min="0" max="200" style="width:55px; padding:0.3rem 0.4rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.85rem; text-align:center;">
+                    <span>residues</span>
+                    <span style="color:#ccc;">|</span>
+                    <span>Min segment &ge;</span>
+                    <input type="number" id="min-segment-input" value="3" min="1" max="50" style="width:55px; padding:0.3rem 0.4rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.85rem; text-align:center;">
+                    <span>residues</span>
+                    <button class="btn btn-primary" style="font-size:0.82rem; padding:0.3rem 0.8rem;" onclick="updateGapFill()">Apply</button>
+                </div>
+                <div style="font-size:0.78rem; color:#999; margin-bottom:1rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
+
                 <label>Cutoffs</label>
                 <div style="display:flex; gap:1.5rem; margin-bottom:1rem; flex-wrap:wrap;">
                     <div>
@@ -356,19 +369,6 @@
                     <div class="preset-chip" onclick="applyCxcPreset('bychain',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#90EE90"></span><span style="background:#DDA0DD"></span></div>bychain</div>
                     <div class="preset-chip" onclick="applyCxcPreset('bypolymer',this)"><div class="preset-strip"><span style="background:#87CEEB"></span><span style="background:#FFA07A"></span><span style="background:#98FB98"></span><span style="background:#DDA0DD"></span></div>bypolymer</div>
                 </div>
-                <label>LIR Display Options</label>
-                <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem; font-size:0.85rem; color:#555; flex-wrap:wrap;">
-                    <span>Fill gaps &le;</span>
-                    <input type="number" id="gap-fill-input" value="10" min="0" max="200" style="width:55px; padding:0.3rem 0.4rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.85rem; text-align:center;">
-                    <span>residues</span>
-                    <span style="color:#ccc;">|</span>
-                    <span>Min segment &ge;</span>
-                    <input type="number" id="min-segment-input" value="3" min="1" max="50" style="width:55px; padding:0.3rem 0.4rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.85rem; text-align:center;">
-                    <span>residues</span>
-                    <button class="btn btn-primary" style="font-size:0.82rem; padding:0.3rem 0.8rem;" onclick="updateGapFill()">Apply</button>
-                </div>
-                <div style="font-size:0.78rem; color:#999; margin-bottom:1rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
-
                 <label style="margin-top:1rem">Color Scheme</label>
                 <div class="color-section">
                     <div class="color-group">
