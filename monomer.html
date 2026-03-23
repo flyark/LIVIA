@@ -2013,8 +2013,8 @@ function generateAndShowScript(validRegions) {
 
     lines.push('# \u2500\u2500 Final \u2500\u2500', 'view', 'lighting soft depthCue true', '');
     lines.push('# \u2500\u2500 Save figure \u2500\u2500');
-    lines.push(`save ${monUniprotId}_regions.png transparentBackground true`);
-    lines.push(`save ${monUniprotId}_regions_session.cxs`);
+    lines.push(`# save ${monUniprotId}_regions.png transparentBackground true`);
+    lines.push(`# save ${monUniprotId}_regions_session.cxs`);
     lines.push('');
     lines.push('# \u2500\u2500 Color Legend \u2500\u2500');
     lines.push(`# LIR  = Local Interaction Region (PAE <= ${paeCut})`);
@@ -2611,11 +2611,14 @@ function generatePmlMono(validRegions) {
     lines.push('set title_display, 1');
     lines.push(`set_title 0, 0, "${monUniprotId} subdomain interactions"`);
     lines.push('');
-    lines.push('# Save');
-    lines.push('set ray_opaque_background, 0');
-    lines.push('ray 2400, 2400');
-    lines.push(`png ${monUniprotId}_regions.png, dpi=300`);
-    lines.push(`save ${monUniprotId}_regions_session.pse`);
+    lines.push('# Viewport display');
+    lines.push('set cartoon_fancy_helices, 1');
+    lines.push('set cartoon_smooth_loops, 1');
+    lines.push('set cartoon_flat_sheets, 1');
+    lines.push('');
+    lines.push('# To save publication-quality image with outlines:');
+    lines.push(# `png ${monUniprotId}_regions.png, dpi=300`);
+    lines.push(`# save ${monUniprotId}_regions_session.pse`);
 
     return lines.join('\n');
 }
