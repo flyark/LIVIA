@@ -712,12 +712,40 @@ async function fetchData() {
     }
 
     document.getElementById('btn-fetch').disabled = true;
+
+    // Clear ALL previous results
     document.getElementById('results').classList.remove('active');
     document.getElementById('regions-card').style.display = 'none';
     document.getElementById('score-matrix-inline').style.display = 'none';
     document.getElementById('monomer-maps-flex').innerHTML = '';
-    // Reset domain data and Mol* viewer
+    document.getElementById('protein-info').style.display = 'none';
+    document.getElementById('external-links').style.display = 'none';
+
+    // Clear pair results table, chord, sequence viewer, script, connection diagram
+    const pairTbody = document.getElementById('region-pair-tbody');
+    if (pairTbody) pairTbody.innerHTML = '';
+    const chordCard = document.getElementById('chord-card');
+    if (chordCard) chordCard.style.display = 'none';
+    const seqCard = document.getElementById('seq-viewer-card');
+    if (seqCard) seqCard.style.display = 'none';
+    const connCard = document.getElementById('connection-diagram-card');
+    if (connCard) connCard.style.display = 'none';
+    const scriptPreview = document.getElementById('script-preview');
+    if (scriptPreview) scriptPreview.innerHTML = '';
+
+    // Reset all global state
+    monPae = null;
+    monCoords = [];
+    monPdbText = '';
+    monProteinLen = 0;
+    monPairResults = [];
+    monRegions = [];
+    monRegionCounter = 0;
     monDomains = [];
+    monSequence = null;
+    monPlddt = null;
+
+    // Reset Mol* viewer
     if (viewer3dBlobUrl) { URL.revokeObjectURL(viewer3dBlobUrl); viewer3dBlobUrl = null; }
     const v3frame = document.getElementById('viewer3d-frame');
     if (v3frame) v3frame.src = 'about:blank';
