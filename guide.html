@@ -113,40 +113,10 @@
     </div>
 
     <!-- ================================================================ -->
-    <!-- TOOL 1: FLYPREDICTOME -->
-    <!-- ================================================================ -->
-    <div class="tool-section">
-        <h2 class="tool-title">1. FlyPredictome Analysis</h2>
-
-        <div class="subsection">
-            <h3>Quick Start</h3>
-            <ol class="quick-steps">
-                <li>Go to <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank">FlyPredictome</a>, search for a protein pair, and copy the prediction page URL</li>
-                <li>Open <a href="flypredictome.html">FlyPredictome Analysis</a>, paste the URL, and click <strong>Generate</strong></li>
-                <li>Review the <strong>All Ranks</strong> table &mdash; click any row to switch between ranks 1&ndash;5</li>
-                <li>Explore metrics (iLIS, ipTM, LIR/cLIR counts), the sequence viewer, and the visualization script preview</li>
-                <li>Download the script (.cxc for ChimeraX or .pml for PyMOL) and structure file, place them in the same folder — ChimeraX will launch automatically</li>
-            </ol>
-        </div>
-
-        <div class="subsection">
-            <h3>Features</h3>
-            <ul class="features-list">
-                <li><strong>All Ranks table</strong> &mdash; shows iLIS, LIS, cLIS, ipTM, LIR/cLIR counts for all 5 ranked models; click any row to load that rank</li>
-                <li><strong>Sequence viewer</strong> &mdash; displays actual amino acid letters for each chain with LIR (light color) and cLIR (dark color) highlighting</li>
-                <li><strong>Visualization script</strong> &mdash; syntax-highlighted preview with color presets (Gradient, Solid, ChimeraX defaults); Swap A &harr; B button reverses chain colors</li>
-                <li><strong>Linear Contact Map</strong> &mdash; lines connect cLIR residue pairs in physical contact, with color gradient from chain A to chain B</li>
-                <li><strong>Circular Contact Map</strong> &mdash; circular chord diagram showing chain arcs (proportional to length) and lines connecting cLIR residue pairs in contact</li>
-                <li><strong>Downloads</strong> &mdash; .cxc script, .pdb structure, and CSV of all ranks with full metrics</li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- ================================================================ -->
     <!-- TOOL 2: UNIVERSAL -->
     <!-- ================================================================ -->
     <div class="tool-section">
-        <h2 class="tool-title">2. Prediction Analysis</h2>
+        <h2 class="tool-title">1. Prediction Analysis</h2>
 
         <div class="subsection">
             <h3>Quick Start</h3>
@@ -194,10 +164,70 @@
     </div>
 
     <!-- ================================================================ -->
+    <!-- ================================================================ -->
+    <!-- TOOL 1: FLYPREDICTOME -->
+    <!-- ================================================================ -->
+    <div class="tool-section">
+        <h2 class="tool-title">2. FlyPredictome Analysis</h2>
+
+        <div class="subsection">
+            <h3>Quick Start</h3>
+            <ol class="quick-steps">
+                <li>Go to <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank">FlyPredictome</a>, search for a protein pair, and copy the prediction page URL</li>
+                <li>Open <a href="flypredictome.html">FlyPredictome Analysis</a>, paste the URL, and click <strong>Generate</strong></li>
+                <li>Review the <strong>All Ranks</strong> table &mdash; click any row to switch between ranks 1&ndash;5</li>
+                <li>Explore metrics (iLIS, ipTM, LIR/cLIR counts), the sequence viewer, and the visualization script preview</li>
+                <li>Download the script (.cxc for ChimeraX or .pml for PyMOL) and structure file, place them in the same folder — ChimeraX will launch automatically</li>
+            </ol>
+        </div>
+
+        <div class="subsection">
+            <h3>Features</h3>
+            <ul class="features-list">
+                <li><strong>All Ranks table</strong> &mdash; shows iLIS, LIS, cLIS, ipTM, LIR/cLIR counts for all 5 ranked models; click any row to load that rank</li>
+                <li><strong>Sequence viewer</strong> &mdash; displays actual amino acid letters for each chain with LIR (light color) and cLIR (dark color) highlighting</li>
+                <li><strong>Visualization script</strong> &mdash; syntax-highlighted preview with color presets (Gradient, Solid, ChimeraX defaults); Swap A &harr; B button reverses chain colors</li>
+                <li><strong>Linear Contact Map</strong> &mdash; lines connect cLIR residue pairs in physical contact, with color gradient from chain A to chain B</li>
+                <li><strong>Circular Contact Map</strong> &mdash; circular chord diagram showing chain arcs (proportional to length) and lines connecting cLIR residue pairs in contact</li>
+                <li><strong>Downloads</strong> &mdash; .cxc script, .pdb structure, and CSV of all ranks with full metrics</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- ================================================================ -->
+    <!-- TOOL 5: ORTHOLOG INTERACTOME -->
+    <!-- ================================================================ -->
+    <div class="tool-section">
+        <h2 class="tool-title">3. Ortholog Interactome</h2>
+        <div class="subsection">
+            <h3>Quick Start</h3>
+            <ol class="quick-steps">
+                <li>Open <a href="ortholog_predictome.html">Ortholog Interactome</a> and search for a human gene (e.g. <code>CDK2</code>, <code>TP53</code>)</li>
+                <li>Browse the interaction partner table &mdash; click any row to load the detail page</li>
+                <li>Or paste a <code>famdb_details_ortho</code> URL directly in the Paste URL tab</li>
+                <li>Review ranks, contact maps, 3D viewer, and visualization script</li>
+                <li>Download the script and structure file for ChimeraX or PyMOL</li>
+            </ol>
+        </div>
+        <div class="subsection">
+            <h3>Features</h3>
+            <ul class="features-list">
+                <li><strong>Gene search</strong> &mdash; UniProt autocomplete with species selector (Human, Mouse, Zebrafish, Worm, Yeast)</li>
+                <li><strong>Partner table</strong> &mdash; shows iLIS (best/avg), ipTM, protein lengths; filterable by iLIS threshold</li>
+                <li><strong>Pre-built examples</strong> &mdash; CDK2&ndash;CCNA2, TP53&ndash;MDM2, MAPK14&ndash;MKNK1, ABL1&ndash;CRK, and more</li>
+                <li><strong>MIST integration</strong> &mdash; shows reported interactions from the MIST database</li>
+                <li><strong>Full analysis pipeline</strong> &mdash; same as FlyPredictome (ranks, contact maps, Mol* viewer, scripts)</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- ================================================================ -->
     <!-- TOOL 3: DIMER -->
     <!-- ================================================================ -->
     <div class="tool-section">
-        <h2 class="tool-title">3. AlphaFold DB Dimer Analysis</h2>
+        <h2 class="tool-title">4. AlphaFold DB Dimer Analysis</h2>
 
         <div class="subsection">
             <h3>Quick Start</h3>
@@ -227,10 +257,11 @@
     </div>
 
     <!-- ================================================================ -->
+    <!-- ================================================================ -->
     <!-- TOOL 4: MONOMER -->
     <!-- ================================================================ -->
     <div class="tool-section">
-        <h2 class="tool-title">4. AlphaFold DB Monomer Subdomain Analysis</h2>
+        <h2 class="tool-title">5. AlphaFold DB Monomer Subdomain Analysis</h2>
 
         <div class="subsection">
             <h3>Quick Start</h3>
@@ -266,33 +297,6 @@
     </div>
 
     <!-- ================================================================ -->
-
-    <!-- ================================================================ -->
-    <!-- TOOL 5: ORTHOLOG INTERACTOME -->
-    <!-- ================================================================ -->
-    <div class="tool-section">
-        <h2 class="tool-title">5. Ortholog Interactome</h2>
-        <div class="subsection">
-            <h3>Quick Start</h3>
-            <ol class="quick-steps">
-                <li>Open <a href="ortholog_predictome.html">Ortholog Interactome</a> and search for a human gene (e.g. <code>CDK2</code>, <code>TP53</code>)</li>
-                <li>Browse the interaction partner table &mdash; click any row to load the detail page</li>
-                <li>Or paste a <code>famdb_details_ortho</code> URL directly in the Paste URL tab</li>
-                <li>Review ranks, contact maps, 3D viewer, and visualization script</li>
-                <li>Download the script and structure file for ChimeraX or PyMOL</li>
-            </ol>
-        </div>
-        <div class="subsection">
-            <h3>Features</h3>
-            <ul class="features-list">
-                <li><strong>Gene search</strong> &mdash; UniProt autocomplete with species selector (Human, Mouse, Zebrafish, Worm, Yeast)</li>
-                <li><strong>Partner table</strong> &mdash; shows iLIS (best/avg), ipTM, protein lengths; filterable by iLIS threshold</li>
-                <li><strong>Pre-built examples</strong> &mdash; CDK2&ndash;CCNA2, TP53&ndash;MDM2, MAPK14&ndash;MKNK1, ABL1&ndash;CRK, and more</li>
-                <li><strong>MIST integration</strong> &mdash; shows reported interactions from the MIST database</li>
-                <li><strong>Full analysis pipeline</strong> &mdash; same as FlyPredictome (ranks, contact maps, Mol* viewer, scripts)</li>
-            </ul>
-        </div>
-    </div>
 
     <!-- ================================================================ -->
     <!-- LIR DISPLAY OPTIONS -->
