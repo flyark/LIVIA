@@ -824,6 +824,7 @@ function showJobSelector(jobs) {
     for (const job of jobs) {
         const btn = document.createElement('button');
         btn.className = 'example-btn';
+        btn.dataset.job = job;
         btn.textContent = job;
         btn.onclick = () => selectJob(job);
         div.appendChild(btn);
@@ -835,14 +836,26 @@ function showJobSelector(jobs) {
 async function selectJob(jobName) {
     if (!pendingJobs) return;
     const { files, folderName } = pendingJobs;
+
+    // Highlight selected button, keep selector visible
     const sel = document.getElementById('job-selector');
-    if (sel) sel.remove();
+    if (sel) {
+        sel.querySelectorAll('button').forEach(b => {
+            b.style.background = b.dataset.job === jobName ? '#2471A3' : '';
+            b.style.color = b.dataset.job === jobName ? 'white' : '';
+        });
+    }
 
     // Filter files to only this job's subfolder or zip
     const jobFiles = files.filter(f => {
-        const parts = f.webkitRelativePath.split('/');
+        const path = f.webkitRelativePath || f.name;
+        const parts = path.split('/');
+        // Subfolder match: topDir/jobName/file.cif
         if (parts.length >= 3 && parts[1] === jobName) return true;
+        // Zip at second level: topDir/jobName.zip
         if (parts.length === 2 && f.name === jobName + '.zip') return true;
+        // Zip at root level (no webkitRelativePath subfolder): jobName.zip
+        if (parts.length <= 2 && f.name === jobName + '.zip') return true;
         return false;
     });
 
@@ -853,9 +866,15 @@ async function selectJob(jobName) {
     uniState.loadedZip = null;
     await loadFilesIntoState(jobFiles, true, folderName);
 
+    const nFiles = Object.keys(uniState.loadedFiles).length;
+    if (nFiles === 0) {
+        setStatus(`No prediction files found in ${jobName}. Try another.`, 'error');
+        return;
+    }
     const platform = detectPlatform();
     uniState.platform = platform;
     showPlatformBadge(platform);
+    setStatus(`Loaded ${jobName}: ${nFiles} files (${platformLabel(platform)}). Click Process.`, 'success');
 }
 
 async function loadFilesIntoState(files, isFolder, folderName) {
