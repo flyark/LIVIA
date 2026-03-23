@@ -1584,16 +1584,15 @@ function generatePml(row, pdbFilename, colors) {
         ``,
         `# Setup`,
         `bg_color white`,
-        `set ray_trace_mode, 3`,
-        `set ray_trace_color, black`,
+        `set ray_trace_mode, 1`,
+        `set ray_trace_gain, 0.012`,
         `set antialias, 2`,
         `set ray_shadows, 0`,
         `set depth_cue, 0`,
-        `set spec_reflect, 0`,
-        `set spec_power, 0`,
-        `set ambient, 1`,
-        `set direct, 0`,
-        `set ray_trace_gain, 0`,
+        `set spec_reflect, 0.05`,
+        `set spec_power, 200`,
+        `set ambient, 0.6`,
+        `set direct, 0.4`,
         ``,
         `# Hide everything`,
         `hide everything, all`,
@@ -1626,6 +1625,10 @@ function generatePml(row, pdbFilename, colors) {
     lines.push('');
     lines.push('# Orient and render');
     lines.push('orient');
+    lines.push('');
+    lines.push('# Title');
+    lines.push(`set title_display, 1`);
+    lines.push(`set_title 0, 0, "${sym1} (LIR) \u2014 ${sym2} (LIR)   iLIS: ${iLIS}  ipTM: ${ipTM}"`);
     lines.push('');
     lines.push('# Save');
     lines.push(`set ray_opaque_background, 0`);

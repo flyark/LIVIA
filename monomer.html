@@ -2607,6 +2607,10 @@ function generatePmlMono(validRegions) {
     lines.push('# Orient and render');
     lines.push('orient');
     lines.push('');
+    lines.push('# Title');
+    lines.push('set title_display, 1');
+    lines.push(`set_title 0, 0, "${monUniprotId} subdomain interactions"`);
+    lines.push('');
     lines.push('# Save');
     lines.push('set ray_opaque_background, 0');
     lines.push('ray 2400, 2400');
