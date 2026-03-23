@@ -430,9 +430,8 @@
 
         <!-- Search by Gene panel -->
         <div id="search-panel" style="display:none;">
-            <div style="display:flex; gap:0.5rem; margin-bottom:0.5rem; align-items:center;">
-                <label style="font-size:0.82rem; color:#555; margin:0;">Species:</label>
-                <select id="species-select" style="padding:0.35rem 0.5rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.82rem; background:white;">
+            <div class="url-row" style="position:relative;">
+                <select id="species-select" style="padding:0.5rem 0.4rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.85rem; background:white;">
                     <option value="9606" selected>Human</option>
                     <option value="10090">Mouse</option>
                     <option value="10116">Rat</option>
@@ -440,8 +439,6 @@
                     <option value="6239">Worm</option>
                     <option value="4932">Yeast</option>
                 </select>
-            </div>
-            <div class="url-row" style="position:relative;">
                 <div style="position:relative; flex:1;">
                     <input type="text" id="gene-search-input"
                            placeholder="e.g., TP53, CDK2, AKT1, BRAF..."
