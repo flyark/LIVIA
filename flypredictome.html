@@ -1647,8 +1647,37 @@ function switchScriptTab(mode) {
     scriptMode = mode;
     document.querySelectorAll('.input-tab[data-tab="chimerax"], .input-tab[data-tab="pymol"]').forEach(t => t.classList.remove('active'));
     document.querySelector('.input-tab[data-tab="' + mode + '"]').classList.add('active');
-    if (flyParsed && flyCurrentRank) loadRank(flyCurrentRank);
+    updateScriptPreview();
 }
+
+function updateScriptPreview() {
+    if (!flyParsed) return;
+    const isAvg = flyCurrentRank === 'avg';
+    const target = isAvg ? flyAverageRow : (flyParsed.rows.find(r => parseInt(r['Rank']) === flyCurrentRank) || flyParsed.rows[0]);
+    if (!target) return;
+    const sym1 = target['Symbol 1'] || '?';
+    const sym2 = target['Symbol 2'] || '?';
+    const colors = {
+        lir_a: document.getElementById('color-lir-a').value,
+        lir_b: document.getElementById('color-lir-b').value,
+        clir_a: document.getElementById('color-clir-a').value,
+        clir_b: document.getElementById('color-clir-b').value,
+    };
+    const pdbFilename = flyParsed.pdbUrl ? flyParsed.pdbUrl.split('/').pop() : sym1 + '___' + sym2 + '.pdb';
+    const isPymol = scriptMode === 'pymol';
+    const visScript = isPymol ? generatePml(target, pdbFilename, colors) : generateCxc(target, pdbFilename, colors);
+    const scriptExt = isPymol ? '.pml' : '.cxc';
+    document.getElementById('script-preview').innerHTML = highlightCxc(visScript);
+    const scriptBlob = new Blob([visScript], { type: 'text/plain' });
+    const dlScript = document.getElementById('dl-script');
+    if (dlScript) {
+        dlScript.href = URL.createObjectURL(scriptBlob);
+        dlScript.download = sym1 + '_' + sym2 + '_' + (isAvg ? 'average' : 'rank' + flyCurrentRank) + '_interface' + scriptExt;
+    }
+    const extEl = document.getElementById('dl-script-ext');
+    if (extEl) extEl.textContent = scriptExt;
+}
+
 let flyParsed = null;      // parsed table data
 let flyChainSeqs = null;   // parsed PDB sequences
 let flyPdbText = null;     // raw PDB text for connection diagram
