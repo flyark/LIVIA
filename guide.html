@@ -106,9 +106,9 @@
     <div class="prereq">
         <h4>Prerequisites</h4>
         <ul>
-            <li>Install <a href="https://www.cgl.ucsf.edu/chimerax/download.html" target="_blank">UCSF ChimeraX</a> (free for academic use)</li>
+            <li>Install <a href="https://www.cgl.ucsf.edu/chimerax/download.html" target="_blank">UCSF ChimeraX</a> and/or <a href="https://pymol.org" target="_blank">PyMOL</a> (free for academic use)</li>
             <li>A modern web browser (tested in Google Chrome; folder selection requires Chrome)</li>
-            <li>No Python or other software needed &mdash; all analysis runs locally in your browser (no data is uploaded to any server)</li>
+            <li>No Python or other software needed &mdash; all analysis runs locally in your browser (no data leaves your device)</li>
         </ul>
     </div>
 
@@ -124,8 +124,8 @@
                 <li>Go to <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank">FlyPredictome</a>, search for a protein pair, and copy the prediction page URL</li>
                 <li>Open <a href="flypredictome.html">FlyPredictome Analysis</a>, paste the URL, and click <strong>Generate</strong></li>
                 <li>Review the <strong>All Ranks</strong> table &mdash; click any row to switch between ranks 1&ndash;5</li>
-                <li>Explore metrics (iLIS, ipTM, LIR/cLIR counts), the sequence viewer, and the ChimeraX script preview</li>
-                <li>Download the <code>.cxc</code> script and <code>.pdb</code> structure file, place them in the same folder, then double-click the <code>.cxc</code> — ChimeraX will launch automatically</li>
+                <li>Explore metrics (iLIS, ipTM, LIR/cLIR counts), the sequence viewer, and the visualization script preview</li>
+                <li>Download the script (.cxc for ChimeraX or .pml for PyMOL) and structure file, place them in the same folder — ChimeraX will launch automatically</li>
             </ol>
         </div>
 
@@ -134,7 +134,7 @@
             <ul class="features-list">
                 <li><strong>All Ranks table</strong> &mdash; shows iLIS, LIS, cLIS, ipTM, LIR/cLIR counts for all 5 ranked models; click any row to load that rank</li>
                 <li><strong>Sequence viewer</strong> &mdash; displays actual amino acid letters for each chain with LIR (light color) and cLIR (dark color) highlighting</li>
-                <li><strong>ChimeraX script</strong> &mdash; syntax-highlighted preview with color presets (Gradient, Solid, ChimeraX defaults); Swap A &harr; B button reverses chain colors</li>
+                <li><strong>Visualization script</strong> &mdash; syntax-highlighted preview with color presets (Gradient, Solid, ChimeraX defaults); Swap A &harr; B button reverses chain colors</li>
                 <li><strong>Linear Contact Map</strong> &mdash; lines connect cLIR residue pairs in physical contact, with color gradient from chain A to chain B</li>
                 <li><strong>Circular Contact Map</strong> &mdash; circular chord diagram showing chain arcs (proportional to length) and lines connecting cLIR residue pairs in contact</li>
                 <li><strong>Downloads</strong> &mdash; .cxc script, .pdb structure, and CSV of all ranks with full metrics</li>
@@ -206,7 +206,7 @@
                 <li>Click <strong>Search Dimers</strong> &mdash; a table of available dimer complexes appears with LIS, ipTM, and ipSAE scores</li>
                 <li>Click a dimer row in the table to load it &mdash; the tool fetches CIF and PAE data from AlphaFold DB automatically</li>
                 <li>Review PAE/LIS/cLIS maps, score matrix, sequence viewer, and metrics (iLIS, LIS, cLIS, ipTM, ipSAE)</li>
-                <li>Download the <code>.cxc</code> script and <code>.cif</code> structure, place them in the same folder, then double-click the <code>.cxc</code> — ChimeraX will launch automatically</li>
+                <li>Download the script (.cxc/.pml) and structure file, place them in the same folder — ChimeraX will launch automatically</li>
             </ol>
         </div>
 
@@ -220,7 +220,7 @@
                 <li><strong>Score matrix</strong> &mdash; iLIS (Oranges) / cLIR count (Greens)</li>
                 <li><strong>Sequence viewer</strong> &mdash; amino acid letters with LIR (light) and cLIR (dark) highlighting per chain</li>
                 <li><strong>ipSAE metric</strong> &mdash; interface predicted Squared Aligned Error (<a href="https://www.biorxiv.org/content/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack, 2025</a>), shown alongside iLIS, LIS, cLIS, and ipTM</li>
-                <li><strong>ChimeraX script</strong> &mdash; color presets with Swap A &harr; B support</li>
+                <li><strong>Visualization script</strong> &mdash; color presets with Swap A &harr; B support</li>
                 <li><strong>Downloads</strong> &mdash; .cxc script, .cif structure, CSV with full metrics and LIR/cLIR indices</li>
             </ul>
         </div>
@@ -240,7 +240,7 @@
                 <li>Domains are <strong>auto-detected</strong> using pLDDT-based segmentation; adjust settings if needed (min length, merge LIS threshold, pLDDT cutoff)</li>
                 <li>Click <strong>Detect Domains</strong> to re-detect with new settings, or manually edit domain boundaries</li>
                 <li>Review PAE/LIS/cLIS maps, the iLIS/cLIR score matrix between domains, and the sequence viewer</li>
-                <li>Download the <code>.cxc</code> script and <code>.pdb</code> structure, place them in the same folder, then double-click the <code>.cxc</code> — ChimeraX will launch automatically</li>
+                <li>Download the script (.cxc/.pml) and structure file, place them in the same folder — ChimeraX will launch automatically</li>
             </ol>
         </div>
 
@@ -259,13 +259,55 @@
                 <li><strong>Score matrix</strong> &mdash; iLIS (Oranges, lower-left) / cLIR count (white-to-green, upper-right) between domains</li>
                 <li><strong>PAE/LIS/cLIS maps</strong> &mdash; same colormaps (bwr, Blues, Greens) with domain boundaries overlaid</li>
                 <li><strong>Sequence viewer</strong> &mdash; amino acid letters with LIR (light) and cLIR (dark) highlighting per domain pair</li>
-                <li><strong>ChimeraX script presets</strong> &mdash; domain-colored view (default), pLDDT coloring, color by chain, color by polymer</li>
+                <li><strong>script presets</strong> &mdash; domain-colored view (default), pLDDT coloring, color by chain, color by polymer</li>
                 <li><strong>Downloads</strong> &mdash; .cxc script, .pdb structure, CSV with domain pair metrics</li>
             </ul>
         </div>
     </div>
 
     <!-- ================================================================ -->
+
+    <!-- ================================================================ -->
+    <!-- TOOL 5: ORTHOLOG INTERACTOME -->
+    <!-- ================================================================ -->
+    <div class="tool-section">
+        <h2 class="tool-title">5. Ortholog Interactome</h2>
+        <div class="subsection">
+            <h3>Quick Start</h3>
+            <ol class="quick-steps">
+                <li>Open <a href="ortholog_predictome.html">Ortholog Interactome</a> and search for a human gene (e.g. <code>CDK2</code>, <code>TP53</code>)</li>
+                <li>Browse the interaction partner table &mdash; click any row to load the detail page</li>
+                <li>Or paste a <code>famdb_details_ortho</code> URL directly in the Paste URL tab</li>
+                <li>Review ranks, contact maps, 3D viewer, and visualization script</li>
+                <li>Download the script and structure file for ChimeraX or PyMOL</li>
+            </ol>
+        </div>
+        <div class="subsection">
+            <h3>Features</h3>
+            <ul class="features-list">
+                <li><strong>Gene search</strong> &mdash; UniProt autocomplete with species selector (Human, Mouse, Zebrafish, Worm, Yeast)</li>
+                <li><strong>Partner table</strong> &mdash; shows iLIS (best/avg), ipTM, protein lengths; filterable by iLIS threshold</li>
+                <li><strong>Pre-built examples</strong> &mdash; CDK2&ndash;CCNA2, TP53&ndash;MDM2, MAPK14&ndash;MKNK1, ABL1&ndash;CRK, and more</li>
+                <li><strong>MIST integration</strong> &mdash; shows reported interactions from the MIST database</li>
+                <li><strong>Full analysis pipeline</strong> &mdash; same as FlyPredictome (ranks, contact maps, Mol* viewer, scripts)</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- LIR DISPLAY OPTIONS -->
+    <!-- ================================================================ -->
+    <div class="tool-section">
+        <h2 class="tool-title">LIR Display Options</h2>
+        <div class="subsection">
+            <p>All tools include adjustable LIR display settings that affect the visualization script and 3D viewer:</p>
+            <ul class="features-list">
+                <li><strong>Gap filling</strong> (default: 10 residues) &mdash; bridges short breaks between LIR regions for continuous cartoon display.</li>
+                <li><strong>Min segment</strong> (default: 3 residues) &mdash; removes isolated LIR fragments shorter than the threshold. cLIR residues within removed segments are also removed.</li>
+            </ul>
+            <p style="margin-top:0.5rem; font-size:0.85rem; color:#888;">Click <strong>Apply</strong> after changing values to update the visualization script and 3D viewer.</p>
+        </div>
+    </div>
     <!-- SEQUENCE VIEWER -->
     <!-- ================================================================ -->
     <div class="tool-section">
@@ -274,7 +316,7 @@
         <div class="subsection">
             <p>All four tools include a <strong>sequence viewer</strong> that displays the actual amino acid sequence (one-letter codes) for each chain or domain. Residues are color-coded based on their interaction status:</p>
             <div style="display:flex; gap:1.5rem; margin:0.8rem 0; flex-wrap:wrap;">
-                <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:60px; height:24px; background:#b3d4e8; border-radius:4px; border:1px solid #ccc; text-align:center; font-family:monospace; font-size:0.8rem; line-height:24px;">A K L</div><span style="font-size:0.85rem;">LIR residues (light color)</span></div>
+                <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:60px; height:24px; background:#80CBC4; border-radius:4px; border:1px solid #ccc; text-align:center; font-family:monospace; font-size:0.8rem; line-height:24px;">A K L</div><span style="font-size:0.85rem;">LIR residues (light color)</span></div>
                 <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:60px; height:24px; background:#2471A3; border-radius:4px; text-align:center; font-family:monospace; font-size:0.8rem; line-height:24px; color:white;">R D E</div><span style="font-size:0.85rem;">cLIR residues (dark color)</span></div>
                 <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:60px; height:24px; background:#f0f0f0; border-radius:4px; text-align:center; font-family:monospace; font-size:0.8rem; line-height:24px; color:#999;">G P S</div><span style="font-size:0.85rem;">Non-interacting residues</span></div>
             </div>
@@ -290,7 +332,7 @@
 
         <div class="subsection">
             <h3>Map Colormaps</h3>
-            <p>All tools use consistent, fixed colormaps for maps and matrices. These are not affected by the ChimeraX color presets.</p>
+            <p>All tools use consistent, fixed colormaps for maps and matrices. These are not affected by the color presets.</p>
             <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-top:0.5rem;">
                 <tr style="background:#f8f9fa;"><th style="text-align:left; padding:0.5rem 0.8rem; color:#1a5276;">Map</th><th style="text-align:left; padding:0.5rem 0.8rem; color:#1a5276;">Colormap</th><th style="text-align:left; padding:0.5rem 0.8rem; color:#1a5276;">Scale</th></tr>
                 <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><strong>PAE map</strong></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><span style="color:#2471A3;">blue</span> &ndash; white &ndash; <span style="color:#c0392b;">red</span> (bwr)</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">0 &Aring; (confident) &rarr; 30 &Aring; (uncertain)</td></tr>
@@ -302,13 +344,13 @@
         </div>
 
         <div class="subsection">
-            <h3>ChimeraX Script Colors</h3>
-            <p>The ChimeraX .cxc script uses chain colors that you can customize via presets. The default is a Blue/Orange gradient.</p>
+            <h3>Visualization Script Colors</h3>
+            <p>The visualization script (.cxc for ChimeraX, .pml for PyMOL) uses chain colors that you can customize via presets. The default is Teal/Coral gradient.</p>
             <div style="display:flex; gap:1rem; margin-top:0.8rem; flex-wrap:wrap;">
-                <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:24px; height:24px; background:#b3d4e8; border-radius:4px; border:1px solid #ccc;"></div><span style="font-size:0.85rem;">Chain A &mdash; LIR (light blue)</span></div>
-                <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:24px; height:24px; background:#2471A3; border-radius:4px;"></div><span style="font-size:0.85rem;">Chain A &mdash; cLIR (dark blue)</span></div>
-                <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:24px; height:24px; background:#f5cba7; border-radius:4px; border:1px solid #ccc;"></div><span style="font-size:0.85rem;">Chain B &mdash; LIR (light orange)</span></div>
-                <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:24px; height:24px; background:#E67E22; border-radius:4px;"></div><span style="font-size:0.85rem;">Chain B &mdash; cLIR (dark orange)</span></div>
+                <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:24px; height:24px; background:#80CBC4; border-radius:4px; border:1px solid #ccc;"></div><span style="font-size:0.85rem;">Chain A &mdash; LIR (light teal)</span></div>
+                <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:24px; height:24px; background:#00897B; border-radius:4px;"></div><span style="font-size:0.85rem;">Chain A &mdash; cLIR (dark teal)</span></div>
+                <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:24px; height:24px; background:#FFAB91; border-radius:4px; border:1px solid #ccc;"></div><span style="font-size:0.85rem;">Chain B &mdash; LIR (light coral)</span></div>
+                <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:24px; height:24px; background:#E64A19; border-radius:4px;"></div><span style="font-size:0.85rem;">Chain B &mdash; cLIR (dark coral)</span></div>
             </div>
             <ul class="features-list" style="margin-top:0.8rem;">
                 <li><strong>Gradient</strong> &mdash; light color for LIR, dark color for cLIR (e.g., Blue/Orange, Purple/Gold, Teal/Coral)</li>
@@ -320,8 +362,8 @@
         </div>
 
         <div class="subsection">
-            <h3>ChimeraX Command Presets (Monomer Tool)</h3>
-            <p>The Monomer tool provides additional ChimeraX script presets beyond the default domain-colored view:</p>
+            <h3>Coloring Mode Presets</h3>
+            <p>The Monomer tool provides additional coloring presets beyond the default domain-colored view:</p>
             <ul class="features-list">
                 <li><strong>pLDDT coloring</strong> &mdash; colors residues by AlphaFold confidence: <span style="color:#0053D6; font-weight:600;">very high (&gt;90)</span>, <span style="color:#65CBF3; font-weight:600;">confident (70&ndash;90)</span>, <span style="color:#FFDB13; font-weight:600;">low (50&ndash;70)</span>, <span style="color:#FF7D45; font-weight:600;">very low (&lt;50)</span></li>
                 <li><strong>color bychain</strong> &mdash; standard ChimeraX chain coloring</li>
@@ -403,6 +445,10 @@
             <p><strong>ipSAE</strong></p>
             <ul style="padding-left:1.2rem; margin-bottom:1rem;">
                 <li><a href="https://www.biorxiv.org/content/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack 2025</a> &mdash; <em>R&emacr;s ipSAE loquuntur</em>: What&rsquo;s wrong with AlphaFold&rsquo;s ipTM score and how to fix it. <em>bioRxiv</em>.</li>
+            </ul>
+            <p><strong>Mol* (3D Structure Viewer)</strong></p>
+            <ul style="padding-left:1.2rem; margin-bottom:1rem;">
+                <li><a href="https://doi.org/10.1093/nar/gkab314" target="_blank" style="color:#2471A3;">Sehnal et al. 2021</a> &mdash; Mol* Viewer: modern web app for 3D visualization and analysis of large biomolecular structures. <em>Nucleic Acids Research</em> 49, W431&ndash;W437.</li>
             </ul>
             <p><strong>ChimeraX</strong></p>
             <ul style="padding-left:1.2rem; margin-bottom:1rem;">
