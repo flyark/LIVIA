@@ -261,8 +261,11 @@
                     <button class="btn btn-primary" style="font-size:0.82rem; padding:0.3rem 0.8rem;" onclick="updateGapFill()">Apply</button>
                 </div>
                 <div style="font-size:0.78rem; color:#999; margin-bottom:0.5rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
-                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:1rem;">
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:0.3rem;">
                     <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure <span style="font-size:0.78rem; color:#999;">(display all residues instead of LIR only)</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:1rem; padding-left:1.2rem;">
+                    <input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"> Gray non-LIR <span style="font-size:0.78rem; color:#999;">(color non-interacting residues gray)</span>
                 </label>
 
                 <label>Cutoffs</label>
@@ -285,6 +288,15 @@
                     <div class="preset-chip" onclick="applyPreset('#cfd8dc','#546e7a','#f8bbd0','#c2185b',this)"><div class="preset-strip"><span style="background:#cfd8dc"></span><span style="background:#546e7a"></span><span style="background:#c2185b"></span><span style="background:#f8bbd0"></span></div>Slate / Rose</div>
                     <div class="preset-chip" onclick="applyPreset('#c5cae9','#303f9f','#ffe0b2','#e65100',this)"><div class="preset-strip"><span style="background:#c5cae9"></span><span style="background:#303f9f"></span><span style="background:#e65100"></span><span style="background:#ffe0b2"></span></div>Indigo / Tangerine</div>
                     <div class="preset-chip" onclick="applyPreset('#a8d5ba','#2e7d32','#ef9a9a','#c62828',this)"><div class="preset-strip"><span style="background:#a8d5ba"></span><span style="background:#2e7d32"></span><span style="background:#c62828"></span><span style="background:#ef9a9a"></span></div>Green / Red</div>
+                </div>
+                <label style="margin-top:0.5rem">Presets &mdash; high contrast (all 4 colors distinct)</label>
+                <div class="presets-row">
+                    <div class="preset-chip" onclick="applyPreset('#4DD0E1','#1A237E','#FFAB91','#B71C1C',this)"><div class="preset-strip"><span style="background:#4DD0E1"></span><span style="background:#1A237E"></span><span style="background:#B71C1C"></span><span style="background:#FFAB91"></span></div>Cyan / Navy / Peach / Crimson</div>
+                    <div class="preset-chip" onclick="applyPreset('#81D4FA','#283593','#EF9A9A','#C62828',this)"><div class="preset-strip"><span style="background:#81D4FA"></span><span style="background:#283593"></span><span style="background:#C62828"></span><span style="background:#EF9A9A"></span></div>Sky / Indigo / Salmon / Red</div>
+                    <div class="preset-chip" onclick="applyPreset('#AED581','#1B5E20','#FFD54F','#B71C1C',this)"><div class="preset-strip"><span style="background:#AED581"></span><span style="background:#1B5E20"></span><span style="background:#B71C1C"></span><span style="background:#FFD54F"></span></div>Lime / Forest / Gold / Maroon</div>
+                    <div class="preset-chip" onclick="applyPreset('#80CBC4','#004D40','#FFCC80','#BF360C',this)"><div class="preset-strip"><span style="background:#80CBC4"></span><span style="background:#004D40"></span><span style="background:#BF360C"></span><span style="background:#FFCC80"></span></div>Mint / DarkTeal / Apricot / Burnt</div>
+                    <div class="preset-chip" onclick="applyPreset('#CE93D8','#4A148C','#FFF176','#E65100',this)"><div class="preset-strip"><span style="background:#CE93D8"></span><span style="background:#4A148C"></span><span style="background:#E65100"></span><span style="background:#FFF176"></span></div>Orchid / Purple / Yellow / Fire</div>
+                    <div class="preset-chip" onclick="applyPreset('#BBDEFB','#0D47A1','#A5D6A7','#F4511E',this)"><div class="preset-strip"><span style="background:#BBDEFB"></span><span style="background:#0D47A1"></span><span style="background:#F4511E"></span><span style="background:#A5D6A7"></span></div>Blue / Navy / Sage / Ember</div>
                 </div>
                 <label style="margin-top:0.5rem">Presets &mdash; solid</label>
                 <div class="presets-row">
@@ -340,6 +352,9 @@
             <div style="display:flex; align-items:center; gap:0.8rem; margin-bottom:0.6rem; flex-wrap:wrap;">
                 <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.82rem; color:#555; cursor:pointer; user-select:none;">
                     <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure
+                </label>
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.82rem; color:#555; cursor:pointer; user-select:none;">
+                    <input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"> Gray non-LIR
                 </label>
             </div>
             <div class="script-preview" id="script-preview"></div>
@@ -1347,7 +1362,7 @@ function buildDimerSequenceViewer() {
                 const isLir = cc.lir.has(res.resnum);
                 const el = document.createElement('span');
                 el.className = 'seq-res' + (isClir ? ' clir' : '');
-                el.style.background = isClir ? cc.clirColor : isLir ? lightenColor(cc.clirColor.replace('#',''), 0.4) : 'transparent';
+                el.style.background = isClir ? cc.clirColor : isLir ? lightenColor(cc.clirColor.replace('#',''), 0.4) : grayNonLir ? '#D5D5D5' : 'transparent';
                 el.textContent = res.aa;
                 el.addEventListener('mouseenter', (e) => {
                     tooltip.textContent = `${res.aa}${res.resnum}` + (isClir ? ' (cLIR)' : isLir ? ' (LIR)' : '');
@@ -2107,6 +2122,10 @@ function generateAndDisplayScript() {
         lines.push('color bychain');
     } else if (cxcColorMode === 'bypolymer') {
         lines.push('color bypolymer');
+    } else if (grayNonLir && showComplete) {
+        lines.push(`color #1 #B0B0B0`);
+        if (lirISpec) lines.push(`color #1${lirISpec} ${colors.lir_a}`);
+        if (lirJSpec) lines.push(`color #1${lirJSpec} ${colors.lir_b}`);
     } else {
         lines.push(`color #1/${v.ci} ${colors.lir_a}`, `color #1/${v.cj} ${colors.lir_b}`);
     }
@@ -2149,7 +2168,7 @@ function generateAndDisplayScript() {
     lines.push('#');
     lines.push(`# LIR  (${colors.lir_a}) = Chain ${v.ci}`, `# cLIR (${colors.clir_a}) = Chain ${v.ci}`);
     lines.push(`# LIR  (${colors.lir_b}) = Chain ${v.cj}`, `# cLIR (${colors.clir_b}) = Chain ${v.cj}`);
-    lines.push('# Non-LIR regions are HIDDEN');
+    lines.push(grayNonLir && showComplete ? `# Non-LIR regions are GRAY (#B0B0B0)` : showComplete ? `# Non-LIR regions are SHOWN (same as LIR color)` : `# Non-LIR regions are HIDDEN`);
     lines.push('');
     lines.push('# \u2500\u2500 Alternative: color by pLDDT (uncomment below) \u2500\u2500');
     lines.push('# color bfactor palette #FF7D45:#FFDB13:#65CBF3:#0053D6 range 50,90');
@@ -2215,6 +2234,10 @@ function generatePml(v, structFilename, colors) {
     } else if (cxcColorMode === 'bychain' || cxcColorMode === 'bypolymer') {
         lines.push('util.cbc');
     } else {
+        if (grayNonLir && showComplete) {
+            lines.push(`set_color nonlir_gray, [0.69, 0.69, 0.69]`);
+            lines.push(`color nonlir_gray, all`);
+        }
         if (lirISpec) lines.push(`color lir_i, ${lirISpec}`);
         if (lirJSpec) lines.push(`color lir_j, ${lirJSpec}`);
         if (clirISpec) lines.push(`color clir_i, ${clirISpec}`);
@@ -2348,11 +2371,24 @@ function buildColorComponents(v) {
         // Gradient: LIR-only in light, cLIR in dark (separate components)
         const clirISet = new Set([...(v.clirI || new Set())].filter(r => lirI_filtered.has(r)));
         const clirJSet = new Set([...(v.clirJ || new Set())].filter(r => lirJ_filtered.has(r)));
-        const lirOnlyI = new Set([...lirIFilled].filter(r => !clirISet.has(r)));
-        const lirOnlyJ = new Set([...lirJFilled].filter(r => !clirJSet.has(r)));
 
-        components.push({ chain: v.ci, ranges: toRanges(lirOnlyI), color: colors.lir_a });
-        components.push({ chain: v.cj, ranges: toRanges(lirOnlyJ), color: colors.lir_b });
+        if (grayNonLir && showComplete) {
+            const LIR_I_orig = fillGaps(lirI_filtered);
+            const LIR_J_orig = fillGaps(lirJ_filtered);
+            const nonLirI = new Set([...lirIFilled].filter(r => !LIR_I_orig.has(r)));
+            const nonLirJ = new Set([...lirJFilled].filter(r => !LIR_J_orig.has(r)));
+            components.push({ chain: v.ci, ranges: toRanges(nonLirI), color: '#B0B0B0' });
+            components.push({ chain: v.cj, ranges: toRanges(nonLirJ), color: '#B0B0B0' });
+            const lirOnlyI = new Set([...LIR_I_orig].filter(r => !clirISet.has(r)));
+            const lirOnlyJ = new Set([...LIR_J_orig].filter(r => !clirJSet.has(r)));
+            components.push({ chain: v.ci, ranges: toRanges(lirOnlyI), color: colors.lir_a });
+            components.push({ chain: v.cj, ranges: toRanges(lirOnlyJ), color: colors.lir_b });
+        } else {
+            const lirOnlyI = new Set([...lirIFilled].filter(r => !clirISet.has(r)));
+            const lirOnlyJ = new Set([...lirJFilled].filter(r => !clirJSet.has(r)));
+            components.push({ chain: v.ci, ranges: toRanges(lirOnlyI), color: colors.lir_a });
+            components.push({ chain: v.cj, ranges: toRanges(lirOnlyJ), color: colors.lir_b });
+        }
         components.push({ chain: v.ci, ranges: toRanges(clirISet), color: colors.clir_a });
         components.push({ chain: v.cj, ranges: toRanges(clirJSet), color: colors.clir_b });
     }

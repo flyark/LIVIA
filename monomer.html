@@ -292,8 +292,11 @@
                     <button class="btn btn-primary" style="font-size:0.82rem; padding:0.3rem 0.8rem;" onclick="updateGapFill()">Apply</button>
                 </div>
                 <div style="font-size:0.78rem; color:#999; margin-bottom:0.5rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
-                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:1rem;">
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:0.3rem;">
                     <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure <span style="font-size:0.78rem; color:#999;">(display all residues instead of selected regions only)</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:1rem; padding-left:1.2rem;">
+                    <input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"> Gray non-LIR <span style="font-size:0.78rem; color:#999;">(color non-interacting residues gray)</span>
                 </label>
 
                 <label>Cutoffs</label>
@@ -326,6 +329,15 @@
                         <div class="preset-chip" onclick="applyPreset('#c5cae9','#303f9f','#ffe0b2','#e65100',this)"><div class="preset-strip"><span style="background:#c5cae9"></span><span style="background:#303f9f"></span><span style="background:#e65100"></span><span style="background:#ffe0b2"></span></div>Indigo / Tangerine</div>
                         <div class="preset-chip" onclick="applyPreset('#a8d5ba','#2e7d32','#ef9a9a','#c62828',this)"><div class="preset-strip"><span style="background:#a8d5ba"></span><span style="background:#2e7d32"></span><span style="background:#c62828"></span><span style="background:#ef9a9a"></span></div>Green / Red</div>
                     </div>
+                    <label style="margin-top:0.5rem">Presets &mdash; high contrast (all 4 colors distinct)</label>
+                    <div class="presets-row">
+                        <div class="preset-chip" onclick="applyPreset('#4DD0E1','#1A237E','#FFAB91','#B71C1C',this)"><div class="preset-strip"><span style="background:#4DD0E1"></span><span style="background:#1A237E"></span><span style="background:#B71C1C"></span><span style="background:#FFAB91"></span></div>Cyan / Navy / Peach / Crimson</div>
+                        <div class="preset-chip" onclick="applyPreset('#81D4FA','#283593','#EF9A9A','#C62828',this)"><div class="preset-strip"><span style="background:#81D4FA"></span><span style="background:#283593"></span><span style="background:#C62828"></span><span style="background:#EF9A9A"></span></div>Sky / Indigo / Salmon / Red</div>
+                        <div class="preset-chip" onclick="applyPreset('#AED581','#1B5E20','#FFD54F','#B71C1C',this)"><div class="preset-strip"><span style="background:#AED581"></span><span style="background:#1B5E20"></span><span style="background:#B71C1C"></span><span style="background:#FFD54F"></span></div>Lime / Forest / Gold / Maroon</div>
+                        <div class="preset-chip" onclick="applyPreset('#80CBC4','#004D40','#FFCC80','#BF360C',this)"><div class="preset-strip"><span style="background:#80CBC4"></span><span style="background:#004D40"></span><span style="background:#BF360C"></span><span style="background:#FFCC80"></span></div>Mint / DarkTeal / Apricot / Burnt</div>
+                        <div class="preset-chip" onclick="applyPreset('#CE93D8','#4A148C','#FFF176','#E65100',this)"><div class="preset-strip"><span style="background:#CE93D8"></span><span style="background:#4A148C"></span><span style="background:#E65100"></span><span style="background:#FFF176"></span></div>Orchid / Purple / Yellow / Fire</div>
+                        <div class="preset-chip" onclick="applyPreset('#BBDEFB','#0D47A1','#A5D6A7','#F4511E',this)"><div class="preset-strip"><span style="background:#BBDEFB"></span><span style="background:#0D47A1"></span><span style="background:#F4511E"></span><span style="background:#A5D6A7"></span></div>Blue / Navy / Sage / Ember</div>
+                    </div>
                     <label style="margin-top:0.5rem">Presets &mdash; solid</label>
                     <div class="presets-row">
                         <div class="preset-chip" onclick="applyPreset('#00897B','#00897B','#E64A19','#E64A19',this)"><div class="preset-strip"><span style="background:#00897B"></span><span style="background:#00897B"></span><span style="background:#E64A19"></span><span style="background:#E64A19"></span></div>Teal / Coral</div>
@@ -356,6 +368,9 @@
             <div style="display:flex; align-items:center; gap:0.8rem; margin-bottom:0.6rem; flex-wrap:wrap;">
                 <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.82rem; color:#555; cursor:pointer; user-select:none;">
                     <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure
+                </label>
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.82rem; color:#555; cursor:pointer; user-select:none;">
+                    <input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"> Gray non-LIR
                 </label>
             </div>
             <div class="script-preview" id="script-preview"></div>
@@ -1538,7 +1553,7 @@ function buildSequenceViewer(validRegions) {
             const dom = resDomain.get(res.resnum);
             const el = document.createElement('span');
             el.className = 'seq-res' + (rc && rc.level === 3 ? ' clir' : '');
-            el.style.background = rc ? rc.color : 'transparent';
+            el.style.background = rc ? rc.color : grayNonLir ? '#D5D5D5' : 'transparent';
             el.textContent = res.aa;
             el.addEventListener('mouseenter', (e) => {
                 let tip = `${res.aa}${res.resnum}`;
@@ -1969,6 +1984,9 @@ function generateAndShowScript(validRegions) {
         lines.push('');
     } else {
         // Default: color by region + highlight cLIR
+        if (grayNonLir && showComplete) {
+            lines.push('color #1 #B0B0B0', '');
+        }
         lines.push('# \u2500\u2500 Color Regions \u2500\u2500');
         for (let ri = 0; ri < validRegions.length; ri++) {
             const r = validRegions[ri];
@@ -2160,7 +2178,7 @@ function buildMonomerColorComponents(validRegions) {
             const uncovered = new Set();
             for (let i = 1; i <= monProteinLen; i++) if (!coveredRes.has(i)) uncovered.add(i);
             if (uncovered.size > 0) {
-                components.push({ chain, ranges: toRanges(uncovered), color: '#E0E0E0' });
+                components.push({ chain, ranges: toRanges(uncovered), color: grayNonLir ? '#B0B0B0' : '#E0E0E0' });
             }
         }
     } else {
@@ -2283,7 +2301,7 @@ function buildMonomerColorComponents(validRegions) {
             const uncovered = new Set();
             for (let i = 1; i <= monProteinLen; i++) if (!coveredRes.has(i)) uncovered.add(i);
             if (uncovered.size > 0) {
-                components.push({ chain, ranges: toRanges(uncovered), color: '#E0E0E0' });
+                components.push({ chain, ranges: toRanges(uncovered), color: grayNonLir ? '#B0B0B0' : '#E0E0E0' });
             }
         } else {
             // Show only interacting regions with background + LIR/cLIR highlights
@@ -2452,6 +2470,10 @@ function generatePmlMono(validRegions) {
         lines.push('');
 
         // Color regions
+        if (grayNonLir && showComplete) {
+            lines.push(`set_color nonlir_gray, [0.69, 0.69, 0.69]`);
+            lines.push(`color nonlir_gray, all`);
+        }
         for (let ri = 0; ri < validRegions.length; ri++) {
             const r = validRegions[ri];
             lines.push(`color region_${ri}, chain A and resi ${r.start}-${r.end}`);
