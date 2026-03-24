@@ -291,7 +291,10 @@
                     <span>residues</span>
                     <button class="btn btn-primary" style="font-size:0.82rem; padding:0.3rem 0.8rem;" onclick="updateGapFill()">Apply</button>
                 </div>
-                <div style="font-size:0.78rem; color:#999; margin-bottom:1rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
+                <div style="font-size:0.78rem; color:#999; margin-bottom:0.5rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:1rem;">
+                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure <span style="font-size:0.78rem; color:#999;">(display all residues instead of selected regions only)</span>
+                </label>
 
                 <label>Cutoffs</label>
                 <div style="display:flex; gap:1.5rem; margin-bottom:1rem; flex-wrap:wrap;">
@@ -350,6 +353,11 @@
             </div>
             <hr style="border:none; border-top:1px solid #e0e0e0; margin-bottom:1rem;">
 
+            <div style="display:flex; align-items:center; gap:0.8rem; margin-bottom:0.6rem; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.82rem; color:#555; cursor:pointer; user-select:none;">
+                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure
+                </label>
+            </div>
             <div class="script-preview" id="script-preview"></div>
             <div class="download-row">
                 <a class="btn-download cxc" id="dl-script" download>&#8595; Download <span id="dl-script-ext">.cxc</span></a>
@@ -666,6 +674,8 @@ async function fetchData() {
     monDomains = [];
     monSequence = null;
     monPlddt = null;
+    showComplete = true;
+    document.querySelectorAll('.show-complete-cb').forEach(el => { el.checked = true; });
 
     // Reset Mol* viewer
     if (viewer3dBlobUrl) { URL.revokeObjectURL(viewer3dBlobUrl); viewer3dBlobUrl = null; }
@@ -903,9 +913,14 @@ function applyCxcPreset(mode, el) {
     document.querySelectorAll('.preset-chip').forEach(p => p.classList.remove('active'));
     if (el) el.classList.add('active');
     // Regenerate CXC + 3D viewer
-    if (monPairResults && monPairResults.length > 0) {
-        const vr = monRegions.filter(r => !isNaN(parseInt(r.start)) && !isNaN(parseInt(r.end)));
-        if (vr.length >= 2) { generateAndShowScript(vr); updateViewer3d(vr); }
+    const vr = monRegions.filter(r => !isNaN(parseInt(r.start)) && !isNaN(parseInt(r.end)))
+        .map(r => ({ name: r.name, start: parseInt(r.start), end: parseInt(r.end), color: r.color }));
+    if (monPairResults && monPairResults.length > 0 && vr.length >= 2) {
+        generateAndShowScript(vr);
+        updateViewer3d(vr);
+    } else if (monPdbText) {
+        // Still update 3D viewer for complete/plddt modes even without pair results
+        updateViewer3d(vr);
     }
 }
 
@@ -923,12 +938,16 @@ function detectAndCalculate() {
     if (monRegions.length >= 2) {
         calculate();
     } else {
-        // Even with <2 regions, show sequence viewer and domain info
+        // Even with <2 regions, show sequence viewer, domain info, and 3D viewer
         const validRegions = monRegions.filter(r => {
             const s = parseInt(r.start), e = parseInt(r.end);
             return !isNaN(s) && !isNaN(e) && s >= 1 && e <= monProteinLen;
         }).map(r => ({ name: r.name, start: parseInt(r.start), end: parseInt(r.end), color: r.color }));
         monPairResults = [];
+        // Auto-enable complete structure view since there's nothing to selectively show
+        showComplete = true;
+        document.querySelectorAll('.show-complete-cb').forEach(el => { el.checked = true; });
+        updateViewer3d(validRegions);
         buildSequenceViewer(validRegions);
         buildDomainComparison(validRegions);
         document.getElementById('results').classList.add('active');
@@ -1249,6 +1268,16 @@ onColorChange = function() {
         s[1].style.background = document.getElementById('color-clir-a').value;
         s[2].style.background = document.getElementById('color-clir-b').value;
         s[3].style.background = document.getElementById('color-lir-b').value;
+    }
+    // Regenerate script + 3D viewer + chord diagram
+    const vr = monRegions.filter(r => !isNaN(parseInt(r.start)) && !isNaN(parseInt(r.end)))
+        .map(r => ({ name: r.name, start: parseInt(r.start), end: parseInt(r.end), color: r.color }));
+    if (monPairResults && monPairResults.length > 0 && vr.length >= 2) {
+        generateAndShowScript(vr);
+        drawChordDiagram(vr);
+        updateViewer3d(vr);
+    } else if (monPdbText) {
+        updateViewer3d(vr);
     }
 }
 
@@ -1810,7 +1839,12 @@ function displayResults(validRegions) {
     if (!hasInteraction) {
         metricsDiv.innerHTML = '<div style="color:#888; font-size:0.9rem; padding:0.5rem 0;">No intramolecular interaction detected between the defined regions.</div>';
         document.getElementById('pairs-tbody').innerHTML = '';
-        // Still show other results (maps, etc.)
+        // Auto-enable complete structure view since there's nothing to selectively show
+        showComplete = true;
+        document.querySelectorAll('.show-complete-cb').forEach(el => { el.checked = true; });
+        // Still show all visualizations (maps, 3D viewer, etc.)
+        drawPaeMap();
+        updateViewer3d(validRegions);
         buildSequenceViewer(validRegions);
         buildDomainComparison(validRegions);
         makeSortable(document.getElementById('pairs-table'));
@@ -1907,13 +1941,19 @@ function generateAndShowScript(validRegions) {
     lines.push('set bgColor white', 'graphics silhouettes true', 'lighting soft');
     lines.push('hide atoms', 'hide cartoons', '');
 
-    // Show all regions
-    lines.push('# \u2500\u2500 Show Regions \u2500\u2500');
-    for (const r of validRegions) {
-        lines.push(`show #1/A:${r.start}-${r.end} cartoons`);
+    // Visibility: showComplete controls all vs selective
+    if (showComplete) {
+        lines.push('# \u2500\u2500 Show complete structure \u2500\u2500');
+        lines.push('show cartoons');
+    } else {
+        lines.push('# \u2500\u2500 Show Regions \u2500\u2500');
+        for (const r of validRegions) {
+            lines.push(`show #1/A:${r.start}-${r.end} cartoons`);
+        }
     }
     lines.push('');
 
+    // Color mode applies independently of showComplete
     if (monCxcColorMode === 'plddt') {
         lines.push('# \u2500\u2500 Color by pLDDT \u2500\u2500');
         lines.push('color bfactor palette #FF7D45:#FFDB13:#65CBF3:#0053D6 range 50,90');
@@ -1943,8 +1983,8 @@ function generateAndShowScript(validRegions) {
         lines.push('# \u2500\u2500 Highlight cLIR residues \u2500\u2500');
         for (const v of monPairResults) {
             const colorsForPair = getColorsForRegionPair(
-                validRegions.indexOf(v.ri),
-                validRegions.indexOf(v.rj)
+                findRegionIdx(v.ri, validRegions),
+                findRegionIdx(v.rj, validRegions)
             );
             if (v.clirI.size > 0) {
                 const spec = resSpec(v.clirI, 'A');
@@ -2062,21 +2102,42 @@ function toRanges(positions) {
     return ranges;
 }
 
+// Find region index by value comparison (works even if validRegions are new objects)
+function findRegionIdx(reg, validRegions) {
+    return validRegions.findIndex(r => r.name === reg.name && r.start === reg.start && r.end === reg.end);
+}
+
 function buildMonomerColorComponents(validRegions) {
     const components = [];
     const chain = 'A'; // monomer always uses chain A
 
-    if (monCxcColorMode === 'plddt') {
-        // Color all LIR residues by pLDDT
-        const bfactors = parseBfactorsPerResidue(monPdbText);
-        const allLIR = new Set();
-        for (const v of monPairResults) {
-            for (const r of v.lirI) allLIR.add(r);
-            for (const r of v.lirJ) allLIR.add(r);
+    // Determine which residues to show
+    const visibleRes = new Set();
+    if (showComplete) {
+        for (let i = 1; i <= monProteinLen; i++) visibleRes.add(i);
+    } else {
+        // Only region residues (with gap-filled LIR for default mode added later)
+        for (const reg of validRegions) {
+            for (let i = reg.start; i <= reg.end; i++) visibleRes.add(i);
         }
-        const filled = fillGaps(filterSmallSegments(allLIR));
+    }
+
+    if (monCxcColorMode === 'plddt') {
+        // Color visible residues by pLDDT
+        const bfactors = parseBfactorsPerResidue(monPdbText);
+        let residuesToColor;
+        if (showComplete) {
+            residuesToColor = visibleRes;
+        } else {
+            const allLIR = new Set();
+            for (const v of monPairResults) {
+                for (const r of v.lirI) allLIR.add(r);
+                for (const r of v.lirJ) allLIR.add(r);
+            }
+            residuesToColor = fillGaps(filterSmallSegments(allLIR));
+        }
         const byColor = {};
-        for (const resnum of filled) {
+        for (const resnum of residuesToColor) {
             const bf = bfactors.get(`${chain}:${resnum}`);
             const color = bf !== undefined ? plddtColor(bf) : '#65CBF3';
             if (!byColor[color]) byColor[color] = new Set();
@@ -2086,11 +2147,21 @@ function buildMonomerColorComponents(validRegions) {
             components.push({ chain, ranges: toRanges(posSet), color });
         }
     } else if (monCxcColorMode === 'bychain' || monCxcColorMode === 'bypolymer') {
-        // Show all region residues in their region color (solid, no LIR/cLIR distinction)
+        // Show all visible residues in their region color (solid, no LIR/cLIR distinction)
         for (const reg of validRegions) {
             const allRes = new Set();
             for (let i = reg.start; i <= reg.end; i++) allRes.add(i);
             components.push({ chain, ranges: toRanges(allRes), color: reg.color });
+        }
+        if (showComplete) {
+            // Fill gaps between regions with light gray
+            const coveredRes = new Set();
+            for (const reg of validRegions) for (let i = reg.start; i <= reg.end; i++) coveredRes.add(i);
+            const uncovered = new Set();
+            for (let i = 1; i <= monProteinLen; i++) if (!coveredRes.has(i)) uncovered.add(i);
+            if (uncovered.size > 0) {
+                components.push({ chain, ranges: toRanges(uncovered), color: '#E0E0E0' });
+            }
         }
     } else {
         // Default: show interacting regions with background + LIR/cLIR highlights
@@ -2106,8 +2177,8 @@ function buildMonomerColorComponents(validRegions) {
 
         // Collect LIR/cLIR from analysis results (excludes boundary)
         for (const v of monPairResults) {
-            const idxI = validRegions.indexOf(v.ri);
-            const idxJ = validRegions.indexOf(v.rj);
+            const idxI = findRegionIdx(v.ri, validRegions);
+            const idxJ = findRegionIdx(v.rj, validRegions);
             if (idxI >= 0 && v.iLIS > 0) {
                 for (const r of v.lirI) regionLIR.get(idxI).add(r);
                 for (const r of v.clirI) regionCLIR.get(idxI).add(r);
@@ -2165,41 +2236,92 @@ function buildMonomerColorComponents(validRegions) {
 
         const isBinary = monRegions.length <= 2;
 
-        for (let ri = 0; ri < validRegions.length; ri++) {
-            if (!interactingRegions.has(ri)) continue;
-            const reg = validRegions[ri];
-            const clirSet = regionCLIR.get(ri);
-            const lirSet = regionLIR.get(ri);
-
-            let lirColor, clirColor;
-            if (isBinary) {
-                const colors = getColorsForRegionPair(0, 1);
-                lirColor = ri === 0 ? colors.lir_a : colors.lir_b;
-                clirColor = ri === 0 ? colors.clir_a : colors.clir_b;
-            } else {
-                lirColor = lightenColorHex(reg.color, 0.55);
-                clirColor = reg.color;
+        if (showComplete) {
+            // Show complete structure: regions in their LIR colors, cLIR highlighted, gaps in light gray
+            const allCLIR = new Set();
+            for (let ri = 0; ri < validRegions.length; ri++) {
+                for (const r of regionCLIR.get(ri)) allCLIR.add(r);
             }
 
-            // Light background: fill gaps around LIR/cLIR to create connected segments
-            // (avoids showing entire disordered regions as spaghetti)
-            const allInteracting = new Set([...lirSet, ...clirSet]);
-            const allFiltered = filterSmallSegments(allInteracting);
-            if (allFiltered.size > 0) {
-                const filled = fillGaps(allFiltered);
-                const bgOnly = new Set([...filled].filter(r => !lirSet.has(r) && !clirSet.has(r)));
-                if (bgOnly.size > 0) {
-                    components.push({ chain, ranges: toRanges(bgOnly), color: lightenColorHex(reg.color, 0.8) });
+            // First: color all region residues in their LIR (light) color
+            for (let ri = 0; ri < validRegions.length; ri++) {
+                const reg = validRegions[ri];
+                let lirColor;
+                if (isBinary) {
+                    const colors = getColorsForRegionPair(0, 1);
+                    lirColor = ri === 0 ? colors.lir_a : colors.lir_b;
+                } else {
+                    lirColor = lightenColorHex(reg.color, 0.55);
+                }
+                const regRes = new Set();
+                for (let i = reg.start; i <= reg.end; i++) {
+                    if (!allCLIR.has(i)) regRes.add(i);
+                }
+                if (regRes.size > 0) {
+                    components.push({ chain, ranges: toRanges(regRes), color: lirColor });
                 }
             }
 
-            // LIR only (excluding cLIR)
-            const lirOnly = new Set([...lirSet].filter(r => !clirSet.has(r)));
-            if (lirOnly.size > 0) {
-                components.push({ chain, ranges: toRanges(lirOnly), color: lirColor });
-            }
-            if (clirSet.size > 0) {
+            // Overlay cLIR residues in their stronger color
+            for (let ri = 0; ri < validRegions.length; ri++) {
+                const clirSet = regionCLIR.get(ri);
+                if (clirSet.size === 0) continue;
+                const reg = validRegions[ri];
+                let clirColor;
+                if (isBinary) {
+                    const colors = getColorsForRegionPair(0, 1);
+                    clirColor = ri === 0 ? colors.clir_a : colors.clir_b;
+                } else {
+                    clirColor = reg.color;
+                }
                 components.push({ chain, ranges: toRanges(clirSet), color: clirColor });
+            }
+
+            // Fill gaps between regions with light gray
+            const coveredRes = new Set();
+            for (const reg of validRegions) for (let i = reg.start; i <= reg.end; i++) coveredRes.add(i);
+            const uncovered = new Set();
+            for (let i = 1; i <= monProteinLen; i++) if (!coveredRes.has(i)) uncovered.add(i);
+            if (uncovered.size > 0) {
+                components.push({ chain, ranges: toRanges(uncovered), color: '#E0E0E0' });
+            }
+        } else {
+            // Show only interacting regions with background + LIR/cLIR highlights
+            for (let ri = 0; ri < validRegions.length; ri++) {
+                if (!interactingRegions.has(ri)) continue;
+                const reg = validRegions[ri];
+                const clirSet = regionCLIR.get(ri);
+                const lirSet = regionLIR.get(ri);
+
+                let lirColor, clirColor;
+                if (isBinary) {
+                    const colors = getColorsForRegionPair(0, 1);
+                    lirColor = ri === 0 ? colors.lir_a : colors.lir_b;
+                    clirColor = ri === 0 ? colors.clir_a : colors.clir_b;
+                } else {
+                    lirColor = lightenColorHex(reg.color, 0.55);
+                    clirColor = reg.color;
+                }
+
+                // Light background: fill gaps around LIR/cLIR to create connected segments
+                const allInteracting = new Set([...lirSet, ...clirSet]);
+                const allFiltered = filterSmallSegments(allInteracting);
+                if (allFiltered.size > 0) {
+                    const filled = fillGaps(allFiltered);
+                    const bgOnly = new Set([...filled].filter(r => !lirSet.has(r) && !clirSet.has(r)));
+                    if (bgOnly.size > 0) {
+                        components.push({ chain, ranges: toRanges(bgOnly), color: lightenColorHex(reg.color, 0.8) });
+                    }
+                }
+
+                // LIR only (excluding cLIR)
+                const lirOnly = new Set([...lirSet].filter(r => !clirSet.has(r)));
+                if (lirOnly.size > 0) {
+                    components.push({ chain, ranges: toRanges(lirOnly), color: lirColor });
+                }
+                if (clirSet.size > 0) {
+                    components.push({ chain, ranges: toRanges(clirSet), color: clirColor });
+                }
             }
         }
     }
@@ -2221,18 +2343,48 @@ function lightenColorHex(hex, amount) {
 function updateViewer3d(validRegions) {
     const card = document.getElementById('viewer3d-card');
     const frame = document.getElementById('viewer3d-frame');
-    if (!monPdbText || !frame || !validRegions || validRegions.length < 2) {
-        if (card) card.style.display = 'none';
-        return;
-    }
-    if (!monPairResults || monPairResults.length === 0) {
+    if (!monPdbText || !frame) {
         if (card) card.style.display = 'none';
         return;
     }
 
     card.style.display = '';
-    const colorComponents = buildMonomerColorComponents(validRegions);
-    if (colorComponents.length === 0) { card.style.display = 'none'; return; }
+    let colorComponents = [];
+
+    if (validRegions && validRegions.length >= 2 && monPairResults && monPairResults.length > 0) {
+        colorComponents = buildMonomerColorComponents(validRegions);
+    }
+
+    // If no color components from interaction analysis, fall back based on showComplete
+    if (colorComponents.length === 0) {
+        if (showComplete) {
+            // Show full structure colored by region if regions exist, otherwise light blue-gray
+            if (validRegions && validRegions.length >= 1) {
+                for (const reg of validRegions) {
+                    const allRes = new Set();
+                    for (let i = reg.start; i <= reg.end; i++) allRes.add(i);
+                    colorComponents.push({ chain: 'A', ranges: toRanges(allRes), color: reg.color });
+                }
+                // Fill gaps between regions with light gray
+                const coveredRes = new Set();
+                for (const reg of validRegions) for (let i = reg.start; i <= reg.end; i++) coveredRes.add(i);
+                const uncovered = new Set();
+                for (let i = 1; i <= monProteinLen; i++) if (!coveredRes.has(i)) uncovered.add(i);
+                if (uncovered.size > 0) {
+                    colorComponents.push({ chain: 'A', ranges: toRanges(uncovered), color: '#E0E0E0' });
+                }
+            }
+            if (colorComponents.length === 0) {
+                const allRes = new Set();
+                for (let i = 1; i <= monProteinLen; i++) allRes.add(i);
+                colorComponents.push({ chain: 'A', ranges: toRanges(allRes), color: '#90CAF9' });
+            }
+        } else {
+            // No interactions and showComplete is off — hide the viewer
+            if (card) card.style.display = 'none';
+            return;
+        }
+    }
 
     const page = buildMolstarPage(monPdbText, 'pdb', colorComponents);
     const blob = new Blob([page], { type: 'text/html' });
@@ -2256,24 +2408,25 @@ function generatePmlMono(validRegions) {
         ``,
     ];
 
-    if (monCxcColorMode === 'plddt') {
-        lines.push('hide everything, all');
-        // Show only defined regions
-        for (let ri = 0; ri < validRegions.length; ri++) {
-            const r = validRegions[ri];
+    lines.push('hide everything, all');
+
+    // Visibility: showComplete controls all vs selective
+    if (showComplete) {
+        lines.push('show cartoon, all');
+    } else {
+        for (const r of validRegions) {
             lines.push(`show cartoon, chain A and resi ${r.start}-${r.end}`);
         }
+    }
+    lines.push('');
+
+    // Color mode applies independently of showComplete
+    if (monCxcColorMode === 'plddt') {
         lines.push('spectrum b, red_yellow_green_cyan_blue, minimum=50, maximum=90');
     } else if (monCxcColorMode === 'bychain' || monCxcColorMode === 'bypolymer') {
-        lines.push('hide everything, all');
-        // Show only defined regions
-        for (let ri = 0; ri < validRegions.length; ri++) {
-            const r = validRegions[ri];
-            lines.push(`show cartoon, chain A and resi ${r.start}-${r.end}`);
-        }
         lines.push('util.cbc');
     } else {
-        // Define region colors
+        // Default: color by region + highlight cLIR
         lines.push('# Define colors');
         for (let ri = 0; ri < validRegions.length; ri++) {
             const r = validRegions[ri];
@@ -2284,8 +2437,8 @@ function generatePmlMono(validRegions) {
         }
         for (const v of monPairResults) {
             const colorsForPair = getColorsForRegionPair(
-                validRegions.indexOf(v.ri),
-                validRegions.indexOf(v.rj)
+                findRegionIdx(v.ri, validRegions),
+                findRegionIdx(v.rj, validRegions)
             );
             if (v.clirI.size > 0) {
                 const color = monRegions.length <= 2 ? colorsForPair.clir_a : v.ri.color;
@@ -2298,12 +2451,9 @@ function generatePmlMono(validRegions) {
         }
         lines.push('');
 
-        lines.push('hide everything, all');
-
-        // Show and color regions
+        // Color regions
         for (let ri = 0; ri < validRegions.length; ri++) {
             const r = validRegions[ri];
-            lines.push(`show cartoon, chain A and resi ${r.start}-${r.end}`);
             lines.push(`color region_${ri}, chain A and resi ${r.start}-${r.end}`);
         }
 
@@ -2688,13 +2838,23 @@ function drawChordDiagram(validRegions) {
         angle += sweep + gapAngle;
     }
 
+    // Determine arc colors: for binary mode use picker cLIR colors, otherwise region palette
+    const isBinary = validRegions.length <= 2;
+    const arcColors = [];
+    if (isBinary) {
+        const colors = getColorsForRegionPair(0, 1);
+        arcColors.push(colors.clir_a, colors.clir_b);
+    } else {
+        for (const r of validRegions) arcColors.push(r.color);
+    }
+
     // Draw outer arcs (domain segments)
     for (const arc of arcs) {
         ctx.beginPath();
         ctx.arc(cx, cy, outerR, arc.start, arc.end);
         ctx.arc(cx, cy, innerR, arc.end, arc.start, true);
         ctx.closePath();
-        ctx.fillStyle = arc.region.color;
+        ctx.fillStyle = arcColors[arc.idx] || arc.region.color;
         ctx.fill();
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1;
@@ -2738,8 +2898,8 @@ function drawChordDiagram(validRegions) {
     const ilisMap = {};
     let maxIlis = 0;
     for (const v of monPairResults) {
-        const i = validRegions.indexOf(v.ri);
-        const j = validRegions.indexOf(v.rj);
+        const i = findRegionIdx(v.ri, validRegions);
+        const j = findRegionIdx(v.rj, validRegions);
         if (i >= 0 && j >= 0 && v.iLIS > 0) {
             ilisMap[`${i},${j}`] = v.iLIS;
             ilisMap[`${j},${i}`] = v.iLIS;
@@ -2767,8 +2927,8 @@ function drawChordDiagram(validRegions) {
     // Draw residue-level contact lines for each interacting pair
     for (const v of monPairResults) {
         if (v.iLIS <= 0) continue;
-        const i = validRegions.indexOf(v.ri);
-        const j = validRegions.indexOf(v.rj);
+        const i = findRegionIdx(v.ri, validRegions);
+        const j = findRegionIdx(v.rj, validRegions);
         if (i < 0 || j < 0) continue;
 
         const arcI = arcs[i], arcJ = arcs[j];
@@ -2798,8 +2958,8 @@ function drawChordDiagram(validRegions) {
                 ctx.moveTo(xA, yA);
                 ctx.quadraticCurveTo(cx, cy, xB, yB);
                 const grad = ctx.createLinearGradient(xA, yA, xB, yB);
-                grad.addColorStop(0, hexToRgba(arcI.region.color, alpha));
-                grad.addColorStop(1, hexToRgba(arcJ.region.color, alpha));
+                grad.addColorStop(0, hexToRgba(arcColors[i] || arcI.region.color, alpha));
+                grad.addColorStop(1, hexToRgba(arcColors[j] || arcJ.region.color, alpha));
                 ctx.strokeStyle = grad;
                 ctx.lineWidth = 1.2;
                 ctx.stroke();
@@ -2834,8 +2994,8 @@ function drawScoreMatrix(validRegions) {
     const ilisGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
     const iliaGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
     for (const v of monPairResults) {
-        const i = validRegions.indexOf(v.ri);
-        const j = validRegions.indexOf(v.rj);
+        const i = findRegionIdx(v.ri, validRegions);
+        const j = findRegionIdx(v.rj, validRegions);
         if (i >= 0 && j >= 0) {
             ilisGrid[i][j] = v.iLIS;
             ilisGrid[j][i] = v.iLIS;

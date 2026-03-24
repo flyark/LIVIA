@@ -3,11 +3,13 @@
  *
  * Provides:
  *   cxcColorMode           — current ChimeraX color command preset ('' | 'plddt' | 'bychain' | 'bypolymer')
+ *   showComplete           — display flag: true = show all residues, false = show LIR only
  *   onColorChange          — callback: page sets this to its reload function
  *   initColorPickers()     — bind color input sync (call after DOM ready)
  *   updateColorStrip()     — sync color-strip swatches with picker values
  *   applyPreset()          — set 4 LIR/cLIR colors and trigger reload
  *   applyCxcPreset()       — set CXC color mode (plddt, bychain, etc.)
+ *   toggleShowComplete()   — toggle complete structure display
  *   swapColors()           — swap A/B color pairs
  *
  * Dependencies: none (self-contained)
@@ -18,6 +20,9 @@
 
 // ── Color mode state ──
 let cxcColorMode = '';
+
+// ── Display mode: show all residues vs LIR only ──
+let showComplete = false;
 
 // ── Callback for page-specific reload after color change ──
 let onColorChange = null;
@@ -70,6 +75,14 @@ function applyCxcPreset(mode, el) {
     cxcColorMode = mode;
     document.querySelectorAll('.preset-chip').forEach(p => p.classList.remove('active'));
     if (el) el.classList.add('active');
+    if (onColorChange) onColorChange();
+}
+
+// ── Toggle complete structure display ──
+function toggleShowComplete(cb) {
+    showComplete = cb.checked;
+    // Sync all checkboxes with same class on the page
+    document.querySelectorAll('.show-complete-cb').forEach(el => { el.checked = showComplete; });
     if (onColorChange) onColorChange();
 }
 

@@ -289,7 +289,10 @@
                     <span>residues</span>
                     <button class="btn btn-primary" style="font-size:0.82rem; padding:0.3rem 0.8rem;" onclick="updateGapFill()">Apply</button>
                 </div>
-                <div style="font-size:0.78rem; color:#999; margin-bottom:1rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
+                <div style="font-size:0.78rem; color:#999; margin-bottom:0.5rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:1rem;">
+                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure <span style="font-size:0.78rem; color:#999;">(display all residues instead of LIR only)</span>
+                </label>
 
                 <label>Color Scheme</label>
                 <div class="color-section">
@@ -364,6 +367,11 @@
             </div>
             <hr style="border:none; border-top:1px solid #e0e0e0; margin-bottom:1rem;">
 
+            <div style="display:flex; align-items:center; gap:0.8rem; margin-bottom:0.6rem; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.82rem; color:#555; cursor:pointer; user-select:none;">
+                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure
+                </label>
+            </div>
             <div class="script-preview" id="script-preview"></div>
             <div class="download-row">
                 <a class="btn-download cxc" id="dl-script" download>&#8595; Download <span id="dl-script-ext">.cxc</span></a>
@@ -1035,6 +1043,7 @@ function generateCxc(row, pdbFilename, colors) {
         `graphics silhouettes true`,
         `lighting soft`,
     ];
+    // Color mode applies independently of showComplete
     if (cxcColorMode === 'plddt') {
         lines.push('color bfactor palette #FF7D45:#FFDB13:#65CBF3:#0053D6 range 50,90');
     } else if (cxcColorMode === 'bychain') {
@@ -1060,27 +1069,41 @@ function generateCxc(row, pdbFilename, colors) {
     if (partialParts.length > 0) {
         lines.push(`2dlabels create subtitle text "Partial: ${partialParts.join(', ')}" xpos 0.03 ypos 0.92 size 11 color gray bold false`);
     }
-    lines.push(
-        ``,
-        `# \u2500\u2500 Show ONLY LIR regions as cartoons \u2500\u2500`,
-        `# LIR_A: ${sym1}, ${LIR_A.size} residues`,
-    );
-    if (lirASpec) lines.push(`show #1${lirASpec} cartoons`);
-    lines.push('');
-    lines.push(`# LIR_B: ${sym2}, ${LIR_B.size} residues`);
-    if (lirBSpec) lines.push(`show #1${lirBSpec} cartoons`);
-    lines.push('');
 
-    lines.push(`# \u2500\u2500 Highlight cLIR residues (contact interface) \u2500\u2500`);
-    if (!cxcColorMode && cLIR_A.size > 0) {
-        lines.push(`# cLIR_A: ${sym1}, ${cLIR_A.size} residues`);
-        lines.push(`color #1${clirASpec} ${colors.clir_a}`);
+    // showComplete controls visibility only
+    if (showComplete) {
+        lines.push(
+            ``,
+            `# ── Show complete structure ──`,
+            `show cartoons`,
+            ``,
+        );
+    } else {
+        lines.push(
+            ``,
+            `# ── Show ONLY LIR regions as cartoons ──`,
+            `# LIR_A: ${sym1}, ${LIR_A.size} residues`,
+        );
+        if (lirASpec) lines.push(`show #1${lirASpec} cartoons`);
+        lines.push('');
+        lines.push(`# LIR_B: ${sym2}, ${LIR_B.size} residues`);
+        if (lirBSpec) lines.push(`show #1${lirBSpec} cartoons`);
         lines.push('');
     }
-    if (!cxcColorMode && cLIR_B.size > 0) {
-        lines.push(`# cLIR_B: ${sym2}, ${cLIR_B.size} residues`);
-        lines.push(`color #1${clirBSpec} ${colors.clir_b}`);
-        lines.push('');
+
+    // cLIR highlighting applies in default color mode regardless of showComplete
+    if (!cxcColorMode) {
+        lines.push(`# ── Highlight cLIR residues (contact interface) ──`);
+        if (cLIR_A.size > 0) {
+            lines.push(`# cLIR_A: ${sym1}, ${cLIR_A.size} residues`);
+            lines.push(`color #1${clirASpec} ${colors.clir_a}`);
+            lines.push('');
+        }
+        if (cLIR_B.size > 0) {
+            lines.push(`# cLIR_B: ${sym2}, ${cLIR_B.size} residues`);
+            lines.push(`color #1${clirBSpec} ${colors.clir_b}`);
+            lines.push('');
+        }
     }
 
     lines.push(`# \u2500\u2500 Final view \u2500\u2500`);
@@ -1142,10 +1165,16 @@ function generatePml(row, pdbFilename, colors) {
         `hide everything, all`,
     ];
 
-    // Show only LIR regions
-    if (lirASpec) lines.push(`show cartoon, ${lirASpec}`);
-    if (lirBSpec) lines.push(`show cartoon, ${lirBSpec}`);
+    // showComplete controls visibility only
+    if (showComplete) {
+        lines.push('show cartoon, all');
+    } else {
+        // Show only LIR regions
+        if (lirASpec) lines.push(`show cartoon, ${lirASpec}`);
+        if (lirBSpec) lines.push(`show cartoon, ${lirBSpec}`);
+    }
 
+    // Color mode applies independently of showComplete
     if (cxcColorMode === 'plddt') {
         lines.push('spectrum b, red_yellow_green_cyan_blue, minimum=50, maximum=90');
     } else if (cxcColorMode === 'bychain' || cxcColorMode === 'bypolymer') {
@@ -2353,8 +2382,16 @@ function buildColorComponents(row, colors, pdbText) {
     const LIR_B_filtered = filterSmallSegments(row._LIR_B);
     const cLIR_A = new Set([...row._cLIR_A].filter(r => LIR_A_filtered.has(r)));
     const cLIR_B = new Set([...row._cLIR_B].filter(r => LIR_B_filtered.has(r)));
-    const lirAFilled = fillGaps(LIR_A_filtered);
-    const lirBFilled = fillGaps(LIR_B_filtered);
+    let lirAFilled = fillGaps(LIR_A_filtered);
+    let lirBFilled = fillGaps(LIR_B_filtered);
+
+    // When showComplete, expand to all residues so color mode applies to the full chain
+    if (showComplete) {
+        const lenA = parseInt(row['Len A'] || row['protein_1_size']) || 0;
+        const lenB = parseInt(row['Len B'] || row['protein_2_size']) || 0;
+        lirAFilled = new Set(); for (let i = 1; i <= lenA; i++) lirAFilled.add(i);
+        lirBFilled = new Set(); for (let i = 1; i <= lenB; i++) lirBFilled.add(i);
+    }
 
     function toRanges(positions) {
         const sorted = [...positions].sort((a, b) => a - b);

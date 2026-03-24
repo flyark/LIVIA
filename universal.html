@@ -312,7 +312,10 @@
                     <span>residues</span>
                     <button class="btn btn-primary" style="font-size:0.82rem; padding:0.3rem 0.8rem;" onclick="updateGapFill()">Apply</button>
                 </div>
-                <div style="font-size:0.78rem; color:#999; margin-bottom:1rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
+                <div style="font-size:0.78rem; color:#999; margin-bottom:0.5rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:1rem;">
+                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure <span style="font-size:0.78rem; color:#999;">(display all residues instead of LIR only)</span>
+                </label>
 
                 <label>Cutoffs</label>
                 <div style="display:flex; gap:1.5rem; margin-bottom:1rem; flex-wrap:wrap;">
@@ -384,6 +387,11 @@
             </div>
             <hr style="border:none; border-top:1px solid #e0e0e0; margin-bottom:1rem;">
 
+            <div style="display:flex; align-items:center; gap:0.8rem; margin-bottom:0.6rem; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.82rem; color:#555; cursor:pointer; user-select:none;">
+                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure
+                </label>
+            </div>
             <div class="script-preview" id="script-preview"></div>
             <div class="download-row">
                 <a class="btn-download cxc" id="dl-script" download>&#8595; Download <span id="dl-script-ext">.cxc</span></a>
@@ -638,43 +646,87 @@ dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover
 dropZone.addEventListener('drop', async e => {
     e.preventDefault();
     dropZone.classList.remove('dragover');
-    // Check if any item is a directory
-    const items = e.dataTransfer.items;
-    if (items && items.length > 0) {
-        const entries = [];
-        for (let i = 0; i < items.length; i++) {
-            const entry = items[i].webkitGetAsEntry && items[i].webkitGetAsEntry();
-            if (entry) entries.push(entry);
-        }
-        const hasDir = entries.some(en => en.isDirectory);
-        if (hasDir) {
-            // Recursively read all files from directory
-            const allFiles = [];
-            async function readDir(dirEntry, path) {
-                return new Promise(resolve => {
-                    dirEntry.createReader().readEntries(async entries => {
-                        for (const en of entries) {
-                            if (en.isFile) {
-                                const file = await new Promise(r => en.file(f => r(f)));
-                                Object.defineProperty(file, 'webkitRelativePath', { value: path + '/' + file.name });
-                                allFiles.push(file);
-                            } else if (en.isDirectory) {
-                                await readDir(en, path + '/' + en.name);
+
+    // Try reading directory entries (works on http://, may fail on file://)
+    let handledViaEntries = false;
+    try {
+        const items = e.dataTransfer.items;
+        if (items && items.length > 0) {
+            const entries = [];
+            for (let i = 0; i < items.length; i++) {
+                try {
+                    const getEntry = items[i].webkitGetAsEntry || items[i].getAsEntry;
+                    const entry = getEntry && getEntry.call(items[i]);
+                    if (entry) entries.push(entry);
+                } catch (_) { /* entry API not available */ }
+            }
+            const hasDir = entries.some(en => en.isDirectory);
+            if (hasDir) {
+                setStatus('Reading folder contents...', 'loading');
+                const allFiles = [];
+                async function readDir(dirEntry, path) {
+                    const reader = dirEntry.createReader();
+                    let batch;
+                    do {
+                        batch = await new Promise(resolve => {
+                            reader.readEntries(
+                                entries => resolve(entries),
+                                () => resolve([])
+                            );
+                        });
+                        for (const en of batch) {
+                            try {
+                                if (en.isFile) {
+                                    const file = await new Promise((res, rej) => en.file(f => res(f), rej));
+                                    Object.defineProperty(file, 'webkitRelativePath', { value: path + '/' + file.name });
+                                    allFiles.push(file);
+                                } else if (en.isDirectory) {
+                                    await readDir(en, path + '/' + en.name);
+                                }
+                            } catch (fileErr) {
+                                console.warn('Skipping file:', path, fileErr);
                             }
                         }
-                        resolve();
-                    });
-                });
+                    } while (batch.length > 0);
+                }
+                for (const en of entries) {
+                    if (en.isDirectory) await readDir(en, en.name);
+                    else {
+                        try { const file = await new Promise((r, j) => en.file(f => r(f), j)); allFiles.push(file); }
+                        catch (_) {}
+                    }
+                }
+                if (allFiles.length > 0) {
+                    handleInputFiles(allFiles);
+                    handledViaEntries = true;
+                }
+            } else if (entries.length > 0) {
+                // Dropped files (not directories) — resolve via entries
+                const allFiles = [];
+                for (const en of entries) {
+                    if (en.isFile) {
+                        try { const file = await new Promise((r, j) => en.file(f => r(f), j)); allFiles.push(file); }
+                        catch (_) {}
+                    }
+                }
+                if (allFiles.length > 0) {
+                    handleInputFiles(allFiles);
+                    handledViaEntries = true;
+                }
             }
-            for (const en of entries) {
-                if (en.isDirectory) await readDir(en, en.name);
-                else { const file = await new Promise(r => en.file(f => r(f))); allFiles.push(file); }
-            }
-            handleInputFiles(allFiles);
-            return;
+        }
+    } catch (err) {
+        console.warn('Entry API failed, falling back to files:', err);
+    }
+
+    // Fallback: use e.dataTransfer.files (always works for individual files, not for folders on file://)
+    if (!handledViaEntries) {
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleInputFiles(e.dataTransfer.files);
+        } else {
+            setStatus('Folder drop requires a local server (python3 -m http.server). Use "Select Folder" button instead, or drop individual files.', 'error');
         }
     }
-    if (e.dataTransfer.files.length) handleInputFiles(e.dataTransfer.files);
 });
 fileInput.addEventListener('change', e => { if (e.target.files.length) handleInputFiles(e.target.files); });
 folderInput.addEventListener('change', e => { if (e.target.files.length) handleInputFiles(e.target.files); });
@@ -2377,8 +2429,24 @@ function buildColorComponents(v) {
 
     const lirI_filtered = filterSmallSegments(v.lirI);
     const lirJ_filtered = filterSmallSegments(v.lirJ);
-    const lirIFilled = fillGaps(lirI_filtered);
-    const lirJFilled = fillGaps(lirJ_filtered);
+    let lirIFilled = fillGaps(lirI_filtered);
+    let lirJFilled = fillGaps(lirJ_filtered);
+
+    // When showComplete, expand LIR ranges to cover all residues in each chain
+    if (showComplete) {
+        const chainSizes = uniState.chainSizes || [];
+        const names = uniState.chainNames || [];
+        const idxI = names.indexOf(v.ci);
+        const idxJ = names.indexOf(v.cj);
+        if (idxI >= 0 && chainSizes[idxI]) {
+            lirIFilled = new Set();
+            for (let i = 1; i <= chainSizes[idxI]; i++) lirIFilled.add(i);
+        }
+        if (idxJ >= 0 && chainSizes[idxJ]) {
+            lirJFilled = new Set();
+            for (let i = 1; i <= chainSizes[idxJ]; i++) lirJFilled.add(i);
+        }
+    }
 
     // Helper: convert Set to array of {start, end} ranges
     function toRanges(positions) {
@@ -2402,6 +2470,19 @@ function buildColorComponents(v) {
     for (const [, pv] of Object.entries(currentResults)) {
         if (pv.lirI) for (const c of otherChains) { if (pv.ci === c) for (const r of pv.lirI) otherLIR[c].add(r); }
         if (pv.lirJ) for (const c of otherChains) { if (pv.cj === c) for (const r of pv.lirJ) otherLIR[c].add(r); }
+    }
+
+    // When showComplete, expand other chains to full size too
+    if (showComplete) {
+        const chainSizes = uniState.chainSizes || [];
+        const names = uniState.chainNames || [];
+        for (const c of otherChains) {
+            const idx = names.indexOf(c);
+            if (idx >= 0 && chainSizes[idx]) {
+                otherLIR[c] = new Set();
+                for (let i = 1; i <= chainSizes[idx]; i++) otherLIR[c].add(i);
+            }
+        }
     }
 
     if (mode === 'plddt') {
@@ -2513,6 +2594,7 @@ async function updateViewer3d(pairKey) {
 function selectPair(key) {
     const v = uniState.results[key];
     if (!v) return;
+    uniState.currentPairKey = key;
 
     buildSequenceViewer(key);
     buildContactMap(key);
@@ -2584,6 +2666,7 @@ function generateCxc(v, structFilename, colors) {
         '# \u2500\u2500 Setup \u2500\u2500',
         'set bgColor white', 'graphics silhouettes true', 'lighting soft',
     ];
+    // ── Color mode (independent of showComplete) ──
     if (uniState.cxcColorMode === 'plddt') {
         lines.push('color bfactor palette #FF7D45:#FFDB13:#65CBF3:#0053D6 range 50,90');
     } else if (uniState.cxcColorMode === 'bychain') {
@@ -2593,26 +2676,39 @@ function generateCxc(v, structFilename, colors) {
     } else {
         lines.push(`color #1/${v.ci} ${colors.lir_a}`, `color #1/${v.cj} ${colors.lir_b}`);
     }
-    lines.push(
-        'hide atoms', 'hide cartoons', '',
-        '# \u2500\u2500 Title \u2500\u2500',
-        `2dlabels create title text "${partA}" xpos 0.03 ypos 0.95 size 16 color ${colors.clir_a} bold true`,
-        `2dlabels create title2 text "${partB}" xpos ${xB} ypos 0.95 size 16 color ${colors.clir_b} bold true`,
-        `2dlabels create title3 text "${partC}" xpos ${xC} ypos 0.95 size 16 color black bold true`, '',
-        '# \u2500\u2500 Show LIR regions \u2500\u2500',
-        `# LIR ${v.ci}: ${v.lirI.size} residues`,
-    );
+    lines.push('hide atoms', 'hide cartoons', '');
+
     const showChain = (spec, ch) => {
         const ct = chainType(ch);
         if (ct === 'ion') return [`show #1/${ch} atoms`];
         if (ct === 'rna' || ct === 'dna') return [`show #1${spec} cartoons`, `show #1${spec} atoms`];
         return [`show #1${spec} cartoons`];
     };
-    if (lirISpec) lines.push(...showChain(lirISpec, v.ci));
-    lines.push('', `# LIR ${v.cj}: ${v.lirJ.size} residues`);
-    if (lirJSpec) lines.push(...showChain(lirJSpec, v.cj));
-    lines.push('', '# \u2500\u2500 Highlight cLIR \u2500\u2500');
+
+    lines.push(
+        '# \u2500\u2500 Title \u2500\u2500',
+        `2dlabels create title text "${partA}" xpos 0.03 ypos 0.95 size 16 color ${colors.clir_a} bold true`,
+        `2dlabels create title2 text "${partB}" xpos ${xB} ypos 0.95 size 16 color ${colors.clir_b} bold true`,
+        `2dlabels create title3 text "${partC}" xpos ${xC} ypos 0.95 size 16 color black bold true`, '',
+    );
+
+    // Show: complete structure vs LIR-only
+    if (showComplete) {
+        lines.push('# \u2500\u2500 Show complete structure \u2500\u2500', 'show cartoons', '');
+    } else {
+        lines.push(
+            '# \u2500\u2500 Show LIR regions \u2500\u2500',
+            `# LIR ${v.ci}: ${v.lirI.size} residues`,
+        );
+        if (lirISpec) lines.push(...showChain(lirISpec, v.ci));
+        lines.push('', `# LIR ${v.cj}: ${v.lirJ.size} residues`);
+        if (lirJSpec) lines.push(...showChain(lirJSpec, v.cj));
+        lines.push('');
+    }
+
+    // Highlight cLIR (when not in a cxc color mode)
     if (!uniState.cxcColorMode && v.clirI.size > 0) {
+        lines.push('# \u2500\u2500 Highlight cLIR \u2500\u2500');
         lines.push(`# cLIR ${v.ci}: ${v.clirI.size} residues`);
         lines.push(`color #1${clirISpec} ${colors.clir_a}`);
         lines.push('');
@@ -2671,10 +2767,15 @@ function generatePml(v, structFilename, colors) {
         `hide everything, all`,
     ];
 
-    // Show only LIR regions
-    if (lirISpec) lines.push(`show cartoon, ${lirISpec}`);
-    if (lirJSpec) lines.push(`show cartoon, ${lirJSpec}`);
+    // Show: complete structure vs LIR-only
+    if (showComplete) {
+        lines.push('show cartoon, all');
+    } else {
+        if (lirISpec) lines.push(`show cartoon, ${lirISpec}`);
+        if (lirJSpec) lines.push(`show cartoon, ${lirJSpec}`);
+    }
 
+    // Color mode (independent of showComplete)
     if (uniState.cxcColorMode === 'plddt') {
         lines.push('spectrum b, red_yellow_green_cyan_blue, minimum=50, maximum=90');
     } else if (uniState.cxcColorMode === 'bychain' || uniState.cxcColorMode === 'bypolymer') {
@@ -3854,15 +3955,21 @@ function buildChordDiagram() {
 
     const chainTypes = uniState.chainTypes || chainNames.map(() => 'protein');
 
-    // Get chain colors
+    // Get chain colors — read from pickers for selected pair, palette for others
     const chainColors = {};
+    const selPair = uniState.currentPairKey ? (results[uniState.currentPairKey] || null) : null;
+
     if (nc === 2) {
         chainColors[chainNames[0]] = document.getElementById('color-clir-a')?.value || '#00897B';
         chainColors[chainNames[1]] = document.getElementById('color-clir-b')?.value || '#E64A19';
     } else {
-        setupMultiChainColors();
+        // Multi-chain: selected pair uses picker colors, others use palette
+        const colors = selPair ? getColorsForPair(selPair.ci, selPair.cj) : null;
+        if (!uniState.multiChainColors) setupMultiChainColors();
         for (const name of chainNames) {
-            chainColors[name] = (uniState.multiChainColors && uniState.multiChainColors[name]) || '#888';
+            if (colors && name === selPair.ci) chainColors[name] = colors.clir_a;
+            else if (colors && name === selPair.cj) chainColors[name] = colors.clir_b;
+            else chainColors[name] = (uniState.multiChainColors && uniState.multiChainColors[name]) || '#888';
         }
     }
 

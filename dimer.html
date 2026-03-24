@@ -260,7 +260,10 @@
                     <span>residues</span>
                     <button class="btn btn-primary" style="font-size:0.82rem; padding:0.3rem 0.8rem;" onclick="updateGapFill()">Apply</button>
                 </div>
-                <div style="font-size:0.78rem; color:#999; margin-bottom:1rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
+                <div style="font-size:0.78rem; color:#999; margin-bottom:0.5rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:1rem;">
+                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure <span style="font-size:0.78rem; color:#999;">(display all residues instead of LIR only)</span>
+                </label>
 
                 <label>Cutoffs</label>
                 <div style="display:flex; gap:1.5rem; margin-bottom:1rem; flex-wrap:wrap;">
@@ -334,6 +337,11 @@
             </div>
             <hr style="border:none; border-top:1px solid #e0e0e0; margin-bottom:1rem;">
 
+            <div style="display:flex; align-items:center; gap:0.8rem; margin-bottom:0.6rem; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.82rem; color:#555; cursor:pointer; user-select:none;">
+                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure
+                </label>
+            </div>
             <div class="script-preview" id="script-preview"></div>
             <div class="download-row">
                 <a class="btn-download cxc" id="dl-script" download>&#8595; Download <span id="dl-script-ext">.cxc</span></a>
@@ -2102,19 +2110,24 @@ function generateAndDisplayScript() {
     } else {
         lines.push(`color #1/${v.ci} ${colors.lir_a}`, `color #1/${v.cj} ${colors.lir_b}`);
     }
+    lines.push('hide atoms', 'hide cartoons', '');
     lines.push(
-        'hide atoms', 'hide cartoons', '',
         '# \u2500\u2500 Title \u2500\u2500',
         `2dlabels create title text "${partA}" xpos 0.03 ypos 0.95 size 16 color ${colors.clir_a} bold true`,
         `2dlabels create title2 text "${partB}" xpos ${xB} ypos 0.95 size 16 color ${colors.clir_b} bold true`,
         `2dlabels create title3 text "${partC}" xpos ${xC} ypos 0.95 size 16 color black bold true`, '',
-        '# \u2500\u2500 Show LIR regions \u2500\u2500',
-        `# LIR ${v.ci}: ${v.lirI.size} residues`,
     );
-    if (lirISpec) lines.push(`show #1${lirISpec} cartoons`);
-    lines.push('', `# LIR ${v.cj}: ${v.lirJ.size} residues`);
-    if (lirJSpec) lines.push(`show #1${lirJSpec} cartoons`);
-    lines.push('', '# \u2500\u2500 Highlight cLIR \u2500\u2500');
+
+    if (showComplete) {
+        lines.push('# \u2500\u2500 Show complete structure \u2500\u2500', 'show cartoons', '');
+    } else {
+        lines.push('# \u2500\u2500 Show LIR regions \u2500\u2500', `# LIR ${v.ci}: ${v.lirI.size} residues`);
+        if (lirISpec) lines.push(`show #1${lirISpec} cartoons`);
+        lines.push('', `# LIR ${v.cj}: ${v.lirJ.size} residues`);
+        if (lirJSpec) lines.push(`show #1${lirJSpec} cartoons`);
+        lines.push('');
+    }
+    lines.push('# \u2500\u2500 Highlight cLIR \u2500\u2500');
     if (!cxcColorMode && v.clirI.size > 0) {
         lines.push(`# cLIR ${v.ci}: ${v.clirI.size} residues`);
         lines.push(`color #1${clirISpec} ${colors.clir_a}`);
@@ -2190,9 +2203,12 @@ function generatePml(v, structFilename, colors) {
         `hide everything, all`,
     ];
 
-    // Show only LIR regions
-    if (lirISpec) lines.push(`show cartoon, ${lirISpec}`);
-    if (lirJSpec) lines.push(`show cartoon, ${lirJSpec}`);
+    if (showComplete) {
+        lines.push('show cartoon, all');
+    } else {
+        if (lirISpec) lines.push(`show cartoon, ${lirISpec}`);
+        if (lirJSpec) lines.push(`show cartoon, ${lirJSpec}`);
+    }
 
     if (cxcColorMode === 'plddt') {
         lines.push('spectrum b, red_yellow_green_cyan_blue, minimum=50, maximum=90');
@@ -2286,8 +2302,8 @@ function buildColorComponents(v) {
 
     const lirI_filtered = filterSmallSegments(v.lirI);
     const lirJ_filtered = filterSmallSegments(v.lirJ);
-    const lirIFilled = fillGaps(lirI_filtered);
-    const lirJFilled = fillGaps(lirJ_filtered);
+    let lirIFilled = fillGaps(lirI_filtered);
+    let lirJFilled = fillGaps(lirJ_filtered);
 
     // Helper: convert Set to array of {start, end} ranges
     function toRanges(positions) {
@@ -2301,6 +2317,12 @@ function buildColorComponents(v) {
             if (i < sorted.length) { s = e = sorted[i]; }
         }
         return ranges;
+    }
+
+    // When showComplete, use all residues instead of LIR-only
+    if (showComplete) {
+        lirIFilled = new Set(); for (let i = 1; i <= v.lenI; i++) lirIFilled.add(i);
+        lirJFilled = new Set(); for (let i = 1; i <= v.lenJ; i++) lirJFilled.add(i);
     }
 
     if (cxcColorMode === 'plddt') {
