@@ -122,7 +122,8 @@
             <a href="ortholog_predictome.html">Ortholog Interactome</a>
             <a href="dimer.html">AFDB Dimer</a>
             <a href="monomer.html">AFDB Monomer Subdomain <span style="font-size:0.6rem;color:#e67e22;font-weight:600;">α</span></a>
-            <a href="guide.html">Guide</a>
+            <a href="tutorials.html">Tutorials</a>
+            <a href="guide.html">About</a>
         </div>
     </div>
 </div>
@@ -1609,7 +1610,7 @@ function processDimer() {
 
     dimerPairResult = {
         ci: chainNames[0], cj: chainNames[1],
-        iLIS, iLIA, iLISA, ipSAE, LIS: abResult.lis, cLIS: abResult.clis, ipTM, pDockQ2, pLDDT,
+        iLIS, iLIA, iLISA, ipSAE, LIS: abResult.lis, cLIS: abResult.clis, LIA: abResult.liaCount, cLIA: abResult.cliaCount, ipTM, pDockQ2, pLDDT,
         lirI: abResult.lirI, lirJ: abResult.lirJ,
         clirI: abResult.clirI, clirJ: abResult.clirJ,
         lenI: lenA, lenJ: lenB,
@@ -2270,10 +2271,11 @@ function downloadCSV() {
     const protA = genes[0] || accessions[0] || v.ci;
     const protB = genes[1] || genes[0] || accessions[1] || accessions[0] || v.cj;
     const afdbPlddt = selectedDimer.globalMetricValue || 0;
-    const header = 'name,model,protein_A,protein_B,chain_A,chain_B,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
+    const header = 'name,model,protein_A,protein_B,chain_A,chain_B,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,LIA,cLIA,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
     const row = [
         `"${complexName}"`, 'dimer', `"${protA}"`, `"${protB}"`, v.ci, v.cj,
         v.iLIS.toFixed(6), v.iLIA.toFixed(1), v.iLISA.toFixed(1), v.ipSAE.toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
+        (v.LIA||0).toFixed(1), (v.cLIA||0).toFixed(1),
         v.ipTM.toFixed(6), afdbPlddt.toFixed(1), '',
         v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
         v.lenI, v.lenJ,
@@ -2463,5 +2465,7 @@ function copyScript() {
     });
 }
 </script>
+<script data-goatcounter="https://livia.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>

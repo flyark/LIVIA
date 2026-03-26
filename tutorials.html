@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIVIA &mdash; Tutorials</title>
+    <style>
+        html { scrollbar-gutter: stable; } * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; }
+        .header { background: white; color: #1a5276; padding: 0.8rem 2rem 0.8rem; border-bottom: 1px solid #e8e8e8; }
+        .header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.15rem; color: #1a5276; letter-spacing: -0.02em; }
+        .header p { font-size: 0.92rem; color: #888; margin-bottom: 0.8rem; font-weight: 400; }
+        .header-links { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+        .header-links a { color: #555; text-decoration: none; font-size: 0.82rem; padding: 0.3rem 0.7rem; border: 1px solid #ddd; border-radius: 6px; transition: all 0.2s; background: #f8f9fa; }
+        .header-links a:hover { background: #2471A3; color: white; border-color: #2471A3; }
+        .header-links a.active { background: #2471A3; color: white; border-color: #2471A3; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+
+        /* Page intro */
+        .page-intro { margin-bottom: 2rem; }
+        .page-intro h2 { font-size: 1.4rem; color: #1a5276; margin-bottom: 0.4rem; }
+        .page-intro p { font-size: 0.92rem; color: #666; line-height: 1.5; }
+
+        /* Tutorial card */
+        .tutorial-card {
+            background: white;
+            border-radius: 14px;
+            padding: 0;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+        .tutorial-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.2rem 1.5rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .tutorial-header h3 { font-size: 1.15rem; color: #1a5276; }
+        .tutorial-header h3 .tool-num { color: #2471A3; font-weight: 400; font-size: 0.9rem; margin-right: 0.3rem; }
+        .tutorial-header p { font-size: 0.85rem; color: #888; margin-top: 0.15rem; }
+        .try-btn {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            padding: 0.45rem 1rem; background: #2471A3; color: white;
+            border-radius: 8px; font-weight: 600; font-size: 0.82rem;
+            text-decoration: none; transition: background 0.2s; flex-shrink: 0;
+        }
+        .try-btn:hover { background: #1a5276; }
+
+        .tutorial-body {
+            display: flex;
+            gap: 0;
+        }
+
+        /* Steps sidebar */
+        .steps-sidebar {
+            width: 280px;
+            flex-shrink: 0;
+            padding: 1.2rem 1.2rem;
+            border-right: 1px solid #f0f0f0;
+            background: #fafbfc;
+        }
+        .step-item {
+            display: flex;
+            gap: 0.7rem;
+            align-items: flex-start;
+            padding: 0.7rem 0.6rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 0.3rem;
+        }
+        .step-item:hover { background: #eaf2f8; }
+        .step-item.active { background: #eaf2f8; }
+        .step-badge {
+            flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
+            background: #e0e0e0; color: #888;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.78rem; font-weight: 700;
+            transition: all 0.2s;
+        }
+        .step-item.active .step-badge { background: #2471A3; color: white; }
+        .step-text { font-size: 0.82rem; color: #555; line-height: 1.4; padding-top: 0.2rem; }
+        .step-item.active .step-text { color: #1a5276; font-weight: 600; }
+
+        /* Screenshot area */
+        .screenshot-area {
+            flex: 1;
+            padding: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+            position: relative;
+            background: #f8f9fa;
+        }
+        .screenshot-area img {
+            max-width: 100%;
+            max-height: 500px;
+            border-radius: 8px;
+            border: 1px solid #e1e4e8;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            transition: opacity 0.4s ease-in-out;
+            object-fit: contain;
+        }
+        .screenshot-caption {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 0.8rem;
+            min-height: 1.2rem;
+            transition: opacity 0.4s ease-in-out;
+        }
+
+        /* Progress dots */
+        .progress-dots {
+            display: flex;
+            gap: 0.4rem;
+            justify-content: center;
+            margin-top: 0.8rem;
+        }
+        .dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #ddd;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .dot.active { background: #2471A3; transform: scale(1.2); }
+
+        /* Pause/play indicator */
+        .playback-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .playback-btn {
+            background: none; border: none; cursor: pointer;
+            color: #aaa; font-size: 0.75rem; padding: 0.2rem 0.5rem;
+            border-radius: 4px; transition: all 0.2s;
+        }
+        .playback-btn:hover { color: #2471A3; background: #eaf2f8; }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .tutorial-body { flex-direction: column; }
+            .steps-sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid #f0f0f0;
+                display: flex;
+                gap: 0.3rem;
+                overflow-x: auto;
+                padding: 0.8rem;
+            }
+            .step-item { flex-shrink: 0; margin-bottom: 0; }
+            .screenshot-area { min-height: 250px; }
+        }
+        @media (max-width: 768px) {
+            .header { padding: 1rem; }
+            .header h1 { font-size: 1.2rem; }
+            .header-links { gap: 0.4rem; }
+            .header-links a { font-size: 0.72rem; padding: 0.15rem 0.4rem; }
+            .tutorial-header { flex-direction: column; gap: 0.6rem; align-items: flex-start; }
+        }
+
+        .footer { text-align: center; padding: 1.5rem 2rem; font-size: 0.8rem; color: #999; }
+        .footer a { color: #2471A3; text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="container">
+        <h1><span style="color:#2471A3;">LIVIA</span> &mdash; Tutorials</h1>
+        <p>Step-by-step visual walkthroughs for each LIVIA tool</p>
+        <div class="header-links">
+            <a href="index.html">Home</a>
+            <a href="universal.html">Prediction Analysis</a>
+            <a href="flypredictome.html">FlyPredictome</a>
+            <a href="ortholog_predictome.html">Ortholog Interactome</a>
+            <a href="dimer.html">AFDB Dimer</a>
+            <a href="monomer.html">AFDB Monomer Subdomain <span style="font-size:0.6rem;color:#e67e22;font-weight:600;">&alpha;</span></a>
+            <a href="tutorials.html" class="active">Tutorials</a>
+            <a href="guide.html">About</a>
+            <a href="https://github.com/flyark/LIVIA" target="_blank">GitHub</a>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+
+    <div class="page-intro">
+        <h2>Learn LIVIA by Example</h2>
+        <p>Each tutorial below walks through a real workflow with auto-advancing screenshots. Click any step to jump to it, or let it play through automatically. Ready to try it yourself? Click the <strong>Try it</strong> button.</p>
+    </div>
+
+
+    <!-- ============================================================ -->
+    <!-- TUTORIAL 1: Prediction Analysis (6 steps) -->
+    <!-- ============================================================ -->
+    <div class="tutorial-card" id="tut-universal">
+        <div class="tutorial-header">
+            <div>
+                <h3>Prediction Analysis</h3>
+                <p>Upload prediction files from any platform and analyze interface confidence</p>
+            </div>
+            <a class="try-btn" href="universal.html">Try it &rarr;</a>
+        </div>
+        <div class="tutorial-body">
+            <div class="steps-sidebar" data-tutorial="universal">
+                <div class="step-item active" data-step="0" onclick="goToStep('universal', 0)">
+                    <div class="step-badge">1</div>
+                    <div class="step-text">Upload your prediction files or select example files</div>
+                </div>
+                <div class="step-item" data-step="1" onclick="goToStep('universal', 1)">
+                    <div class="step-badge">2</div>
+                    <div class="step-text">Review confidence metrics &mdash; iLIS, ipSAE, ipTM for each model</div>
+                </div>
+                <div class="step-item" data-step="2" onclick="goToStep('universal', 2)">
+                    <div class="step-badge">3</div>
+                    <div class="step-text">Explore PAE, LIS, and cLIS heatmaps across all models</div>
+                </div>
+                <div class="step-item" data-step="3" onclick="goToStep('universal', 3)">
+                    <div class="step-badge">4</div>
+                    <div class="step-text">Sequence Viewer &mdash; interaction residues highlighted</div>
+                </div>
+                <div class="step-item" data-step="4" onclick="goToStep('universal', 4)">
+                    <div class="step-badge">5</div>
+                    <div class="step-text">Linear Contact Map &mdash; cLIR residue pairs within C&beta; 8 &Aring;</div>
+                </div>
+                <div class="step-item" data-step="5" onclick="goToStep('universal', 5)">
+                    <div class="step-badge">6</div>
+                    <div class="step-text">View the 3D structure in Mol* viewer</div>
+                </div>
+                <div class="step-item" data-step="6" onclick="goToStep('universal', 6)">
+                    <div class="step-badge">7</div>
+                    <div class="step-text">Adjust color presets for the visualization</div>
+                </div>
+                <div class="step-item" data-step="7" onclick="goToStep('universal', 7)">
+                    <div class="step-badge">8</div>
+                    <div class="step-text">Download ChimeraX/PyMOL script and structure file</div>
+                </div>
+            </div>
+            <div class="screenshot-area" data-tutorial="universal">
+                <img id="img-universal" src="screenshots/tut_universal_1.png" alt="Tutorial step">
+                <div class="screenshot-caption" id="cap-universal">Upload your prediction files or select example files</div>
+                <div class="progress-dots" id="dots-universal"></div>
+                <div class="playback-controls">
+                    <button class="playback-btn" onclick="togglePlayback('universal')" id="play-btn-universal" title="Pause/Resume">&#9646;&#9646; Pause</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+</div>
+
+<div class="footer">
+    <a href="https://github.com/flyark/LIVIA" target="_blank">LIVIA GitHub</a> &middot; <a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS GitHub</a> &middot; <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank">FlyPredictome</a> &middot; <a href="https://alphafold.ebi.ac.uk" target="_blank">AlphaFold DB</a>
+    <br>
+    LIVIA v0.1 &middot; Ah-Ram Kim (Harvard Medical School)
+</div>
+
+<script>
+// Tutorial slideshow data
+const tutorials = {
+    universal: {
+        steps: [
+            { src: 'screenshots/tut_universal_1.png', caption: 'Upload your prediction files or select example files' },
+            { src: 'screenshots/tut_universal_2.png', caption: 'Review confidence metrics \u2014 iLIS, ipSAE, ipTM for each model' },
+            { src: 'screenshots/tut_universal_3.png', caption: 'Explore PAE, LIS, and cLIS heatmaps across all models' },
+            { src: 'screenshots/tut_universal_seq.png', caption: 'LIR (light): interaction domain residues. cLIR (dark bold): contact interface residues.' },
+            { src: 'screenshots/tut_universal_linear.png', caption: 'Linear Contact Map \u2014 lines connect cLIR residue pairs within C\u03B2 8 \u00C5' },
+            { src: 'screenshots/tut_universal_4.png', caption: 'View the 3D structure in Mol* viewer' },
+            { src: 'screenshots/tut_universal_5.png', caption: 'Adjust color presets (gradient, solid, high-contrast, pLDDT)' },
+            { src: 'screenshots/tut_universal_6.png', caption: 'Download ChimeraX/PyMOL script and structure file' }
+        ],
+        current: 0, timer: null, paused: false
+    }
+};
+
+const INTERVAL = 3500;
+const FADE_TIME = 400;
+
+function initDots() {
+    for (const [name, tut] of Object.entries(tutorials)) {
+        const container = document.getElementById('dots-' + name);
+        if (!container) continue;
+        container.innerHTML = '';
+        tut.steps.forEach((_, i) => {
+            const dot = document.createElement('div');
+            dot.className = 'dot' + (i === 0 ? ' active' : '');
+            dot.onclick = () => goToStep(name, i);
+            container.appendChild(dot);
+        });
+    }
+}
+
+function showStep(name, idx) {
+    const tut = tutorials[name];
+    const step = tut.steps[idx];
+    const img = document.getElementById('img-' + name);
+    const cap = document.getElementById('cap-' + name);
+
+    img.style.opacity = 0;
+    cap.style.opacity = 0;
+
+    setTimeout(() => {
+        img.src = step.src;
+        cap.textContent = step.caption;
+        img.style.opacity = 1;
+        cap.style.opacity = 1;
+    }, FADE_TIME);
+
+    const sidebar = document.querySelector(`.steps-sidebar[data-tutorial="${name}"]`);
+    if (sidebar) {
+        sidebar.querySelectorAll('.step-item').forEach((el, i) => {
+            el.classList.toggle('active', i === idx);
+        });
+    }
+
+    const dotsContainer = document.getElementById('dots-' + name);
+    if (dotsContainer) {
+        dotsContainer.querySelectorAll('.dot').forEach((dot, i) => {
+            dot.classList.toggle('active', i === idx);
+        });
+    }
+
+    tut.current = idx;
+}
+
+function goToStep(name, idx) {
+    const tut = tutorials[name];
+    if (tut.timer) clearInterval(tut.timer);
+    showStep(name, idx);
+    if (!tut.paused) {
+        startAutoPlay(name);
+    }
+}
+
+function startAutoPlay(name) {
+    const tut = tutorials[name];
+    if (tut.timer) clearInterval(tut.timer);
+    tut.timer = setInterval(() => {
+        const next = (tut.current + 1) % tut.steps.length;
+        showStep(name, next);
+    }, INTERVAL);
+}
+
+function togglePlayback(name) {
+    const tut = tutorials[name];
+    const btn = document.getElementById('play-btn-' + name);
+    if (tut.paused) {
+        tut.paused = false;
+        startAutoPlay(name);
+        btn.innerHTML = '&#9646;&#9646; Pause';
+    } else {
+        tut.paused = true;
+        if (tut.timer) clearInterval(tut.timer);
+        btn.innerHTML = '&#9654; Play';
+    }
+}
+
+// Only auto-play when visible
+function setupVisibilityObserver() {
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            const card = entry.target;
+            const name = card.id.replace('tut-', '');
+            const tut = tutorials[name];
+            if (!tut) return;
+
+            if (entry.isIntersecting && !tut.paused) {
+                startAutoPlay(name);
+            } else {
+                if (tut.timer) clearInterval(tut.timer);
+                tut.timer = null;
+            }
+        });
+    }, { threshold: 0.3 });
+
+    document.querySelectorAll('.tutorial-card').forEach(card => {
+        observer.observe(card);
+    });
+}
+
+initDots();
+setupVisibilityObserver();
+</script>
+
+<script data-goatcounter="https://livia.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

@@ -112,7 +112,8 @@
             <a href="ortholog_predictome.html">Ortholog Interactome</a>
             <a href="dimer.html">AFDB Dimer</a>
             <a href="monomer.html">AFDB Monomer Subdomain <span style="font-size:0.6rem;color:#e67e22;font-weight:600;">α</span></a>
-            <a href="guide.html">Guide</a>
+            <a href="tutorials.html">Tutorials</a>
+            <a href="guide.html">About</a>
         </div>
     </div>
 </div>
@@ -1401,7 +1402,7 @@ function calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap, boundaryMargin) {
     // Exclude boundary residues (margin from each edge)
     const startI = ri.start + margin, endI = ri.end - margin;
     const startJ = rj.start + margin, endJ = rj.end - margin;
-    if (startI > endI || startJ > endJ) return { iLIS: 0, iLIA: 0, iLISA: 0, LIS: 0, cLIS: 0, lirI, lirJ, clirI, clirJ, lenI: ri.end - ri.start + 1, lenJ: rj.end - rj.start + 1 };
+    if (startI > endI || startJ > endJ) return { iLIS: 0, iLIA: 0, iLISA: 0, LIS: 0, cLIS: 0, LIA: 0, cLIA: 0, lirI, lirJ, clirI, clirJ, lenI: ri.end - ri.start + 1, lenJ: rj.end - rj.start + 1 };
 
     for (let a = startI; a <= endI; a++) {
         for (let b = startJ; b <= endJ; b++) {
@@ -1463,7 +1464,7 @@ function calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap, boundaryMargin) {
 
     return {
         ri, rj,
-        iLIS: ilis, iLIA: ilia, iLISA: ilisa, LIS: lis, cLIS: clis,
+        iLIS: ilis, iLIA: ilia, iLISA: ilisa, LIS: lis, cLIS: clis, LIA: liaCount, cLIA: cliaCount,
         lirI, lirJ, clirI, clirJ,
         lenI: ri.end - ri.start + 1,
         lenJ: rj.end - rj.start + 1,
@@ -2071,12 +2072,13 @@ function generateAndShowScript(validRegions) {
 
 function downloadCSV() {
     if (!monPairResults.length) return;
-    const header = 'name,model,protein_A,protein_B,chain_A,chain_B,iLIS,iLIA,iLISA,LIS,cLIS,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
+    const header = 'name,model,protein_A,protein_B,chain_A,chain_B,iLIS,iLIA,iLISA,LIS,cLIS,LIA,cLIA,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
     const rows = [header];
     for (const v of monPairResults) {
         rows.push([
             monUniprotId, 'monomer', v.ri.name, v.rj.name, v.ri.name, v.rj.name,
             v.iLIS.toFixed(6), v.iLIA.toFixed(1), v.iLISA.toFixed(1), v.LIS.toFixed(6), v.cLIS.toFixed(6),
+            (v.LIA||0).toFixed(1), (v.cLIA||0).toFixed(1),
             '', '', '',
             v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
             v.lenI, v.lenJ,
@@ -3179,5 +3181,7 @@ function copyScript() {
     });
 }
 </script>
+<script data-goatcounter="https://livia.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>

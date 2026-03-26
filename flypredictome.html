@@ -93,7 +93,8 @@
             <a href="ortholog_predictome.html">Ortholog Interactome</a>
             <a href="dimer.html">AFDB Dimer</a>
             <a href="monomer.html">AFDB Monomer Subdomain <span style="font-size:0.6rem;color:#e67e22;font-weight:600;">α</span></a>
-            <a href="guide.html">Guide</a>
+            <a href="tutorials.html">Tutorials</a>
+            <a href="guide.html">About</a>
         </div>
     </div>
 </div>
@@ -2548,7 +2549,7 @@ function buildFlySeqViewer(row, sym1, sym2, colors, chainSeqs) {
 
 function downloadFlyCSV() {
     if (!flyParsed || flyParsed.rows.length === 0) return;
-    const header = 'name,model,chain_A,chain_B,iLIS,iLIA,iLISA,LIS,cLIS,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
+    const header = 'name,model,chain_A,chain_B,iLIS,iLIA,iLISA,LIS,cLIS,LIA,cLIA,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
     const rows = [header];
     for (const r of flyParsed.rows) {
         const sym1 = r['Symbol 1'] || '';
@@ -2560,6 +2561,8 @@ function downloadFlyCSV() {
             (() => { const la=parseFloat(r['LIA']||0)||(parseFloat(r['LIA (AB)']||0)+parseFloat(r['LIA (BA)']||0)),cl=parseFloat(r['cLIA']||0)||(parseFloat(r['cLIA (AB)']||0)+parseFloat(r['cLIA (BA)']||0)),il=parseFloat(r['iLIS']||0); const ilia=Math.sqrt(la*cl); return il>0&&ilia>0?(il*ilia).toFixed(1):''; })(),
             r['LIS'] != null ? parseFloat(r['LIS']).toFixed(6) : '',
             r['cLIS'] != null ? parseFloat(r['cLIS']).toFixed(6) : '',
+            (parseFloat(r['LIA']||0)||(parseFloat(r['LIA (AB)']||0)+parseFloat(r['LIA (BA)']||0))).toFixed(1),
+            (parseFloat(r['cLIA']||0)||(parseFloat(r['cLIA (AB)']||0)+parseFloat(r['cLIA (BA)']||0))).toFixed(1),
             r['ipTM'] != null ? parseFloat(r['ipTM']).toFixed(6) : '',
             r['pLDDT'] != null ? parseFloat(r['pLDDT']).toFixed(1) : '',
             r['pTM'] != null ? parseFloat(r['pTM']).toFixed(6) : '',
@@ -2749,5 +2752,7 @@ function copyScript() {
 })();
 </script>
 
+<script data-goatcounter="https://livia.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>

@@ -119,9 +119,9 @@
             <a href="ortholog_predictome.html">Ortholog Interactome</a>
             <a href="dimer.html">AFDB Dimer</a>
             <a href="monomer.html">AFDB Monomer Subdomain <span style="font-size:0.6rem;color:#e67e22;font-weight:600;">α</span></a>
-            <a href="guide.html">Guide</a>
-        
-        
+            <a href="tutorials.html">Tutorials</a>
+            <a href="guide.html">About</a>
+            <a href="https://github.com/flyark/LIVIA" target="_blank">GitHub</a>
         </div>
     </div>
 </div>
@@ -3222,7 +3222,7 @@ function downloadCSV() {
             chainPlddt[c] = arr.reduce((a, b) => a + b, 0) / arr.length;
         }
     }
-    const header = 'name,model,chain_i,chain_j,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,ipTM,pLDDT_i,pLDDT_j,pTM,LIR_i,LIR_j,cLIR_i,cLIR_j,len_i,len_j,LIR_indices_i,LIR_indices_j,cLIR_indices_i,cLIR_indices_j';
+    const header = 'name,model,chain_i,chain_j,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,LIA,cLIA,ipTM,pLDDT_i,pLDDT_j,pTM,LIR_i,LIR_j,cLIR_i,cLIR_j,len_i,len_j,LIR_indices_i,LIR_indices_j,cLIR_indices_i,cLIR_indices_j';
     const rows = [header];
     const platform = platformLabel(uniState.platform);
 
@@ -3234,6 +3234,7 @@ function downloadCSV() {
             rows.push([
                 jobName, `model_${mi}`, v.ci, v.cj,
                 v.iLIS.toFixed(6), (v.iLIA||0).toFixed(1), (v.iLISA||0).toFixed(1), (v.ipSAE||0).toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
+                (v.LIA||0).toFixed(1), (v.cLIA||0).toFixed(1),
                 v.ipTM.toFixed(6),
                 plddtI, plddtJ,
                 cs.pTM != null ? cs.pTM.toFixed(3) : '',
@@ -3253,6 +3254,7 @@ function downloadCSV() {
             rows.push([
                 jobName, 'average', v.ci, v.cj,
                 v.iLIS.toFixed(6), (v.iLIA||0).toFixed(1), (v.iLISA||0).toFixed(1), (v.ipSAE||0).toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
+                (v.LIA||0).toFixed(1), (v.cLIA||0).toFixed(1),
                 v.ipTM.toFixed(6),
                 plddtI, plddtJ,
                 cs.pTM != null ? cs.pTM.toFixed(3) : '',
@@ -4091,5 +4093,7 @@ function copyScript() {
     });
 }
 </script>
+<script data-goatcounter="https://livia.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
