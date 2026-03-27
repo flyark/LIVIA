@@ -2130,10 +2130,24 @@ async function processFiles() {
                     const ilia = Math.sqrt(liaCount * cliaCount);
                     const ilisa = ilis * ilia;
 
+                    // Compute per-chain LIpLDDT and cLIpLDDT from B-factors
+                    let liplddtI = NaN, liplddtJ = NaN, cliplddtI = NaN, cliplddtJ = NaN;
+                    if (structText) {
+                        const bfs = parseBfactorsPerResidue(structText, model.format);
+                        const avg = arr => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : NaN;
+                        const collect = (resSet, chain) => { const a = []; for (const r of resSet) { const v = bfs.get(`${chain}:${r}`); if (v != null) a.push(v); } return a; };
+                        liplddtI = avg(collect(lirI, chainNames[i]));
+                        liplddtJ = avg(collect(lirJ, chainNames[j]));
+                        cliplddtI = avg(collect(clirI, chainNames[i]));
+                        cliplddtJ = avg(collect(clirJ, chainNames[j]));
+                    }
+
                     pairs[`${chainNames[i]},${chainNames[j]}`] = {
                         ci: chainNames[i], cj: chainNames[j],
                         LIS: lis, cLIS: clis, iLIS: ilis, iLIA: ilia, iLISA: ilisa, ipTM: iptm, ipSAE: ipsae,
                         LIA: liaCount, cLIA: cliaCount,
+                        LIpLDDT_i: liplddtI, LIpLDDT_j: liplddtJ,
+                        cLIpLDDT_i: cliplddtI, cLIpLDDT_j: cliplddtJ,
                         lirI, lirJ, clirI, clirJ,
                         lenI: sizes[i], lenJ: sizes[j],
                     };
@@ -2260,6 +2274,10 @@ function averageModels(allPairs) {
             avgLirJ: Math.round(vals.reduce((s, v) => s + v.lirJ.size, 0) / n),
             avgClirI: Math.round(vals.reduce((s, v) => s + v.clirI.size, 0) / n),
             avgClirJ: Math.round(vals.reduce((s, v) => s + v.clirJ.size, 0) / n),
+            LIpLDDT_i: (() => { const vs = vals.filter(v => !isNaN(v.LIpLDDT_i)); return vs.length > 0 ? vs.reduce((s, v) => s + v.LIpLDDT_i, 0) / vs.length : NaN; })(),
+            LIpLDDT_j: (() => { const vs = vals.filter(v => !isNaN(v.LIpLDDT_j)); return vs.length > 0 ? vs.reduce((s, v) => s + v.LIpLDDT_j, 0) / vs.length : NaN; })(),
+            cLIpLDDT_i: (() => { const vs = vals.filter(v => !isNaN(v.cLIpLDDT_i)); return vs.length > 0 ? vs.reduce((s, v) => s + v.cLIpLDDT_i, 0) / vs.length : NaN; })(),
+            cLIpLDDT_j: (() => { const vs = vals.filter(v => !isNaN(v.cLIpLDDT_j)); return vs.length > 0 ? vs.reduce((s, v) => s + v.cLIpLDDT_j, 0) / vs.length : NaN; })(),
         };
         averaged[key].iLIS = Math.sqrt(averaged[key].LIS * averaged[key].cLIS);
         averaged[key].iLIA = Math.sqrt(averaged[key].LIA * averaged[key].cLIA);
@@ -2292,6 +2310,8 @@ function symmetrizePairsFromComma(pairs) {
                 clirI: val.clirI, clirJ: rv.clirI,
                 avgLirI: val.avgLirI, avgLirJ: rv.avgLirI,
                 avgClirI: val.avgClirI, avgClirJ: rv.avgClirI,
+                LIpLDDT_i: val.LIpLDDT_i, LIpLDDT_j: rv.LIpLDDT_i,
+                cLIpLDDT_i: val.cLIpLDDT_i, cLIpLDDT_j: rv.cLIpLDDT_i,
             };
             s.iLIS = Math.sqrt(s.LIS * s.cLIS);
             s.iLIA = Math.sqrt(s.LIA * s.cLIA);
@@ -3252,7 +3272,7 @@ function downloadCSV() {
         return cp;
     }
 
-    const header = 'name,model,chain_i,chain_j,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,LIA,cLIA,ipTM,pLDDT_i,pLDDT_j,pTM,LIR_i,LIR_j,cLIR_i,cLIR_j,len_i,len_j,LIR_indices_i,LIR_indices_j,cLIR_indices_i,cLIR_indices_j';
+    const header = 'name,model,chain_i,chain_j,iLIS,iLIA,iLISA,ipSAE,LIS,cLIS,LIA,cLIA,ipTM,pLDDT_i,pLDDT_j,pTM,LIR_i,LIR_j,cLIR_i,cLIR_j,LIpLDDT_i,LIpLDDT_j,cLIpLDDT_i,cLIpLDDT_j,len_i,len_j,LIR_indices_i,LIR_indices_j,cLIR_indices_i,cLIR_indices_j';
     const rows = [header];
     const platform = platformLabel(uniState.platform);
 
@@ -3272,6 +3292,10 @@ function downloadCSV() {
                 plddtI, plddtJ,
                 ms.pTM != null ? ms.pTM.toFixed(3) : '',
                 v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
+                isNaN(v.LIpLDDT_i) ? '' : v.LIpLDDT_i.toFixed(1),
+                isNaN(v.LIpLDDT_j) ? '' : v.LIpLDDT_j.toFixed(1),
+                isNaN(v.cLIpLDDT_i) ? '' : v.cLIpLDDT_i.toFixed(1),
+                isNaN(v.cLIpLDDT_j) ? '' : v.cLIpLDDT_j.toFixed(1),
                 v.lenI, v.lenJ,
                 `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
                 `"[${[...v.lirJ].sort((a,b)=>a-b).join(', ')}]"`,
@@ -3312,6 +3336,10 @@ function downloadCSV() {
                 plddtI, plddtJ,
                 avgPtmVal != null ? avgPtmVal.toFixed(3) : '',
                 v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
+                isNaN(v.LIpLDDT_i) ? '' : v.LIpLDDT_i.toFixed(1),
+                isNaN(v.LIpLDDT_j) ? '' : v.LIpLDDT_j.toFixed(1),
+                isNaN(v.cLIpLDDT_i) ? '' : v.cLIpLDDT_i.toFixed(1),
+                isNaN(v.cLIpLDDT_j) ? '' : v.cLIpLDDT_j.toFixed(1),
                 v.lenI, v.lenJ,
                 `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
                 `"[${[...v.lirJ].sort((a,b)=>a-b).join(', ')}]"`,
