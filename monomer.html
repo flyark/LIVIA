@@ -601,12 +601,23 @@ function setStatus(msg, type = '') {
 
 function parseUniprotId(input) {
     input = input.trim();
-    // Handle full URL: https://alphafold.ebi.ac.uk/entry/P28482
-    const urlMatch = input.match(/alphafold\.ebi\.ac\.uk\/entry\/([A-Za-z0-9_]+)/);
-    if (urlMatch) return urlMatch[1].toUpperCase();
-    // Handle plain UniProt ID (6-10 chars, starts with letter/number)
-    const idMatch = input.match(/^([A-Za-z0-9_]+)$/);
-    if (idMatch) return idMatch[1].toUpperCase();
+    // Handle full URL: https://alphafold.ebi.ac.uk/entry/AF-Q8INB9-2-F1 or /entry/P28482
+    const urlMatch = input.match(/alphafold\.ebi\.ac\.uk\/entry\/([A-Za-z0-9_-]+)/);
+    if (urlMatch) {
+        let id = urlMatch[1].toUpperCase();
+        // Strip AF- prefix and -F1 / -N-F1 suffix to get the UniProt ID
+        const afMatch = id.match(/^AF-([A-Z0-9_]+?)(?:-\d+)?-F\d+$/);
+        if (afMatch) id = afMatch[1];
+        return id;
+    }
+    // Handle plain UniProt ID or AF model ID
+    const idMatch = input.match(/^([A-Za-z0-9_-]+)$/);
+    if (idMatch) {
+        let id = idMatch[1].toUpperCase();
+        const afMatch = id.match(/^AF-([A-Z0-9_]+?)(?:-\d+)?-F\d+$/);
+        if (afMatch) id = afMatch[1];
+        return id;
+    }
     return null;
 }
 
