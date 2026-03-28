@@ -1832,9 +1832,10 @@ function getChainsFromPdb(pdbText) {
 
 // ipSAE calculation (Dunbrack et al. 2025)
 // Uses PAE matrix directly with TM-score-like sigmoid transform
-function calcIpSAE(pae, si, ei, sj, ej, paeCutoff) {
+function calcIpSAE(pae, si, ei, sj, ej, paeCutoff, coords, distCutoff) {
     const lenI = ei - si, lenJ = ej - sj;
     if (lenI === 0 || lenJ === 0) return 0;
+    distCutoff = distCutoff || 15;
 
     function calcD0(L) {
         return L > 27 ? Math.max(1.0, 1.24 * Math.pow(L - 15, 1/3) - 1.8) : 1.0;
@@ -1842,51 +1843,47 @@ function calcIpSAE(pae, si, ei, sj, ej, paeCutoff) {
     function ptmFunc(x, d0) {
         return 1.0 / (1 + (x / d0) * (x / d0));
     }
+    function passesDist(ri, rj) {
+        if (!coords || ri >= coords.length || rj >= coords.length) return true;
+        const a = coords[ri], b = coords[rj];
+        const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+        return Math.sqrt(dx*dx + dy*dy + dz*dz) < distCutoff;
+    }
 
-    // ipSAE(I→J): for each residue i in chain I, score against chain J
+    // ipSAE(I→J)
     let maxScoreIJ = 0;
     for (let ri = si; ri < ei; ri++) {
-        // Count residues in J with good PAE
         let goodCount = 0;
-        let scoreSum = 0;
         for (let rj = sj; rj < ej; rj++) {
-            const v = (pae[ri]?.[rj] ?? 31) ;
-            if (v < paeCutoff) {
-                goodCount++;
-                const d0 = calcD0(goodCount); // adaptive d0
-                scoreSum += ptmFunc(v, d0);
-            }
+            const v = (pae[ri]?.[rj] ?? 31);
+            if (v < paeCutoff && passesDist(ri, rj)) goodCount++;
         }
         if (goodCount > 0) {
-            // Recalculate with final d0 based on total good count
             const d0 = calcD0(goodCount);
             let finalScore = 0;
             for (let rj = sj; rj < ej; rj++) {
                 const v = (pae[ri]?.[rj] ?? 31);
-                if (v < paeCutoff) {
-                    finalScore += ptmFunc(v, d0);
-                }
+                if (v < paeCutoff && passesDist(ri, rj)) finalScore += ptmFunc(v, d0);
             }
             finalScore /= goodCount;
             if (finalScore > maxScoreIJ) maxScoreIJ = finalScore;
         }
     }
 
-    // ipSAE(J→I): reverse direction
+    // ipSAE(J→I)
     let maxScoreJI = 0;
     for (let rj = sj; rj < ej; rj++) {
         let goodCount = 0;
         for (let ri = si; ri < ei; ri++) {
-            if ((pae[rj]?.[ri] ?? 31) < paeCutoff) goodCount++;
+            const v = (pae[rj]?.[ri] ?? 31);
+            if (v < paeCutoff && passesDist(rj, ri)) goodCount++;
         }
         if (goodCount > 0) {
             const d0 = calcD0(goodCount);
             let finalScore = 0;
             for (let ri = si; ri < ei; ri++) {
                 const v = (pae[rj]?.[ri] ?? 31);
-                if (v < paeCutoff) {
-                    finalScore += ptmFunc(v, d0);
-                }
+                if (v < paeCutoff && passesDist(rj, ri)) finalScore += ptmFunc(v, d0);
             }
             finalScore /= goodCount;
             if (finalScore > maxScoreJI) maxScoreJI = finalScore;
@@ -2126,7 +2123,7 @@ async function processFiles() {
 
                     // ipSAE calculation (Dunbrack method)
                     let ipsae = 0;
-                    try { ipsae = calcIpSAE(pae, si, Math.min(ei, pae.length), sj, Math.min(ej, pae.length), 10); } catch(e) { }  // ipSAE uses PAE cutoff 10
+                    try { ipsae = calcIpSAE(pae, si, Math.min(ei, pae.length), sj, Math.min(ej, pae.length), 10, coords, 15); } catch(e) { }
 
                     const liaCount = lisCountAB + lisCountBA;
                     const cliaCount = clisCountAB + clisCountBA;
