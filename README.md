@@ -52,7 +52,7 @@ Prediction Analysis auto-detects the platform from uploaded files:
 - **cLIS** — contact-filtered LIS (PAE ≤ 12Å & Cβ ≤ 8Å)
 - **iLIA** — `sqrt(LIA × cLIA)` — integrated interaction area
 - **iLISA** — `iLIS × iLIA`
-- **ipSAE** — interface predicted Squared Aligned Error ([Dunbrack, 2025](https://doi.org/10.1101/2025.02.10.637595))
+- **ipSAE** — interaction prediction Score from Aligned Errors ([Dunbrack, 2025](https://doi.org/10.1101/2025.02.10.637595))
 - **LIR / cLIR** — Local Interaction Residues / contact-filtered LIR
 - **LIpLDDT / cLIpLDDT** — average pLDDT of LIR / cLIR residues per chain
 

@@ -399,7 +399,7 @@
                 <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">Confidence Metrics (from AlphaFold DB)</h4>
                 <table style="font-size:0.85rem;">
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>ipTM</strong></td><td style="padding:0.25rem 0; color:#555;">interface predicted TM-score &mdash; global interface confidence from the prediction model</td></tr>
-                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>ipSAE</strong></td><td style="padding:0.25rem 0; color:#555;">interface predicted Squared Aligned Error (<a href="https://www.biorxiv.org/content/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack, 2025</a>) &mdash; improved interface score derived from PAE</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>ipSAE</strong></td><td style="padding:0.25rem 0; color:#555;">interaction prediction Score from Aligned Errors (<a href="https://www.biorxiv.org/content/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack, 2025</a>)</td></tr>
                 </table>
                 <p style="font-size:0.78rem; color:#888; margin-top:0.4rem; line-height:1.4;">PAE (Predicted Aligned Error) measures how confidently the model predicts the relative position of two residues &mdash; lower values indicate higher confidence.</p>
                 <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">References</h4>
@@ -1595,7 +1595,7 @@ function calcIpSAE(pae, si, ei, sj, ej, paeCutoff) {
             if (score > maxScoreJI) maxScoreJI = score;
         }
     }
-    return (maxScoreIJ + maxScoreJI) / 2;
+    return Math.max(maxScoreIJ, maxScoreJI);
 }
 
 // ============================================================================
@@ -1726,7 +1726,7 @@ function processDimer() {
     const iLIS = Math.sqrt(abResult.lis * abResult.clis);
     const iLIA = Math.sqrt(abResult.liaCount * abResult.cliaCount);
     const iLISA = iLIS * iLIA;
-    const ipSAE = calcIpSAE(paeMatrix, offA, offA + lenA, offB, offB + lenB, paeCutoff);
+    const ipSAE = calcIpSAE(paeMatrix, offA, offA + lenA, offB, offB + lenB, 10);  // ipSAE uses PAE cutoff 10
 
     // Metrics from AlphaFold DB API
     const ipTM = selectedDimer.complexPredictionAccuracy_ipTM || 0;
