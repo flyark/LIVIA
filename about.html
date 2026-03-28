@@ -98,7 +98,7 @@
             <a href="dimer.html">AFDB Dimer</a>
             <a href="monomer.html">AFDB Monomer Subdomain <span style="font-size:0.6rem;color:#e67e22;font-weight:600;">α</span></a>
             <a href="tutorials.html">Tutorials</a>
-            <a href="guide.html">About</a>
+            <a href="about.html">About</a>
         </div>
     </div>
 </div>
@@ -106,7 +106,6 @@
 <div class="container">
 
     <div class="prereq">
-        <h4>About</h4>
         <ul>
             <li>All analysis runs locally in your browser &mdash; no data leaves your device</li>
             <li>Tested in Google Chrome and Safari (macOS/iOS)</li>
@@ -424,6 +423,21 @@
             <div style="background:#fdeaea; border-left:4px solid #c0392b; padding:0.8rem 1rem; border-radius:0 8px 8px 0; font-size:0.9rem; color:#8b1a1a; margin-top:0.8rem;">
                 <strong>Caution:</strong> Computational predictions should be interpreted with care. The iLIS &ge; 0.223 threshold was derived from AlphaFold-Multimer (ColabFold) predictions with specific reference datasets. <strong>Other prediction platforms (AlphaFold 3, Boltz, Chai-1, OpenFold) may require different cutoffs</strong> due to differences in model architecture, training data, and confidence calibration. Each platform produces distinct PAE distributions and ipTM scales, which can affect iLIS values. Optimal thresholds may also vary depending on the species, protein types, and experimental system. <strong>Experimental validation is highly recommended</strong> before drawing biological conclusions from predicted interactions.
             </div>
+        </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- BATCH ANALYSIS -->
+    <!-- ================================================================ -->
+    <div class="tool-section">
+        <h2 class="tool-title">Batch Analysis</h2>
+        <div class="subsection">
+            <p>For large-scale batch analysis of many predictions, use <code>lis.py</code> from the <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a> repository. It supports all the same platforms (AlphaFold3, ColabFold, Boltz, Chai-1, OpenFold3), auto-detects the prediction format, and outputs CSV.</p>
+            <div style="background:#1e1e2e; color:#cdd6f4; border-radius:8px; padding:0.8rem; font-family:monospace; font-size:0.82rem; line-height:1.6; margin-top:0.6rem;">
+                <span style="color:#89b4fa;">python</span> lis.py /path/to/predictions/<br>
+                <span style="color:#89b4fa;">python</span> lis.py /path/to/predictions/ -w 4 &nbsp;<span style="color:#6c7086;"># parallel with 4 CPUs</span>
+            </div>
+            <p style="margin-top:0.5rem;">Features: <code>.gz</code>/<code>.xz</code> decompression, incremental CSV output (safe to interrupt and resume), progress bar with ETA.</p>
         </div>
     </div>
 

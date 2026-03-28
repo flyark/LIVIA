@@ -17,46 +17,59 @@ Browser-based tools for analyzing protein-protein interactions from structure pr
 
 ## Features
 
-- **Interaction residue detection** — LIR (Local Interaction Region, PAE ≤ 12Å) and cLIR (contact LIR, PAE ≤ 12Å & Cβ ≤ 8Å)
-- **iLIS / iLIA / iLISA calculation** — interface confidence scoring ([Kim et al. 2024](https://doi.org/10.1101/2024.02.19.580970), [Kim et al. 2025](https://doi.org/10.1101/2025.10.10.681672))
+- **Drag & drop** — upload prediction files directly into your browser (.zip, .gz, .xz, .cif, .pdb, .json, .npz, .npy)
+- **Auto-detection** — automatically identifies the prediction platform from filenames
+- **Interaction residue detection** — LIR (PAE ≤ 12Å) and cLIR (PAE ≤ 12Å & Cβ ≤ 8Å)
+- **Confidence scoring** — iLIS, iLIA, iLISA, ipSAE, ipTM per chain pair
+- **Interactive visualizations** — PAE/LIS/cLIS heatmaps, sequence viewer, linear contact map, chord diagram
 - **3D structure viewer** — Mol* viewer with LIR/cLIR coloring
-- **ChimeraX and PyMOL script generation** — multiple color modes (gradient, solid, high contrast, pLDDT, bychain)
-- **Interactive visualizations** — sequence viewer, PAE/LIS/cLIS maps, interface contact maps, chord diagrams
-- **Color presets** — gradient, solid, high contrast, and custom color options
-- **Show complete structure / Gray non-LIR** — toggle full structure display with optional gray for non-interacting residues
+- **ChimeraX and PyMOL scripts** — color presets (gradient, solid, high contrast, pLDDT, bychain)
+- **TED domain annotations** — domain boundaries from [AlphaFold DB](https://alphafold.ebi.ac.uk) displayed alongside detected regions
+- **CSV download** — full metrics with LIR/cLIR residue indices, LIpLDDT/cLIpLDDT per chain
 
 ## Pages
 
 | Page | Description |
 |------|-------------|
-| **[Prediction Analysis](https://flyark.github.io/LIVIA/universal.html)** | General-purpose analysis for AlphaFold2, AlphaFold3, ColabFold, Boltz, Chai-1, and OpenFold |
-| **[FlyPredictome](https://flyark.github.io/LIVIA/flypredictome.html)** | *Drosophila* protein-protein interaction analysis from [FlyPredictome](https://www.flyrnai.org/tools/fly_predictome) |
-| **[Ortholog Predictome](https://flyark.github.io/LIVIA/ortholog_predictome.html)** | Non-fly predictions from [FlyPredictome](https://www.flyrnai.org/tools/fly_predictome) (including >240,000 human S/T kinase–TF predictions) |
-| **[AlphaFold DB Dimer](https://flyark.github.io/LIVIA/dimer.html)** | Two-chain complex analysis from [AlphaFold Protein Structure Database](https://alphafold.ebi.ac.uk) |
-| **[Monomer Subdomain](https://flyark.github.io/LIVIA/monomer.html)** | Single-chain subdomain interaction analysis from [AlphaFold Protein Structure Database](https://alphafold.ebi.ac.uk) |
-| **[Guide](https://flyark.github.io/LIVIA/guide.html)** | Step-by-step instructions, metric definitions, and references |
+| **[Prediction Analysis](https://flyark.github.io/LIVIA/universal.html)** | Upload and analyze predictions from AlphaFold3, ColabFold, Boltz, Chai-1, OpenFold3 |
+| **[FlyPredictome](https://flyark.github.io/LIVIA/flypredictome.html)** | *Drosophila* PPI analysis from [FlyPredictome](https://www.flyrnai.org/tools/fly_predictome) |
+| **[Ortholog Interactome](https://flyark.github.io/LIVIA/ortholog_predictome.html)** | Non-fly predictions from [FlyPredictome](https://www.flyrnai.org/tools/fly_predictome) ortholog search |
+| **[AFDB Dimer](https://flyark.github.io/LIVIA/dimer.html)** | Dimer analysis from [AlphaFold DB](https://alphafold.ebi.ac.uk) |
+| **[Monomer Subdomain](https://flyark.github.io/LIVIA/monomer.html)** | Intramolecular domain interaction analysis from [AlphaFold DB](https://alphafold.ebi.ac.uk) |
+| **[Tutorials](https://flyark.github.io/LIVIA/tutorials.html)** | Step-by-step visual walkthroughs with auto-advancing screenshots |
+| **[About](https://flyark.github.io/LIVIA/guide.html)** | Metric definitions, color schemes, and references |
 
 ## Supported Platforms
 
-| Platform | Structure | PAE | Auto-detection |
-|----------|-----------|-----|----------------|
-| AlphaFold3 | `.cif` | `full_data_*.json` | Yes |
-| AlphaFold2 | `.pdb` | PAE JSON | Yes |
-| ColabFold | `.pdb` | `scores_*.json` | Yes |
-| Boltz-1/2 | `.pdb` / `.cif` | `pae_*.npz` | Yes |
-| Chai-1 | `.cif` | `scores.*.json` | Yes |
-| OpenFold3 | `.pdb` | confidences JSON | Yes |
+Prediction Analysis auto-detects the platform from uploaded files:
+
+**AlphaFold3** · **AlphaFold2** · **ColabFold** · **Boltz-1/2** · **Chai-1** · **OpenFold3**
 
 ## Key Metrics
 
-- **LIS** (Local Interaction Score) — average confidence of residue pairs with PAE ≤ 12Å ([Kim et al. 2024](https://doi.org/10.1101/2024.02.19.580970))
-- **cLIS** (contact LIS) — same as LIS but restricted to pairs with Cβ–Cβ ≤ 8Å
-- **iLIS** — `sqrt(LIS × cLIS)` — single integrated score ([Kim et al. 2025](https://doi.org/10.1101/2025.10.10.681672))
+- **iLIS** — `sqrt(LIS × cLIS)` — integrated Local Interaction Score ([Kim et al. 2025](https://doi.org/10.1101/2025.10.10.681672))
+- **LIS** — average confidence of residue pairs with PAE ≤ 12Å ([Kim et al. 2024](https://doi.org/10.1101/2024.02.19.580970))
+- **cLIS** — contact-filtered LIS (PAE ≤ 12Å & Cβ ≤ 8Å)
 - **iLIA** — `sqrt(LIA × cLIA)` — integrated interaction area
-- **iLISA** — `iLIS × iLIA` — combined score and area
-- **ipSAE** — TM-score-like interface metric with adaptive normalization ([Dunbrack 2025](https://doi.org/10.1101/2025.01.17.633614))
-- **LIR** — Local Interaction Region (residues with PAE ≤ 12Å to other chain)
-- **cLIR** — contact LIR (LIR residues with Cβ–Cβ ≤ 8Å)
+- **iLISA** — `iLIS × iLIA`
+- **ipSAE** — interface predicted Squared Aligned Error ([Dunbrack, 2025](https://doi.org/10.1101/2025.02.10.637595))
+- **LIR / cLIR** — Local Interaction Residues / contact-filtered LIR
+- **LIpLDDT / cLIpLDDT** — average pLDDT of LIR / cLIR residues per chain
+
+## Batch Analysis: `lis.py`
+
+For large-scale batch analysis without a browser, use the command-line tool from [AFM-LIS](https://github.com/flyark/AFM-LIS). It supports all the same platforms, auto-detects the prediction format, and outputs CSV.
+
+```bash
+python lis.py /path/to/predictions/          # auto-detect, process all models
+python lis.py /path/to/predictions/ -w 4     # parallel with 4 CPUs
+python lis.py alphafold3_output.zip           # zip input
+python lis.py /path/to/predictions/ -v        # verbose error details
+```
+
+Features: `.gz`/`.xz` decompression, incremental CSV output (safe to interrupt and resume), progress bar with ETA, sorted output by name and rank.
+
+See [AFM-LIS](https://github.com/flyark/AFM-LIS) for full documentation and output CSV column reference.
 
 ## Note
 
@@ -65,8 +78,8 @@ Browser-based tools for analyzing protein-protein interactions from structure pr
 
 ## Related Resources
 
-- **[AFM-LIS](https://github.com/flyark/AFM-LIS)** — Python framework for iLIS/LIS calculation
-- **[FlyPredictome](https://www.flyrnai.org/tools/fly_predictome)** — Large-scale *Drosophila* PPI prediction database (>1.7 million predictions)
+- **[AFM-LIS](https://github.com/flyark/AFM-LIS)** — Python framework and CLI for iLIS/LIS calculation
+- **[FlyPredictome](https://www.flyrnai.org/tools/fly_predictome)** — Large-scale *Drosophila* PPI predictions (>1.7 million)
 - **[AlphaFold Protein Structure Database](https://alphafold.ebi.ac.uk)** — Predicted protein structures
 
 ## References
@@ -82,7 +95,7 @@ If you use LIVIA in your research, please cite:
 @misc{livia,
   author = {Kim, Ah-Ram},
   title = {LIVIA: Local Interaction Visualization and Analysis},
-  year = {2026},
+  year = {2025},
   publisher = {GitHub},
   url = {https://github.com/flyark/LIVIA}
 }
