@@ -2571,12 +2571,36 @@ function buildColorComponents(v) {
         addPlddt(v.cj, lirJFilled);
         for (const c of otherChains) addPlddt(c, fillGaps(otherLIR[c]));
     } else if (mode === 'bychain' || mode === 'bypolymer') {
-        addComp(v.ci, toRanges(lirIFilled), colors.clir_a);
-        addComp(v.cj, toRanges(lirJFilled), colors.clir_b);
+        if (grayNonLir && showComplete) {
+            // Gray non-LIR for chain i and j
+            const LIR_I_orig = fillGaps(filterSmallSegments(v.lirI));
+            const LIR_J_orig = fillGaps(filterSmallSegments(v.lirJ));
+            const nonLirI = new Set([...lirIFilled].filter(r => !LIR_I_orig.has(r)));
+            const nonLirJ = new Set([...lirJFilled].filter(r => !LIR_J_orig.has(r)));
+            if (nonLirI.size > 0) addComp(v.ci, toRanges(nonLirI), '#B0B0B0');
+            if (nonLirJ.size > 0) addComp(v.cj, toRanges(nonLirJ), '#B0B0B0');
+            addComp(v.ci, toRanges(LIR_I_orig), colors.clir_a);
+            addComp(v.cj, toRanges(LIR_J_orig), colors.clir_b);
+        } else {
+            addComp(v.ci, toRanges(lirIFilled), colors.clir_a);
+            addComp(v.cj, toRanges(lirJFilled), colors.clir_b);
+        }
         for (const c of otherChains) {
+            if (isNonProteinChain(c)) continue;
             const cc = (uniState.multiChainColors && uniState.multiChainColors[c]) || '#cccccc';
-            const ranges = toRanges(fillGaps(otherLIR[c]));
-            if (ranges.length > 0) addComp(c, ranges, cc);
+            if (grayNonLir && showComplete) {
+                const lirOrig = fillGaps(otherLIR[c]);
+                const allRes = new Set();
+                const idx = (uniState.chainNames || []).indexOf(c);
+                const sz = (uniState.chainSizes || [])[idx] || 0;
+                for (let i = 1; i <= sz; i++) allRes.add(i);
+                const nonLir = new Set([...allRes].filter(r => !lirOrig.has(r)));
+                if (nonLir.size > 0) addComp(c, toRanges(nonLir), '#B0B0B0');
+                if (lirOrig.size > 0) addComp(c, toRanges(lirOrig), cc);
+            } else {
+                const ranges = toRanges(fillGaps(otherLIR[c]));
+                if (ranges.length > 0) addComp(c, ranges, cc);
+            }
         }
     } else {
         // Gradient: LIR-only in light, cLIR in dark (separate components)
@@ -2603,8 +2627,22 @@ function buildColorComponents(v) {
         addComp(v.ci, toRanges(clirISet), colors.clir_a);
         addComp(v.cj, toRanges(clirJSet), colors.clir_b);
         for (const c of otherChains) {
-            const ranges = toRanges(fillGaps(otherLIR[c]));
-            if (ranges.length > 0) addComp(c, ranges, '#dddddd');
+            if (isNonProteinChain(c)) continue;
+            const cc = (uniState.multiChainColors && uniState.multiChainColors[c]) || '#dddddd';
+            if (grayNonLir && showComplete) {
+                // Gray non-LIR, colored LIR for other chains too
+                const lirOrig = fillGaps(otherLIR[c]);
+                const allRes = new Set();
+                const idx = (uniState.chainNames || []).indexOf(c);
+                const sz = (uniState.chainSizes || [])[idx] || 0;
+                for (let i = 1; i <= sz; i++) allRes.add(i);
+                const nonLir = new Set([...allRes].filter(r => !lirOrig.has(r)));
+                if (nonLir.size > 0) addComp(c, toRanges(nonLir), '#B0B0B0');
+                if (lirOrig.size > 0) addComp(c, toRanges(lirOrig), cc);
+            } else {
+                const ranges = toRanges(fillGaps(otherLIR[c]));
+                if (ranges.length > 0) addComp(c, ranges, showComplete ? cc : '#dddddd');
+            }
         }
     }
     return components.filter(c => c.ranges.length > 0);
@@ -2754,6 +2792,21 @@ function generateCxc(v, structFilename, colors) {
         lines.push(`color #1 #B0B0B0`);
         if (lirISpec) lines.push(`color #1${lirISpec} ${colors.lir_a}`);
         if (lirJSpec) lines.push(`color #1${lirJSpec} ${colors.lir_b}`);
+        // Color other chains' LIR regions too
+        const otherChainsForCxc = (uniState.chainNames || []).filter(c => c !== v.ci && c !== v.cj);
+        const currentRes = uniState.results || {};
+        for (const c of otherChainsForCxc) {
+            const lirSet = new Set();
+            for (const [, pv] of Object.entries(currentRes)) {
+                if (pv.ci === c && pv.lirI) for (const r of pv.lirI) lirSet.add(r);
+                if (pv.cj === c && pv.lirJ) for (const r of pv.lirJ) lirSet.add(r);
+            }
+            if (lirSet.size > 0) {
+                const cc = (uniState.multiChainColors && uniState.multiChainColors[c]) || '#cccccc';
+                const spec = cxcResSpec(fillGaps(lirSet), c);
+                if (spec) lines.push(`color #1${spec} ${cc}`);
+            }
+        }
     } else {
         lines.push(`color #1/${v.ci} ${colors.lir_a}`, `color #1/${v.cj} ${colors.lir_b}`);
     }
