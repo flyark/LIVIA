@@ -108,6 +108,7 @@
 
         <div class="input-tabs">
             <button class="input-tab" data-tab="search" onclick="switchTab('search')">Search by Gene</button>
+            <button class="input-tab" data-tab="pair" onclick="switchTab('pair')">Gene Pair</button>
             <button class="input-tab active" data-tab="url" onclick="switchTab('url')">Paste URL</button>
         </div>
 
@@ -135,6 +136,40 @@
             </div>
             <div id="search-status" style="font-size:0.85rem; color:#666; min-height:1.2rem; margin-top:0.5rem; margin-bottom:0.5rem;"></div>
             <div id="search-results" style="display:none;"></div>
+        </div>
+
+        <!-- Gene Pair panel -->
+        <div id="pair-panel" style="display:none;">
+            <div class="url-row" style="position:relative;">
+                <div style="position:relative; flex:1;">
+                    <input type="text" id="pair-gene-a"
+                           placeholder="Gene A (e.g., Akt1)"
+                           autocomplete="off"
+                           oninput="pairAcIdx=-1;searchPairAc(this,'pair-ac-a')"
+                           onkeydown="handlePairAcKey(event,'pair-gene-a','pair-ac-a')">
+                    <div id="pair-ac-a" class="ac-list" style="display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #ddd; border-radius:0 0 8px 8px; max-height:250px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
+                <div style="position:relative; flex:1;">
+                    <input type="text" id="pair-gene-b"
+                           placeholder="Gene B (e.g., foxo)"
+                           autocomplete="off"
+                           oninput="pairAcIdx=-1;searchPairAc(this,'pair-ac-b')"
+                           onkeydown="handlePairAcKey(event,'pair-gene-b','pair-ac-b')">
+                    <div id="pair-ac-b" class="ac-list" style="display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #ddd; border-radius:0 0 8px 8px; max-height:250px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
+                <button class="btn btn-primary" onclick="searchGenePair()">Search Pair</button>
+            </div>
+            <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.5rem; align-items:center;">
+                <span style="font-size:0.8rem; color:#888;">Examples:</span>
+                <button class="example-btn" onclick="setPairAndSearch('Akt1','foxo')">Akt1 &amp; foxo</button>
+                <button class="example-btn" onclick="setPairAndSearch('Dl','N')">Dl &amp; N</button>
+                <button class="example-btn" onclick="setPairAndSearch('yki','sd')">yki &amp; sd</button>
+                <button class="example-btn" onclick="setPairAndSearch('dsh','Axn')">dsh &amp; Axn</button>
+                <button class="example-btn" onclick="setPairAndSearch('Mad','Med')">Mad &amp; Med</button>
+                <button class="example-btn" onclick="setPairAndSearch('spz','Tl')">spz &amp; Tl</button>
+            </div>
+            <div id="pair-status" style="font-size:0.85rem; color:#666; min-height:1.2rem; margin-top:0.5rem; margin-bottom:0.5rem;"></div>
+            <div id="pair-results" style="display:none;"></div>
         </div>
 
         <!-- Paste URL panel -->
@@ -465,6 +500,7 @@ document.addEventListener('DOMContentLoaded', initColorPickers);
 // ── Tab switching ──
 function switchTab(tab) {
     document.getElementById('search-panel').style.display = tab === 'search' ? '' : 'none';
+    document.getElementById('pair-panel').style.display = tab === 'pair' ? '' : 'none';
     document.getElementById('url-panel').style.display = tab === 'url' ? '' : 'none';
     document.querySelectorAll('.input-tab').forEach(t => t.classList.remove('active'));
     document.querySelector('.input-tab[data-tab="' + tab + '"]').classList.add('active');
@@ -558,6 +594,7 @@ async function searchUniprotAc(query) {
 
 document.addEventListener('click', (e) => {
     if (!e.target.closest('#search-panel')) hideGeneAc();
+    if (!e.target.closest('#pair-panel')) hidePairAc();
 });
 
 async function searchGene(presetFbgn) {
@@ -674,6 +711,262 @@ async function searchGene(presetFbgn) {
     }
 }
 
+// ── Gene Pair search ──
+let pairAcDebounce = null;
+let pairAcIdx = -1;
+
+function hidePairAc() {
+    document.getElementById('pair-ac-a').style.display = 'none';
+    document.getElementById('pair-ac-b').style.display = 'none';
+    pairAcIdx = -1;
+}
+
+function searchPairAc(inputEl, listId) {
+    clearTimeout(pairAcDebounce);
+    const list = document.getElementById(listId);
+    const query = inputEl.value.trim();
+    if (query.length < 2) { list.style.display = 'none'; return; }
+    pairAcDebounce = setTimeout(async () => {
+        try {
+            const url = `https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent(query)}+AND+organism_id:7227&fields=accession,gene_names,protein_name,organism_name,xref_flybase&size=8&format=json`;
+            const resp = await fetch(url);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const results = data.results || [];
+            list.innerHTML = '';
+            if (results.length === 0) { list.style.display = 'none'; return; }
+            for (const r of results) {
+                const acc = r.primaryAccession || '';
+                const gene = (r.genes || [{}])[0]?.geneName?.value || '';
+                const synonyms = (r.genes || [{}])[0]?.synonyms?.map(s => s.value).join(', ') || '';
+                const name = r.proteinDescription?.recommendedName?.fullName?.value
+                          || r.proteinDescription?.submissionNames?.[0]?.fullName?.value || '';
+                const flybaseXref = (r.uniProtKBCrossReferences || []).find(x => x.database === 'FlyBase');
+                const fbgn = flybaseXref?.id || '';
+                const item = document.createElement('div');
+                item.style.cssText = 'padding:0.5rem 0.8rem; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;';
+                item.innerHTML = '<strong style="color:#2471A3;">' + esc(gene) + '</strong>' +
+                    (synonyms ? ' <span style="color:#999; font-size:0.75rem;">(' + esc(synonyms) + ')</span>' : '') +
+                    (fbgn ? ' <span style="color:#bbb; font-size:0.7rem;">' + esc(fbgn) + '</span>' : '') +
+                    '<br><span style="color:#555; font-size:0.78rem;">' + esc(name.substring(0, 60)) + '</span>' +
+                    ' <span style="color:#aaa; font-size:0.72rem;">' + esc(acc) + '</span>';
+                item.addEventListener('mouseenter', () => { item.style.background = '#eaf2f8'; });
+                item.addEventListener('mouseleave', () => { item.style.background = ''; });
+                item.addEventListener('click', ((g, f) => () => {
+                    inputEl.value = g;
+                    inputEl.dataset.fbgn = f;
+                    list.style.display = 'none';
+                })(gene, fbgn));
+                list.appendChild(item);
+            }
+            list.style.display = '';
+        } catch (e) { /* silent */ }
+    }, 300);
+}
+
+function handlePairAcKey(e, inputId, listId) {
+    const list = document.getElementById(listId);
+    const items = list.querySelectorAll('div');
+    if (list.style.display !== 'none' && items.length > 0) {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            pairAcIdx = Math.min(pairAcIdx + 1, items.length - 1);
+            items.forEach((it, i) => { it.style.background = i === pairAcIdx ? '#eaf2f8' : ''; });
+            items[pairAcIdx].scrollIntoView({ block: 'nearest' });
+            return;
+        }
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            pairAcIdx = Math.max(pairAcIdx - 1, 0);
+            items.forEach((it, i) => { it.style.background = i === pairAcIdx ? '#eaf2f8' : ''; });
+            items[pairAcIdx].scrollIntoView({ block: 'nearest' });
+            return;
+        }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (pairAcIdx >= 0 && pairAcIdx < items.length) {
+                items[pairAcIdx].click();
+            } else {
+                list.style.display = 'none';
+            }
+            return;
+        }
+        if (e.key === 'Escape') { list.style.display = 'none'; pairAcIdx = -1; return; }
+    } else if (e.key === 'Enter') {
+        searchGenePair();
+    }
+}
+
+function setPairAndSearch(a, b) {
+    const inputA = document.getElementById('pair-gene-a');
+    const inputB = document.getElementById('pair-gene-b');
+    inputA.value = a; inputA.dataset.fbgn = '';
+    inputB.value = b; inputB.dataset.fbgn = '';
+    searchGenePair();
+}
+
+async function resolveGeneToFbgn(query, presetFbgn) {
+    if (presetFbgn) return { fbgn: presetFbgn, symbol: query };
+    const fbgnText = await fetchTextViaProxy('https://www.flyrnai.org/tools/fly_predictome/web/get_fbgns/' + encodeURIComponent(query));
+    if (!fbgnText) throw new Error('Could not reach FlyPredictome.');
+    const fbgnData = JSON.parse(fbgnText);
+    if (!fbgnData.data || fbgnData.data.length === 0) throw new Error('Gene "' + query + '" not found.');
+    let bestRow = fbgnData.data[0];
+    for (const row of fbgnData.data) {
+        if (row[2] === query) { bestRow = row; break; }
+    }
+    if (bestRow[2] !== query) {
+        for (const row of fbgnData.data) {
+            if (row[2].toLowerCase() === query.toLowerCase()) { bestRow = row; break; }
+        }
+    }
+    const fbgnMatch = bestRow[1].match(/FBgn\d+/);
+    if (!fbgnMatch) throw new Error('Could not resolve gene ID for "' + query + '".');
+    return { fbgn: fbgnMatch[0], symbol: bestRow[2] || query };
+}
+
+async function searchGenePair() {
+    const inputA = document.getElementById('pair-gene-a');
+    const inputB = document.getElementById('pair-gene-b');
+    const queryA = inputA.value.trim();
+    const queryB = inputB.value.trim();
+    if (!queryA || !queryB) return;
+
+    const statusEl = document.getElementById('pair-status');
+    const resultsEl = document.getElementById('pair-results');
+    statusEl.textContent = 'Resolving gene pair...';
+    statusEl.style.color = '#2471A3';
+    resultsEl.style.display = 'none';
+
+    try {
+        // Step 1: Resolve both genes to FBgn IDs in parallel
+        const [geneA, geneB] = await Promise.all([
+            resolveGeneToFbgn(queryA, inputA.dataset.fbgn || ''),
+            resolveGeneToFbgn(queryB, inputB.dataset.fbgn || '')
+        ]);
+
+        statusEl.textContent = 'Found: ' + geneA.symbol + ' (' + geneA.fbgn + ') & ' + geneB.symbol + ' (' + geneB.fbgn + '). Searching interaction...';
+
+        // Step 2: Fetch famdb_summary and canonical lengths in parallel
+        const [summaryResp, canonicalA, canonicalB] = await Promise.all([
+            fetchTextViaProxy('https://www.flyrnai.org/tools/fly_predictome/web/famdb_summary/' + geneA.fbgn + '/'),
+            fetchTextViaProxy('https://www.flyrnai.org/tools/fly_predictome/web/get_protein_info/' + geneA.fbgn).then(t => {
+                if (!t) return 0;
+                try { return Math.max(...JSON.parse(t).map(i => parseInt(i.seq?.len) || 0)); } catch { return 0; }
+            }).catch(() => 0),
+            fetchTextViaProxy('https://www.flyrnai.org/tools/fly_predictome/web/get_protein_info/' + geneB.fbgn).then(t => {
+                if (!t) return 0;
+                try { return Math.max(...JSON.parse(t).map(i => parseInt(i.seq?.len) || 0)); } catch { return 0; }
+            }).catch(() => 0)
+        ]);
+        if (!summaryResp) throw new Error('Could not fetch interaction data.');
+
+        const partners = parseFamdbSummary(summaryResp, geneA.fbgn, geneA.symbol);
+
+        // Step 3: Find ALL matches for gene B in the partner list
+        const matches = partners.filter(p =>
+            p.partnerFbgn === geneB.fbgn ||
+            p.fbgn1 === geneB.fbgn || p.fbgn2 === geneB.fbgn ||
+            p.sym1.toLowerCase() === geneB.symbol.toLowerCase() ||
+            p.sym2.toLowerCase() === geneB.symbol.toLowerCase()
+        );
+
+        // Detect partial proteins (mapped to sym1/sym2 columns)
+        for (const p of matches) {
+            const isA1 = (p.fbgn1 === geneA.fbgn);
+            const canon1 = isA1 ? canonicalA : canonicalB;
+            const canon2 = isA1 ? canonicalB : canonicalA;
+            p.isPartial1 = canon1 > 0 && p.lenA < canon1 * 0.9;
+            p.isPartial2 = canon2 > 0 && p.lenB < canon2 * 0.9;
+        }
+
+        if (matches.length === 0) {
+            statusEl.textContent = 'No predicted interaction found between ' + geneA.symbol + ' and ' + geneB.symbol + '.';
+            statusEl.style.color = '#c0392b';
+            return;
+        }
+
+        // Single match → load directly
+        if (matches.length === 1 && matches[0].detailUrl) {
+            statusEl.textContent = geneA.symbol + ' \u2014 ' + geneB.symbol + ': loading analysis...';
+            statusEl.style.color = '#27ae60';
+            document.getElementById('url-input').value = matches[0].detailUrl;
+            switchTab('url');
+            generate();
+            return;
+        }
+
+        // Multiple matches → show selection table
+        statusEl.textContent = geneA.symbol + ' \u2014 ' + geneB.symbol + ': ' + matches.length + ' prediction sets found. Click a row to analyze.';
+        statusEl.style.color = '#27ae60';
+        displayPairResults(matches);
+
+    } catch (e) {
+        statusEl.textContent = 'Error: ' + e.message;
+        statusEl.style.color = '#c0392b';
+    }
+}
+
+function displayPairResults(matches) {
+    const container = document.getElementById('pair-results');
+    container.innerHTML = '';
+    container.style.display = '';
+
+    const tableWrap = document.createElement('div');
+    tableWrap.style.cssText = 'overflow-x:auto; max-height:300px; overflow-y:auto; border:1px solid #e0e0e0; border-radius:8px;';
+
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    table.style.fontSize = '0.8rem';
+    table.innerHTML =
+        '<thead style="position:sticky; top:0; z-index:1;">' +
+            '<tr>' +
+                '<th>Protein A</th>' +
+                '<th>Protein B</th>' +
+                '<th>iLIS (best)</th>' +
+                '<th>ipTM (best)</th>' +
+                '<th>Len A</th>' +
+                '<th>Len B</th>' +
+                '<th>MIST</th>' +
+            '</tr>' +
+        '</thead>' +
+        '<tbody></tbody>';
+
+    const tbody = table.querySelector('tbody');
+    for (const p of matches) {
+        const tr = document.createElement('tr');
+        tr.className = 'clickable';
+        tr.style.cursor = 'pointer';
+        const ilisColor = p.ilisBest >= 0.551 ? '#C0392B' : p.ilisBest >= 0.339 ? '#27ae60' : p.ilisBest >= 0.223 ? '#e67e22' : '#999';
+        const mistStr = [p.mistPPI ? 'PPI' : '', p.mistGI ? 'GI' : ''].filter(Boolean).join(', ') || '\u2014';
+        const partial1 = p.isPartial1 ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Partial)</span>' : '';
+        const partial2 = p.isPartial2 ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Partial)</span>' : '';
+        tr.innerHTML =
+            '<td><strong>' + esc(p.sym1) + '</strong> <span style="color:#999; font-size:0.72rem;">' + esc(p.fbgn1) + '</span>' + partial1 + '</td>' +
+            '<td><strong>' + esc(p.sym2) + '</strong> <span style="color:#999; font-size:0.72rem;">' + esc(p.fbgn2) + '</span>' + partial2 + '</td>' +
+            '<td style="color:' + ilisColor + '; font-weight:600;">' + p.ilisBest.toFixed(3) + '</td>' +
+            '<td>' + p.iptmBest.toFixed(2) + '</td>' +
+            '<td>' + p.lenA + '</td>' +
+            '<td>' + p.lenB + '</td>' +
+            '<td>' + mistStr + '</td>';
+        if (p.detailUrl) {
+            tr.addEventListener('click', ((url) => (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    window.open(window.location.pathname + '?url=' + encodeURIComponent(url), '_blank');
+                } else {
+                    document.getElementById('url-input').value = url;
+                    switchTab('url');
+                    generate();
+                }
+            })(p.detailUrl));
+        }
+        tbody.appendChild(tr);
+    }
+
+    tableWrap.appendChild(table);
+    container.appendChild(tableWrap);
+}
+
 function parseFamdbSummary(html, queryFbgn, querySymbol) {
     // Column indices (0-based) from the actual famdb_summary table:
     // 0: id (link), 1: ranks counts, 2: Protein 1, 3: Protein 2
@@ -767,6 +1060,16 @@ function displayPartnerTable(partners, querySymbol) {
     container.innerHTML = '';
     container.style.display = '';
 
+    // Search input
+    const searchDiv = document.createElement('div');
+    searchDiv.style.cssText = 'margin-bottom:0.5rem;';
+    searchDiv.innerHTML =
+        '<input type="text" id="filter-partner-search" placeholder="Search partner gene name..." ' +
+            'oninput="filterPartnerTable()" ' +
+            'style="padding:0.45rem 0.8rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.85rem; width:100%; max-width:300px; transition:border-color 0.2s;" ' +
+            'onfocus="this.style.borderColor=\'#2471A3\'" onblur="this.style.borderColor=\'#e0e0e0\'">';
+    container.appendChild(searchDiv);
+
     // Filter controls
     const filterDiv = document.createElement('div');
     filterDiv.style.cssText = 'display:flex; gap:1rem; align-items:center; margin-bottom:0.5rem; flex-wrap:wrap;';
@@ -834,11 +1137,13 @@ function filterPartnerTable() {
     const thresholdOnly = document.getElementById('filter-threshold')?.checked;
     const mistOnly = document.getElementById('filter-mist')?.checked;
     const fullLengthOnly = document.getElementById('filter-fulllength')?.checked;
+    const searchQuery = (document.getElementById('filter-partner-search')?.value || '').trim().toLowerCase();
 
     tbody.innerHTML = '';
     let count = 0;
 
     for (const p of partners) {
+        if (searchQuery && !p.partnerSymbol.toLowerCase().includes(searchQuery) && !p.partnerFbgn.toLowerCase().includes(searchQuery)) continue;
         if (positiveOnly && p.ilisBest <= 0) continue;
         if (thresholdOnly && p.ilisBest < 0.223) continue;
         if (fullLengthOnly && (p.isPartnerPartial || p.isQueryPartial)) continue;
