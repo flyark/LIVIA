@@ -495,7 +495,24 @@
 onColorChange = () => { if (flyParsed && flyCurrentRank) loadRank(flyCurrentRank); };
 onScriptTabSwitch = () => { updateScriptPreview(); };
 // Initialize color pickers
-document.addEventListener('DOMContentLoaded', initColorPickers);
+document.addEventListener('DOMContentLoaded', () => {
+    initColorPickers();
+    // URL parameter support: ?gene=Akt1 or ?pair=Akt1,foxo
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('gene')) {
+        switchTab('search');
+        document.getElementById('gene-search-input').value = params.get('gene');
+        setTimeout(() => searchGene(), 500);
+    } else if (params.get('pair')) {
+        const parts = params.get('pair').split(',');
+        if (parts.length === 2) {
+            switchTab('pair');
+            document.getElementById('pair-gene-a').value = parts[0].trim();
+            document.getElementById('pair-gene-b').value = parts[1].trim();
+            setTimeout(() => searchGenePair(), 500);
+        }
+    }
+});
 
 // ── Tab switching ──
 function switchTab(tab) {
