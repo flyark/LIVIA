@@ -3605,18 +3605,10 @@ function buildSequenceViewer(pairKey) {
     const allCLIR = {};
     for (const name of uniState.chainNames) { allLIR[name] = new Set(); allCLIR[name] = new Set(); }
 
-    // Use current results (changes per selected model/rank)
+    // Use current results only (changes per selected model/rank)
     const currentResults = uniState.results || uniState.avgResults;
     if (currentResults) {
         for (const [key, pv] of Object.entries(currentResults)) {
-            if (pv.lirI) for (const r of pv.lirI) allLIR[pv.ci]?.add(r);
-            if (pv.lirJ) for (const r of pv.lirJ) allLIR[pv.cj]?.add(r);
-            if (pv.clirI) for (const r of pv.clirI) allCLIR[pv.ci]?.add(r);
-            if (pv.clirJ) for (const r of pv.clirJ) allCLIR[pv.cj]?.add(r);
-        }
-    }
-    for (const mp of uniState.modelPairs) {
-        for (const [key, pv] of Object.entries(mp)) {
             if (pv.lirI) for (const r of pv.lirI) allLIR[pv.ci]?.add(r);
             if (pv.lirJ) for (const r of pv.lirJ) allLIR[pv.cj]?.add(r);
             if (pv.clirI) for (const r of pv.clirI) allCLIR[pv.ci]?.add(r);
