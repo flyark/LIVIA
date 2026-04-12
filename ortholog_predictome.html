@@ -400,6 +400,15 @@
             </div>
         </div>
 
+        <!-- Per-Residue pLDDT -->
+        <div class="card result-card" id="plddt-card" style="display:none;">
+            <h2>Per-Residue pLDDT <span class="model-badge" id="plddt-model-badge"></span></h2>
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+                Per-residue pLDDT for each chain across all ranks. Selected rank as solid line; other ranks as avg &plusmn; SD shading.
+            </div>
+            <div id="plddt-charts"></div>
+        </div>
+
     </div>
 
     <!-- Instructions -->
@@ -1568,6 +1577,16 @@ async function fetchAllRankPdbs() {
         const fetched = await fetchRankPdb(rankNum);
         if (fetched) updateCombinedChord();
     }
+    // Rebuild pLDDT charts now that all rank PDBs are available
+    if (flyCurrentRank) {
+        const colors = {
+            lir_a: document.getElementById('color-lir-a').value,
+            lir_b: document.getElementById('color-lir-b').value,
+            clir_a: document.getElementById('color-clir-a').value,
+            clir_b: document.getElementById('color-clir-b').value,
+        };
+        buildFlyPlddtCharts(flyCurrentRank, colors);
+    }
 }
 
 function updateCombinedChord() {
@@ -1676,6 +1695,202 @@ async function loadRank(rankNum) {
     buildConnectionDiagram(target, sym1, sym2, colors, flyPdbText);
     buildChordDiagram(target, sym1, sym2, colors, flyPdbText);
     updateViewer3d(target, colors, flyPdbText);
+
+    // Per-residue pLDDT charts
+    buildFlyPlddtCharts(rankNum, colors);
+}
+
+// ============================================================================
+// PER-RESIDUE pLDDT CHARTS (across ranks)
+// ============================================================================
+function parsePdbPlddt(pdbText) {
+    const chains = new Map();
+    for (const line of pdbText.split('\n')) {
+        if (!line.startsWith('ATOM')) continue;
+        if (line.substring(12, 16).trim() !== 'CA') continue;
+        const chain = line.substring(21, 22).trim();
+        const resnum = parseInt(line.substring(22, 26));
+        const bf = parseFloat(line.substring(60, 66));
+        if (isNaN(resnum) || isNaN(bf)) continue;
+        if (!chains.has(chain)) chains.set(chain, new Map());
+        chains.get(chain).set(resnum, bf);
+    }
+    return chains;
+}
+
+function buildFlyPlddtCharts(selectedRank, colors) {
+    const card = document.getElementById('plddt-card');
+    const container = document.getElementById('plddt-charts');
+    if (!card || !container || !flyParsed || !flyParsed.rows) return;
+
+    const availableRanks = Object.keys(flyPdbPerRank).map(Number).sort((a, b) => a - b);
+    if (availableRanks.length === 0) { card.style.display = 'none'; return; }
+
+    const allPlddt = [];
+    for (const rk of availableRanks) {
+        allPlddt.push({ rank: rk, chains: parsePdbPlddt(flyPdbPerRank[rk]) });
+    }
+
+    const firstPlddt = allPlddt[0].chains;
+    const chainNames = [...firstPlddt.keys()];
+    if (chainNames.length === 0) { card.style.display = 'none'; return; }
+
+    const row0 = flyParsed.rows[0];
+    const sym1 = row0?.['Symbol 1'] || 'A';
+    const sym2 = row0?.['Symbol 2'] || 'B';
+    const chainLabels = { A: sym1, B: sym2 };
+
+    const isAvg = selectedRank === 'avg';
+    const selRankNum = isAvg ? null : parseInt(selectedRank);
+    const singleRank = availableRanks.length === 1;
+
+    container.innerHTML = '';
+    card.style.display = '';
+    container.offsetWidth;
+
+    const badge = document.getElementById('plddt-model-badge');
+    if (badge) badge.textContent = isAvg ? 'Average' : 'Rank ' + selectedRank;
+
+    const target = isAvg ? flyAverageRow : (flyParsed.rows.find(r => parseInt(r['Rank']) === selRankNum) || flyParsed.rows[0]);
+
+    for (const chainName of chainNames) {
+        const chainSize = firstPlddt.get(chainName)?.size || 0;
+        if (chainSize === 0) continue;
+        const maxRes = Math.max(...firstPlddt.get(chainName).keys());
+
+        const rankArrays = [];
+        for (const rp of allPlddt) {
+            const cm = rp.chains.get(chainName);
+            const arr = [];
+            for (let r = 1; r <= maxRes; r++) arr.push(cm?.get(r) ?? null);
+            rankArrays.push({ rank: rp.rank, plddt: arr });
+        }
+
+        const n = maxRes;
+        const avgArr = [], stdArr = [];
+        for (let i = 0; i < n; i++) {
+            let sum = 0, cnt = 0;
+            for (const ra of rankArrays) { if (ra.plddt[i] !== null) { sum += ra.plddt[i]; cnt++; } }
+            const avg = cnt > 0 ? sum / cnt : null;
+            avgArr.push(avg);
+            let sqSum = 0;
+            if (cnt > 1) {
+                for (const ra of rankArrays) { if (ra.plddt[i] !== null) sqSum += (ra.plddt[i] - avg) ** 2; }
+                stdArr.push(Math.sqrt(sqSum / cnt));
+            } else { stdArr.push(0); }
+        }
+
+        const lirKey = chainName === 'A' ? '_LIR_A' : '_LIR_B';
+        const clirKey = chainName === 'A' ? '_cLIR_A' : '_cLIR_B';
+        const lir = target?.[lirKey] || new Set();
+        const clir = target?.[clirKey] || new Set();
+        const lirColor = chainName === 'A' ? colors.lir_a : colors.lir_b;
+        const clirColor = chainName === 'A' ? colors.clir_a : colors.clir_b;
+
+        const selData = selRankNum ? rankArrays.find(ra => ra.rank === selRankNum)?.plddt : avgArr;
+
+        let selSum = 0, selN = 0, avgS = 0, avgN2 = 0;
+        for (let i = 0; i < n; i++) {
+            if (selData && selData[i] !== null) { selSum += selData[i]; selN++; }
+            if (avgArr[i] !== null) { avgS += avgArr[i]; avgN2++; }
+        }
+        const selAvg = selN > 0 ? (selSum / selN).toFixed(1) : '—';
+        const totalAvg = avgN2 > 0 ? (avgS / avgN2).toFixed(1) : '—';
+
+        const header = document.createElement('div');
+        header.style.cssText = 'font-size:0.9rem; font-weight:700; color:#1a5276; margin-top:1rem; margin-bottom:0.2rem; padding-bottom:0.3rem; border-bottom:2px solid #e0e0e0;';
+        header.textContent = (chainLabels[chainName] || chainName) + ' — Chain ' + chainName + ' (' + n + ' residues)';
+        container.appendChild(header);
+
+        const legendEl = document.createElement('div');
+        legendEl.style.cssText = 'display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap; margin-top:0.5rem; margin-bottom:0.3rem;';
+        let legendHtml = '<span style="font-size:0.85rem; font-weight:600; color:#1a5276;">pLDDT</span>';
+        if (!singleRank) {
+            legendHtml += '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:2px; background:#C62828;"></span> ' + (isAvg ? 'Average' : 'Rank ' + selRankNum) + ' (' + selAvg + ')</span>';
+            legendHtml += '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:0; border-top:2px dashed #1565C0;"></span> Avg \u00b1 SD (' + totalAvg + ')</span>';
+        } else {
+            legendHtml += '<span style="font-size:0.75rem; color:#555;">(' + selAvg + ')</span>';
+        }
+        legendEl.innerHTML = legendHtml;
+        container.appendChild(legendEl);
+
+        const W = Math.max(Math.min(container.clientWidth || 900, 1200), 400);
+        const H = 145;
+        const PAD = { left: 50, right: 20, top: 14, bottom: 35 };
+        const plotW = W - PAD.left - PAD.right;
+        const plotH = H - PAD.top - PAD.bottom;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = W * 2; canvas.height = H * 2;
+        canvas.style.cssText = `width:${W}px; height:${H}px;`;
+        container.appendChild(canvas);
+
+        const ctx = canvas.getContext('2d');
+        ctx.scale(2, 2);
+        const xScale = (r) => PAD.left + (r / n) * plotW;
+        const yPlddt = (v) => PAD.top + plotH - (Math.max(0, Math.min(100, v)) / 100) * plotH;
+
+        ctx.fillStyle = '#fafafa';
+        ctx.fillRect(PAD.left, PAD.top, plotW, plotH);
+
+        const barY = H - PAD.bottom + 2, barH = 6;
+        for (let r = 1; r <= n; r++) {
+            const x0 = xScale(r - 1), x1 = xScale(r);
+            if (clir.has(r)) { ctx.fillStyle = clirColor; ctx.fillRect(x0, barY, x1 - x0 + 0.5, barH); }
+            else if (lir.has(r)) { ctx.fillStyle = lirColor; ctx.fillRect(x0, barY, x1 - x0 + 0.5, barH); }
+        }
+
+        ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 0.5;
+        ctx.fillStyle = '#999'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+        for (const tick of [0, 25, 50, 75, 100]) {
+            const y = yPlddt(tick);
+            ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + plotW, y); ctx.stroke();
+            ctx.fillText(tick, PAD.left - 5, y + 3);
+        }
+
+        ctx.textAlign = 'center'; ctx.fillStyle = '#999';
+        const step = n > 800 ? 200 : n > 400 ? 100 : n > 200 ? 50 : 25;
+        for (let r = step; r <= n; r += step) ctx.fillText(r, xScale(r), H - PAD.bottom + 22);
+
+        if (!singleRank) {
+            ctx.fillStyle = 'rgba(21,101,192,0.12)';
+            ctx.beginPath();
+            for (let i = 0; i < n; i++) { if (avgArr[i] !== null) ctx.lineTo(xScale(i + 0.5), yPlddt(avgArr[i] + stdArr[i])); }
+            for (let i = n - 1; i >= 0; i--) { if (avgArr[i] !== null) ctx.lineTo(xScale(i + 0.5), yPlddt(avgArr[i] - stdArr[i])); }
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.strokeStyle = '#1565C0'; ctx.lineWidth = 1;
+            ctx.setLineDash([4, 3]);
+            ctx.beginPath();
+            let started = false;
+            for (let i = 0; i < n; i++) {
+                if (avgArr[i] === null) { started = false; continue; }
+                const x = xScale(i + 0.5), y = yPlddt(avgArr[i]);
+                if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        const drawArr = selData || avgArr;
+        ctx.strokeStyle = '#C62828'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        let started2 = false;
+        for (let i = 0; i < n; i++) {
+            if (drawArr[i] === null) { started2 = false; continue; }
+            const x = xScale(i + 0.5), y = yPlddt(drawArr[i]);
+            if (!started2) { ctx.moveTo(x, y); started2 = true; } else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(12, PAD.top + plotH / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillStyle = '#666'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('pLDDT', 0, 0);
+        ctx.restore();
+    }
 }
 
 function parsePdbSequence(pdbText) {
