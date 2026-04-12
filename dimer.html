@@ -199,6 +199,16 @@
             <div id="maps-flex" style="display:flex; gap:0.4rem; justify-content:center; overflow:hidden;"></div>
         </div>
 
+        <!-- Dimer vs Monomer Comparison -->
+        <div class="card result-card" id="comparison-card" style="display:none;">
+            <h2>Dimer vs Monomer Comparison (Intra-chain LIS &amp; pLDDT)</h2>
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+                Compares per-residue metrics when the chain is predicted alone (monomer) vs. as part of a complex (dimer). Intra-chain LIS measures internal folding confidence within the same chain. Green shading = gain in dimer context; red = loss.
+            </div>
+            <div id="comparison-status" style="font-size:0.82rem; color:#2471A3; margin-bottom:0.5rem;"></div>
+            <div id="comparison-charts"></div>
+        </div>
+
         <!-- Sequence Viewer -->
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
             <h2>Sequence Viewer</h2>
@@ -445,6 +455,7 @@ let domainCache = new Map(); // UniProt ID -> domain array cache
 let tedCache = new Map();    // UniProt ID -> TED domain array cache
 let chainDomains = { A: [], B: [] }; // domain annotations per chain
 let chainTedDomains = { A: [], B: [] }; // TED domain annotations per chain
+let monomerData = {}; // { uniprotId: { pdbText, paeData, plddt: Map } }
 
 // ============================================================================
 // CORS PROXY (AlphaFold DB complex API lacks CORS headers)
@@ -826,6 +837,10 @@ async function selectDimer(idx, trEl) {
         }
         await Promise.allSettled(domainPromises);
 
+        // Fetch monomer predictions in background (non-blocking)
+        monomerData = {};
+        const uniqueIds = [...new Set(uniprotIds.filter(Boolean))];
+        fetchMonomerData(uniqueIds);
 
         setStatus('Analyzing...', 'loading');
         await new Promise(r => setTimeout(r, 10));
@@ -1628,6 +1643,453 @@ function computeContactMap(coords, threshold) {
 }
 
 // ============================================================================
+// MONOMER COMPARISON
+// ============================================================================
+async function fetchMonomerData(uniprotIds) {
+    const statusEl = document.getElementById('comparison-status');
+    const card = document.getElementById('comparison-card');
+    if (statusEl) statusEl.textContent = 'Fetching monomer predictions...';
+    if (card) card.style.display = 'none';
+
+    for (const uid of uniprotIds) {
+        try {
+            // Fetch monomer metadata from AlphaFold DB
+            const metaUrl = `https://alphafold.ebi.ac.uk/api/prediction/${uid}`;
+            const metaResp = await fetch(metaUrl);
+            if (!metaResp.ok) continue;
+            const metaArr = await metaResp.json();
+            const meta = Array.isArray(metaArr) ? metaArr[0] : metaArr;
+            if (!meta) continue;
+
+            // Fetch PDB and PAE in parallel
+            const [pdbText, paeResp] = await Promise.all([
+                fetch(meta.pdbUrl).then(r => r.ok ? r.text() : null).catch(() => null),
+                fetch(meta.paeDocUrl).then(r => r.ok ? r.json() : null).catch(() => null)
+            ]);
+
+            if (!pdbText) continue;
+
+            // Parse pLDDT from PDB B-factors (CA atoms)
+            const plddt = new Map();
+            for (const line of pdbText.split('\n')) {
+                if (!line.startsWith('ATOM')) continue;
+                const atomName = line.substring(12, 16).trim();
+                if (atomName !== 'CA') continue;
+                const resnum = parseInt(line.substring(22, 26));
+                const bf = parseFloat(line.substring(60, 66));
+                if (!isNaN(resnum) && !isNaN(bf)) plddt.set(resnum, bf);
+            }
+
+            monomerData[uid] = { pdbText, paeData: paeResp, plddt };
+        } catch (e) { /* non-critical */ }
+    }
+
+    // Build comparison if we have data and dimer results
+    if (Object.keys(monomerData).length > 0 && dimerPairResult) {
+        buildComparisonCharts();
+    } else if (statusEl) {
+        statusEl.textContent = 'Monomer predictions not available for comparison.';
+    }
+}
+
+function buildComparisonCharts() {
+    const card = document.getElementById('comparison-card');
+    const container = document.getElementById('comparison-charts');
+    const statusEl = document.getElementById('comparison-status');
+    if (!card || !container || !dimerPairResult) return;
+
+    const v = dimerPairResult;
+    const uniprotIds = selectedDimer.uniprotAccession || [];
+    const genes = selectedDimer?.gene || [];
+    const isHomodimer = !uniprotIds[1] || uniprotIds[0] === uniprotIds[1];
+
+    // Get dimer pLDDT per residue from CIF
+    const dimerPlddt = parseBfactorsPerResidue(dimerCifText);
+
+    // Build chain configs to render
+    const chainConfigs = [];
+    const chainLabels = [
+        genes[0] || uniprotIds[0] || v.ci,
+        genes[1] || genes[0] || uniprotIds[1] || uniprotIds[0] || v.cj
+    ];
+
+    // For homodimer, show one chart; for heterodimer, show both
+    const chainsToShow = isHomodimer ? [0] : [0, 1];
+
+    for (const ci of chainsToShow) {
+        const chainName = v.chainNames[ci];
+        const chainLen = v.chainSizes[ci];
+        const uid = uniprotIds[ci] || uniprotIds[0];
+        const mono = monomerData[uid];
+        if (!mono) continue;
+
+        // Build per-residue arrays
+        const dimerArr = [];
+        const monoArr = [];
+        const interPae = []; // min inter-chain PAE per residue
+        const dimerLisArr = []; // per-residue inter-chain LIS (dimer)
+        const monoLisArr = []; // per-residue intra-chain LIS (monomer)
+
+        const offThis = v.offsets[ci];
+        const offOther = v.offsets[1 - ci];
+        const lenOther = v.chainSizes[1 - ci];
+        const paeCutoff = v.paeCutoff || 12;
+
+        // Parse monomer PAE matrix
+        let monoPae = null;
+        if (mono.paeData) {
+            const paeObj = Array.isArray(mono.paeData) ? mono.paeData[0] : mono.paeData;
+            monoPae = paeObj?.predicted_aligned_error || null;
+        }
+
+        for (let r = 1; r <= chainLen; r++) {
+            const dVal = dimerPlddt.get(`${chainName}:${r}`);
+            dimerArr.push(dVal !== undefined ? dVal : null);
+            const mVal = mono.plddt.get(r);
+            monoArr.push(mVal !== undefined ? mVal : null);
+
+            // Compute min inter-chain PAE for this residue
+            let minPae = 32;
+            const ri = offThis + r - 1;
+            for (let j = 0; j < lenOther; j++) {
+                const rj = offOther + j;
+                if (ri < v.paeMatrix.length && rj < v.paeMatrix.length) {
+                    const paeAvg = (v.paeMatrix[ri][rj] + v.paeMatrix[rj][ri]) / 2;
+                    if (paeAvg < minPae) minPae = paeAvg;
+                }
+            }
+            interPae.push(minPae);
+
+            // Per-residue intra-chain LIS (dimer context): avg max(0, 1-PAE/cutoff) over all other residues
+            let dLisSum = 0;
+            for (let j = 0; j < chainLen; j++) {
+                if (j === r - 1) continue;
+                const rj = offThis + j;
+                if (ri < v.paeMatrix.length && rj < v.paeMatrix.length) {
+                    const paeAvg = (v.paeMatrix[ri][rj] + v.paeMatrix[rj][ri]) / 2;
+                    if (paeAvg < paeCutoff) {
+                        dLisSum += 1 - paeAvg / paeCutoff;
+                    }
+                }
+            }
+            dimerLisArr.push(chainLen > 1 ? dLisSum / (chainLen - 1) : 0);
+
+            // Per-residue intra-chain LIS (monomer): avg max(0, 1-PAE/cutoff) over all other residues
+            let mLisSum = 0;
+            if (monoPae && r - 1 < monoPae.length) {
+                const monoLen = monoPae.length;
+                for (let j = 0; j < monoLen; j++) {
+                    if (j === r - 1) continue;
+                    const paeAvg = (monoPae[r - 1][j] + monoPae[j][r - 1]) / 2;
+                    if (paeAvg < paeCutoff) {
+                        mLisSum += 1 - paeAvg / paeCutoff;
+                    }
+                }
+                monoLisArr.push(monoLen > 1 ? mLisSum / (monoLen - 1) : 0);
+            } else {
+                monoLisArr.push(0);
+            }
+        }
+
+        chainConfigs.push({
+            chainName,
+            label: chainLabels[ci] + (isHomodimer ? ' (homodimer)' : ` (Chain ${chainName})`),
+            chainLen, dimerArr, monoArr, interPae, dimerLisArr, monoLisArr,
+            lir: ci === 0 ? v.lirI : v.lirJ,
+            clir: ci === 0 ? v.clirI : v.clirJ
+        });
+    }
+
+    if (chainConfigs.length === 0) {
+        statusEl.textContent = 'Could not align monomer data to dimer chains.';
+        return;
+    }
+
+    container.innerHTML = '';
+    card.style.display = '';
+
+    // Force layout reflow so container.clientWidth is available
+    container.offsetWidth;
+
+    // Compute summary stats
+    let totalDelta = 0, lirDelta = 0, nonLirDelta = 0;
+    let totalN = 0, lirN = 0, nonLirN = 0;
+
+    for (const cc of chainConfigs) {
+        for (let i = 0; i < cc.chainLen; i++) {
+            if (cc.dimerArr[i] !== null && cc.monoArr[i] !== null) {
+                const d = cc.dimerArr[i] - cc.monoArr[i];
+                totalDelta += d; totalN++;
+                if (cc.lir.has(i + 1)) { lirDelta += d; lirN++; }
+                else { nonLirDelta += d; nonLirN++; }
+            }
+        }
+    }
+
+    statusEl.innerHTML =
+        '<span style="color:#555;">Mean &Delta;pLDDT: </span>' +
+        '<strong>' + (totalN ? (totalDelta / totalN).toFixed(1) : '—') + '</strong>' +
+        '<span style="color:#999;"> (all)</span>' +
+        ' &middot; <strong style="color:#00897b;">' + (lirN ? (lirDelta / lirN).toFixed(1) : '—') + '</strong>' +
+        '<span style="color:#999;"> (LIR)</span>' +
+        ' &middot; <strong style="color:#888;">' + (nonLirN ? (nonLirDelta / nonLirN).toFixed(1) : '—') + '</strong>' +
+        '<span style="color:#999;"> (non-LIR)</span>';
+
+    // Draw charts: LIS first, then pLDDT
+    for (const cc of chainConfigs) {
+        const chainLabel = document.createElement('div');
+        chainLabel.style.cssText = 'font-size:0.9rem; font-weight:700; color:#1a5276; margin-top:1rem; margin-bottom:0.2rem; padding-bottom:0.3rem; border-bottom:2px solid #e0e0e0;';
+        chainLabel.textContent = cc.label + ' (' + cc.chainLen + ' residues)';
+        container.appendChild(chainLabel);
+        drawLisComparisonChart(container, cc);
+        drawComparisonChart(container, cc);
+    }
+}
+
+function drawComparisonChart(container, cc) {
+    const W = Math.max(Math.min(container.clientWidth || 900, 1200), 400);
+    const H = 200;
+    const PAD = { left: 50, right: 20, top: 14, bottom: 35 };
+    const plotW = W - PAD.left - PAD.right;
+    const plotH = H - PAD.top - PAD.bottom;
+
+    // Compute averages for legend
+    let dimerPlddtSum = 0, dimerPlddtN = 0, monoPlddtSum = 0, monoPlddtN = 0;
+    for (let i = 0; i < cc.chainLen; i++) {
+        if (cc.dimerArr[i] !== null) { dimerPlddtSum += cc.dimerArr[i]; dimerPlddtN++; }
+        if (cc.monoArr[i] !== null) { monoPlddtSum += cc.monoArr[i]; monoPlddtN++; }
+    }
+    const avgDimerPlddt = dimerPlddtN ? (dimerPlddtSum / dimerPlddtN).toFixed(1) : '—';
+    const avgMonoPlddt = monoPlddtN ? (monoPlddtSum / monoPlddtN).toFixed(1) : '—';
+
+    // Title + legend row (HTML, outside canvas)
+    const headerEl = document.createElement('div');
+    headerEl.style.cssText = 'display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap; margin-top:0.8rem; margin-bottom:0.3rem;';
+    headerEl.innerHTML =
+        '<span style="font-size:0.85rem; font-weight:600; color:#1a5276;">pLDDT</span>' +
+        '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:2px; background:#C62828;"></span> Dimer (' + avgDimerPlddt + ')</span>' +
+        '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:2px; background:#1565C0; border-top:2px dashed #1565C0; height:0;"></span> Monomer (' + avgMonoPlddt + ')</span>' +
+        '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#2e7d32;"><span style="display:inline-block; width:12px; height:8px; background:rgba(46,125,50,0.2); border:1px solid rgba(46,125,50,0.3);"></span> Gain</span>' +
+        '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#c62828;"><span style="display:inline-block; width:12px; height:8px; background:rgba(198,40,40,0.2); border:1px solid rgba(198,40,40,0.3);"></span> Loss</span>';
+    container.appendChild(headerEl);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W * 2; canvas.height = H * 2;
+    canvas.style.cssText = `width:${W}px; height:${H}px;`;
+    container.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(2, 2);
+
+    const n = cc.chainLen;
+    const xScale = (r) => PAD.left + (r / n) * plotW;
+    const yPlddt = (v) => PAD.top + plotH - (v / 100) * plotH;
+
+    // Background
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(PAD.left, PAD.top, plotW, plotH);
+
+    // LIR/cLIR bar at bottom
+    const barY = H - PAD.bottom + 2;
+    const barH = 6;
+    for (let r = 1; r <= n; r++) {
+        const x0 = xScale(r - 1);
+        const x1 = xScale(r);
+        if (cc.clir.has(r)) {
+            ctx.fillStyle = '#00897b';
+            ctx.fillRect(x0, barY, x1 - x0 + 0.5, barH);
+        } else if (cc.lir.has(r)) {
+            ctx.fillStyle = '#80cbc4';
+            ctx.fillRect(x0, barY, x1 - x0 + 0.5, barH);
+        }
+    }
+
+    // Delta shading (green = gain, red = loss)
+    for (let i = 0; i < n; i++) {
+        if (cc.dimerArr[i] === null || cc.monoArr[i] === null) continue;
+        const delta = cc.dimerArr[i] - cc.monoArr[i];
+        const x0 = xScale(i);
+        const x1 = xScale(i + 1);
+        const yD = yPlddt(cc.dimerArr[i]);
+        const yM = yPlddt(cc.monoArr[i]);
+        ctx.fillStyle = delta >= 0 ? 'rgba(46,125,50,0.15)' : 'rgba(198,40,40,0.15)';
+        ctx.fillRect(x0, Math.min(yD, yM), x1 - x0 + 0.5, Math.abs(yD - yM) || 0.5);
+    }
+
+    // Y-axis gridlines and labels
+    ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 0.5;
+    ctx.fillStyle = '#999'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    for (const tick of [0, 25, 50, 75, 100]) {
+        const y = yPlddt(tick);
+        ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + plotW, y); ctx.stroke();
+        ctx.fillText(tick, PAD.left - 5, y + 3);
+    }
+
+    // X-axis labels
+    ctx.textAlign = 'center'; ctx.fillStyle = '#999';
+    const step = n > 800 ? 200 : n > 400 ? 100 : n > 200 ? 50 : 25;
+    for (let r = step; r <= n; r += step) {
+        ctx.fillText(r, xScale(r), H - PAD.bottom + 22);
+    }
+
+    // Monomer pLDDT (dashed)
+    ctx.strokeStyle = '#1565C0'; ctx.lineWidth = 1.2;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < n; i++) {
+        if (cc.monoArr[i] === null) { started = false; continue; }
+        const x = xScale(i + 0.5);
+        const y = yPlddt(cc.monoArr[i]);
+        if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Dimer pLDDT (solid)
+    ctx.strokeStyle = '#C62828'; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    started = false;
+    for (let i = 0; i < n; i++) {
+        if (cc.dimerArr[i] === null) { started = false; continue; }
+        const x = xScale(i + 0.5);
+        const y = yPlddt(cc.dimerArr[i]);
+        if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Y-axis label
+    ctx.save();
+    ctx.translate(12, PAD.top + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#666'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('pLDDT', 0, 0);
+    ctx.restore();
+}
+
+function drawLisComparisonChart(container, cc) {
+    const W = Math.max(Math.min(container.clientWidth || 900, 1200), 400);
+    const H = 200;
+    const PAD = { left: 50, right: 20, top: 14, bottom: 35 };
+    const plotW = W - PAD.left - PAD.right;
+    const plotH = H - PAD.top - PAD.bottom;
+
+    // Find max LIS for y-axis scaling
+    let maxLis = 0.01;
+    for (let i = 0; i < cc.chainLen; i++) {
+        if (cc.dimerLisArr[i] > maxLis) maxLis = cc.dimerLisArr[i];
+        if (cc.monoLisArr[i] > maxLis) maxLis = cc.monoLisArr[i];
+    }
+    maxLis = Math.ceil(maxLis * 20) / 20; // round up to nearest 0.05
+    if (maxLis < 0.05) maxLis = 0.05;
+
+    // Compute averages for legend
+    const avgDimerLis = cc.dimerLisArr.reduce((a, b) => a + b, 0) / cc.chainLen;
+    const avgMonoLis = cc.monoLisArr.reduce((a, b) => a + b, 0) / cc.chainLen;
+
+    // Header + legend
+    const headerEl = document.createElement('div');
+    headerEl.style.cssText = 'display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap; margin-top:0.5rem; margin-bottom:0.3rem;';
+    headerEl.innerHTML =
+        '<span style="font-size:0.85rem; font-weight:600; color:#1a5276;">Intra-chain LIS</span>' +
+        '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:2px; background:#C62828;"></span> Dimer (' + avgDimerLis.toFixed(3) + ')</span>' +
+        '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:2px; background:#1565C0; border-top:2px dashed #1565C0; height:0;"></span> Monomer (' + avgMonoLis.toFixed(3) + ')</span>' +
+        '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#2e7d32;"><span style="display:inline-block; width:12px; height:8px; background:rgba(46,125,50,0.2); border:1px solid rgba(46,125,50,0.3);"></span> Gain</span>' +
+        '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#c62828;"><span style="display:inline-block; width:12px; height:8px; background:rgba(198,40,40,0.2); border:1px solid rgba(198,40,40,0.3);"></span> Loss</span>';
+    container.appendChild(headerEl);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W * 2; canvas.height = H * 2;
+    canvas.style.cssText = `width:${W}px; height:${H}px;`;
+    container.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(2, 2);
+
+    const n = cc.chainLen;
+    const xScale = (r) => PAD.left + (r / n) * plotW;
+    const yScale = (v) => PAD.top + plotH - (v / maxLis) * plotH;
+
+    // Background
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(PAD.left, PAD.top, plotW, plotH);
+
+    // LIR/cLIR bar at bottom
+    const barY = H - PAD.bottom + 2;
+    const barH = 6;
+    for (let r = 1; r <= n; r++) {
+        const x0 = xScale(r - 1);
+        const x1 = xScale(r);
+        if (cc.clir.has(r)) {
+            ctx.fillStyle = '#00897b';
+            ctx.fillRect(x0, barY, x1 - x0 + 0.5, barH);
+        } else if (cc.lir.has(r)) {
+            ctx.fillStyle = '#80cbc4';
+            ctx.fillRect(x0, barY, x1 - x0 + 0.5, barH);
+        }
+    }
+
+    // Y-axis gridlines
+    ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 0.5;
+    ctx.fillStyle = '#999'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    const yStep = maxLis <= 0.1 ? 0.02 : maxLis <= 0.3 ? 0.05 : 0.1;
+    for (let tick = 0; tick <= maxLis + 0.001; tick += yStep) {
+        const y = yScale(tick);
+        ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + plotW, y); ctx.stroke();
+        ctx.fillText(tick.toFixed(2), PAD.left - 5, y + 3);
+    }
+
+    // X-axis labels
+    ctx.textAlign = 'center'; ctx.fillStyle = '#999';
+    const step = n > 800 ? 200 : n > 400 ? 100 : n > 200 ? 50 : 25;
+    for (let r = step; r <= n; r += step) {
+        ctx.fillText(r, xScale(r), H - PAD.bottom + 22);
+    }
+
+    // Delta shading (green = LIS gain in dimer, red = loss)
+    for (let i = 0; i < n; i++) {
+        const delta = cc.dimerLisArr[i] - cc.monoLisArr[i];
+        if (Math.abs(delta) < 0.0005) continue;
+        const x0 = xScale(i);
+        const x1 = xScale(i + 1);
+        const yD = yScale(cc.dimerLisArr[i]);
+        const yM = yScale(cc.monoLisArr[i]);
+        ctx.fillStyle = delta >= 0 ? 'rgba(46,125,50,0.15)' : 'rgba(198,40,40,0.15)';
+        ctx.fillRect(x0, Math.min(yD, yM), x1 - x0 + 0.5, Math.abs(yD - yM) || 0.5);
+    }
+
+    // Monomer intra-chain LIS (dashed)
+    ctx.strokeStyle = '#1565C0'; ctx.lineWidth = 1.2;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+        const x = xScale(i + 0.5);
+        const y = yScale(cc.monoLisArr[i]);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Dimer inter-chain LIS (solid)
+    ctx.strokeStyle = '#C62828'; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+        const x = xScale(i + 0.5);
+        const y = yScale(cc.dimerLisArr[i]);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Y-axis label
+    ctx.save();
+    ctx.translate(12, PAD.top + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#666'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('LIS', 0, 0);
+    ctx.restore();
+}
+
+// ============================================================================
 // PROCESS DIMER
 // ============================================================================
 function processDimer() {
@@ -1840,6 +2302,9 @@ function displayDimerResults() {
 
     // Draw maps
     drawAllMaps();
+
+    // Dimer vs Monomer comparison (if data already fetched)
+    if (Object.keys(monomerData).length > 0) buildComparisonCharts();
 
     // Sequence viewer
     buildDimerSequenceViewer();

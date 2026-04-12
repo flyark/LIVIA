@@ -420,6 +420,15 @@
             </div>
             <div class="info-box" style="margin-top:1rem;">Place the script and structure files in the same folder, then open the script in ChimeraX or PyMOL. "All Chains" shows every chain with LIR regions, colored by chain.</div>
         </div>
+
+        <!-- Per-Residue pLDDT & Intra-chain LIS -->
+        <div class="card result-card" id="per-residue-card" style="display:none;">
+            <h2>Per-Residue Intra-chain LIS &amp; pLDDT <span class="model-badge" id="perresidue-model-badge"></span></h2>
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+                Per-residue metrics for each chain across all models. Selected model as solid line; other models as light traces; average as dashed line.
+            </div>
+            <div id="per-residue-charts"></div>
+        </div>
     </div>
 
     <!-- How to Use -->
@@ -2711,6 +2720,7 @@ function selectPair(key) {
     if (!v) return;
     uniState.currentPairKey = key;
 
+    buildPerResidueCharts(key);
     buildSequenceViewer(key);
     buildContactMap(key);
     buildChordDiagram();
@@ -3581,6 +3591,367 @@ function parsePdbSequence(pdbText) {
         }
     }
     return chains;
+}
+
+// ============================================================================
+// PER-RESIDUE INTRA-CHAIN LIS & pLDDT CHARTS
+// ============================================================================
+function buildPerResidueCharts(pairKey) {
+    const card = document.getElementById('per-residue-card');
+    const container = document.getElementById('per-residue-charts');
+    if (!card || !container || !uniState.modelData || uniState.modelData.length === 0) {
+        if (card) card.style.display = 'none';
+        return;
+    }
+
+    const chainNames = uniState.chainNames || [];
+    const chainSizes = uniState.chainSizes || [];
+    const chainTypes = uniState.chainTypes || [];
+    const paeCutoff = parseFloat(document.getElementById('pae-cutoff')?.value) || 12;
+    const seedVal = document.getElementById('seed-select').value;
+    const selectedModelIdx = seedVal === 'avg' ? -1 : parseInt(seedVal);
+    const v = uniState.results[pairKey];
+
+    // Compute per-chain per-model data
+    const chainData = []; // [{name, size, models: [{plddt:[], intraLis:[]}], avgPlddt:[], avgLis:[], lir, clir}]
+
+    for (let ci = 0; ci < chainNames.length; ci++) {
+        if (chainTypes[ci] === 'ion') continue;
+        const chainName = chainNames[ci];
+        const chainLen = chainSizes[ci];
+        const offset = chainSizes.slice(0, ci).reduce((a, b) => a + b, 0);
+
+        const models = [];
+        for (const md of uniState.modelData) {
+            const pae = md.pae;
+            const nTotal = md.nTotal || pae.length;
+            const structText = md.structText;
+            const format = md.structFormat || uniState.structureFormat;
+
+            // pLDDT from B-factors
+            const bfMap = structText ? parseBfactorsPerResidue(structText, format) : new Map();
+            const plddt = [];
+            for (let r = 1; r <= chainLen; r++) {
+                const val = bfMap.get(`${chainName}:${r}`);
+                plddt.push(val !== undefined ? val : null);
+            }
+
+            // Intra-chain LIS: average max(0, 1-PAE/cutoff) over all other residues
+            const intraLis = [];
+            for (let r = 0; r < chainLen; r++) {
+                const ri = offset + r;
+                let lisSum = 0;
+                if (ri < nTotal) {
+                    for (let j = 0; j < chainLen; j++) {
+                        if (j === r) continue;
+                        const rj = offset + j;
+                        if (rj < nTotal) {
+                            const paeAvg = (pae[ri][rj] + pae[rj][ri]) / 2;
+                            if (paeAvg < paeCutoff) {
+                                lisSum += 1 - paeAvg / paeCutoff;
+                            }
+                        }
+                    }
+                }
+                intraLis.push(chainLen > 1 ? lisSum / (chainLen - 1) : 0);
+            }
+
+            models.push({ plddt, intraLis });
+        }
+
+        // Compute averages across models
+        const avgPlddt = [];
+        const avgLis = [];
+        for (let r = 0; r < chainLen; r++) {
+            let pSum = 0, pN = 0, lSum = 0;
+            for (const m of models) {
+                if (m.plddt[r] !== null) { pSum += m.plddt[r]; pN++; }
+                lSum += m.intraLis[r];
+            }
+            avgPlddt.push(pN > 0 ? pSum / pN : null);
+            avgLis.push(lSum / models.length);
+        }
+
+        // Get LIR/cLIR and colors for this chain from current pair
+        let lir = new Set(), clir = new Set(), lirColor = '#80cbc4', clirColor = '#00897b';
+        if (v) {
+            const colors = getColorsForPair(v.ci, v.cj);
+            if (v.ci === chainName) { lir = v.lirI || new Set(); clir = v.clirI || new Set(); lirColor = colors.lir_a; clirColor = colors.clir_a; }
+            else if (v.cj === chainName) { lir = v.lirJ || new Set(); clir = v.clirJ || new Set(); lirColor = colors.lir_b; clirColor = colors.clir_b; }
+        }
+
+        chainData.push({ name: chainName, size: chainLen, models, avgPlddt, avgLis, lir, clir, lirColor, clirColor });
+    }
+
+    if (chainData.length === 0) { card.style.display = 'none'; return; }
+
+    container.innerHTML = '';
+    card.style.display = '';
+    container.offsetWidth; // force reflow
+
+    // Update model badge
+    const badgeText = seedVal === 'avg' ? 'Average' : (uniState.modelData[selectedModelIdx]?.label || 'model_' + seedVal);
+    const badge = document.getElementById('perresidue-model-badge');
+    if (badge) badge.textContent = badgeText;
+
+    const singleModel = uniState.modelData.length === 1;
+
+    for (const cd of chainData) {
+        // Chain header
+        const header = document.createElement('div');
+        header.style.cssText = 'font-size:0.9rem; font-weight:700; color:#1a5276; margin-top:1rem; margin-bottom:0.2rem; padding-bottom:0.3rem; border-bottom:2px solid #e0e0e0;';
+        header.textContent = 'Chain ' + cd.name + ' (' + cd.size + ' residues)';
+        container.appendChild(header);
+
+        drawPerResLisChart(container, cd, selectedModelIdx, singleModel);
+        drawPerResPlddtChart(container, cd, selectedModelIdx, singleModel);
+    }
+}
+
+function computeStd(models, accessor, avg, n) {
+    const stdArr = [];
+    for (let i = 0; i < n; i++) {
+        let sumSq = 0, cnt = 0;
+        for (const m of models) {
+            const v = accessor(m, i);
+            if (v !== null) { sumSq += (v - avg[i]) * (v - avg[i]); cnt++; }
+        }
+        stdArr.push(cnt > 1 ? Math.sqrt(sumSq / cnt) : 0);
+    }
+    return stdArr;
+}
+
+function drawPerResLisChart(container, cd, selectedIdx, singleModel) {
+    const W = Math.max(Math.min(container.clientWidth || 900, 1200), 400);
+    const H = 145;
+    const PAD = { left: 50, right: 20, top: 14, bottom: 35 };
+    const plotW = W - PAD.left - PAD.right;
+    const plotH = H - PAD.top - PAD.bottom;
+    const n = cd.size;
+
+    // Find max LIS for y-axis (include std upper bound)
+    const stdLis = computeStd(cd.models, (m, i) => m.intraLis[i], cd.avgLis, n);
+    let maxLis = 0.01;
+    for (let i = 0; i < n; i++) {
+        const upper = cd.avgLis[i] + stdLis[i];
+        if (upper > maxLis) maxLis = upper;
+    }
+    for (const m of cd.models) for (const v of m.intraLis) if (v > maxLis) maxLis = v;
+    maxLis = Math.ceil(maxLis * 20) / 20;
+    if (maxLis < 0.05) maxLis = 0.05;
+
+    // Averages for legend
+    const selModel = selectedIdx >= 0 && selectedIdx < cd.models.length ? cd.models[selectedIdx] : null;
+    const avgLis = cd.avgLis.reduce((a, b) => a + b, 0) / n;
+    const selLis = selModel ? selModel.intraLis.reduce((a, b) => a + b, 0) / n : avgLis;
+
+    // Header
+    const headerEl = document.createElement('div');
+    headerEl.style.cssText = 'display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap; margin-top:0.5rem; margin-bottom:0.3rem;';
+    let legendHtml = '<span style="font-size:0.85rem; font-weight:600; color:#1a5276;">Intra-chain LIS</span>';
+    if (!singleModel) {
+        legendHtml += '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:2px; background:#C62828;"></span> Selected (' + selLis.toFixed(3) + ')</span>';
+        legendHtml += '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:0; border-top:2px dashed #1565C0;"></span> Avg \u00b1 SD (' + avgLis.toFixed(3) + ')</span>';
+    } else {
+        legendHtml += '<span style="font-size:0.75rem; color:#555;">(' + selLis.toFixed(3) + ')</span>';
+    }
+    headerEl.innerHTML = legendHtml;
+    container.appendChild(headerEl);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W * 2; canvas.height = H * 2;
+    canvas.style.cssText = `width:${W}px; height:${H}px;`;
+    container.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(2, 2);
+    const xScale = (r) => PAD.left + (r / n) * plotW;
+    const yScale = (v) => PAD.top + plotH - (Math.max(0, v) / maxLis) * plotH;
+
+    // Background
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(PAD.left, PAD.top, plotW, plotH);
+
+    // LIR/cLIR bar (using chain-specific colors)
+    const barY = H - PAD.bottom + 2, barH = 6;
+    for (let r = 1; r <= n; r++) {
+        const x0 = xScale(r - 1), x1 = xScale(r);
+        if (cd.clir.has(r)) { ctx.fillStyle = cd.clirColor; ctx.fillRect(x0, barY, x1 - x0 + 0.5, barH); }
+        else if (cd.lir.has(r)) { ctx.fillStyle = cd.lirColor; ctx.fillRect(x0, barY, x1 - x0 + 0.5, barH); }
+    }
+
+    // Y-axis gridlines
+    ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 0.5;
+    ctx.fillStyle = '#999'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    const yStep = maxLis <= 0.1 ? 0.02 : maxLis <= 0.3 ? 0.05 : 0.1;
+    for (let tick = 0; tick <= maxLis + 0.001; tick += yStep) {
+        const y = yScale(tick);
+        ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + plotW, y); ctx.stroke();
+        ctx.fillText(tick.toFixed(2), PAD.left - 5, y + 3);
+    }
+
+    // X-axis labels
+    ctx.textAlign = 'center'; ctx.fillStyle = '#999';
+    const step = n > 800 ? 200 : n > 400 ? 100 : n > 200 ? 50 : 25;
+    for (let r = step; r <= n; r += step) ctx.fillText(r, xScale(r), H - PAD.bottom + 22);
+
+    // Avg ± SD shading
+    if (!singleModel) {
+        ctx.fillStyle = 'rgba(21,101,192,0.12)';
+        ctx.beginPath();
+        for (let i = 0; i < n; i++) ctx.lineTo(xScale(i + 0.5), yScale(cd.avgLis[i] + stdLis[i]));
+        for (let i = n - 1; i >= 0; i--) ctx.lineTo(xScale(i + 0.5), yScale(Math.max(0, cd.avgLis[i] - stdLis[i])));
+        ctx.closePath();
+        ctx.fill();
+
+        // Average line (dashed)
+        ctx.strokeStyle = '#1565C0'; ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        for (let i = 0; i < n; i++) {
+            const x = xScale(i + 0.5), y = yScale(cd.avgLis[i]);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // Selected model (solid)
+    const drawData = selModel ? selModel.intraLis : cd.avgLis;
+    ctx.strokeStyle = '#C62828'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+        const x = xScale(i + 0.5), y = yScale(drawData[i]);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Y-axis label
+    ctx.save();
+    ctx.translate(12, PAD.top + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#666'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('LIS', 0, 0);
+    ctx.restore();
+}
+
+function drawPerResPlddtChart(container, cd, selectedIdx, singleModel) {
+    const W = Math.max(Math.min(container.clientWidth || 900, 1200), 400);
+    const H = 145;
+    const PAD = { left: 50, right: 20, top: 14, bottom: 35 };
+    const plotW = W - PAD.left - PAD.right;
+    const plotH = H - PAD.top - PAD.bottom;
+    const n = cd.size;
+
+    // Compute std
+    const stdPlddt = computeStd(cd.models, (m, i) => m.plddt[i], cd.avgPlddt, n);
+
+    // Averages for legend
+    const selModel = selectedIdx >= 0 && selectedIdx < cd.models.length ? cd.models[selectedIdx] : null;
+    let avgSum = 0, avgN = 0;
+    for (const v of cd.avgPlddt) { if (v !== null) { avgSum += v; avgN++; } }
+    const avgPlddt = avgN > 0 ? (avgSum / avgN).toFixed(1) : '—';
+    let selSum = 0, selN = 0;
+    if (selModel) { for (const v of selModel.plddt) { if (v !== null) { selSum += v; selN++; } } }
+    const selPlddt = selN > 0 ? (selSum / selN).toFixed(1) : avgPlddt;
+
+    // Header
+    const headerEl = document.createElement('div');
+    headerEl.style.cssText = 'display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap; margin-top:0.5rem; margin-bottom:0.3rem;';
+    let legendHtml = '<span style="font-size:0.85rem; font-weight:600; color:#1a5276;">pLDDT</span>';
+    if (!singleModel) {
+        legendHtml += '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:2px; background:#C62828;"></span> Selected (' + selPlddt + ')</span>';
+        legendHtml += '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:0; border-top:2px dashed #1565C0;"></span> Avg \u00b1 SD (' + avgPlddt + ')</span>';
+    } else {
+        legendHtml += '<span style="font-size:0.75rem; color:#555;">(' + selPlddt + ')</span>';
+    }
+    headerEl.innerHTML = legendHtml;
+    container.appendChild(headerEl);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W * 2; canvas.height = H * 2;
+    canvas.style.cssText = `width:${W}px; height:${H}px;`;
+    container.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(2, 2);
+    const xScale = (r) => PAD.left + (r / n) * plotW;
+    const yPlddt = (v) => PAD.top + plotH - (Math.max(0, Math.min(100, v)) / 100) * plotH;
+
+    // Background
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(PAD.left, PAD.top, plotW, plotH);
+
+    // LIR/cLIR bar (using chain-specific colors)
+    const barY = H - PAD.bottom + 2, barH = 6;
+    for (let r = 1; r <= n; r++) {
+        const x0 = xScale(r - 1), x1 = xScale(r);
+        if (cd.clir.has(r)) { ctx.fillStyle = cd.clirColor; ctx.fillRect(x0, barY, x1 - x0 + 0.5, barH); }
+        else if (cd.lir.has(r)) { ctx.fillStyle = cd.lirColor; ctx.fillRect(x0, barY, x1 - x0 + 0.5, barH); }
+    }
+
+    // Y-axis gridlines
+    ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 0.5;
+    ctx.fillStyle = '#999'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    for (const tick of [0, 25, 50, 75, 100]) {
+        const y = yPlddt(tick);
+        ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + plotW, y); ctx.stroke();
+        ctx.fillText(tick, PAD.left - 5, y + 3);
+    }
+
+    // X-axis labels
+    ctx.textAlign = 'center'; ctx.fillStyle = '#999';
+    const step = n > 800 ? 200 : n > 400 ? 100 : n > 200 ? 50 : 25;
+    for (let r = step; r <= n; r += step) ctx.fillText(r, xScale(r), H - PAD.bottom + 22);
+
+    // Avg ± SD shading
+    if (!singleModel) {
+        ctx.fillStyle = 'rgba(21,101,192,0.12)';
+        ctx.beginPath();
+        for (let i = 0; i < n; i++) {
+            if (cd.avgPlddt[i] === null) continue;
+            ctx.lineTo(xScale(i + 0.5), yPlddt(cd.avgPlddt[i] + stdPlddt[i]));
+        }
+        for (let i = n - 1; i >= 0; i--) {
+            if (cd.avgPlddt[i] === null) continue;
+            ctx.lineTo(xScale(i + 0.5), yPlddt(cd.avgPlddt[i] - stdPlddt[i]));
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        // Average line (dashed)
+        ctx.strokeStyle = '#1565C0'; ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        let started = false;
+        for (let i = 0; i < n; i++) {
+            if (cd.avgPlddt[i] === null) { started = false; continue; }
+            const x = xScale(i + 0.5), y = yPlddt(cd.avgPlddt[i]);
+            if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // Selected model (solid)
+    const selData = selModel ? selModel.plddt : cd.avgPlddt;
+    ctx.strokeStyle = '#C62828'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < n; i++) {
+        if (selData[i] === null) { started = false; continue; }
+        const x = xScale(i + 0.5), y = yPlddt(selData[i]);
+        if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Y-axis label
+    ctx.save();
+    ctx.translate(12, PAD.top + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#666'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('pLDDT', 0, 0);
+    ctx.restore();
 }
 
 function buildSequenceViewer(pairKey) {
