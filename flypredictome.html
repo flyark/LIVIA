@@ -581,7 +581,7 @@ async function searchUniprotAc(query) {
     if (query.length < 2) { list.style.display = 'none'; return; }
     geneAcDebounce = setTimeout(async () => {
         try {
-            const url = `https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent(query)}+AND+organism_id:7227&fields=accession,gene_names,protein_name,organism_name,xref_flybase&size=8&format=json`;
+            const url = `https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent('"' + query + '"')}+AND+organism_id:7227&fields=accession,gene_names,protein_name,organism_name,xref_flybase&size=8&format=json`;
             const resp = await fetch(url);
             if (!resp.ok) return;
             const data = await resp.json();
@@ -754,7 +754,7 @@ function searchPairAc(inputEl, listId) {
     if (query.length < 2) { list.style.display = 'none'; return; }
     pairAcDebounce = setTimeout(async () => {
         try {
-            const url = `https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent(query)}+AND+organism_id:7227&fields=accession,gene_names,protein_name,organism_name,xref_flybase&size=8&format=json`;
+            const url = `https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent('"' + query + '"')}+AND+organism_id:7227&fields=accession,gene_names,protein_name,organism_name,xref_flybase&size=8&format=json`;
             const resp = await fetch(url);
             if (!resp.ok) return;
             const data = await resp.json();
