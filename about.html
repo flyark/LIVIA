@@ -99,6 +99,7 @@
             <a href="monomer.html">AFDB Monomer Subdomain <span style="font-size:0.6rem;color:#e67e22;font-weight:600;">α</span></a>
             <a href="tutorials.html">Tutorials</a>
             <a href="about.html" class="active">About</a>
+            <a href="https://github.com/flyark/LIVIA" target="_blank">GitHub</a>
         </div>
     </div>
 </div>
@@ -251,7 +252,7 @@
                 <li><strong>Score matrix</strong> &mdash; iLIS (Oranges) / cLIR count (Greens)</li>
                 <li><strong>Sequence viewer</strong> &mdash; amino acid letters with LIR (light) and cLIR (dark) highlighting per chain</li>
                 <li><strong>ipSAE metric</strong> &mdash; interaction prediction Score from Aligned Errors (<a href="https://www.biorxiv.org/content/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack, 2025</a>), shown alongside iLIS, LIS, cLIS, and ipTM</li>
-                <li><strong>actifpTM metric</strong> &mdash; actual interface pTM (<a href="https://doi.org/10.1093/bioinformatics/btaf107" target="_blank" style="color:#2471A3;">Varga et al., 2025</a>), focuses on confident contact residues at the interface</li>
+                <li><strong>actifpTM metric</strong> &mdash; actual interface pTM (<a href="https://doi.org/10.1093/bioinformatics/btaf107" target="_blank" style="color:#2471A3;">Varga et al., 2025</a>)</li>
                 <li><strong>Visualization script</strong> &mdash; color presets with Swap A &harr; B support</li>
                 <li><strong>Downloads</strong> &mdash; .cxc script, .cif structure, CSV with full metrics and LIR/cLIR indices</li>
             </ul>
@@ -413,7 +414,7 @@
                 <strong>LIS calculation:</strong> <strong>LIA</strong> (Local Interaction Area) is the count of inter-chain residue pairs with PAE &le; cutoff. <strong>LIS</strong> is the mean confidence score across all LIA pairs. <strong>cLIA</strong> further restricts to pairs also in physical contact (C&beta; &le; 8 &Aring;), and <strong>cLIS</strong> is the mean confidence within cLIA. The inter-chain PAE block is symmetrized by averaging (A&rarr;B) and (B&rarr;A) directions. <strong>iLIS</strong> = &radic;(LIS &times; cLIS), combining interface confidence with direct contact evidence into a single robust metric (Kim et al., 2026).
             </p>
             <p style="font-size:0.9rem; color:#555; line-height:1.6; margin-top:0.5rem;">
-                <strong>Additional confidence metrics:</strong> <strong>ipSAE</strong> (interaction prediction Score from Aligned Errors; <a href="https://doi.org/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack, 2025</a>) uses a PTM-like scoring function on PAE values at contact residues. <strong>actifpTM</strong> (actual interface pTM; <a href="https://doi.org/10.1093/bioinformatics/btaf107" target="_blank" style="color:#2471A3;">Varga et al., 2025</a>) focuses on confident contact residues at the interface, computed from the PAE matrix and C&beta; contacts.
+                <strong>Additional confidence metrics:</strong> <strong>ipSAE</strong> (interaction prediction Score from Aligned Errors; <a href="https://doi.org/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack, 2025</a>) uses a PTM-like scoring function on PAE values at contact residues. <strong>actifpTM</strong> (actual interface pTM; <a href="https://doi.org/10.1093/bioinformatics/btaf107" target="_blank" style="color:#2471A3;">Varga et al., 2025</a>).
             </p>
             <p style="font-size:0.9rem; color:#555; line-height:1.6; margin-top:0.5rem;">
                 <strong>Contact map:</strong> Built from C&beta; atom distances (C&alpha; for glycine). Two residues are in contact if their C&beta;&ndash;C&beta; distance &le; 8 &Aring;. For nucleic acids, phosphorus (P) atoms are used with a 4 &Aring; distance adjustment.
@@ -422,7 +423,7 @@
                 <strong>Symmetrization:</strong> Results for chain pairs (A&rarr;B) and (B&rarr;A) are averaged. LIR/cLIR residue sets are the union across all models.
             </p>
             <p style="font-size:0.9rem; color:#555; line-height:1.6; margin-top:0.5rem;">
-                <strong>Suggested threshold:</strong> <strong>iLIS &ge; 0.223</strong> was established at 10% FDR using large-scale Y2H reference datasets in yeast (<a href="https://doi.org/10.1126/science.1158684" target="_blank" style="color:#2471A3;">Yu et al., 2008</a>), fly (<a href="https://doi.org/10.1038/s41467-023-37876-0" target="_blank" style="color:#2471A3;">Tang et al., 2023</a>), and human (<a href="https://doi.org/10.1038/nmeth.1280" target="_blank" style="color:#2471A3;">Braun et al., 2009</a>). This threshold was determined using AlphaFold-Multimer predictions (via ColabFold). See Kim et al., 2026, for details.
+                <strong>Suggested threshold:</strong> <strong>iLIS &ge; 0.223</strong> was established at 10% FDR using large-scale Y2H reference datasets in yeast (<a href="https://doi.org/10.1126/science.1158684" target="_blank" style="color:#2471A3;">Yu et al., 2008</a>), fly (<a href="https://doi.org/10.1038/s41467-023-37876-0" target="_blank" style="color:#2471A3;">Tang et al., 2023</a>), and human (<a href="https://doi.org/10.1038/nmeth.1281" target="_blank" style="color:#2471A3;">Braun et al., 2009</a>). This threshold was determined using AlphaFold-Multimer predictions (via ColabFold). See Kim et al., 2026, for details.
             </p>
             <div style="background:#fdeaea; border-left:4px solid #c0392b; padding:0.8rem 1rem; border-radius:0 8px 8px 0; font-size:0.9rem; color:#8b1a1a; margin-top:0.8rem;">
                 <strong>Caution:</strong> Computational predictions should be interpreted with care. The iLIS &ge; 0.223 threshold was derived from AlphaFold-Multimer (ColabFold) predictions with specific reference datasets. <strong>Other prediction platforms (AlphaFold 3, Boltz, Chai-1, OpenFold) may require different cutoffs</strong> due to differences in model architecture, training data, and confidence calibration. Each platform produces distinct PAE distributions and ipTM scales, which can affect iLIS values. Optimal thresholds may also vary depending on the species, protein types, and experimental system. <strong>Experimental validation is highly recommended</strong> before drawing biological conclusions from predicted interactions.
@@ -471,8 +472,8 @@
             <p><strong>Y2H Reference Datasets (iLIS Benchmarks)</strong></p>
             <ul style="padding-left:1.2rem; margin-bottom:1rem;">
                 <li><a href="https://doi.org/10.1126/science.1158684" target="_blank" style="color:#2471A3;">Yu et al. 2008</a> &mdash; High-quality binary protein interaction map of the yeast interactome network. <em>Science</em> 322, 104&ndash;110.</li>
-                <li><a href="https://doi.org/10.1038/s41467-023-37876-0" target="_blank" style="color:#2471A3;">Tang et al. 2023</a> &mdash; Next-generation large-scale binary protein interaction network for <em>Drosophila melanogaster</em>. <em>Nature Communications</em> 14, 2177.</li>
-                <li><a href="https://doi.org/10.1038/nmeth.1280" target="_blank" style="color:#2471A3;">Braun et al. 2009</a> &mdash; An experimentally derived confidence score for binary protein-protein interactions. <em>Nature Methods</em> 6, 83&ndash;90.</li>
+                <li><a href="https://doi.org/10.1038/s41467-023-37876-0" target="_blank" style="color:#2471A3;">Tang et al. 2023</a> &mdash; Next-generation large-scale binary protein interaction network for <em>Drosophila melanogaster</em>. <em>Nature Communications</em> 14, 2162.</li>
+                <li><a href="https://doi.org/10.1038/nmeth.1281" target="_blank" style="color:#2471A3;">Braun et al. 2009</a> &mdash; An experimentally derived confidence score for binary protein-protein interactions. <em>Nature Methods</em> 6, 91&ndash;97.</li>
             </ul>
             <p><strong>Visualization</strong></p>
             <ul style="padding-left:1.2rem; margin-bottom:1rem;">
@@ -484,7 +485,7 @@
             <ul style="padding-left:1.2rem; margin-bottom:1rem;">
                 <li><a href="https://doi.org/10.1093/nar/gkac1052" target="_blank" style="color:#2471A3;">UniProt Consortium 2023</a> &mdash; UniProt: the Universal Protein Knowledgebase in 2023. <em>Nucleic Acids Research</em> 51, D523&ndash;D531.</li>
                 <li><a href="https://doi.org/10.1093/nar/gkab1061" target="_blank" style="color:#2471A3;">Varadi et al. 2022</a> &mdash; AlphaFold Protein Structure Database: massively expanding the structural coverage of protein-sequence space with high-accuracy models. <em>Nucleic Acids Research</em> 50, D439&ndash;D444.</li>
-                <li><a href="https://doi.org/10.1093/nar/gkae917" target="_blank" style="color:#2471A3;">Hu et al. 2025</a> &mdash; FlyRNAi.org 2025 update: expanded resources for new technologies and species. <em>Nucleic Acids Research</em> 53(D1), D958&ndash;D965.</li>
+                <li>Kim et al. 2026 &mdash; FlyPredictome: A structural atlas of predicted protein-protein interactions in <em>Drosophila</em>.</li>
                 <li><a href="https://doi.org/10.1093/nar/gkx1116" target="_blank" style="color:#2471A3;">Hu et al. 2018</a> &mdash; Molecular Interaction Search Tool (MIST): an integrated resource for mining gene and protein interaction data. <em>Nucleic Acids Research</em> 46(D1), D567&ndash;D574.</li>
                 <li><a href="https://doi.org/10.1093/nar/gkac993" target="_blank" style="color:#2471A3;">Paysan-Lafosse et al. 2023</a> &mdash; InterPro in 2022. <em>Nucleic Acids Research</em> 51(D1), D418&ndash;D427.</li>
                 <li><a href="https://doi.org/10.1093/genetics/iyad211" target="_blank" style="color:#2471A3;">Ozturk-Colak et al. 2024</a> &mdash; FlyBase: updates to the <em>Drosophila</em> genes and genomes database. <em>Genetics</em> 227(1), iyad211.</li>
@@ -501,7 +502,7 @@
                 </div>
                 <p style="font-size:0.78rem; color:#888; margin-top:0.5rem;">If you use the FlyPredictome data, please also cite:</p>
                 <div style="background:white; border:1px solid #d0d8e0; border-radius:6px; padding:0.6rem 0.8rem; margin-top:0.4rem; font-size:0.78rem; font-family:'SF Mono','Fira Code',monospace; line-height:1.5; color:#333;">
-                    Hu, Y. et al. (2025). FlyRNAi.org 2025 update &mdash; expanded resources for new technologies and species. <em>Nucleic Acids Res.</em> 53(D1), D958&ndash;D965. <a href="https://doi.org/10.1093/nar/gkae917" target="_blank" style="color:#2471A3;">doi:10.1093/nar/gkae917</a>
+                    Kim, A.-R. et al. (2026). FlyPredictome: A structural atlas of predicted protein-protein interactions in <em>Drosophila</em>.
                 </div>
             </div>
         </div>
