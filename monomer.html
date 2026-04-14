@@ -385,6 +385,15 @@
             </div>
             <div class="info-box" style="margin-top:1rem;">Place the script and .pdb files in the same folder, then open the script in ChimeraX or PyMOL.</div>
         </div>
+
+        <!-- Per-Residue pLDDT & Intra-chain LIS -->
+        <div class="card result-card" id="per-residue-card" style="display:none;">
+            <h2>Per-Residue Intra-chain LIS &amp; pLDDT</h2>
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+                Per-residue metrics for the monomer prediction.
+            </div>
+            <div id="per-residue-charts"></div>
+        </div>
     </div>
 
     <!-- How to Use -->
@@ -425,7 +434,7 @@
     <div class="footer">
     <a href="https://github.com/flyark/LIVIA" target="_blank">LIVIA GitHub</a> &middot; <a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS GitHub</a> &middot; <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank">FlyPredictome</a> &middot; <a href="https://alphafold.ebi.ac.uk" target="_blank">AlphaFold DB</a>
     <br>
-    LIVIA v0.1 &middot; Ah-Ram Kim (Harvard Medical School)
+    LIVIA v0.1.1 &middot; Ah-Ram Kim (Harvard Medical School)
 </div>
 </div>
 
@@ -805,6 +814,11 @@ async function fetchData() {
 
         // Show regions card
         document.getElementById('regions-card').style.display = '';
+
+        // Show per-residue charts immediately (independent of region detection)
+        document.getElementById('results').classList.add('active');
+        buildMonomerPerResidueCharts();
+
         // Auto-detect regions and calculate
         detectAndCalculate();
 
@@ -1969,6 +1983,7 @@ function displayResults(validRegions) {
         updateViewer3d(validRegions);
         buildSequenceViewer(validRegions);
         buildDomainComparison(validRegions);
+        buildMonomerPerResidueCharts();
         makeSortable(document.getElementById('pairs-table'));
         document.getElementById('results').classList.add('active');
         return;
@@ -2039,9 +2054,147 @@ function displayResults(validRegions) {
     // Generate CXC script
     generateAndShowScript(validRegions);
 
+    // Per-residue pLDDT & intra-chain LIS
+    buildMonomerPerResidueCharts();
+
     makeSortable(document.getElementById('pairs-table'));
 
     document.getElementById('results').classList.add('active');
+}
+
+// ============================================================================
+// PER-RESIDUE CHARTS (monomer, with optional dimer comparison)
+// ============================================================================
+function parsePdbPlddtMonomer(pdbText) {
+    const plddt = new Map();
+    for (const line of pdbText.split('\n')) {
+        if (!line.startsWith('ATOM')) continue;
+        if (line.substring(12, 16).trim() !== 'CA') continue;
+        const resnum = parseInt(line.substring(22, 26));
+        const bf = parseFloat(line.substring(60, 66));
+        if (!isNaN(resnum) && !isNaN(bf)) plddt.set(resnum, bf);
+    }
+    return plddt;
+}
+
+function buildMonomerPerResidueCharts() {
+    const card = document.getElementById('per-residue-card');
+    const container = document.getElementById('per-residue-charts');
+    if (!card || !container || !monPae || !monPdbText) return;
+
+    const n = monProteinLen;
+    if (n === 0) { card.style.display = 'none'; return; }
+
+    const paeCutoff = parseFloat(document.getElementById('pae-cutoff')?.value) || 12;
+
+    // pLDDT
+    const monoPlddt = parsePdbPlddtMonomer(monPdbText);
+    const plddtArr = [];
+    for (let r = 1; r <= n; r++) plddtArr.push(monoPlddt.get(r) ?? null);
+
+    // Intra-chain LIS
+    const lisArr = [];
+    for (let r = 0; r < n; r++) {
+        let lisSum = 0;
+        for (let j = 0; j < n; j++) {
+            if (j === r) continue;
+            if (r < monPae.length && j < monPae.length) {
+                const paeAvg = (monPae[r][j] + monPae[j][r]) / 2;
+                if (paeAvg < paeCutoff) lisSum += 1 - paeAvg / paeCutoff;
+            }
+        }
+        lisArr.push(n > 1 ? lisSum / (n - 1) : 0);
+    }
+
+    container.innerHTML = '';
+    card.style.display = '';
+    container.offsetWidth;
+
+    drawMonoChart(container, lisArr, n, 'LIS', 'Intra-chain LIS', true);
+    drawMonoChart(container, plddtArr, n, 'pLDDT', 'pLDDT', false);
+}
+
+function drawMonoChart(container, arr, n, yLabel, title, autoScale) {
+    const W = Math.max(Math.min(container.clientWidth || 900, 1200), 400);
+    const H = 145;
+    const PAD = { left: 50, right: 20, top: 14, bottom: 35 };
+    const plotW = W - PAD.left - PAD.right;
+    const plotH = H - PAD.top - PAD.bottom;
+
+    let maxVal = 100;
+    if (autoScale) {
+        maxVal = 0.01;
+        for (const v of arr) if (v !== null && v > maxVal) maxVal = v;
+        maxVal = Math.ceil(maxVal * 20) / 20;
+        if (maxVal < 0.05) maxVal = 0.05;
+    }
+
+    // Average
+    let sum = 0, cnt = 0;
+    for (const v of arr) { if (v !== null) { sum += v; cnt++; } }
+    const avg = cnt > 0 ? (autoScale ? (sum / cnt).toFixed(3) : (sum / cnt).toFixed(1)) : '—';
+
+    // Header
+    const headerEl = document.createElement('div');
+    headerEl.style.cssText = 'display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap; margin-top:0.5rem; margin-bottom:0.3rem;';
+    headerEl.innerHTML = '<span style="font-size:0.85rem; font-weight:600; color:#1a5276;">' + title + '</span>' +
+        '<span style="font-size:0.75rem; color:#555;">(' + avg + ')</span>';
+    container.appendChild(headerEl);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W * 2; canvas.height = H * 2;
+    canvas.style.cssText = `width:${W}px; height:${H}px;`;
+    container.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(2, 2);
+    const xScale = (r) => PAD.left + (r / n) * plotW;
+    const yScaleFn = (v) => PAD.top + plotH - (Math.max(0, Math.min(maxVal, v)) / maxVal) * plotH;
+
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(PAD.left, PAD.top, plotW, plotH);
+
+    // Y-axis
+    ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 0.5;
+    ctx.fillStyle = '#999'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    if (autoScale) {
+        const yStep = maxVal <= 0.1 ? 0.02 : maxVal <= 0.3 ? 0.05 : 0.1;
+        for (let tick = 0; tick <= maxVal + 0.001; tick += yStep) {
+            const y = yScaleFn(tick);
+            ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + plotW, y); ctx.stroke();
+            ctx.fillText(tick.toFixed(2), PAD.left - 5, y + 3);
+        }
+    } else {
+        for (const tick of [0, 25, 50, 75, 100]) {
+            const y = yScaleFn(tick);
+            ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + plotW, y); ctx.stroke();
+            ctx.fillText(tick, PAD.left - 5, y + 3);
+        }
+    }
+
+    // X-axis
+    ctx.textAlign = 'center'; ctx.fillStyle = '#999';
+    const step = n > 800 ? 200 : n > 400 ? 100 : n > 200 ? 50 : 25;
+    for (let r = step; r <= n; r += step) ctx.fillText(r, xScale(r), H - PAD.bottom + 22);
+
+    // Line
+    ctx.strokeStyle = '#C62828'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < n; i++) {
+        if (arr[i] === null) { started = false; continue; }
+        const x = xScale(i + 0.5), y = yScaleFn(arr[i]);
+        if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Y-axis label
+    ctx.save();
+    ctx.translate(12, PAD.top + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#666'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(yLabel, 0, 0);
+    ctx.restore();
 }
 
 function generateAndShowScript(validRegions) {
