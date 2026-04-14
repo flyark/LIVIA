@@ -1581,41 +1581,32 @@ function parseCifCoords(cifText) {
 // ============================================================================
 // ipSAE CALCULATION
 // ============================================================================
-function calcIpSAE(pae, si, ei, sj, ej, paeCutoff, coords, distCutoff) {
+function calcIpSAE(pae, si, ei, sj, ej, paeCutoff) {
     const lenI = ei - si, lenJ = ej - sj;
     if (lenI === 0 || lenJ === 0) return 0;
-    distCutoff = distCutoff || 15;
-    function calcD0(L) { return L > 27 ? Math.max(1.0, 1.24 * Math.pow(L - 15, 1/3) - 1.8) : 1.0; }
-    function ptmFunc(x, d0) { return 1.0 / (1 + (x / d0) * (x / d0)); }
-    function passesDist(ri, rj) {
-        if (!coords || ri >= coords.length || rj >= coords.length) return true;
-        const a = coords[ri], b = coords[rj];
-        const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-        return Math.sqrt(dx*dx + dy*dy + dz*dz) < distCutoff;
-    }
+    // d0res: d0 from per-residue count of inter-chain PAE < cutoff (Dunbrack method, no distance filter)
+    function calcD0(L) { return Math.max(1.0, 1.24 * Math.pow(Math.max(L, 27) - 15, 1/3) - 1.8); }
 
     let maxScoreIJ = 0;
     for (let ri = si; ri < ei; ri++) {
         let goodCount = 0;
-        for (let rj = sj; rj < ej; rj++) { if ((pae[ri]?.[rj] ?? 31) < paeCutoff && passesDist(ri, rj)) goodCount++; }
+        for (let rj = sj; rj < ej; rj++) { if ((pae[ri]?.[rj] ?? 31) < paeCutoff) goodCount++; }
         if (goodCount > 0) {
-            const d0 = calcD0(goodCount);
+            const d0 = calcD0(goodCount), d0sq = d0 * d0;
             let score = 0;
-            for (let rj = sj; rj < ej; rj++) { const v = pae[ri]?.[rj] ?? 31; if (v < paeCutoff && passesDist(ri, rj)) score += ptmFunc(v, d0); }
-            score /= goodCount;
-            if (score > maxScoreIJ) maxScoreIJ = score;
+            for (let rj = sj; rj < ej; rj++) { const v = pae[ri]?.[rj] ?? 31; if (v < paeCutoff) score += 1.0 / (1 + (v * v) / d0sq); }
+            score /= goodCount; if (score > maxScoreIJ) maxScoreIJ = score;
         }
     }
     let maxScoreJI = 0;
     for (let rj = sj; rj < ej; rj++) {
         let goodCount = 0;
-        for (let ri = si; ri < ei; ri++) { if ((pae[rj]?.[ri] ?? 31) < paeCutoff && passesDist(rj, ri)) goodCount++; }
+        for (let ri = si; ri < ei; ri++) { if ((pae[rj]?.[ri] ?? 31) < paeCutoff) goodCount++; }
         if (goodCount > 0) {
-            const d0 = calcD0(goodCount);
+            const d0 = calcD0(goodCount), d0sq = d0 * d0;
             let score = 0;
-            for (let ri = si; ri < ei; ri++) { const v = pae[rj]?.[ri] ?? 31; if (v < paeCutoff && passesDist(rj, ri)) score += ptmFunc(v, d0); }
-            score /= goodCount;
-            if (score > maxScoreJI) maxScoreJI = score;
+            for (let ri = si; ri < ei; ri++) { const v = pae[rj]?.[ri] ?? 31; if (v < paeCutoff) score += 1.0 / (1 + (v * v) / d0sq); }
+            score /= goodCount; if (score > maxScoreJI) maxScoreJI = score;
         }
     }
     return Math.max(maxScoreIJ, maxScoreJI);
@@ -2241,7 +2232,7 @@ function processDimer() {
     const iLIS = Math.sqrt(abResult.lis * abResult.clis);
     const iLIA = Math.sqrt(abResult.liaCount * abResult.cliaCount);
     const iLISA = iLIS * iLIA;
-    const ipSAE = calcIpSAE(paeMatrix, offA, offA + lenA, offB, offB + lenB, 10, validCoords, 15);
+    const ipSAE = calcIpSAE(paeMatrix, offA, offA + lenA, offB, offB + lenB, 10);
     const actifpTM = calcActifpTM(paeMatrix, contact, nCoords, offA, offA + lenA, offB, offB + lenB);
 
     // Metrics from AlphaFold DB API
