@@ -309,17 +309,10 @@
         <!-- Script -->
         <div class="card result-card">
             <h2>Visualization Script <span class="model-badge" id="script-model-badge"></span></h2>
-            <div class="input-tabs" style="margin-bottom:0.8rem;">
-                <button class="input-tab active" data-tab="chimerax" onclick="switchScriptTab('chimerax')">ChimeraX</button>
-                <button class="input-tab" data-tab="pymol" onclick="switchScriptTab('pymol')">PyMOL</button>
-            </div>
-
-            <!-- Options -->
             <div style="margin-bottom:1rem;">
-                <label style="font-size:0.9rem; font-weight:600; color:#1a5276;">Options</label>
 
-                <label>LIR Display Options</label>
-                <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem; font-size:0.85rem; color:#555; flex-wrap:wrap;">
+                <label>Local Interaction Residue (LIR) Display</label>
+                <div style="display:flex; align-items:baseline; gap:0.6rem; margin-bottom:0.5rem; font-size:0.85rem; color:#555; flex-wrap:wrap;">
                     <span>Fill gaps &le;</span>
                     <input type="number" id="gap-fill-input" value="10" min="0" max="200" style="width:55px; padding:0.3rem 0.4rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.85rem; text-align:center;">
                     <span>residues</span>
@@ -420,14 +413,11 @@
             </div>
             <hr style="border:none; border-top:1px solid #e0e0e0; margin-bottom:1rem;">
 
-            <div style="display:flex; align-items:center; gap:0.8rem; margin-bottom:0.6rem; flex-wrap:wrap;">
-                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.82rem; color:#555; cursor:pointer; user-select:none;">
-                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure
-                </label>
-                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.82rem; color:#555; cursor:pointer; user-select:none;">
-                    <input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"> Gray non-LIR
-                </label>
+            <div class="input-tabs" style="margin-bottom:0.8rem;">
+                <button class="input-tab active" data-tab="chimerax" onclick="switchScriptTab('chimerax')">ChimeraX</button>
+                <button class="input-tab" data-tab="pymol" onclick="switchScriptTab('pymol')">PyMOL</button>
             </div>
+
             <div class="script-preview" id="script-preview"></div>
             <div class="download-row">
                 <a class="btn-download cxc" id="dl-script" download>&#8595; Download <span id="dl-script-ext">.cxc</span></a>
@@ -1497,6 +1487,13 @@ function generatePml(row, pdbFilename, colors) {
         `set_color clir_a, ${hexToRgbFloat(colors.clir_a)}`,
         `set_color clir_b, ${hexToRgbFloat(colors.clir_b)}`,
         ``,
+        ``,
+        `bg_color white`,
+        `set cartoon_fancy_helices, 1`,
+        `set cartoon_fancy_sheets, 1`,
+        `set antialias, 2`,
+        `set ray_shadows, 1`,
+        `set ray_trace_mode, 1`,
         `hide everything, all`,
     ];
 
@@ -1510,7 +1507,14 @@ function generatePml(row, pdbFilename, colors) {
 
     // ── Color mode (independent of showComplete) ──
     if (cxcColorMode === 'plddt') {
-        lines.push('spectrum b, red_yellow_green_cyan_blue, minimum=50, maximum=90');
+        lines.push('set_color af_vhigh, [0.051, 0.341, 0.827]');
+        lines.push('set_color af_high, [0.416, 0.796, 0.945]');
+        lines.push('set_color af_low, [0.996, 0.851, 0.212]');
+        lines.push('set_color af_vlow, [0.992, 0.490, 0.302]');
+        lines.push('color af_vlow, all and b < 50');
+        lines.push('color af_low, all and b > 50 and b < 70');
+        lines.push('color af_high, all and b > 70 and b < 90');
+        lines.push('color af_vhigh, all and b > 90');
     } else if (cxcColorMode === 'bychain' || cxcColorMode === 'bypolymer') {
         lines.push('util.cbc');
     } else {

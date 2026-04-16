@@ -62,5 +62,11 @@ function switchScriptTab(mode) {
     scriptMode = mode;
     document.querySelectorAll('.input-tab[data-tab="chimerax"], .input-tab[data-tab="pymol"]').forEach(t => t.classList.remove('active'));
     document.querySelector('.input-tab[data-tab="' + mode + '"]').classList.add('active');
+    // Update download button labels
+    var ext = mode === 'pymol' ? '.pml' : '.cxc';
+    var dlExt = document.getElementById('dl-script-ext');
+    if (dlExt) dlExt.textContent = ext;
+    var dlAll = document.getElementById('dl-all-chains');
+    if (dlAll) dlAll.textContent = '\u2193 Download All Chains ' + ext;
     if (onScriptTabSwitch) onScriptTabSwitch();
 }
