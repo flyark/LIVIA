@@ -38,6 +38,25 @@ function plddtColor(b) {
 function buildMolstarPage(structData, fmt, colorComponents) {
     const structureChildren = [];
     for (const comp of colorComponents) {
+        if (comp.isIon) {
+            structureChildren.push({
+                kind: 'component',
+                params: { selector: 'ion' },
+                children: [
+                    { kind: 'representation', params: { type: 'ball_and_stick' },
+                      children: [{ kind: 'color', params: { color: comp.color } }] }
+                ]
+            });
+            structureChildren.push({
+                kind: 'component',
+                params: { selector: 'ligand' },
+                children: [
+                    { kind: 'representation', params: { type: 'ball_and_stick' },
+                      children: [{ kind: 'color', params: { color: comp.color } }] }
+                ]
+            });
+            continue;
+        }
         const selector = comp.ranges.map(r => ({
             label_asym_id: comp.chain,
             beg_label_seq_id: r.start,
