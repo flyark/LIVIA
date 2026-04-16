@@ -47,12 +47,13 @@ Prediction Analysis auto-detects the platform from uploaded files:
 
 ## Key Metrics
 
-- **iLIS** — `sqrt(LIS × cLIS)` — integrated Local Interaction Score ([Kim et al. 2025](https://doi.org/10.1101/2025.10.10.681672))
+- **iLIS** — `sqrt(LIS × cLIS)` — integrated Local Interaction Score ([Kim et al. 2026](https://doi.org/10.64898/2026.04.14.718529))
 - **LIS** — average confidence of residue pairs with PAE ≤ 12Å ([Kim et al. 2024](https://doi.org/10.1101/2024.02.19.580970))
 - **cLIS** — contact-filtered LIS (PAE ≤ 12Å & Cβ ≤ 8Å)
 - **iLIA** — `sqrt(LIA × cLIA)` — integrated interaction area
 - **iLISA** — `iLIS × iLIA`
 - **ipSAE** — interaction prediction Score from Aligned Errors ([Dunbrack, 2025](https://doi.org/10.1101/2025.02.10.637595))
+- **actifpTM** — actual interface pTM ([Varga et al., 2025](https://doi.org/10.1093/bioinformatics/btaf107))
 - **LIR / cLIR** — Local Interaction Residues / contact-filtered LIR
 - **LIpLDDT / cLIpLDDT** — average pLDDT of LIR / cLIR residues per chain
 
@@ -79,12 +80,12 @@ See [AFM-LIS](https://github.com/flyark/AFM-LIS) for full documentation and outp
 ## Related Resources
 
 - **[AFM-LIS](https://github.com/flyark/AFM-LIS)** — Python framework and CLI for iLIS/LIS calculation
-- **[FlyPredictome](https://www.flyrnai.org/tools/fly_predictome)** — Large-scale *Drosophila* PPI predictions (>1.7 million)
+- **[FlyPredictome](https://www.flyrnai.org/tools/fly_predictome)** — Large-scale *Drosophila* PPI predictions (>1.5 million)
 - **[AlphaFold Protein Structure Database](https://alphafold.ebi.ac.uk)** — Predicted protein structures
 
 ## References
 
-- Kim, A.-R. et al. (2025). A Structure-Guided Kinase–Transcription Factor Interactome Atlas Reveals Docking Landscapes of the Kinome. *bioRxiv*. https://doi.org/10.1101/2025.10.10.681672
+- Kim, A.-R. et al. (2026). FlyPredictome: a structural atlas of predicted protein-protein interactions in *Drosophila*. *bioRxiv*. https://doi.org/10.64898/2026.04.14.718529
 - Kim, A.-R. et al. (2024). Enhanced Protein-Protein Interaction Discovery via AlphaFold-Multimer. *bioRxiv*. https://doi.org/10.1101/2024.02.19.580970
 
 ## Citation
@@ -95,7 +96,7 @@ If you use LIVIA in your research, please cite:
 @misc{livia,
   author = {Kim, Ah-Ram},
   title = {LIVIA: Local Interaction Visualization and Analysis},
-  year = {2025},
+  year = {2026},
   publisher = {GitHub},
   url = {https://github.com/flyark/LIVIA}
 }
