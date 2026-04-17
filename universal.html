@@ -4299,12 +4299,42 @@ function buildPerResidueCharts(pairKey) {
             avgLis.push(lSum / models.length);
         }
 
-        // Get LIR/cLIR and colors for this chain from current pair
-        let lir = new Set(), clir = new Set(), lirColor = '#80cbc4', clirColor = '#00897b';
-        if (v) {
+        // LIR/cLIR for this chain: union across ALL pairs involving this chain
+        // (so every chain shows its full interface annotation, not just the selected pair)
+        let lir = new Set(), clir = new Set();
+        for (const result of Object.values(uniState.results || {})) {
+            if (result.ci === chainName) {
+                for (const r of (result.lirI || [])) lir.add(r);
+                for (const r of (result.clirI || [])) clir.add(r);
+            } else if (result.cj === chainName) {
+                for (const r of (result.lirJ || [])) lir.add(r);
+                for (const r of (result.clirJ || [])) clir.add(r);
+            }
+        }
+        // Color: selected pair gets picker colors; other chains use their palette color
+        let lirColor, clirColor;
+        if (v && v.ci === chainName) {
             const colors = getColorsForPair(v.ci, v.cj);
-            if (v.ci === chainName) { lir = v.lirI || new Set(); clir = v.clirI || new Set(); lirColor = colors.lir_a; clirColor = colors.clir_a; }
-            else if (v.cj === chainName) { lir = v.lirJ || new Set(); clir = v.clirJ || new Set(); lirColor = colors.lir_b; clirColor = colors.clir_b; }
+            lirColor = colors.lir_a; clirColor = colors.clir_a;
+        } else if (v && v.cj === chainName) {
+            const colors = getColorsForPair(v.ci, v.cj);
+            lirColor = colors.lir_b; clirColor = colors.clir_b;
+        } else {
+            // Non-selected chain: use its own palette color (matches 3D viewer coloring)
+            const palette = chainNames.length <= 10 ? TAB10 : TAB20;
+            const chainColors = uniState.multiChainColors || {};
+            const baseColor = chainColors[chainName] || palette[ci % palette.length];
+            clirColor = baseColor;
+            // Lighter shade for LIR
+            const hex = baseColor.replace('#', '');
+            const r = parseInt(hex.slice(0, 2), 16);
+            const g = parseInt(hex.slice(2, 4), 16);
+            const b = parseInt(hex.slice(4, 6), 16);
+            const amt = 0.6;
+            const lr = Math.round(r + (255 - r) * amt);
+            const lg = Math.round(g + (255 - g) * amt);
+            const lb = Math.round(b + (255 - b) * amt);
+            lirColor = '#' + [lr, lg, lb].map(n => n.toString(16).padStart(2, '0')).join('');
         }
 
         chainData.push({ name: chainName, size: chainLen, models, avgPlddt, avgLis, lir, clir, lirColor, clirColor });
