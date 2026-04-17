@@ -130,7 +130,19 @@ body {
     padding: 2px;
 }
 .color-pair .color-label { font-size: 0.9rem; }
-.color-pair .color-hex { font-family: monospace; font-size: 0.8rem; color: #888; }
+.color-pair .color-hex {
+    font-family: monospace; font-size: 0.8rem; color: #888;
+    border: 1px solid transparent;
+    background: transparent;
+    padding: 1px 4px;
+    border-radius: 4px;
+    width: 9ch;
+    box-sizing: content-box;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.color-pair input.color-hex { outline: none; }
+.color-pair input.color-hex:hover { border-color: #d8d8d8; background: #fafafa; color: #555; }
+.color-pair input.color-hex:focus { border-color: #2471A3; background: #fff; color: #1a5276; }
 .color-def { font-weight: 400; font-size: 0.8rem; color: #999; }
 .color-preview-strip {
     display: flex; height: 8px; border-radius: 4px;

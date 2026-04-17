@@ -123,7 +123,7 @@
             <a href="flypredictome.html">FlyPredictome</a>
             <a href="ortholog_predictome.html">Ortholog Interactome</a>
             <a href="dimer.html">AFDB Dimer</a>
-            <a href="monomer.html">AFDB Monomer Subdomain <span style="font-size:0.6rem;color:#e67e22;font-weight:600;">α</span></a>
+            <a href="monomer.html">AFDB Monomer Subdomain</a>
             <a href="tutorials.html">Tutorials</a>
             <a href="about.html">About</a>
             <a href="https://github.com/flyark/LIVIA" target="_blank">GitHub</a>
@@ -442,6 +442,7 @@ let dimerChains = null;      // chain info from PAE JSON
 let dimerPairResult = null;  // computed pair metrics
 let dimerCifFilename = '';   // filename for download
 let viewer3dBlobUrl = null;  // blob URL for current Mol* iframe page
+let viewer3dStructText = null;  // cached structure text — postMessage fast-path detection
 let domainCache = new Map(); // UniProt ID -> domain array cache
 let tedCache = new Map();    // UniProt ID -> TED domain array cache
 let chainDomains = { A: [], B: [] }; // domain annotations per chain
@@ -3043,6 +3044,15 @@ function updateViewer3d() {
     const fmt = 'mmcif';  // dimer tool always uses CIF
 
     const colorComponents = buildColorComponents(v);
+
+    // Fast path: same structure → only colors changed → postMessage (no iframe reload)
+    if (frame.src && viewer3dStructText === dimerCifText) {
+        applyColorsToMolstarFrame('viewer3d-frame', colorComponents, fmt);
+        return;
+    }
+
+    // Slow path: structure changed → full iframe rebuild
+    viewer3dStructText = dimerCifText;
     const page = buildMolstarPage(dimerCifText, fmt, colorComponents);
     const blob = new Blob([page], { type: 'text/html' });
     if (viewer3dBlobUrl) URL.revokeObjectURL(viewer3dBlobUrl);

@@ -92,7 +92,7 @@
             <a href="flypredictome.html">FlyPredictome</a>
             <a href="ortholog_predictome.html">Ortholog Interactome</a>
             <a href="dimer.html">AFDB Dimer</a>
-            <a href="monomer.html">AFDB Monomer Subdomain <span style="font-size:0.6rem;color:#e67e22;font-weight:600;">α</span></a>
+            <a href="monomer.html">AFDB Monomer Subdomain</a>
             <a href="tutorials.html">Tutorials</a>
             <a href="about.html">About</a>
             <a href="https://github.com/flyark/LIVIA" target="_blank">GitHub</a>
@@ -1554,6 +1554,7 @@ let flyDomainInfo = { A: null, B: null }; // { accession, offset, fullLength, pr
 let domainCache = new Map();       // cache UniProt domain results
 let tedCache = new Map();          // cache TED domain results
 let viewer3dBlobUrl = null; // blob URL for current Mol* iframe page
+let viewer3dStructText = null;  // cached structure text — postMessage fast-path detection
 
 async function fetchViaProxy(url) {
     // Race all proxies in parallel — use whichever responds first with valid data
@@ -3430,7 +3431,14 @@ function updateViewer3d(row, colors, pdbText) {
     // Build separate components per colored group (non-LIR = hidden)
     const colorComponents = buildFlyColorComponents(row, colors, pdbText);
 
-    // Build iframe page with structure + coloring
+    // Fast path: same structure → only colors changed → postMessage (no iframe reload)
+    if (frame.src && viewer3dStructText === pdbText) {
+        applyColorsToMolstarFrame('viewer3d-frame', colorComponents, 'pdb');
+        return;
+    }
+
+    // Slow path: structure changed → full iframe rebuild
+    viewer3dStructText = pdbText;
     const page = buildMolstarPage(pdbText, 'pdb', colorComponents);
     const blob = new Blob([page], { type: 'text/html' });
     if (viewer3dBlobUrl) URL.revokeObjectURL(viewer3dBlobUrl);

@@ -111,14 +111,14 @@
 <div class="header">
     <div class="container">
         <h1><span style="color:#2471A3;">LIVIA</span> &mdash; Prediction Analysis</h1>
-        <p>Analyze predictions from AlphaFold3, ColabFold, Boltz, Chai-1, and OpenFold</p>
+        <p>Analyze predictions from AlphaFold-Multimer, AlphaFold3, ColabFold, Boltz-1/2, Chai-1, and OpenFold3</p>
         <div class="header-links">
             <a href="index.html">Home</a>
             <a href="universal.html">Prediction Analysis</a>
             <a href="flypredictome.html">FlyPredictome</a>
             <a href="ortholog_predictome.html">Ortholog Interactome</a>
             <a href="dimer.html">AFDB Dimer</a>
-            <a href="monomer.html">AFDB Monomer Subdomain <span style="font-size:0.6rem;color:#e67e22;font-weight:600;">α</span></a>
+            <a href="monomer.html">AFDB Monomer Subdomain</a>
             <a href="tutorials.html">Tutorials</a>
             <a href="about.html">About</a>
             <a href="https://github.com/flyark/LIVIA" target="_blank">GitHub</a>
@@ -507,6 +507,7 @@ let uniState = {
     cxcColorMode: '',
 };
 let viewer3dBlobUrl = null;  // blob URL for current iframe page
+let viewer3dStructText = null;  // cached structure text — postMessage fast-path detection
 function updateScriptPreview() {
     if (!uniState.currentPairResult) return;
     const v = uniState.currentPairResult;
@@ -2894,7 +2895,14 @@ async function updateViewer3d(pairKey) {
     // Build separate components per colored group (non-LIR = hidden)
     const colorComponents = buildColorComponents(v);
 
-    // Build iframe page with structure + coloring
+    // Fast path: same structure data → only colors changed → postMessage (no iframe reload)
+    if (frame.src && viewer3dStructText === structText) {
+        applyColorsToMolstarFrame('viewer3d-frame', colorComponents, fmt);
+        return;
+    }
+
+    // Slow path: structure changed → full iframe rebuild
+    viewer3dStructText = structText;
     const page = buildMolstarPage(structText, fmt, colorComponents);
     const blob = new Blob([page], { type: 'text/html' });
     if (viewer3dBlobUrl) URL.revokeObjectURL(viewer3dBlobUrl);
@@ -4752,7 +4760,7 @@ function buildContactMap(pairKey) {
     // Get structure coordinates
     const seedVal = document.getElementById('seed-select')?.value || '0';
     const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
-    const structText = uniState.structureContents[useIdx];
+    const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
     if (!structText) { card.style.display = 'none'; return; }
 
     const coords = parseStructureCoords(structText, uniState.structureFormat);

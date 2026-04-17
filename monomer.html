@@ -105,7 +105,7 @@
 
 <div class="header">
     <div class="container">
-        <h1><span style="color:#2471A3;">LIVIA</span> &mdash; AlphaFold DB Monomer Subdomain Analysis <span style="font-size:0.7rem; background:#e67e22; color:white; padding:0.15rem 0.5rem; border-radius:4px; vertical-align:middle;">alpha</span></h1>
+        <h1><span style="color:#2471A3;">LIVIA</span> &mdash; AlphaFold DB Monomer Subdomain Analysis</h1>
         <p>Analyze intramolecular interactions in AlphaFold monomer predictions</p>
         <div class="header-links">
             <a href="index.html">Home</a>
@@ -113,7 +113,7 @@
             <a href="flypredictome.html">FlyPredictome</a>
             <a href="ortholog_predictome.html">Ortholog Interactome</a>
             <a href="dimer.html">AFDB Dimer</a>
-            <a href="monomer.html">AFDB Monomer Subdomain <span style="font-size:0.6rem;color:#e67e22;font-weight:600;">α</span></a>
+            <a href="monomer.html">AFDB Monomer Subdomain</a>
             <a href="tutorials.html">Tutorials</a>
             <a href="about.html">About</a>
             <a href="https://github.com/flyark/LIVIA" target="_blank">GitHub</a>
@@ -437,7 +437,9 @@
 <script>
 // ── Callbacks for shared modules (monomer overrides most of these) ──
 onScriptTabSwitch = () => { /* handled by page-specific switchScriptTab override */ };
-// monomer has dynamic color pickers — initColorPickers not needed
+// monomer has dynamic region pickers as well as static color-lir-a/b pickers;
+// initColorPickers upgrades the static ones (with hex input editing + change handler)
+document.addEventListener('DOMContentLoaded', initColorPickers);
 
 // ============================================================================
 // GLOBAL STATE
@@ -467,6 +469,7 @@ function switchScriptTab(mode) {
 }
 let monRegionCounter = 0;   // for naming regions
 let viewer3dBlobUrl = null; // blob URL for current Mol* iframe page
+let viewer3dStructText = null;  // cached structure text — postMessage fast-path detection
 let monDomains = [];        // UniProt domain annotations [{name, start, end}]
 let monTedDomains = [];     // TED domain annotations [{name, start, end, segments, cath, plddt, qscore}]
 let domainCache = new Map(); // UniProt ID -> domain array cache
@@ -2657,6 +2660,14 @@ function updateViewer3d(validRegions) {
         }
     }
 
+    // Fast path: same structure → only colors changed → postMessage (no iframe reload)
+    if (frame.src && viewer3dStructText === monPdbText) {
+        applyColorsToMolstarFrame('viewer3d-frame', colorComponents, 'pdb');
+        return;
+    }
+
+    // Slow path: structure changed → full iframe rebuild
+    viewer3dStructText = monPdbText;
     const page = buildMolstarPage(monPdbText, 'pdb', colorComponents);
     const blob = new Blob([page], { type: 'text/html' });
     if (viewer3dBlobUrl) URL.revokeObjectURL(viewer3dBlobUrl);

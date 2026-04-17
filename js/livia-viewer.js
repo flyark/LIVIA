@@ -65,11 +65,8 @@ function plddtColor(b) {
     return '#FF7D45';
 }
 
-// ── Build complete Mol* viewer HTML page with MVS coloring ──
-// structData: raw structure text (PDB or mmCIF)
-// fmt: 'pdb' or 'mmcif'
-// colorComponents: array of { chain, ranges: [{start, end}], color: '#hex' }
-function buildMolstarPage(structData, fmt, colorComponents) {
+// ── Build the MVS structureChildren (per-component representations + colors) ──
+function _buildMvsStructureChildren(colorComponents) {
     const structureChildren = [];
     for (const comp of colorComponents) {
         if (comp.isIon) {
@@ -106,8 +103,12 @@ function buildMolstarPage(structData, fmt, colorComponents) {
             }]
         });
     }
+    return structureChildren;
+}
 
-    const mvsJson = {
+// ── Build full MVS JSON (with placeholder __STRUCT_BLOB_URL__ for the structure URL) ──
+function buildMvsJson(colorComponents, fmt) {
+    return {
         kind: 'single',
         root: {
             kind: 'root',
@@ -122,7 +123,7 @@ function buildMolstarPage(structData, fmt, colorComponents) {
                         children: [{
                             kind: 'structure',
                             params: { type: 'model' },
-                            children: structureChildren
+                            children: _buildMvsStructureChildren(colorComponents)
                         }]
                     }]
                 }
@@ -130,6 +131,29 @@ function buildMolstarPage(structData, fmt, colorComponents) {
         },
         metadata: { version: '1.6' }
     };
+}
+
+// ── Send a color-only update to a Mol* iframe (no structure reload) ──
+// Iframe must have been built with buildMolstarPage (which embeds the listener).
+// fmt: 'pdb' or 'mmcif' (must match initial load).
+// Returns true if message was sent; false if iframe isn't ready yet.
+function applyColorsToMolstarFrame(frameId, colorComponents, fmt) {
+    const frame = document.getElementById(frameId);
+    if (!frame || !frame.contentWindow) return false;
+    const mvsJson = buildMvsJson(colorComponents, fmt);
+    frame.contentWindow.postMessage({
+        type: 'updateColors',
+        mvsStr: JSON.stringify(mvsJson),
+    }, '*');
+    return true;
+}
+
+// ── Build complete Mol* viewer HTML page with MVS coloring ──
+// structData: raw structure text (PDB or mmCIF)
+// fmt: 'pdb' or 'mmcif'
+// colorComponents: array of { chain, ranges: [{start, end}], color: '#hex' }
+function buildMolstarPage(structData, fmt, colorComponents) {
+    const mvsJson = buildMvsJson(colorComponents, fmt);
 
     return `<!DOCTYPE html>
 <html><head>
@@ -148,6 +172,75 @@ function buildMolstarPage(structData, fmt, colorComponents) {
 var structData = ${JSON.stringify(structData)};
 var fmt = "${fmt}";
 var mvsTemplate = ${JSON.stringify(JSON.stringify(mvsJson))};
+var _viewer = null;
+var _structUrl = null;
+var _ready = false;
+var _pendingColorMvs = null;
+
+// Apply Mol*'s "Illustrative" style preset (matches the UI's Apply Style → Illustrative button)
+// Equivalent to: ignoreLight on components + outline + occlusion + shadow off
+async function _applyIllustrativeStyle(viewer) {
+    try {
+        var plugin = viewer.plugin;
+        // 1) ignoreLight on all structure components (gives the matte/flat color look)
+        if (plugin.managers && plugin.managers.structure && plugin.managers.structure.component) {
+            var compMgr = plugin.managers.structure.component;
+            await compMgr.setOptions(Object.assign({}, compMgr.state.options, { ignoreLight: true }));
+        }
+        // 2) Postprocessing: outline ON, occlusion ON, shadow OFF
+        var c3d = plugin.canvas3d;
+        if (c3d) {
+            var pp = c3d.props.postprocessing || {};
+            c3d.setProps({
+                postprocessing: {
+                    outline: {
+                        name: 'on',
+                        params: (pp.outline && pp.outline.name === 'on') ? pp.outline.params
+                              : { scale: 1, color: 0x000000, threshold: 0.33, includeTransparent: true }
+                    },
+                    occlusion: {
+                        name: 'on',
+                        params: (pp.occlusion && pp.occlusion.name === 'on') ? pp.occlusion.params
+                              : { multiScale: { name: 'off', params: {} }, radius: 5, bias: 0.8, blurKernelSize: 15, blurDepthBias: 0.5, samples: 32, resolutionScale: 1, color: 0x000000, transparentThreshold: 0.4 }
+                    },
+                    shadow: { name: 'off', params: {} }
+                }
+            });
+        }
+    } catch(e) { console.warn('Illustrative style error:', e); }
+}
+
+// Listen for parent postMessage color updates
+window.addEventListener('message', function(ev) {
+    if (!ev.data || ev.data.type !== 'updateColors' || !ev.data.mvsStr) return;
+    if (!_ready || !_viewer || !_structUrl) {
+        _pendingColorMvs = ev.data.mvsStr;
+        return;
+    }
+    try {
+        var newMvs = ev.data.mvsStr.replace('__STRUCT_BLOB_URL__', _structUrl);
+        var p = _viewer.loadMvsData(newMvs, 'mvsj');
+        // Re-apply illustrative style after MVS reload (loadMvsData resets postprocessing)
+        var reapply = function() { _applyIllustrativeStyle(_viewer); };
+        if (p && typeof p.then === 'function') p.then(reapply, reapply);
+        else setTimeout(reapply, 50);
+    } catch (e) { console.warn('Color update failed:', e); }
+});
+
+function _notifyReady() {
+    _ready = true;
+    try { parent.postMessage({ type: 'molstarReady' }, '*'); } catch(e) {}
+    if (_pendingColorMvs && _viewer && _structUrl) {
+        try {
+            var newMvs = _pendingColorMvs.replace('__STRUCT_BLOB_URL__', _structUrl);
+            var p = _viewer.loadMvsData(newMvs, 'mvsj');
+            var reapply = function() { _applyIllustrativeStyle(_viewer); };
+            if (p && typeof p.then === 'function') p.then(reapply, reapply);
+            else setTimeout(reapply, 50);
+        } catch (e) { console.warn('Pending color update failed:', e); }
+        _pendingColorMvs = null;
+    }
+}
 
 async function init() {
     var isMobile = window.innerWidth < 768;
@@ -162,9 +255,11 @@ async function init() {
         viewportShowSelectionMode: false,
         viewportShowAnimation: false,
     });
+    _viewer = viewer;
 
     var structBlob = new Blob([structData], { type: 'text/plain' });
     var structUrl = URL.createObjectURL(structBlob);
+    _structUrl = structUrl;
     var mvsStr = mvsTemplate.replace('__STRUCT_BLOB_URL__', structUrl);
 
     try {
@@ -176,26 +271,7 @@ async function init() {
 
     // Apply illustrative style AFTER loading
     setTimeout(function() {
-        try {
-            if (viewer.plugin.managers && viewer.plugin.managers.canvas3dContext) {
-                viewer.plugin.managers.canvas3dContext.setProps({ style: { name: 'illustrative' } });
-            }
-        } catch(e1) {}
-        try {
-            var c3d = viewer.plugin.canvas3d;
-            if (c3d) {
-                var rp = Object.assign({}, c3d.props.renderer);
-                rp.style = { name: 'flat-shaded', params: {} };
-                c3d.setProps({
-                    renderer: rp,
-                    postprocessing: {
-                        occlusion: { name: 'on', params: { multiScale: { name: 'off', params: {} }, radius: 5, bias: 0.8, blurKernelSize: 15, resolutionScale: 1, color: 0x000000 } },
-                        outline: { name: 'on', params: { scale: 1, threshold: 0.33, color: 0x000000, includeTransparent: true } },
-                    },
-                });
-
-            }
-        } catch(e2) { console.warn('Illustrative style error:', e2); }
+        _applyIllustrativeStyle(viewer);
         // Default screenshot to transparent background
         try {
             var sh = viewer.plugin.helpers.viewportScreenshot;
@@ -204,6 +280,7 @@ async function init() {
                 sh.behaviors.values.next(Object.assign({}, cur, { transparent: true }));
             }
         } catch(e3) {}
+        _notifyReady();
     }, 2000);
 }
 init().catch(function(e) { console.error('Mol* error:', e); });
