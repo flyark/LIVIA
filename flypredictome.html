@@ -523,6 +523,17 @@ function switchTab(tab) {
     document.querySelector('.input-tab[data-tab="' + tab + '"]').classList.add('active');
 }
 
+// ── FlyPredictome JSON parser (strips leading MySQL DNS debug text) ──
+// The debug block contains `[1002]` which fools a naive "first bracket" scan,
+// so we anchor on the `<br>` that precedes the real payload.
+function parseFpJson(text) {
+    if (!text) return null;
+    const m = text.match(/<br>\s*([\[{])/);
+    const start = m ? text.indexOf(m[1], m.index) : text.search(/[\[{]/);
+    if (start < 0) return null;
+    return JSON.parse(text.slice(start));
+}
+
 // ── Gene search ──
 let geneAcDebounce = null;
 let geneAcIdx = -1;
@@ -635,7 +646,7 @@ async function searchGene(presetFbgn) {
             // Resolve gene symbol to FBgn via FlyPredictome
             const fbgnText = await fetchTextViaProxy('https://www.flyrnai.org/tools/fly_predictome/web/get_fbgns/' + encodeURIComponent(query));
             if (!fbgnText) throw new Error('Could not reach FlyPredictome. Try again.');
-            const fbgnData = JSON.parse(fbgnText);
+            const fbgnData = parseFpJson(fbgnText);
 
             if (!fbgnData.data || fbgnData.data.length === 0) {
                 statusEl.textContent = 'No genes found for "' + query + '".';
@@ -671,7 +682,7 @@ async function searchGene(presetFbgn) {
         try {
             const protInfoText = await fetchTextViaProxy('https://www.flyrnai.org/tools/fly_predictome/web/get_protein_info/' + fbgnId);
             if (protInfoText) {
-                const protInfo = JSON.parse(protInfoText);
+                const protInfo = parseFpJson(protInfoText);
                 // Get max sequence length across all isoforms as canonical
                 for (const iso of protInfo) {
                     const len = parseInt(iso.seq?.len) || 0;
@@ -826,7 +837,7 @@ async function resolveGeneToFbgn(query, presetFbgn) {
     if (presetFbgn) return { fbgn: presetFbgn, symbol: query };
     const fbgnText = await fetchTextViaProxy('https://www.flyrnai.org/tools/fly_predictome/web/get_fbgns/' + encodeURIComponent(query));
     if (!fbgnText) throw new Error('Could not reach FlyPredictome.');
-    const fbgnData = JSON.parse(fbgnText);
+    const fbgnData = parseFpJson(fbgnText);
     if (!fbgnData.data || fbgnData.data.length === 0) throw new Error('Gene "' + query + '" not found.');
     let bestRow = fbgnData.data[0];
     for (const row of fbgnData.data) {
@@ -868,12 +879,12 @@ async function searchGenePair() {
         const [summaryResp, canonicalA, canonicalB] = await Promise.all([
             fetchTextViaProxy('https://www.flyrnai.org/tools/fly_predictome/web/famdb_summary/' + geneA.fbgn + '/'),
             fetchTextViaProxy('https://www.flyrnai.org/tools/fly_predictome/web/get_protein_info/' + geneA.fbgn).then(t => {
-                if (!t) return 0;
-                try { return Math.max(...JSON.parse(t).map(i => parseInt(i.seq?.len) || 0)); } catch { return 0; }
+                const arr = parseFpJson(t);
+                return arr ? Math.max(...arr.map(i => parseInt(i.seq?.len) || 0)) : 0;
             }).catch(() => 0),
             fetchTextViaProxy('https://www.flyrnai.org/tools/fly_predictome/web/get_protein_info/' + geneB.fbgn).then(t => {
-                if (!t) return 0;
-                try { return Math.max(...JSON.parse(t).map(i => parseInt(i.seq?.len) || 0)); } catch { return 0; }
+                const arr = parseFpJson(t);
+                return arr ? Math.max(...arr.map(i => parseInt(i.seq?.len) || 0)) : 0;
             }).catch(() => 0)
         ]);
         if (!summaryResp) throw new Error('Could not fetch interaction data.');
@@ -954,14 +965,13 @@ function displayPairResults(matches) {
         const tr = document.createElement('tr');
         tr.className = 'clickable';
         tr.style.cursor = 'pointer';
-        const ilisColor = p.ilisBest >= 0.551 ? '#C0392B' : p.ilisBest >= 0.339 ? '#27ae60' : p.ilisBest >= 0.223 ? '#e67e22' : '#999';
         const mistStr = [p.mistPPI ? 'PPI' : '', p.mistGI ? 'GI' : ''].filter(Boolean).join(', ') || '\u2014';
         const partial1 = p.isPartial1 ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Partial)</span>' : '';
         const partial2 = p.isPartial2 ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Partial)</span>' : '';
         tr.innerHTML =
             '<td><strong>' + esc(p.sym1) + '</strong> <span style="color:#999; font-size:0.72rem;">' + esc(p.fbgn1) + '</span>' + partial1 + '</td>' +
             '<td><strong>' + esc(p.sym2) + '</strong> <span style="color:#999; font-size:0.72rem;">' + esc(p.fbgn2) + '</span>' + partial2 + '</td>' +
-            '<td style="color:' + ilisColor + '; font-weight:600;">' + p.ilisBest.toFixed(3) + '</td>' +
+            '<td>' + ilisColor(p.ilisBest) + '</td>' +
             '<td>' + p.iptmBest.toFixed(2) + '</td>' +
             '<td>' + p.lenA + '</td>' +
             '<td>' + p.lenB + '</td>' +
@@ -1122,10 +1132,10 @@ function displayPartnerTable(partners, querySymbol) {
         '<thead style="position:sticky; top:0; z-index:1;">' +
             '<tr>' +
                 '<th>Partner</th>' +
+                '<th>iLIS (best)</th>' +
                 '<th>iLIS (avg)</th>' +
-                '<th>iLIS (avg)</th>' +
-                '<th>ipTM (avg)</th>' +
                 '<th>ipTM (best)</th>' +
+                '<th>ipTM (avg)</th>' +
                 '<th>Len A/B</th>' +
                 '<th>PPI</th>' +
                 '<th>GI</th>' +
@@ -1171,16 +1181,13 @@ function filterPartnerTable() {
         tr.className = 'clickable';
         tr.style.cursor = 'pointer';
 
-        // Color code iLIS
-        const ilisColor = p.ilisBest >= 0.551 ? '#C0392B' : p.ilisBest >= 0.339 ? '#27ae60' : p.ilisBest >= 0.223 ? '#e67e22' : '#999';
-
         const partialTag = p.isPartnerPartial ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Partial)</span>' : '';
         tr.innerHTML =
             '<td><strong>' + esc(p.partnerSymbol) + '</strong> <span style="color:#999; font-size:0.72rem;">' + esc(p.partnerFbgn) + '</span>' + partialTag + '</td>' +
-            '<td>' + p.ilisAvg.toFixed(3) + '</td>' +
-            '<td style="color:' + ilisColor + '; font-weight:600;">' + p.ilisBest.toFixed(3) + '</td>' +
-            '<td>' + p.iptmAvg.toFixed(2) + '</td>' +
+            '<td>' + ilisColor(p.ilisBest) + '</td>' +
+            '<td>' + ilisColor(p.ilisAvg, true) + '</td>' +
             '<td>' + p.iptmBest.toFixed(2) + '</td>' +
+            '<td>' + p.iptmAvg.toFixed(2) + '</td>' +
             '<td>' + p.lenA + ' / ' + p.lenB + '</td>' +
             '<td>' + (p.mistPPI || '\u2014') + '</td>' +
             '<td>' + (p.mistGI || '\u2014') + '</td>' +
@@ -1845,7 +1852,7 @@ async function queryMIST() {
         // Query gene 1 — find interactions with gene 2
         const types = 'ppi,interolog,genetic,interolog-genetic';
         const resp = await fetchTextViaProxy(`https://www.flyrnai.org/tools/mist/api/get_interactions/${id1}/${types}`);
-        const data = resp ? JSON.parse(resp) : null;
+        const data = parseFpJson(resp);
         const allResults = data?.mist_data?.results || [];
 
         // Filter to only interactions between this pair, deduplicate by type+rank+reference
