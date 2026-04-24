@@ -815,8 +815,8 @@ function displayPartnerTable(partners, querySymbol) {
                 '<th>Partner</th>' +
                 '<th>iLIS (best)</th>' +
                 '<th>iLIS (avg)</th>' +
-                '<th>ipTM (avg)</th>' +
                 '<th>ipTM (best)</th>' +
+                '<th>ipTM (avg)</th>' +
                 '<th>Len A/B</th>' +
             '</tr>' +
         '</thead>' +
@@ -856,8 +856,8 @@ function filterPartnerTable() {
             '<td><strong>' + esc(p.partnerSymbol) + '</strong> <span style="color:#999; font-size:0.72rem;">' + esc(p.partnerProt) + '</span></td>' +
             '<td>' + ilisColor(p.ilisBest) + '</td>' +
             '<td>' + ilisColor(p.ilisAvg, true) + '</td>' +
-            '<td>' + p.iptmAvg.toFixed(2) + '</td>' +
             '<td>' + p.iptmBest.toFixed(2) + '</td>' +
+            '<td>' + p.iptmAvg.toFixed(2) + '</td>' +
             '<td>' + p.lenA + ' / ' + p.lenB + '</td>';
 
         if (p.detailUrl) {
