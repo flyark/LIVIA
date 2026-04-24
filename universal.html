@@ -752,6 +752,9 @@ folderInput.addEventListener('change', e => { if (e.target.files.length) handleI
 let pendingJobs = null;
 
 async function handleInputFiles(fileList) {
+    // Disable Process immediately — large zips take seconds to load, and a premature
+    // click would run processFiles with platform=null (fallback: generic, wrong PAE source).
+    document.getElementById('btn-process').disabled = true;
     uniState.loadedFiles = {};
     uniState.loadedZip = null;
     uniState.predictions = [];
@@ -2631,8 +2634,25 @@ function buildColorComponents(v) {
         components.push({ chain, ranges, color, isIon: t === 'ion' });
     };
 
-    const lirI_filtered = filterSmallSegments(v.lirI);
-    const lirJ_filtered = filterSmallSegments(v.lirJ);
+    // Union LIR/cLIR across all pairs per chain (mistake #27 rule: per-chain UI
+    // should show union-over-partners data, not selected-pair-specific only).
+    // Otherwise selected-pair chains miss cLIR with non-selected partners while
+    // non-selected chains show their full interface — asymmetric and misleading.
+    const allLIR_3d = {}, allCLIR_3d = {};
+    for (const name of (uniState.chainNames || [])) { allLIR_3d[name] = new Set(); allCLIR_3d[name] = new Set(); }
+    for (const pv of Object.values(uniState.results || {})) {
+        if (pv.lirI) for (const r of pv.lirI) allLIR_3d[pv.ci]?.add(r);
+        if (pv.lirJ) for (const r of pv.lirJ) allLIR_3d[pv.cj]?.add(r);
+        if (pv.clirI) for (const r of pv.clirI) allCLIR_3d[pv.ci]?.add(r);
+        if (pv.clirJ) for (const r of pv.clirJ) allCLIR_3d[pv.cj]?.add(r);
+    }
+    const lirI_union = allLIR_3d[v.ci] || new Set();
+    const lirJ_union = allLIR_3d[v.cj] || new Set();
+    const clirI_union = allCLIR_3d[v.ci] || new Set();
+    const clirJ_union = allCLIR_3d[v.cj] || new Set();
+
+    const lirI_filtered = filterSmallSegments(lirI_union);
+    const lirJ_filtered = filterSmallSegments(lirJ_union);
     let lirIFilled = fillGaps(lirI_filtered);
     let lirJFilled = fillGaps(lirJ_filtered);
 
@@ -2666,15 +2686,10 @@ function buildColorComponents(v) {
         return ranges;
     }
 
-    // Other chains for multi-subunit context
+    // Other chains for multi-subunit context (reuse the per-chain union computed above)
     const otherChains = (uniState.chainNames || []).filter(c => c !== v.ci && c !== v.cj);
     const otherLIR = {};
-    for (const c of otherChains) otherLIR[c] = new Set();
-    const currentResults = uniState.results || {};
-    for (const [, pv] of Object.entries(currentResults)) {
-        if (pv.lirI) for (const c of otherChains) { if (pv.ci === c) for (const r of pv.lirI) otherLIR[c].add(r); }
-        if (pv.lirJ) for (const c of otherChains) { if (pv.cj === c) for (const r of pv.lirJ) otherLIR[c].add(r); }
-    }
+    for (const c of otherChains) otherLIR[c] = new Set(allLIR_3d[c] || []);
 
     // Save original LIR before expanding (needed for gray non-LIR)
     const otherLIR_orig = {};
@@ -2712,7 +2727,7 @@ function buildColorComponents(v) {
         };
         if (!isNonProteinChain(v.ci)) {
             if (grayNonLir && showComplete) {
-                const lirOrig = fillGaps(filterSmallSegments(v.lirI));
+                const lirOrig = fillGaps(filterSmallSegments(lirI_union));
                 const nonLir = new Set([...lirIFilled].filter(r => !lirOrig.has(r)));
                 if (nonLir.size > 0) addComp(v.ci, toRanges(nonLir), '#B0B0B0');
                 addPlddt(v.ci, lirOrig);
@@ -2722,7 +2737,7 @@ function buildColorComponents(v) {
         }
         if (!isNonProteinChain(v.cj)) {
             if (grayNonLir && showComplete) {
-                const lirOrig = fillGaps(filterSmallSegments(v.lirJ));
+                const lirOrig = fillGaps(filterSmallSegments(lirJ_union));
                 const nonLir = new Set([...lirJFilled].filter(r => !lirOrig.has(r)));
                 if (nonLir.size > 0) addComp(v.cj, toRanges(nonLir), '#B0B0B0');
                 addPlddt(v.cj, lirOrig);
@@ -2744,8 +2759,8 @@ function buildColorComponents(v) {
         }
     } else if (mode === 'bychain' || mode === 'bypolymer') {
         if (grayNonLir && showComplete) {
-            const LIR_I_orig = fillGaps(filterSmallSegments(v.lirI));
-            const LIR_J_orig = fillGaps(filterSmallSegments(v.lirJ));
+            const LIR_I_orig = fillGaps(filterSmallSegments(lirI_union));
+            const LIR_J_orig = fillGaps(filterSmallSegments(lirJ_union));
             const nonLirI = new Set([...lirIFilled].filter(r => !LIR_I_orig.has(r)));
             const nonLirJ = new Set([...lirJFilled].filter(r => !LIR_J_orig.has(r)));
             if (!isNonProteinChain(v.ci)) {
@@ -2788,7 +2803,7 @@ function buildColorComponents(v) {
 
         // Selected pair chains i and j (skip if ion)
         if (!isNonProteinChain(v.ci)) {
-            const clirISet = new Set([...(v.clirI || new Set())].filter(r => lirI_filtered.has(r)));
+            const clirISet = new Set([...clirI_union].filter(r => lirI_filtered.has(r)));
             if (grayNonLir && showComplete) {
                 const LIR_I_orig = fillGaps(lirI_filtered);
                 const nonLirI = new Set([...lirIFilled].filter(r => !LIR_I_orig.has(r)));
@@ -2802,7 +2817,7 @@ function buildColorComponents(v) {
             addComp(v.ci, toRanges(clirISet), colors.clir_a);
         }
         if (!isNonProteinChain(v.cj)) {
-            const clirJSet = new Set([...(v.clirJ || new Set())].filter(r => lirJ_filtered.has(r)));
+            const clirJSet = new Set([...clirJ_union].filter(r => lirJ_filtered.has(r)));
             if (grayNonLir && showComplete) {
                 const LIR_J_orig = fillGaps(lirJ_filtered);
                 const nonLirJ = new Set([...lirJFilled].filter(r => !LIR_J_orig.has(r)));
@@ -2816,15 +2831,9 @@ function buildColorComponents(v) {
             addComp(v.cj, toRanges(clirJSet), colors.clir_b);
         }
 
-        // Other chains: collect cLIR for gradient distinction
+        // Other chains: reuse the per-chain union cLIR for gradient distinction
         const otherCLIR = {};
-        for (const c of otherChains) otherCLIR[c] = new Set();
-        for (const [, pv] of Object.entries(uniState.results || {})) {
-            for (const c of otherChains) {
-                if (pv.ci === c && pv.clirI) for (const r of pv.clirI) otherCLIR[c].add(r);
-                if (pv.cj === c && pv.clirJ) for (const r of pv.clirJ) otherCLIR[c].add(r);
-            }
-        }
+        for (const c of otherChains) otherCLIR[c] = new Set(allCLIR_3d[c] || []);
 
         for (const c of otherChains) {
             if (isNonProteinChain(c)) continue; // ions handled below
