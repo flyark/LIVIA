@@ -210,6 +210,34 @@ async function _applyIllustrativeStyle(viewer) {
     } catch(e) { console.warn('Illustrative style error:', e); }
 }
 
+// Inject a camera node into an MVS document with the current viewer camera, so
+// loadMvsData renders with the user's existing view rather than auto-fitting.
+function _injectCurrentCameraIntoMvs(mvsStr) {
+    try {
+        var c3d = _viewer && _viewer.plugin && _viewer.plugin.canvas3d;
+        var cs = c3d && c3d.camera && c3d.camera.state;
+        if (!cs || !cs.position || !cs.target || !cs.up) return mvsStr;
+        var camNode = {
+            kind: 'camera',
+            params: {
+                target:   [Number(cs.target[0]),   Number(cs.target[1]),   Number(cs.target[2])],
+                position: [Number(cs.position[0]), Number(cs.position[1]), Number(cs.position[2])],
+                up:       [Number(cs.up[0]),       Number(cs.up[1]),       Number(cs.up[2])],
+            }
+        };
+        var obj = JSON.parse(mvsStr);
+        if (!obj.root || !Array.isArray(obj.root.children)) return mvsStr;
+        // Strip any existing camera nodes, then insert ours immediately after canvas (or at front)
+        obj.root.children = obj.root.children.filter(function(c) { return c.kind !== 'camera'; });
+        var insertAt = 0;
+        for (var i = 0; i < obj.root.children.length; i++) {
+            if (obj.root.children[i].kind === 'canvas') { insertAt = i + 1; break; }
+        }
+        obj.root.children.splice(insertAt, 0, camNode);
+        return JSON.stringify(obj);
+    } catch (_e) { return mvsStr; }
+}
+
 // Listen for parent postMessage color updates
 window.addEventListener('message', function(ev) {
     if (!ev.data || ev.data.type !== 'updateColors' || !ev.data.mvsStr) return;
@@ -219,9 +247,33 @@ window.addEventListener('message', function(ev) {
     }
     try {
         var newMvs = ev.data.mvsStr.replace('__STRUCT_BLOB_URL__', _structUrl);
+        newMvs = _injectCurrentCameraIntoMvs(newMvs);
+        // Snapshot the FULL camera state (incl. radius/radiusMax for ortho zoom) before reload.
+        // MVS only carries target/position/up, so we need this to keep zoom stable.
+        var savedCamera = null;
+        try {
+            var c3d = _viewer.plugin && _viewer.plugin.canvas3d;
+            if (c3d && c3d.camera && c3d.camera.state) {
+                // Clone so Mol* can't mutate it after we save.
+                savedCamera = JSON.parse(JSON.stringify(c3d.camera.state));
+            }
+        } catch(_e) {}
+        var restore = function() {
+            try {
+                var c3dr = _viewer && _viewer.plugin && _viewer.plugin.canvas3d;
+                if (savedCamera && c3dr && c3dr.camera) c3dr.camera.setState(savedCamera, 0);
+            } catch(_e2) {}
+        };
         var p = _viewer.loadMvsData(newMvs, 'mvsj');
-        // Re-apply illustrative style after MVS reload (loadMvsData resets postprocessing)
-        var reapply = function() { _applyIllustrativeStyle(_viewer); };
+        var reapply = function() {
+            _applyIllustrativeStyle(_viewer);
+            // Restore at multiple ticks to win against Mol*'s post-load auto-fit which
+            // can run asynchronously after loadMvsData's promise resolves.
+            restore();
+            requestAnimationFrame(function() { restore(); requestAnimationFrame(restore); });
+            setTimeout(restore, 100);
+            setTimeout(restore, 300);
+        };
         if (p && typeof p.then === 'function') p.then(reapply, reapply);
         else setTimeout(reapply, 50);
     } catch (e) { console.warn('Color update failed:', e); }
