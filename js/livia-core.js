@@ -3,7 +3,7 @@
  *
  * Provides:
  *   esc()                  — HTML escaping
- *   ilisColor()            — iLIS FDR coloring with thresholds
+ *   ilisColor()            — iLIS FPR coloring with thresholds
  *   parseResidueRanges()   — parse residue range strings to Set of ints
  *   resSpec()              — ChimeraX residue spec builder
  *   fillGaps()             — fill gaps in residue position sets
@@ -21,7 +21,7 @@
 // ── HTML escaping ──
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// ── iLIS FDR coloring (purple/green/amber/gray thresholds) ──
+// ── iLIS FPR coloring (purple/green/amber/gray thresholds) ──
 function ilisColor(val, isAvg) {
     const color = isAvg
         ? (val >= 0.303 ? '#6B21A8' : val >= 0.120 ? '#0e8a6e' : val >= 0.073 ? '#bf8700' : '#8b949e')
