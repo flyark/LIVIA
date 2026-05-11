@@ -17,6 +17,20 @@
         .header-links a:hover { background: #2471A3; color: white; border-color: #2471A3; }
         .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
 
+        /* Paper banner */
+        .paper-banner { display: flex; align-items: center; gap: 0.7rem; background: #eaf2f8; border: 1px solid #d4e3f0; border-radius: 10px; padding: 0.7rem 1.1rem; margin-bottom: 1rem; text-decoration: none; color: #1a5276; transition: all 0.2s; }
+        .paper-banner:hover { background: #d4e3f0; border-color: #2471A3; }
+        .paper-banner .paper-icon { font-size: 1.1rem; line-height: 1; }
+        .paper-banner .paper-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #2471A3; }
+        .paper-banner .paper-cite { font-size: 0.88rem; color: #1a5276; flex: 1; }
+        .paper-banner .paper-cite em { color: #555; font-style: italic; }
+        .paper-banner .paper-arrow { font-size: 1.1rem; color: #2471A3; transition: transform 0.2s; }
+        .paper-banner:hover .paper-arrow { transform: translateX(3px); }
+        @media (max-width: 600px) {
+            .paper-banner { flex-wrap: wrap; }
+            .paper-banner .paper-cite { flex-basis: 100%; }
+        }
+
         /* Hero card */
         .hero-card { background: white; border-radius: 14px; padding: 2rem 2.5rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 2rem; border: 2px solid transparent; transition: all 0.2s; text-decoration: none; color: #333; display: block; }
         .hero-card:hover { border-color: #2471A3; box-shadow: 0 6px 24px rgba(36,113,163,0.15); }
@@ -81,6 +95,13 @@
 
 <div class="container">
 
+    <!-- Paper banner -->
+    <a class="paper-banner" href="https://doi.org/10.64898/2026.05.01.721633" target="_blank">
+        <span class="paper-icon">&#128196;</span>
+        <span class="paper-cite">Kim &amp; Perrimon (2026). LIVIA: a browser-based tool for assessing and visualizing predicted protein interactions. <em>bioRxiv</em>.</span>
+        <span class="paper-arrow">&rarr;</span>
+    </a>
+
     <!-- Hero: Prediction Analysis -->
     <a class="hero-card" href="universal.html">
         <h2>Prediction Analysis</h2>
@@ -106,7 +127,7 @@
         </a>
         <a class="small-card" href="dimer.html">
             <h3>AFDB Dimer</h3>
-            <p>Fetch dimer predictions from the AlphaFold Protein Structure Database.</p>
+            <p>Fetch dimer predictions from the AlphaFold Protein Structure Database (Han et al., 2026).</p>
             <div class="examples">e.g., Fiber protein 2, pp71</div>
         </a>
         <a class="small-card" href="monomer.html">
@@ -118,7 +139,7 @@
 
     <!-- Tutorials + Guide + GitHub -->
     <div class="bottom-row">
-        <a class="bottom-link" href="tutorials.html" style="border-color:#2471A3; background:white;">
+        <a class="bottom-link" href="tutorials.html">
             <h4>Tutorials</h4>
             <p>Visual walkthroughs for each tool &mdash; learn by example.</p>
         </a>
@@ -143,9 +164,11 @@
     </div>
 </div>
 <div class="footer">
-    <a href="https://github.com/flyark/LIVIA" target="_blank">LIVIA GitHub</a> &middot; <a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS GitHub</a> &middot; <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank">FlyPredictome</a> &middot; <a href="https://alphafold.ebi.ac.uk" target="_blank">AlphaFold DB</a>
+    <a href="https://github.com/flyark/LIVIA" target="_blank">LIVIA GitHub</a> &middot; <a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS GitHub</a>
     <br>
-    LIVIA &middot; Ah-Ram Kim (Harvard Medical School)
+    <a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank">Kim &amp; Perrimon (2026)</a>
+    <br>
+    Ah-Ram Kim &middot; Harvard Medical School
 </div>
 <script data-goatcounter="https://livia.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>

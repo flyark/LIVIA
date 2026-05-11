@@ -20,6 +20,7 @@ body {
 .header-links { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 .header-links a { color: #555; text-decoration: none; font-size: 0.82rem; padding: 0.3rem 0.7rem; border: 1px solid #ddd; border-radius: 6px; transition: all 0.2s; background: #f8f9fa; }
 .header-links a:hover { background: #2471A3; color: white; border-color: #2471A3; }
+.header-links a.active { background: #2471A3; color: white; border-color: #2471A3; cursor: default; }
 
 /* ── Layout ── */
 .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }

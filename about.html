@@ -13,6 +13,7 @@
         .header-links { display: flex; gap: 0.6rem; flex-wrap: wrap; }
         .header-links a { color: #555; text-decoration: none; font-size: 0.82rem; padding: 0.3rem 0.7rem; border: 1px solid #ddd; border-radius: 6px; transition: all 0.2s; background: #f8f9fa; }
         .header-links a:hover { background: #2471A3; color: white; border-color: #2471A3; }
+        .header-links a.active { background: #2471A3; color: white; border-color: #2471A3; cursor: default; }
         .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
 
         .tool-section { margin-bottom: 3rem; }
@@ -251,7 +252,7 @@
                 <li><strong>PAE/LIS/cLIS maps</strong> &mdash; same colormaps as the Universal tool (bwr, Blues, Greens)</li>
                 <li><strong>Score matrix</strong> &mdash; iLIS (Oranges) / cLIR count (Greens)</li>
                 <li><strong>Sequence viewer</strong> &mdash; amino acid letters with LIR (light) and cLIR (dark) highlighting per chain</li>
-                <li><strong>ipSAE metric</strong> &mdash; interaction prediction Score from Aligned Errors (<a href="https://www.biorxiv.org/content/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack, 2025</a>), shown alongside iLIS, LIS, cLIS, and ipTM</li>
+                <li><strong>ipSAE metric</strong> &mdash; interaction prediction Score from Aligned Errors (<a href="https://www.biorxiv.org/content/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack, 2025</a>)</li>
                 <li><strong>actifpTM metric</strong> &mdash; actual interface pTM (<a href="https://doi.org/10.1093/bioinformatics/btaf107" target="_blank" style="color:#2471A3;">Varga et al., 2025</a>)</li>
                 <li><strong>Visualization script</strong> &mdash; color presets with Swap A &harr; B support</li>
                 <li><strong>Downloads</strong> &mdash; .cxc script, .cif structure, CSV with full metrics and LIR/cLIR indices</li>
@@ -425,7 +426,7 @@
                 <strong>Symmetrization:</strong> Results for chain pairs (A&rarr;B) and (B&rarr;A) are averaged. LIR/cLIR residue sets are the union across all models.
             </p>
             <p style="font-size:0.9rem; color:#555; line-height:1.6; margin-top:0.5rem;">
-                <strong>Suggested threshold:</strong> <strong>iLIS &ge; 0.223</strong> was established at 10% FPR using large-scale Y2H reference datasets in yeast (<a href="https://doi.org/10.1126/science.1158684" target="_blank" style="color:#2471A3;">Yu et al., 2008</a>), fly (<a href="https://doi.org/10.1038/s41467-023-37876-0" target="_blank" style="color:#2471A3;">Tang et al., 2023</a>), and human (<a href="https://doi.org/10.1038/nmeth.1281" target="_blank" style="color:#2471A3;">Braun et al., 2009</a>). This threshold was determined using AlphaFold-Multimer predictions (via ColabFold). See Kim et al., 2026, for details.
+                <strong>Suggested threshold:</strong> <strong>iLIS &ge; 0.223</strong> was established at 10% FPR using large-scale Y2H reference datasets in yeast (<a href="https://doi.org/10.1126/science.1158684" target="_blank" style="color:#2471A3;">Yu et al., 2008</a>), fly (<a href="https://doi.org/10.1038/s41467-023-37876-0" target="_blank" style="color:#2471A3;">Tang et al., 2023</a>), and human (<a href="https://doi.org/10.1038/nmeth.1281" target="_blank" style="color:#2471A3;">Braun et al., 2009</a>). This threshold was determined using AlphaFold-Multimer predictions (via ColabFold). See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for details.
             </p>
             <div style="background:#fdeaea; border-left:4px solid #c0392b; padding:0.8rem 1rem; border-radius:0 8px 8px 0; font-size:0.9rem; color:#8b1a1a; margin-top:0.8rem;">
                 <strong>Caution:</strong> Computational predictions should be interpreted with care. The iLIS &ge; 0.223 threshold was derived from AlphaFold-Multimer (ColabFold) predictions with specific reference datasets. <strong>Other prediction platforms (AlphaFold 3, Boltz, Chai-1, OpenFold) may require different cutoffs</strong> due to differences in model architecture, training data, and confidence calibration. Each platform produces distinct PAE distributions and ipTM scales, which can affect iLIS values. Optimal thresholds may also vary depending on the species, protein types, and experimental system. <strong>Experimental validation is highly recommended</strong> before drawing biological conclusions from predicted interactions.
@@ -497,11 +498,16 @@
             </ul>
             <p><strong>This Tool</strong></p>
             <ul style="padding-left:1.2rem;">
+                <li><a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon 2026</a> &mdash; LIVIA: a browser-based tool for assessing and visualizing predicted protein interactions. <em>bioRxiv</em>.</li>
                 <li><a href="https://github.com/flyark/LIVIA" target="_blank" style="color:#2471A3;">LIVIA GitHub</a> &mdash; Source code for all visualization and analysis tools</li>
             </ul>
             <div style="margin-top:1.5rem; padding:1rem; background:#eaf2f8; border-radius:8px;">
                 <p style="font-weight:600; color:#1a5276; margin-bottom:0.4rem;">Cite this tool</p>
-                <p style="font-size:0.82rem; color:#555; line-height:1.6;">If you use LIS or iLIS metric in your research, please cite:</p>
+                <p style="font-size:0.82rem; color:#555; line-height:1.6;">If you use LIVIA in your research, please cite:</p>
+                <div style="background:white; border:1px solid #d0d8e0; border-radius:6px; padding:0.6rem 0.8rem; margin-top:0.4rem; font-size:0.78rem; font-family:'SF Mono','Fira Code',monospace; line-height:1.5; color:#333;">
+                    Kim, A.-R. &amp; Perrimon, N. (2026). LIVIA: a browser-based tool for assessing and visualizing predicted protein interactions. <em>bioRxiv</em>. <a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">https://doi.org/10.64898/2026.05.01.721633</a>
+                </div>
+                <p style="font-size:0.82rem; color:#555; line-height:1.6; margin-top:0.8rem;">If you use the LIS or iLIS metric, please also cite:</p>
                 <div style="background:white; border:1px solid #d0d8e0; border-radius:6px; padding:0.6rem 0.8rem; margin-top:0.4rem; font-size:0.78rem; font-family:'SF Mono','Fira Code',monospace; line-height:1.5; color:#333;">
                     Kim, A.-R. et al. (2024). Enhanced Protein-Protein Interaction Discovery via AlphaFold-Multimer. <em>bioRxiv</em>. <a href="https://doi.org/10.1101/2024.02.19.580970" target="_blank" style="color:#2471A3;">https://doi.org/10.1101/2024.02.19.580970</a>
                 </div>
@@ -515,9 +521,11 @@
 </div>
 
 <div class="footer">
-    <a href="https://github.com/flyark/LIVIA" target="_blank">LIVIA GitHub</a> &middot; <a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS GitHub</a> &middot; <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank">FlyPredictome</a> &middot; <a href="https://alphafold.ebi.ac.uk" target="_blank">AlphaFold DB</a>
+    <a href="https://github.com/flyark/LIVIA" target="_blank">LIVIA GitHub</a> &middot; <a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS GitHub</a>
     <br>
-    LIVIA &middot; Ah-Ram Kim (Harvard Medical School)
+    <a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank">Kim &amp; Perrimon (2026)</a>
+    <br>
+    Ah-Ram Kim &middot; Harvard Medical School
 </div>
 
 <script data-goatcounter="https://livia.goatcounter.com/count"

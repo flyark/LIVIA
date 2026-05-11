@@ -2,7 +2,7 @@
 
 Browser-based tools for analyzing protein-protein interactions from structure predictions. All analysis runs locally in your browser — no data leaves your device and no installation is needed.
 
-**https://flyark.github.io/LIVIA/**
+**Web:** https://flyark.github.io/LIVIA/ &nbsp;·&nbsp; **Paper:** [Kim & Perrimon 2026, *bioRxiv*](https://doi.org/10.64898/2026.05.01.721633)
 
 ## Example
 
@@ -85,6 +85,7 @@ See [AFM-LIS](https://github.com/flyark/AFM-LIS) for full documentation and outp
 
 ## References
 
+- Kim, A.-R. & Perrimon, N. (2026). LIVIA: a browser-based tool for assessing and visualizing predicted protein interactions. *bioRxiv*. https://doi.org/10.64898/2026.05.01.721633
 - Kim, A.-R. et al. (2026). FlyPredictome: a structural atlas of predicted protein-protein interactions in *Drosophila*. *bioRxiv*. https://doi.org/10.64898/2026.04.14.718529
 - Kim, A.-R. et al. (2024). Enhanced Protein-Protein Interaction Discovery via AlphaFold-Multimer. *bioRxiv*. https://doi.org/10.1101/2024.02.19.580970
 
@@ -93,12 +94,13 @@ See [AFM-LIS](https://github.com/flyark/AFM-LIS) for full documentation and outp
 If you use LIVIA in your research, please cite:
 
 ```bibtex
-@misc{livia,
-  author = {Kim, Ah-Ram},
-  title = {LIVIA: Local Interaction Visualization and Analysis},
-  year = {2026},
-  publisher = {GitHub},
-  url = {https://github.com/flyark/LIVIA}
+@article{livia2026,
+  author  = {Kim, Ah-Ram and Perrimon, Norbert},
+  title   = {LIVIA: a browser-based tool for assessing and visualizing predicted protein interactions},
+  year    = {2026},
+  journal = {bioRxiv},
+  doi     = {10.64898/2026.05.01.721633},
+  url     = {https://doi.org/10.64898/2026.05.01.721633}
 }
 ```
 
