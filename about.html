@@ -446,6 +446,13 @@
                 <span style="color:#89b4fa;">python</span> lis.py /path/to/predictions/ -w 4 &nbsp;<span style="color:#6c7086;"># parallel with 4 CPUs</span>
             </div>
             <p style="margin-top:0.5rem;">Features: <code>.gz</code>/<code>.xz</code> decompression, incremental CSV output (safe to interrupt and resume), progress bar with ETA.</p>
+
+            <p style="margin-top:1.2rem;">For batch generation of ChimeraX visualization scripts from the <code>lis.py</code> CSV, use <code>lis_to_cxc.py</code> (also in <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a>). It writes one <code>.cxc</code> per fold &times; rank with LIR (light) and cLIR (dark) per-chain coloring, an iLIS/cLIS label panel, and an optional LIR-only partial PDB for Foldseek-multimer search.</p>
+            <div style="background:#1e1e2e; color:#cdd6f4; border-radius:8px; padding:0.8rem; font-family:monospace; font-size:0.82rem; line-height:1.6; margin-top:0.6rem;">
+                <span style="color:#89b4fa;">python</span> lis_to_cxc.py --csv results_lis_analysis.csv --pdb-root . --out cxc/<br>
+                <span style="color:#89b4fa;">python</span> lis_to_cxc.py --csv results.csv --pdb-root . --out cxc/ --best-rank-only --save-lir-pdb &nbsp;<span style="color:#6c7086;"># 1 cxc per fold + Foldseek-ready PDB</span>
+            </div>
+            <p style="margin-top:0.5rem;">Features: per-chain LIR/cLIR coloring with custom palettes, iLIS-based rank reassignment for AF3/Boltz/Chai/OpenFold3, gap-fill + isolated-residue pruning, ChimeraX figure-save tip embedded.</p>
         </div>
     </div>
 
