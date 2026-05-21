@@ -57,9 +57,11 @@ Prediction Analysis auto-detects the platform from uploaded files:
 - **LIR / cLIR** — Local Interaction Residues / contact-filtered LIR
 - **LIpLDDT / cLIpLDDT** — average pLDDT of LIR / cLIR residues per chain
 
-## Batch Analysis: `lis.py`
+## Batch Analysis: `lis.py` + `lis_to_cxc.py`
 
-For large-scale batch analysis without a browser, use the command-line tool from [AFM-LIS](https://github.com/flyark/AFM-LIS). It supports all the same platforms, auto-detects the prediction format, and outputs CSV.
+For large-scale batch analysis without a browser, use the command-line tools from [AFM-LIS](https://github.com/flyark/AFM-LIS). They support all the same platforms, auto-detect the prediction format, and output CSV / ChimeraX scripts.
+
+**Score predictions with `lis.py`** (writes CSV):
 
 ```bash
 python lis.py /path/to/predictions/          # auto-detect, process all models
@@ -69,6 +71,17 @@ python lis.py /path/to/predictions/ -v        # verbose error details
 ```
 
 Features: `.gz`/`.xz` decompression, incremental CSV output (safe to interrupt and resume), progress bar with ETA, sorted output by name and rank.
+
+**Generate batch ChimeraX visualizations with `lis_to_cxc.py`** (reads the lis.py CSV, writes one `.cxc` per fold × rank):
+
+```bash
+python lis_to_cxc.py \
+    --csv results_lis_analysis.csv \
+    --pdb-root . \
+    --out cxc/
+```
+
+Double-click any `.cxc` to open in ChimeraX with LIR (light shade) / cLIR (full shade) coloring and an iLIS/cLIS label panel.
 
 See [AFM-LIS](https://github.com/flyark/AFM-LIS) for full documentation and output CSV column reference.
 
