@@ -357,24 +357,27 @@ def _find_colabfold(filenames, basenames_map):
         # Use the full PDB filename as the model identifier
         model_str = base
 
-        # Find matching scores file (must match same prefix)
+        # Find matching scores file. Require the prefix to be followed by
+        # '_scores_' so we don't grab a longer prediction's file when one
+        # name is a prefix of another (e.g. AAA___BBB vs AAA___BBB___CCC).
         scores_path = None
         padded = rank.zfill(3)
+        scores_prefix = prefix + '_scores_'
         for fn in filenames:
             fb = os.path.basename(fn)
-            if fb.startswith(prefix) and '_scores_rank_' in fb and f'rank_{padded}' in fb and fb.endswith('.json'):
+            if fb.startswith(scores_prefix) and f'rank_{padded}' in fb and fb.endswith('.json'):
                 scores_path = fn
                 break
         if not scores_path:
             for fn in filenames:
                 fb = os.path.basename(fn)
-                if fb.startswith(prefix) and 'scores' in fb and f'rank_{rank}' in fb and fb.endswith('.json'):
+                if fb.startswith(scores_prefix) and f'rank_{rank}' in fb and fb.endswith('.json'):
                     scores_path = fn
                     break
         if not scores_path:
             for fn in filenames:
                 fb = os.path.basename(fn)
-                if fb.startswith(prefix) and 'scores' in fb and fb.endswith('.json'):
+                if fb.startswith(scores_prefix) and fb.endswith('.json'):
                     scores_path = fn
                     break
 
