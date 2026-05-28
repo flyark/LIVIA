@@ -7,3 +7,17 @@ flypredictome_description.md
 .claude/
 static/
 manuscript/
+
+# Claude workspace — never push
+CLAUDE.md
+_claude_scratch/
+node_modules/
+package*.json
+playwright.config.js
+screenshots/_review*/
+screenshots/_live/
+screenshots/_final/
+screenshots/_verify_*.png
+screenshots/capture*.py
+screenshots/fix_*.py
+screenshots/[a-z]*_raw.png

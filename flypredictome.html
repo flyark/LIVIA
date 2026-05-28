@@ -1746,6 +1746,7 @@ async function generate() {
         const tbody = document.getElementById('ranks-tbody');
         const avgTr = document.createElement('tr');
         avgTr.className = 'clickable';
+        avgTr.dataset.pinned = 'true';
         avgTr.style.fontWeight = '600';
         avgTr.style.borderTop = '2px solid #999';
         avgTr.onclick = () => loadRank('avg');

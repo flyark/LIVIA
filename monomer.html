@@ -1131,13 +1131,13 @@ function mergeHighLisNeighbors(segs, pae, paeCutoff, mergeThreshold) {
             const b0 = b.start + margin, b1 = b.end - margin;
             if (a0 >= a1 || b0 >= b1) continue;
 
-            // Compute mean LIS between adjacent pair
+            // Compute mean LIS between adjacent pair (asymmetric, per-direction)
             let sum = 0, count = 0;
             const step = (a1 - a0 > 80 || b1 - b0 > 80) ? 3 : 1;
             for (let i = a0; i <= a1; i += step) {
                 for (let j = b0; j <= b1; j += step) {
-                    const avg = (pae[i][j] + pae[j][i]) / 2;
-                    if (avg < paeCutoff) { sum += 1 - avg / paeCutoff; count++; }
+                    const v = pae[i][j];
+                    if (v < paeCutoff) { sum += 1 - v / paeCutoff; count++; }
                 }
             }
             const meanLis = count > 0 ? sum / count : 0;
@@ -1454,9 +1454,14 @@ function calculate() {
 
 function calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap, boundaryMargin) {
     const margin = boundaryMargin || 0;
-    let lisSum = 0, lisCountAvg = 0;
-    let clisSum = 0, clisCountAvg = 0;
+    // Per-direction LIS:
+    //   LIS_AB = mean(1 - pae[a,b]/cutoff) over cells where pae[a,b] < cutoff
+    //   LIS_BA = same for pae[b,a]
+    //   LIS = (LIS_AB + LIS_BA) / 2
+    // LIA = (A→B count) + (B→A count); cLIA likewise.
+    let lisSumAB = 0, lisSumBA = 0;
     let lisCountAB = 0, lisCountBA = 0;
+    let clisSumAB = 0, clisSumBA = 0;
     let clisCountAB = 0, clisCountBA = 0;
     const lirI = new Set(), lirJ = new Set();
     const clirI = new Set(), clirJ = new Set();
@@ -1469,54 +1474,56 @@ function calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap, boundaryMargin) {
     for (let a = startI; a <= endI; a++) {
         for (let b = startJ; b <= endJ; b++) {
             // PAE indices are 0-based
-            const paeVal = monPae[a - 1][b - 1];
-            const paeValRev = monPae[b - 1][a - 1];
-            // Use the average of both directions for LIS/cLIS scores
-            const paeAvg = (paeVal + paeValRev) / 2;
+            const paeAB = monPae[a - 1][b - 1];
+            const paeBA = monPae[b - 1][a - 1];
 
-            if (paeAvg < paeCutoff) {
-                const score = 1 - paeAvg / paeCutoff;
-                lisSum += score;
-                lisCountAvg++;
-                lirI.add(a);
-                lirJ.add(b);
+            // C-beta distance (symmetric)
+            let inContact = false;
+            const ci = coordMap.get(a);
+            const cj = coordMap.get(b);
+            if (ci && cj) {
+                const dx = ci.x - cj.x, dy = ci.y - cj.y, dz = ci.z - cj.z;
+                if (Math.sqrt(dx * dx + dy * dy + dz * dz) < cbCutoff) inContact = true;
+            }
 
-                // Check Cb distance
-                const ci = coordMap.get(a);
-                const cj = coordMap.get(b);
-                if (ci && cj) {
-                    const dx = ci.x - cj.x;
-                    const dy = ci.y - cj.y;
-                    const dz = ci.z - cj.z;
-                    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                    if (dist < cbCutoff) {
-                        clisSum += score;
-                        clisCountAvg++;
-                        clirI.add(a);
-                        clirJ.add(b);
-                    }
+            // LIS / cLIS per-direction
+            if (paeAB < paeCutoff) {
+                const tv = 1 - paeAB / paeCutoff;
+                lisSumAB += tv;
+                lisCountAB++;
+                if (inContact) {
+                    clisSumAB += tv;
+                    clisCountAB++;
                 }
             }
-            // Count each PAE direction separately for LIA
-            if (paeVal < paeCutoff) lisCountAB++;
-            if (paeValRev < paeCutoff) lisCountBA++;
-            const ci2 = coordMap.get(a);
-            const cj2 = coordMap.get(b);
-            if (ci2 && cj2) {
-                const dx2 = ci2.x - cj2.x;
-                const dy2 = ci2.y - cj2.y;
-                const dz2 = ci2.z - cj2.z;
-                const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2 + dz2 * dz2);
-                if (dist2 < cbCutoff) {
-                    if (paeVal < paeCutoff) clisCountAB++;
-                    if (paeValRev < paeCutoff) clisCountBA++;
+            if (paeBA < paeCutoff) {
+                const tv = 1 - paeBA / paeCutoff;
+                lisSumBA += tv;
+                lisCountBA++;
+                if (inContact) {
+                    clisSumBA += tv;
+                    clisCountBA++;
+                }
+            }
+
+            // LIR / cLIR: cell-based union — paired residues
+            if (paeAB < paeCutoff || paeBA < paeCutoff) {
+                lirI.add(a);
+                lirJ.add(b);
+                if (inContact) {
+                    clirI.add(a);
+                    clirJ.add(b);
                 }
             }
         }
     }
 
-    const lis = lisCountAvg > 0 ? lisSum / lisCountAvg : 0;
-    const clis = clisCountAvg > 0 ? clisSum / clisCountAvg : 0;
+    const lisAB = lisCountAB > 0 ? lisSumAB / lisCountAB : 0;
+    const lisBA = lisCountBA > 0 ? lisSumBA / lisCountBA : 0;
+    const lis = (lisAB + lisBA) / 2;
+    const clisAB = clisCountAB > 0 ? clisSumAB / clisCountAB : 0;
+    const clisBA = clisCountBA > 0 ? clisSumBA / clisCountBA : 0;
+    const clis = (clisAB + clisBA) / 2;
     const ilis = Math.sqrt(lis * clis);
     const liaCount = lisCountAB + lisCountBA;
     const cliaCount = clisCountAB + clisCountBA;
@@ -1557,24 +1564,30 @@ function buildSequenceViewer(validRegions) {
         }
     }
 
+    // Apply Min segment filter; cLIR restricted to filtered LIR
+    const lirIF_byPair = monPairResults.map(v => filterSmallSegments(v.lirI));
+    const lirJF_byPair = monPairResults.map(v => filterSmallSegments(v.lirJ));
+    const clirIF_byPair = monPairResults.map((v, idx) => new Set([...v.clirI].filter(r => lirIF_byPair[idx].has(r))));
+    const clirJF_byPair = monPairResults.map((v, idx) => new Set([...v.clirJ].filter(r => lirJF_byPair[idx].has(r))));
+
     // Mark LIR residues (medium intensity)
-    for (const v of monPairResults) {
-        for (const res of v.lirI) {
+    for (let i = 0; i < monPairResults.length; i++) {
+        for (const res of lirIF_byPair[i]) {
             const rc = resColor.get(res);
             if (rc && rc.level < 2) resColor.set(res, { color: lightenColor(resRegion.get(res) || '#888', 0.4), level: 2 });
         }
-        for (const res of v.lirJ) {
+        for (const res of lirJF_byPair[i]) {
             const rc = resColor.get(res);
             if (rc && rc.level < 2) resColor.set(res, { color: lightenColor(resRegion.get(res) || '#888', 0.4), level: 2 });
         }
     }
 
     // Mark cLIR residues (dark / full intensity)
-    for (const v of monPairResults) {
-        for (const res of v.clirI) {
+    for (let i = 0; i < monPairResults.length; i++) {
+        for (const res of clirIF_byPair[i]) {
             resColor.set(res, { color: resRegion.get(res) || '#888', level: 3 });
         }
-        for (const res of v.clirJ) {
+        for (const res of clirJF_byPair[i]) {
             resColor.set(res, { color: resRegion.get(res) || '#888', level: 3 });
         }
     }
@@ -2083,15 +2096,15 @@ function buildMonomerPerResidueCharts() {
     const plddtArr = [];
     for (let r = 1; r <= n; r++) plddtArr.push(monoPlddt.get(r) ?? null);
 
-    // Intra-chain LIS
+    // Intra-chain LIS (asymmetric, per-direction)
     const lisArr = [];
     for (let r = 0; r < n; r++) {
         let lisSum = 0;
         for (let j = 0; j < n; j++) {
             if (j === r) continue;
             if (r < monPae.length && j < monPae.length) {
-                const paeAvg = (monPae[r][j] + monPae[j][r]) / 2;
-                if (paeAvg < paeCutoff) lisSum += 1 - paeAvg / paeCutoff;
+                const v = monPae[r][j];
+                if (v < paeCutoff) lisSum += 1 - v / paeCutoff;
             }
         }
         lisArr.push(n > 1 ? lisSum / (n - 1) : 0);
@@ -2487,8 +2500,10 @@ function buildMonomerColorComponents(validRegions) {
                 for (let a = regA.start; a <= regA.end; a++) for (const b of boundaryZonesB) pairsToCheck.push([a, b, ri, rj]);
                 for (const [a, b, idxA, idxB] of pairsToCheck) {
                     if (!monPae[a-1] || monPae[a-1][b-1] === undefined) continue;
-                    const paeAvg = (monPae[a-1][b-1] + monPae[b-1][a-1]) / 2;
-                    if (paeAvg < paeCutoff) {
+                    // Cell-based union: either direction confident → both residues paired.
+                    const paeAB = monPae[a-1][b-1];
+                    const paeBA = monPae[b-1][a-1];
+                    if (paeAB < paeCutoff || paeBA < paeCutoff) {
                         regionLIR.get(idxA).add(a);
                         regionLIR.get(idxB).add(b);
                         const ci = coordMap.get(a), cj = coordMap.get(b);
@@ -2825,13 +2840,14 @@ function orangesColor(value, vmin, vmax) {
 }
 
 function buildMonomerLisMap() {
+    // Asymmetric: each cell uses monPae[i][j] directly. buildMonomerClisMap reads from this.
     const n = monProteinLen;
     const paeCutoff = parseFloat(document.getElementById('pae-cutoff')?.value) || 12;
     const map = Array.from({length: n}, () => Array(n).fill(0));
     for (let i = 0; i < n; i++) {
         for (let j = 0; j < n; j++) {
-            const avg = (monPae[i][j] + monPae[j][i]) / 2;
-            map[i][j] = avg < paeCutoff ? 1 - avg / paeCutoff : 0;
+            const v = monPae[i][j];
+            map[i][j] = v < paeCutoff ? 1 - v / paeCutoff : 0;
         }
     }
     return map;

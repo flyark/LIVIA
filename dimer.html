@@ -145,7 +145,9 @@
             <button class="btn btn-primary" style="margin:0;" id="btn-fetch" onclick="fetchDimers()">Search</button>
         </div>
         <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.5rem; align-items:center;">
-            <span style="font-size:0.8rem; color:#888;">Examples:</span>
+            <span style="font-size:0.8rem; color:#888;">Heterodimer:</span>
+            <button class="example-btn" onclick="tryExample('AF-0000000205399062')">Prpf39–C6orf52</button>
+            <span style="font-size:0.8rem; color:#888; margin-left:0.4rem;">Homodimer:</span>
             <button class="example-btn" onclick="tryExample('AF-0000000066214167')">Fiber protein 2</button>
             <button class="example-btn" onclick="tryExample('AF-0000000066082551')">pp71</button>
             <button class="example-btn" onclick="tryExample('AF-0000000065862457')">dj-1beta</button>
@@ -967,7 +969,12 @@ function buildDimerContactMap() {
     const canvas = document.getElementById('contact-canvas');
     if (!v || !card || !canvas || !dimerCifText) { if (card) card.style.display = 'none'; return; }
 
-    if (v.clirI.size === 0 || v.clirJ.size === 0) { card.style.display = 'none'; return; }
+    // Apply Min segment filter to both chains; cLIR restricted to filtered LIR
+    const lirI_f = filterSmallSegments(v.lirI);
+    const lirJ_f = filterSmallSegments(v.lirJ);
+    const clirI_f = new Set([...v.clirI].filter(r => lirI_f.has(r)));
+    const clirJ_f = new Set([...v.clirJ].filter(r => lirJ_f.has(r)));
+    if (clirI_f.size === 0 || clirJ_f.size === 0) { card.style.display = 'none'; return; }
 
     // Parse Cβ coordinates from CIF
     const coords = parseCifCoords(dimerCifText);
@@ -981,13 +988,13 @@ function buildDimerContactMap() {
     const coordB = chainCoordMap.get(v.cj);
     if (!coordA || !coordB) { card.style.display = 'none'; return; }
 
-    // Find contact pairs
+    // Find contact pairs (use filtered sets)
     const contactDist = 8;
     const contacts = [];
-    for (const resA of v.clirI) {
+    for (const resA of clirI_f) {
         const cA = coordA.get(resA);
         if (!cA) continue;
-        for (const resB of v.clirJ) {
+        for (const resB of clirJ_f) {
             const cB = coordB.get(resB);
             if (!cB) continue;
             const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
@@ -1029,18 +1036,18 @@ function buildDimerContactMap() {
     const xA = (res) => barLeft + ((res - 1) / Math.max(1, v.lenI - 1)) * barW;
     const xB = (res) => barLeft + ((res - 1) / Math.max(1, v.lenJ - 1)) * barW;
 
-    // Chain A bar
+    // Chain A bar (filtered)
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_A, barW, barH);
-    for (const res of v.lirI) { ctx.fillStyle = colors.lir_a; ctx.fillRect(xA(res)-0.5, barY_A, 1.5, barH); }
-    for (const res of v.clirI) { ctx.fillStyle = colors.clir_a; ctx.fillRect(xA(res)-0.5, barY_A, 1.5, barH); }
+    for (const res of lirI_f) { ctx.fillStyle = colors.lir_a; ctx.fillRect(xA(res)-0.5, barY_A, 1.5, barH); }
+    for (const res of clirI_f) { ctx.fillStyle = colors.clir_a; ctx.fillRect(xA(res)-0.5, barY_A, 1.5, barH); }
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_A, barW, barH);
 
-    // Chain B bar
+    // Chain B bar (filtered)
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_B, barW, barH);
-    for (const res of v.lirJ) { ctx.fillStyle = colors.lir_b; ctx.fillRect(xB(res)-0.5, barY_B, 1.5, barH); }
-    for (const res of v.clirJ) { ctx.fillStyle = colors.clir_b; ctx.fillRect(xB(res)-0.5, barY_B, 1.5, barH); }
+    for (const res of lirJ_f) { ctx.fillStyle = colors.lir_b; ctx.fillRect(xB(res)-0.5, barY_B, 1.5, barH); }
+    for (const res of clirJ_f) { ctx.fillStyle = colors.clir_b; ctx.fillRect(xB(res)-0.5, barY_B, 1.5, barH); }
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_B, barW, barH);
 
     // Labels
@@ -1284,7 +1291,12 @@ function buildChordDiagram() {
     const canvas = document.getElementById('chord-canvas');
     if (!v || !card || !canvas || !dimerCifText) { if (card) card.style.display = 'none'; return; }
 
-    if (v.clirI.size === 0 || v.clirJ.size === 0) { card.style.display = 'none'; return; }
+    // Apply Min segment filter to both chains; cLIR restricted to filtered LIR
+    const lirI_f = filterSmallSegments(v.lirI);
+    const lirJ_f = filterSmallSegments(v.lirJ);
+    const clirI_f = new Set([...v.clirI].filter(r => lirI_f.has(r)));
+    const clirJ_f = new Set([...v.clirJ].filter(r => lirJ_f.has(r)));
+    if (clirI_f.size === 0 || clirJ_f.size === 0) { card.style.display = 'none'; return; }
 
     const colors = {
         clir_a: document.getElementById('color-clir-a')?.value || '#00897B',
@@ -1306,13 +1318,13 @@ function buildChordDiagram() {
     const coordB = chainCoordMap.get(v.cj);
     if (!coordA || !coordB) { card.style.display = 'none'; return; }
 
-    // Find cLIR-cLIR contact pairs (Cβ < 8 Å)
+    // Find cLIR-cLIR contact pairs (Cβ < 8 Å) using filtered sets
     const contactDist = 8;
     const contacts = [];
-    for (const resA of v.clirI) {
+    for (const resA of clirI_f) {
         const cA = coordA.get(resA);
         if (!cA) continue;
-        for (const resB of v.clirJ) {
+        for (const resB of clirJ_f) {
             const cB = coordB.get(resB);
             if (!cB) continue;
             const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
@@ -1454,9 +1466,15 @@ function buildDimerSequenceViewer() {
     let tooltip = document.querySelector('.seq-tooltip');
     if (!tooltip) { tooltip = document.createElement('div'); tooltip.className = 'seq-tooltip'; document.body.appendChild(tooltip); }
 
+    // Apply Min segment filter; cLIR restricted to filtered LIR
+    const lirI_f = filterSmallSegments(v.lirI);
+    const lirJ_f = filterSmallSegments(v.lirJ);
+    const clirI_f = new Set([...v.clirI].filter(r => lirI_f.has(r)));
+    const clirJ_f = new Set([...v.clirJ].filter(r => lirJ_f.has(r)));
+
     const chainConfigs = [
-        { name: v.ci, seq: chainSeqs.get(v.ci) || [], lir: v.lirI, clir: v.clirI, lirColor: colors.lir_a, clirColor: colors.clir_a },
-        { name: v.cj, seq: chainSeqs.get(v.cj) || [], lir: v.lirJ, clir: v.clirJ, lirColor: colors.lir_b, clirColor: colors.clir_b },
+        { name: v.ci, seq: chainSeqs.get(v.ci) || [], lir: lirI_f, clir: clirI_f, lirColor: colors.lir_a, clirColor: colors.clir_a },
+        { name: v.cj, seq: chainSeqs.get(v.cj) || [], lir: lirJ_f, clir: clirJ_f, lirColor: colors.lir_b, clirColor: colors.clir_b },
     ];
 
     const accs = selectedDimer?.uniprotAccession || [];
@@ -1816,12 +1834,17 @@ function buildComparisonCharts() {
             }
         }
 
+        // Apply Min segment filter; cLIR restricted to filtered LIR
+        const lirRaw = ci === 0 ? v.lirI : v.lirJ;
+        const clirRaw = ci === 0 ? v.clirI : v.clirJ;
+        const lirF = filterSmallSegments(lirRaw);
+        const clirF = new Set([...clirRaw].filter(r => lirF.has(r)));
         chainConfigs.push({
             chainName,
             label: chainLabels[ci] + (isHomodimer ? ' (homodimer)' : ` (Chain ${chainName})`),
             chainLen, dimerArr, monoArr, interPae, dimerLisArr, monoLisArr,
-            lir: ci === 0 ? v.lirI : v.lirJ,
-            clir: ci === 0 ? v.clirI : v.clirJ
+            lir: lirF,
+            clir: clirF,
         });
     }
 
@@ -2244,9 +2267,14 @@ function processDimer() {
 }
 
 function computePairMetrics(pae, contact, nUse, offI, lenI, offJ, lenJ, paeCutoff) {
-    let lisSum = 0, lisCountAvg = 0;
-    let clisSum = 0, clisCountAvg = 0;
+    // Per-direction LIS:
+    //   LIS_AB = mean(1 - pae[ri,rj]/cutoff) over A→B cells where pae[ri,rj] < cutoff
+    //   LIS_BA = same for B→A
+    //   LIS = (LIS_AB + LIS_BA) / 2
+    // LIA = (A→B count) + (B→A count); cLIA likewise.
+    let lisSumAB = 0, lisSumBA = 0;
     let lisCountAB = 0, lisCountBA = 0;
+    let clisSumAB = 0, clisSumBA = 0;
     let clisCountAB = 0, clisCountBA = 0;
     const lirI = new Set(), lirJ = new Set();
     const clirI = new Set(), clirJ = new Set();
@@ -2256,32 +2284,48 @@ function computePairMetrics(pae, contact, nUse, offI, lenI, offJ, lenJ, paeCutof
             const ri = offI + i;
             const rj = offJ + j;
             if (ri >= pae.length || rj >= pae.length || rj >= pae[ri].length || ri >= pae[rj].length) continue;
-            const v = (pae[ri][rj] + pae[rj][ri]) / 2; // average both directions
-            if (v < paeCutoff) {
-                const tv = 1 - v / paeCutoff;
-                lisSum += tv;
-                lisCountAvg++;
+            const inContact = (ri < nUse && rj < nUse && contact[ri * nUse + rj]);
+            const vAB = pae[ri][rj];
+            const vBA = pae[rj][ri];
+
+            // LIS / cLIS per-direction
+            if (vAB < paeCutoff) {
+                const tv = 1 - vAB / paeCutoff;
+                lisSumAB += tv;
+                lisCountAB++;
+                if (inContact) {
+                    clisSumAB += tv;
+                    clisCountAB++;
+                }
+            }
+            if (vBA < paeCutoff) {
+                const tv = 1 - vBA / paeCutoff;
+                lisSumBA += tv;
+                lisCountBA++;
+                if (inContact) {
+                    clisSumBA += tv;
+                    clisCountBA++;
+                }
+            }
+
+            // LIR / cLIR: cell-based union — paired residues
+            if (vAB < paeCutoff || vBA < paeCutoff) {
                 lirI.add(i + 1);
                 lirJ.add(j + 1);
-                if (ri < nUse && rj < nUse && contact[ri * nUse + rj]) {
-                    clisSum += tv;
-                    clisCountAvg++;
+                if (inContact) {
                     clirI.add(i + 1);
                     clirJ.add(j + 1);
                 }
             }
-            // Count each PAE direction separately for LIA
-            if (pae[ri][rj] < paeCutoff) lisCountAB++;
-            if (pae[rj][ri] < paeCutoff) lisCountBA++;
-            if (ri < nUse && rj < nUse && contact[ri * nUse + rj]) {
-                if (pae[ri][rj] < paeCutoff) clisCountAB++;
-                if (pae[rj][ri] < paeCutoff) clisCountBA++;
-            }
         }
     }
 
-    const lis = lisCountAvg > 0 ? lisSum / lisCountAvg : 0;
-    const clis = clisCountAvg > 0 ? clisSum / clisCountAvg : 0;
+    const lisAB = lisCountAB > 0 ? lisSumAB / lisCountAB : 0;
+    const lisBA = lisCountBA > 0 ? lisSumBA / lisCountBA : 0;
+    const lis = (lisAB + lisBA) / 2;
+    const clisAB = clisCountAB > 0 ? clisSumAB / clisCountAB : 0;
+    const clisBA = clisCountBA > 0 ? clisSumBA / clisCountBA : 0;
+    const clis = (clisAB + clisBA) / 2;
     const liaCount = lisCountAB + lisCountBA;
     const cliaCount = clisCountAB + clisCountBA;
 
@@ -2413,7 +2457,7 @@ function buildLisMap(pae, lenI, lenJ, offsetI, offsetJ, paeCutoff) {
         for (let j = 0; j < lenJ; j++) {
             const ri = offsetI + i, rj = offsetJ + j;
             if (ri >= pae.length || rj >= pae.length || rj >= pae[ri].length || ri >= pae[rj].length) continue;
-            const v = (pae[ri][rj] + pae[rj][ri]) / 2;
+            const v = pae[ri][rj];
             map[i][j] = v < paeCutoff ? 1 - v / paeCutoff : 0;
         }
     }
@@ -2427,7 +2471,7 @@ function buildClisMap(pae, contact, nUse, lenI, lenJ, offsetI, offsetJ, paeCutof
             const ri = offsetI + i;
             const rj = offsetJ + j;
             if (ri >= pae.length || rj >= pae.length || rj >= pae[ri].length || ri >= pae[rj].length) continue;
-            const v = (pae[ri][rj] + pae[rj][ri]) / 2;
+            const v = pae[ri][rj];
             const tv = v < paeCutoff ? 1 - v / paeCutoff : 0;
             const cv = (ri < nUse && rj < nUse) ? contact[ri * nUse + rj] : 0;
             map[i][j] = (tv > 0 && cv) ? tv : 0;
@@ -2635,13 +2679,13 @@ function createMapPanel(parentEl, label, mapCanvas, displaySize, colorFn, vmin, 
 }
 
 function buildFullLisMap(pae, nTotal, paeCutoff) {
-    // Full NxN LIS map — score = (1 - PAE/cutoff) where PAE < cutoff, else 0
-    // Symmetrized: average of pae[i][j] and pae[j][i]
+    // Full NxN LIS map — score = (1 - PAE/cutoff) where PAE < cutoff, else 0.
+    // Asymmetric: each cell uses pae[i][j] directly.
     const map = Array.from({length: nTotal}, () => Array(nTotal).fill(0));
     for (let i = 0; i < nTotal; i++) {
         for (let j = 0; j < nTotal; j++) {
-            const avg = (pae[i][j] + pae[j][i]) / 2;
-            map[i][j] = avg < paeCutoff ? 1 - avg / paeCutoff : 0;
+            const v = pae[i][j];
+            map[i][j] = v < paeCutoff ? 1 - v / paeCutoff : 0;
         }
     }
     return map;
@@ -2651,8 +2695,8 @@ function buildFullClisMap(pae, contact, nUse, nTotal, paeCutoff) {
     const map = Array.from({length: nTotal}, () => Array(nTotal).fill(0));
     for (let i = 0; i < nTotal; i++) {
         for (let j = 0; j < nTotal; j++) {
-            const avg = (pae[i][j] + pae[j][i]) / 2;
-            const tv = avg < paeCutoff ? 1 - avg / paeCutoff : 0;
+            const v = pae[i][j];
+            const tv = v < paeCutoff ? 1 - v / paeCutoff : 0;
             const cv = (i < nUse && j < nUse) ? contact[i * nUse + j] : 0;
             map[i][j] = (tv > 0 && cv) ? tv : 0;
         }

@@ -2193,12 +2193,14 @@ async function processFiles() {
             for (const s of sizes) { acc += s; cumSum.push(acc); }
             const starts = [0, ...cumSum.slice(0, -1)];
 
-            // Build transformed LIS map
+            // Build transformed LIS map (asymmetric, per-direction).
+            // Each (i,j) and (j,i) entry is computed independently; the symmetrize step
+            // below averages them to give the final per-pair LIS.
             const transformed = new Float32Array(nTotal * nTotal);
             for (let i = 0; i < nTotal; i++) {
                 for (let j = 0; j < nTotal; j++) {
                     if (i >= pae.length || j >= pae[i].length) continue;
-                    const v = (pae[i][j] + pae[j][i]) / 2;
+                    const v = pae[i][j];
                     transformed[i * nTotal + j] = (v < paeCutoff) ? 1 - v / paeCutoff : 0;
                 }
             }
@@ -2224,8 +2226,14 @@ async function processFiles() {
 
                     let lisSum = 0, lisCountAvg = 0;
                     let clisSum = 0, clisCountAvg = 0;
+                    // LIA/cLIA: count both PAE directions inside this entry (i→j and j→i).
+                    // The symmetrize step below keeps a single combined value (no extra sum)
+                    // since each entry already covers both directions.
                     let lisCountAB = 0, lisCountBA = 0;
                     let clisCountAB = 0, clisCountBA = 0;
+                    // LIR/cLIR are cell-based union: if either PAE direction (i→j or j→i)
+                    // is confident on a cell, both residues of that cell are added — this
+                    // guarantees every LIR_A residue has a paired LIR_B residue.
                     const lirI = new Set(), lirJ = new Set();
                     const clirI = new Set(), clirJ = new Set();
 
@@ -2235,22 +2243,32 @@ async function processFiles() {
                             if (tv > 0) {
                                 lisSum += tv;
                                 lisCountAvg++;
-                                lirI.add(ri - si + 1);
-                                lirJ.add(rj - sj + 1);
                                 if (ri < nUse && rj < nUse && contact[ri * nCoords + rj]) {
                                     clisSum += tv;
                                     clisCountAvg++;
-                                    clirI.add(ri - si + 1);
-                                    clirJ.add(rj - sj + 1);
                                 }
                             }
-                            // Count each PAE direction separately for LIA
                             if (ri < pae.length && rj < pae.length) {
-                                if (pae[ri][rj] < paeCutoff) lisCountAB++;
-                                if (pae[rj][ri] < paeCutoff) lisCountBA++;
-                                if (ri < nUse && rj < nUse && contact[ri * nCoords + rj]) {
-                                    if (pae[ri][rj] < paeCutoff) clisCountAB++;
-                                    if (pae[rj][ri] < paeCutoff) clisCountBA++;
+                                const paeAB = pae[ri][rj];
+                                const paeBA = pae[rj][ri];
+                                const inContact = ri < nUse && rj < nUse && contact[ri * nCoords + rj];
+
+                                // LIA / cLIA: each direction counted independently
+                                if (paeAB < paeCutoff) lisCountAB++;
+                                if (paeBA < paeCutoff) lisCountBA++;
+                                if (inContact) {
+                                    if (paeAB < paeCutoff) clisCountAB++;
+                                    if (paeBA < paeCutoff) clisCountBA++;
+                                }
+
+                                // LIR / cLIR: cell-based union — paired residues
+                                if (paeAB < paeCutoff || paeBA < paeCutoff) {
+                                    lirI.add(ri - si + 1);
+                                    lirJ.add(rj - sj + 1);
+                                    if (inContact) {
+                                        clirI.add(ri - si + 1);
+                                        clirJ.add(rj - sj + 1);
+                                    }
                                 }
                             }
                         }
@@ -2269,8 +2287,8 @@ async function processFiles() {
                     let actifptm = 0;
                     try { actifptm = calcActifpTM(pae, contact, nCoords, si, Math.min(ei, nTotal), sj, Math.min(ej, nTotal), cbCutoff); } catch(e) { }
 
-                    const liaCount = lisCountAB + lisCountBA;
-                    const cliaCount = clisCountAB + clisCountBA;
+                    const liaCount = lisCountAB;
+                    const cliaCount = clisCountAB;
                     const ilia = Math.sqrt(liaCount * cliaCount);
                     const ilisa = ilis * ilia;
 
@@ -2448,11 +2466,16 @@ function symmetrizePairsFromComma(pairs) {
                 ipTM: (val.ipTM + rv.ipTM) / 2,
                 ipSAE: Math.max(val.ipSAE || 0, rv.ipSAE || 0),
                 actifpTM: Math.max(val.actifpTM || 0, rv.actifpTM || 0),
-                LIA: (val.LIA || 0) + (rv.LIA || 0),
-                cLIA: (val.cLIA || 0) + (rv.cLIA || 0),
+                // val.LIA already covers both AB and BA directions, so no extra sum
+                LIA: val.LIA || 0,
+                cLIA: val.cLIA || 0,
                 lenI: val.lenI, lenJ: val.lenJ,
-                lirI: val.lirI, lirJ: rv.lirI,
-                clirI: val.clirI, clirJ: rv.clirI,
+                // chain-preserved cell-based union: every LIR_A residue has a paired
+                // LIR_B residue across the two entries' rows/cols
+                lirI: new Set([...(val.lirI || []), ...(rv.lirJ || [])]),
+                lirJ: new Set([...(val.lirJ || []), ...(rv.lirI || [])]),
+                clirI: new Set([...(val.clirI || []), ...(rv.clirJ || [])]),
+                clirJ: new Set([...(val.clirJ || []), ...(rv.clirI || [])]),
                 avgLirI: val.avgLirI, avgLirJ: rv.avgLirI,
                 avgClirI: val.avgClirI, avgClirJ: rv.avgClirI,
                 LIpLDDT_i: val.LIpLDDT_i, LIpLDDT_j: rv.LIpLDDT_i,
@@ -4274,7 +4297,7 @@ function buildPerResidueCharts(pairKey) {
                 plddt.push(val !== undefined ? val : null);
             }
 
-            // Intra-chain LIS: average max(0, 1-PAE/cutoff) over all other residues
+            // Intra-chain LIS (asymmetric, per-direction)
             const intraLis = [];
             for (let r = 0; r < chainLen; r++) {
                 const ri = offset + r;
@@ -4284,9 +4307,9 @@ function buildPerResidueCharts(pairKey) {
                         if (j === r) continue;
                         const rj = offset + j;
                         if (rj < nTotal) {
-                            const paeAvg = (pae[ri][rj] + pae[rj][ri]) / 2;
-                            if (paeAvg < paeCutoff) {
-                                lisSum += 1 - paeAvg / paeCutoff;
+                            const v = pae[ri][rj];
+                            if (v < paeCutoff) {
+                                lisSum += 1 - v / paeCutoff;
                             }
                         }
                     }
@@ -4654,6 +4677,12 @@ function buildSequenceViewer(pairKey) {
             if (pv.clirJ) for (const r of pv.clirJ) allCLIR[pv.cj]?.add(r);
         }
     }
+    // Apply Min segment filter per chain; cLIR restricted to filtered LIR
+    for (const name of uniState.chainNames) {
+        const f = filterSmallSegments(allLIR[name]);
+        allLIR[name] = f;
+        allCLIR[name] = new Set([...allCLIR[name]].filter(r => f.has(r)));
+    }
 
     const colors = getColorsForPair(v.ci, v.cj);
 
@@ -4815,7 +4844,12 @@ function buildContactMap(pairKey) {
 
     const coordA = chainCoordMap.get(v.ci);
     const coordB = chainCoordMap.get(v.cj);
-    if (!coordA || !coordB || v.clirI.size === 0 || v.clirJ.size === 0) {
+    // Apply Min segment filter to both chains (cLIR restricted to filtered LIR)
+    const lirI_f = filterSmallSegments(v.lirI);
+    const lirJ_f = filterSmallSegments(v.lirJ);
+    const clirI_f = new Set([...v.clirI].filter(r => lirI_f.has(r)));
+    const clirJ_f = new Set([...v.clirJ].filter(r => lirJ_f.has(r)));
+    if (!coordA || !coordB || clirI_f.size === 0 || clirJ_f.size === 0) {
         card.style.display = 'none';
         return;
     }
@@ -4823,10 +4857,10 @@ function buildContactMap(pairKey) {
     // Find contact pairs (cLIR_A near cLIR_B within 8 Angstrom)
     const contactDist = 8;
     const contacts = [];
-    for (const resA of v.clirI) {
+    for (const resA of clirI_f) {
         const cA = coordA.get(resA);
         if (!cA) continue;
-        for (const resB of v.clirJ) {
+        for (const resB of clirJ_f) {
             const cB = coordB.get(resB);
             if (!cB) continue;
             const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
@@ -4861,18 +4895,18 @@ function buildContactMap(pairKey) {
     const xA = (res) => barLeft + ((res - 1) / Math.max(1, v.lenI - 1)) * barW;
     const xB = (res) => barLeft + ((res - 1) / Math.max(1, v.lenJ - 1)) * barW;
 
-    // Chain A bar
+    // Chain A bar (filtered)
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_A, barW, barH);
-    for (const res of v.lirI) { ctx.fillStyle = colors.lir_a; ctx.fillRect(xA(res) - 0.5, barY_A, 1.5, barH); }
-    for (const res of v.clirI) { ctx.fillStyle = colors.clir_a; ctx.fillRect(xA(res) - 0.5, barY_A, 1.5, barH); }
+    for (const res of lirI_f) { ctx.fillStyle = colors.lir_a; ctx.fillRect(xA(res) - 0.5, barY_A, 1.5, barH); }
+    for (const res of clirI_f) { ctx.fillStyle = colors.clir_a; ctx.fillRect(xA(res) - 0.5, barY_A, 1.5, barH); }
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_A, barW, barH);
 
-    // Chain B bar
+    // Chain B bar (filtered)
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_B, barW, barH);
-    for (const res of v.lirJ) { ctx.fillStyle = colors.lir_b; ctx.fillRect(xB(res) - 0.5, barY_B, 1.5, barH); }
-    for (const res of v.clirJ) { ctx.fillStyle = colors.clir_b; ctx.fillRect(xB(res) - 0.5, barY_B, 1.5, barH); }
+    for (const res of lirJ_f) { ctx.fillStyle = colors.lir_b; ctx.fillRect(xB(res) - 0.5, barY_B, 1.5, barH); }
+    for (const res of clirJ_f) { ctx.fillStyle = colors.clir_b; ctx.fillRect(xB(res) - 0.5, barY_B, 1.5, barH); }
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_B, barW, barH);
 
     // Labels
@@ -5070,14 +5104,19 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
         return arc.start + frac * (arc.end - arc.start);
     }
 
-    // Draw residue-level contact lines
+    // Draw residue-level contact lines (apply Min segment filter to both chains;
+    // cLIR is restricted to filtered LIR before pair drawing)
     const contactDist = 8;
     for (const cp of contactPairs) {
         const idxI = chainNames.indexOf(cp.ci), idxJ = chainNames.indexOf(cp.cj);
         const typeI = chainTypes[idxI], typeJ = chainTypes[idxJ];
         const isIonPair = typeI === 'ion' || typeJ === 'ion';
-        const setI = (cp.clirI && cp.clirI.size > 0) ? cp.clirI : isIonPair ? (cp.lirI || new Set()) : new Set();
-        const setJ = (cp.clirJ && cp.clirJ.size > 0) ? cp.clirJ : isIonPair ? (cp.lirJ || new Set()) : new Set();
+        const lirI_f = filterSmallSegments(cp.lirI || new Set());
+        const lirJ_f = filterSmallSegments(cp.lirJ || new Set());
+        const clirI_f = new Set([...(cp.clirI || [])].filter(r => lirI_f.has(r)));
+        const clirJ_f = new Set([...(cp.clirJ || [])].filter(r => lirJ_f.has(r)));
+        const setI = (clirI_f.size > 0) ? clirI_f : isIonPair ? lirI_f : new Set();
+        const setJ = (clirJ_f.size > 0) ? clirJ_f : isIonPair ? lirJ_f : new Set();
         if (setI.size === 0 || setJ.size === 0) continue;
 
         const colI = chainColors[cp.ci] || '#888';
@@ -5211,8 +5250,13 @@ function buildChordDiagram() {
                 const idxI = chainNames.indexOf(v.ci), idxJ = chainNames.indexOf(v.cj);
                 const typeI = chainTypes[idxI], typeJ = chainTypes[idxJ];
                 const isIonPair = typeI === 'ion' || typeJ === 'ion';
-                const setI = (v.clirI && v.clirI.size > 0) ? v.clirI : isIonPair ? (v.lirI || new Set()) : new Set();
-                const setJ = (v.clirJ && v.clirJ.size > 0) ? v.clirJ : isIonPair ? (v.lirJ || new Set()) : new Set();
+                // Apply Min segment filter; cLIR restricted to filtered LIR
+                const lirI_f = filterSmallSegments(v.lirI || new Set());
+                const lirJ_f = filterSmallSegments(v.lirJ || new Set());
+                const clirI_f = new Set([...(v.clirI || [])].filter(r => lirI_f.has(r)));
+                const clirJ_f = new Set([...(v.clirJ || [])].filter(r => lirJ_f.has(r)));
+                const setI = (clirI_f.size > 0) ? clirI_f : isIonPair ? lirI_f : new Set();
+                const setJ = (clirJ_f.size > 0) ? clirJ_f : isIonPair ? lirJ_f : new Set();
                 const coordsI = miCoordMap.get(v.ci), coordsJ = miCoordMap.get(v.cj);
                 if (!coordsI || !coordsJ) continue;
                 for (const resA of setI) {
