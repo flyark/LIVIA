@@ -42,7 +42,8 @@
         .platform-badge.chai { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
         .platform-badge.openfold { background: #f3e5f5; color: #6a1b9a; border: 1px solid #ce93d8; }
         .platform-badge.protenix-v2 { background: #e0f7fa; color: #006064; border: 1px solid #80deea; }
-        .platform-badge.esmfold2 { background: #fff9c4; color: #5d4037; border: 1px solid #ffe082; }
+        .platform-badge.esmfold2,
+        .platform-badge.esmfold2_native { background: #fff9c4; color: #5d4037; border: 1px solid #ffe082; }
         .platform-badge.generic { background: #f5f5f5; color: #616161; border: 1px solid #bdbdbd; }
 
         /* Page-specific overrides */
@@ -1058,6 +1059,11 @@ function detectPlatform() {
     const hasESMFoldPae = basenames.some(f => /_pae\.json$/.test(f));
     if (hasESMFoldModel && hasESMFoldPae) return 'esmfold2';
 
+    // ESMFold2 native (folder-per-pair): complex.pdb + pae.npy + metrics.json
+    const hasNativePdb = basenames.some(f => f === 'complex.pdb');
+    const hasNativePae = basenames.some(f => f === 'pae.npy');
+    if (hasNativePdb && hasNativePae) return 'esmfold2_native';
+
     // ColabFold: *_unrelaxed_rank_*.pdb + *_scores_rank_*.json
     const hasCFModel = basenames.some(f => /_unrelaxed_rank_\d+/.test(f) && (f.endsWith('.pdb') || f.endsWith('.cif')));
     const hasCFScores = basenames.some(f => /_scores_rank_\d+/.test(f) && f.endsWith('.json'));
@@ -1107,6 +1113,7 @@ function platformLabel(p) {
         openfold: 'OpenFold',
         'protenix-v2': 'Protenix-v2',
         esmfold2: 'ESMFold2',
+        esmfold2_native: 'ESMFold2',
         generic: 'Generic'
     };
     return labels[p] || p;
@@ -1277,6 +1284,7 @@ function discoverPredictions() {
         case 'openfold3': return discoverAF3(filenames); // same format as AF3
         case 'protenix-v2': return discoverAF3(filenames); // AF3-like layout, _sample_N variant
         case 'esmfold2':    return discoverESMFold2(filenames);
+        case 'esmfold2_native': return discoverESMFold2Native(filenames);
         case 'alphafold2': return discoverAF2(filenames);
         case 'colabfold': return discoverColabFold(filenames);
         case 'boltz': return discoverBoltz(filenames);
@@ -1562,6 +1570,31 @@ function discoverESMFold2(filenames) {
             structurePath: name,
             paeSource: paePath,
             confidencePath: paePath,  // same JSON also carries ptm/iptm/plddt
+            format: 'pdb',
+            label: 'model_0',
+        };
+    }
+    return predictions;
+}
+
+function discoverESMFold2Native(filenames) {
+    // ESMFold2 native batch (folder-per-pair):
+    //   <folder>/{complex.pdb, pae.npy, metrics.json}
+    // Folder basename (e.g. '024_emc___sc') becomes the prediction name.
+    const predictions = {};
+    const fset = new Set(filenames);
+    for (const name of filenames) {
+        if (name.split('/').pop() !== 'complex.pdb') continue;
+        const folder = name.includes('/') ? name.slice(0, name.lastIndexOf('/')) : '';
+        const pae = folder ? `${folder}/pae.npy` : 'pae.npy';
+        const scores = folder ? `${folder}/metrics.json` : 'metrics.json';
+        if (!fset.has(pae)) continue;
+        const predName = (folder.split('/').pop()) || 'prediction';
+        if (!predictions[predName]) predictions[predName] = {};
+        predictions[predName]['0'] = {
+            structurePath: name,
+            paeSource: pae,
+            confidencePath: fset.has(scores) ? scores : null,
             format: 'pdb',
             label: 'model_0',
         };
