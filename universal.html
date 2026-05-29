@@ -42,6 +42,7 @@
         .platform-badge.chai { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
         .platform-badge.openfold { background: #f3e5f5; color: #6a1b9a; border: 1px solid #ce93d8; }
         .platform-badge.protenix-v2 { background: #e0f7fa; color: #006064; border: 1px solid #80deea; }
+        .platform-badge.esmfold2 { background: #fff9c4; color: #5d4037; border: 1px solid #ffe082; }
         .platform-badge.generic { background: #f5f5f5; color: #616161; border: 1px solid #bdbdbd; }
 
         /* Page-specific overrides */
@@ -159,8 +160,9 @@
                     <button onclick="loadExample('chai-1')" class="example-btn">Chai-1 (63 MB)</button>
                     <button onclick="loadExample('openfold3')" class="example-btn">OpenFold3 (33 MB)</button>
                     <button onclick="loadExample('protenix-v2')" class="example-btn">Protenix-v2 (21 MB)</button>
+                    <button onclick="loadExample('esmfold2')" class="example-btn">ESMFold2 (2 MB)</button>
                 </div>
-                <div style="font-size:0.72rem; color:#aaa; margin-top:0.3rem;">AlphaFold3 predicted via <a href="https://alphafoldserver.com" target="_blank" style="color:#aaa;">AlphaFold Server</a>. ColabFold, Boltz-2, Chai-1, OpenFold3, and Protenix-v2 predicted via <a href="https://www.tamarind.bio" target="_blank" style="color:#aaa;">Tamarind Bio</a>.</div>
+                <div style="font-size:0.72rem; color:#aaa; margin-top:0.3rem;">AlphaFold3 predicted via <a href="https://alphafoldserver.com" target="_blank" style="color:#aaa;">AlphaFold Server</a>. ColabFold, Boltz-2, Chai-1, OpenFold3, and Protenix-v2 predicted via <a href="https://www.tamarind.bio" target="_blank" style="color:#aaa;">Tamarind Bio</a>. ESMFold2 predicted via <a href="https://biohub.ai" target="_blank" style="color:#aaa;">biohub API</a>.</div>
                 <div style="margin-top:0.6rem; padding:0.5rem 0.8rem; background:#eaf2f8; border-radius:6px; font-size:0.8rem; color:#555;">
                     For batch analysis, use <code style="background:#d6e9f8; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis.py</code> (PPI scoring) and <code style="background:#d6e9f8; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis_to_cxc.py</code> (ChimeraX script generation) from <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a>.
                 </div>
@@ -635,6 +637,7 @@ const EXAMPLES = {
     'chai-1':     { file: 'chai-1_p53_mdm2.zip',     label: 'p53–MDM2 (Chai-1)',     size: '63 MB' },
     'openfold3':  { file: 'openfold3_p53_mdm2.zip',  label: 'p53–MDM2 (OpenFold3)',  size: '33 MB' },
     'protenix-v2': { file: 'protenix-v2_p53_mdm2.zip', label: 'p53–MDM2 (Protenix-v2)', size: '21 MB' },
+    'esmfold2':    { file: 'esmfold2_p53_mdm2.zip',    label: 'p53–MDM2 (ESMFold2)',    size: '2 MB' },
 };
 
 async function loadExample(platform) {
@@ -1050,6 +1053,11 @@ function detectPlatform() {
     const hasProtFullData = basenames.some(f => /_full_data_sample_\d+\.json$/.test(f));
     if (hasProtModel && hasProtSummary && hasProtFullData) return 'protenix-v2';
 
+    // ESMFold2 (biohub API): *_model.pdb + *_pae.json
+    const hasESMFoldModel = basenames.some(f => /_model\.pdb$/.test(f));
+    const hasESMFoldPae = basenames.some(f => /_pae\.json$/.test(f));
+    if (hasESMFoldModel && hasESMFoldPae) return 'esmfold2';
+
     // ColabFold: *_unrelaxed_rank_*.pdb + *_scores_rank_*.json
     const hasCFModel = basenames.some(f => /_unrelaxed_rank_\d+/.test(f) && (f.endsWith('.pdb') || f.endsWith('.cif')));
     const hasCFScores = basenames.some(f => /_scores_rank_\d+/.test(f) && f.endsWith('.json'));
@@ -1098,6 +1106,7 @@ function platformLabel(p) {
         chai: 'Chai-1',
         openfold: 'OpenFold',
         'protenix-v2': 'Protenix-v2',
+        esmfold2: 'ESMFold2',
         generic: 'Generic'
     };
     return labels[p] || p;
@@ -1267,6 +1276,7 @@ function discoverPredictions() {
         case 'alphafold3': return discoverAF3(filenames);
         case 'openfold3': return discoverAF3(filenames); // same format as AF3
         case 'protenix-v2': return discoverAF3(filenames); // AF3-like layout, _sample_N variant
+        case 'esmfold2':    return discoverESMFold2(filenames);
         case 'alphafold2': return discoverAF2(filenames);
         case 'colabfold': return discoverColabFold(filenames);
         case 'boltz': return discoverBoltz(filenames);
@@ -1531,6 +1541,28 @@ function discoverOpenFold(filenames) {
             paeSource: name,
             confidencePath: name,
             format: 'cif',
+            label: 'model_0',
+        };
+    }
+    return predictions;
+}
+
+function discoverESMFold2(filenames) {
+    // ESMFold2 (biohub API): single model — *_model.pdb + *_pae.json
+    const predictions = {};
+    for (const name of filenames) {
+        const base = name.split('/').pop();
+        const m = base.match(/^(.+)_model\.pdb$/);
+        if (!m) continue;
+        const prefix = m[1];
+        const paePath = filenames.find(f => f.split('/').pop() === `${prefix}_pae.json`);
+        if (!paePath) continue;
+        if (!predictions[prefix]) predictions[prefix] = {};
+        predictions[prefix]['0'] = {
+            structurePath: name,
+            paeSource: paePath,
+            confidencePath: paePath,  // same JSON also carries ptm/iptm/plddt
+            format: 'pdb',
             label: 'model_0',
         };
     }
