@@ -2496,6 +2496,7 @@ function averageModels(allPairs) {
             cLIS: vals.reduce((s, v) => s + v.cLIS, 0) / n,
             ipTM: vals.reduce((s, v) => s + v.ipTM, 0) / n,
             ipSAE: vals.reduce((s, v) => s + (v.ipSAE || 0), 0) / n,
+            actifpTM: vals.reduce((s, v) => s + (v.actifpTM || 0), 0) / n,
             LIA: vals.reduce((s, v) => s + (v.LIA || 0), 0) / n,
             cLIA: vals.reduce((s, v) => s + (v.cLIA || 0), 0) / n,
             lenI: vals[0].lenI, lenJ: vals[0].lenJ,
