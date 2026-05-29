@@ -54,6 +54,14 @@ function parseBfactorsPerResidue(text, format) {
             }
         }
     }
+    // Auto-scale 0–1 pLDDT to 0–100 (e.g. ESMFold2 native PDB stores pLDDT on 0–1).
+    // AlphaFold/ColabFold use 0–100; ESMFold uses 0–1. Threshold mx ≤ 1.0 catches the
+    // 0–1 case without false-positives on legit low-confidence 0–100 structures.
+    let mx = 0;
+    for (const v of m.values()) if (v > mx) mx = v;
+    if (mx > 0 && mx <= 1.0) {
+        for (const [k, v] of m) m.set(k, v * 100);
+    }
     return m;
 }
 
