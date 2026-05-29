@@ -1059,10 +1059,24 @@ function detectPlatform() {
     const hasESMFoldPae = basenames.some(f => /_pae\.json$/.test(f));
     if (hasESMFoldModel && hasESMFoldPae) return 'esmfold2';
 
-    // ESMFold2 native (folder-per-pair): complex.pdb + pae.npy + metrics.json
-    const hasNativePdb = basenames.some(f => f === 'complex.pdb');
-    const hasNativePae = basenames.some(f => f === 'pae.npy');
-    if (hasNativePdb && hasNativePae) return 'esmfold2_native';
+    // Folder-per-pair pattern (e.g. ESMFold2 native batch outputs). Detection is
+    // filename-agnostic: any folder that contains one .pdb/.cif + one .npy is
+    // treated as a single-model prediction with the folder basename as the name.
+    {
+        const byDir = new Map();
+        for (const f of filenames) {
+            const idx = f.lastIndexOf('/');
+            const dir = idx >= 0 ? f.slice(0, idx) : '';
+            const base = idx >= 0 ? f.slice(idx + 1) : f;
+            if (!byDir.has(dir)) byDir.set(dir, []);
+            byDir.get(dir).push(base);
+        }
+        for (const [, names] of byDir) {
+            const nStruct = names.filter(n => n.endsWith('.pdb') || n.endsWith('.cif')).length;
+            const nNpy   = names.filter(n => n.endsWith('.npy')).length;
+            if (nStruct === 1 && nNpy === 1) return 'esmfold2_native';
+        }
+    }
 
     // ColabFold: *_unrelaxed_rank_*.pdb + *_scores_rank_*.json
     const hasCFModel = basenames.some(f => /_unrelaxed_rank_\d+/.test(f) && (f.endsWith('.pdb') || f.endsWith('.cif')));
@@ -1578,24 +1592,33 @@ function discoverESMFold2(filenames) {
 }
 
 function discoverESMFold2Native(filenames) {
-    // ESMFold2 native batch (folder-per-pair):
-    //   <folder>/{complex.pdb, pae.npy, metrics.json}
-    // Folder basename (e.g. '024_emc___sc') becomes the prediction name.
+    // Folder-per-pair, filename-agnostic. Any folder containing one .pdb/.cif +
+    // one .npy is a single-model prediction. An optional .json in the same
+    // folder is used as scores source. Folder basename = prediction name.
     const predictions = {};
-    const fset = new Set(filenames);
-    for (const name of filenames) {
-        if (name.split('/').pop() !== 'complex.pdb') continue;
-        const folder = name.includes('/') ? name.slice(0, name.lastIndexOf('/')) : '';
-        const pae = folder ? `${folder}/pae.npy` : 'pae.npy';
-        const scores = folder ? `${folder}/metrics.json` : 'metrics.json';
-        if (!fset.has(pae)) continue;
-        const predName = (folder.split('/').pop()) || 'prediction';
+    const byDir = new Map();
+    for (const f of filenames) {
+        const idx = f.lastIndexOf('/');
+        const dir = idx >= 0 ? f.slice(0, idx) : '';
+        if (!byDir.has(dir)) byDir.set(dir, []);
+        byDir.get(dir).push(f);
+    }
+    for (const [dir, files] of byDir) {
+        const struct = files.filter(f => f.endsWith('.pdb') || f.endsWith('.cif'));
+        const npy    = files.filter(f => f.endsWith('.npy'));
+        const jsons  = files.filter(f => f.endsWith('.json'));
+        if (struct.length !== 1 || npy.length !== 1) continue;
+        const structPath = struct[0];
+        const paePath = npy[0];
+        const scoresPath = jsons.length >= 1 ? jsons[0] : paePath;
+        const predName = dir ? dir.split('/').pop() : 'prediction';
+        const fmt = structPath.endsWith('.cif') ? 'cif' : 'pdb';
         if (!predictions[predName]) predictions[predName] = {};
         predictions[predName]['0'] = {
-            structurePath: name,
-            paeSource: pae,
-            confidencePath: fset.has(scores) ? scores : null,
-            format: 'pdb',
+            structurePath: structPath,
+            paeSource: paePath,
+            confidencePath: scoresPath,
+            format: fmt,
             label: 'model_0',
         };
     }
