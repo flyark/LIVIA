@@ -1059,10 +1059,14 @@ function detectPlatform() {
     const hasESMFoldPae = basenames.some(f => /_pae\.json$/.test(f));
     if (hasESMFoldModel && hasESMFoldPae) return 'esmfold2';
 
-    // Folder-per-pair pattern (e.g. ESMFold2 native batch outputs). Detection is
-    // filename-agnostic: any folder that contains one .pdb/.cif + one .npy is
-    // treated as a single-model prediction with the folder basename as the name.
+    // Folder-per-pair pattern (filename-agnostic, format-flexible). Any folder
+    // that contains at least one structure file (.pdb / .cif / .pdb.gz / .cif.gz /
+    // .pdb.xz / .cif.xz) AND at least one PAE-style array (.npy / .npz) is a
+    // single-model prediction. Mixed redundancy (both .pdb and .pdb.gz) is fine —
+    // discoverESMFold2Native picks one by priority.
     {
+        const STRUCT_EXTS = ['.pdb', '.cif', '.pdb.gz', '.cif.gz', '.pdb.xz', '.cif.xz'];
+        const PAE_EXTS    = ['.npy', '.npz'];
         const byDir = new Map();
         for (const f of filenames) {
             const idx = f.lastIndexOf('/');
@@ -1072,9 +1076,9 @@ function detectPlatform() {
             byDir.get(dir).push(base);
         }
         for (const [, names] of byDir) {
-            const nStruct = names.filter(n => n.endsWith('.pdb') || n.endsWith('.cif')).length;
-            const nNpy   = names.filter(n => n.endsWith('.npy')).length;
-            if (nStruct === 1 && nNpy === 1) return 'esmfold2_native';
+            const hasStruct = names.some(n => STRUCT_EXTS.some(e => n.endsWith(e)));
+            const hasPae    = names.some(n => PAE_EXTS.some(e => n.endsWith(e)));
+            if (hasStruct && hasPae) return 'esmfold2_native';
         }
     }
 
@@ -1592,9 +1596,20 @@ function discoverESMFold2(filenames) {
 }
 
 function discoverESMFold2Native(filenames) {
-    // Folder-per-pair, filename-agnostic. Any folder containing one .pdb/.cif +
-    // one .npy is a single-model prediction. An optional .json in the same
-    // folder is used as scores source. Folder basename = prediction name.
+    // Folder-per-pair, filename-agnostic, format-flexible.
+    // Accepted formats (uncompressed preferred over compressed when both exist):
+    //   structure: .pdb, .cif, .pdb.gz, .cif.gz, .pdb.xz, .cif.xz
+    //   PAE:       .npy, .npz  (.npy preferred)
+    // Optional .json in the same folder is the scores source.
+    const STRUCT_PRIORITY = ['.pdb', '.cif', '.pdb.gz', '.cif.gz', '.pdb.xz', '.cif.xz'];
+    const PAE_PRIORITY    = ['.npy', '.npz'];
+    const pickByExt = (files, exts) => {
+        for (const ext of exts) {
+            const m = files.find(f => f.toLowerCase().endsWith(ext));
+            if (m) return m;
+        }
+        return null;
+    };
     const predictions = {};
     const byDir = new Map();
     for (const f of filenames) {
@@ -1604,15 +1619,13 @@ function discoverESMFold2Native(filenames) {
         byDir.get(dir).push(f);
     }
     for (const [dir, files] of byDir) {
-        const struct = files.filter(f => f.endsWith('.pdb') || f.endsWith('.cif'));
-        const npy    = files.filter(f => f.endsWith('.npy'));
-        const jsons  = files.filter(f => f.endsWith('.json'));
-        if (struct.length !== 1 || npy.length !== 1) continue;
-        const structPath = struct[0];
-        const paePath = npy[0];
+        const structPath = pickByExt(files, STRUCT_PRIORITY);
+        const paePath = pickByExt(files, PAE_PRIORITY);
+        if (!structPath || !paePath) continue;
+        const jsons = files.filter(f => f.endsWith('.json'));
         const scoresPath = jsons.length >= 1 ? jsons[0] : paePath;
         const predName = dir ? dir.split('/').pop() : 'prediction';
-        const fmt = structPath.endsWith('.cif') ? 'cif' : 'pdb';
+        const fmt = structPath.toLowerCase().includes('.cif') ? 'cif' : 'pdb';
         if (!predictions[predName]) predictions[predName] = {};
         predictions[predName]['0'] = {
             structurePath: structPath,
