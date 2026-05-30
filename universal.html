@@ -1619,20 +1619,20 @@ function discoverESMFold2(filenames) {
 }
 
 function discoverESMFold2Native(filenames) {
-    // Folder-per-pair, filename-agnostic, format-flexible.
-    // Accepted formats (uncompressed preferred over compressed when both exist):
-    //   structure: .pdb, .cif, .pdb.gz, .cif.gz, .pdb.xz, .cif.xz
-    //   PAE:       .npy, .npz  (.npy preferred)
-    // Optional .json in the same folder is the scores source.
-    const STRUCT_PRIORITY = ['.pdb', '.cif', '.pdb.gz', '.cif.gz', '.pdb.xz', '.cif.xz'];
-    const PAE_PRIORITY    = ['.npy', '.npz'];
-    const pickByExt = (files, exts) => {
-        for (const ext of exts) {
-            const m = files.find(f => f.toLowerCase().endsWith(ext));
-            if (m) return m;
-        }
-        return null;
-    };
+    // Folder-per-pair (and optionally per-sample-within-pair).
+    // Single-sample case: one struct + one PAE [+one json] in a folder → 1 model.
+    // Multi-sample (ensemble) case: e.g. complex_s1.pdb.gz + pae_s1.npz +
+    //   metrics_s1.json × N in the same folder → N models matched by the last
+    //   underscore-separated token before extensions (the "sample id").
+    // Uncompressed structures preferred over compressed; .npy over .npz.
+    const STRUCT_RX = /\.(pdb|cif)(\.gz|\.xz)?$/i;
+    const PAE_RX = /\.(npy|npz)$/i;
+    const EXT_STRIP_RX = /\.(pdb|cif|npy|npz|json)(\.gz|\.xz)?$/i;
+    const stem = p => p.split('/').pop().replace(EXT_STRIP_RX, '');
+    const sampleId = s => { const m = s.match(/_([A-Za-z0-9]+)$/); return m ? m[1] : ''; };
+    const structKey = p => (/(\.gz|\.xz)$/i.test(p) ? 1 : 0);
+    const paeKey = p => (/\.npy$/i.test(p) ? 0 : 1);
+
     const predictions = {};
     const byDir = new Map();
     for (const f of filenames) {
@@ -1642,21 +1642,56 @@ function discoverESMFold2Native(filenames) {
         byDir.get(dir).push(f);
     }
     for (const [dir, files] of byDir) {
-        const structPath = pickByExt(files, STRUCT_PRIORITY);
-        const paePath = pickByExt(files, PAE_PRIORITY);
-        if (!structPath || !paePath) continue;
-        const jsons = files.filter(f => f.endsWith('.json'));
-        const scoresPath = jsons.length >= 1 ? jsons[0] : paePath;
+        const structs = files.filter(f => STRUCT_RX.test(f.split('/').pop()));
+        const paes    = files.filter(f => PAE_RX.test(f.split('/').pop()));
+        const jsons   = files.filter(f => f.split('/').pop().toLowerCase().endsWith('.json'));
+        if (structs.length === 0 || paes.length === 0) continue;
+
         const predName = dir ? dir.split('/').pop() : 'prediction';
-        const fmt = structPath.toLowerCase().includes('.cif') ? 'cif' : 'pdb';
         if (!predictions[predName]) predictions[predName] = {};
-        predictions[predName]['0'] = {
-            structurePath: structPath,
-            paeSource: paePath,
-            confidencePath: scoresPath,
-            format: fmt,
-            label: 'model_0',
+
+        const emit = (rank, sp, pp, jp) => {
+            const fmt = /\.cif/i.test(sp) ? 'cif' : 'pdb';
+            predictions[predName][String(rank)] = {
+                structurePath: sp,
+                paeSource: pp,
+                confidencePath: jp || pp,
+                format: fmt,
+                label: rank === '0' ? 'model_0' : `model_${rank}`,
+            };
         };
+
+        if (structs.length === 1) {
+            const sp = [...structs].sort((a, b) => structKey(a) - structKey(b))[0];
+            const pp = [...paes].sort((a, b) => paeKey(a) - paeKey(b))[0];
+            emit('0', sp, pp, jsons[0]);
+            continue;
+        }
+
+        // Multi-sample: group by sample id
+        const byId = new Map();
+        for (const s of structs) {
+            const id = sampleId(stem(s));
+            if (!byId.has(id)) byId.set(id, []);
+            byId.get(id).push(s);
+        }
+        let anyYield = false;
+        for (const [sid, sgroup] of byId) {
+            const sp = [...sgroup].sort((a, b) => structKey(a) - structKey(b))[0];
+            const paeMatch = sid ? paes.filter(p => sampleId(stem(p)) === sid) : paes;
+            if (paeMatch.length === 0) continue;
+            const pp = [...paeMatch].sort((a, b) => paeKey(a) - paeKey(b))[0];
+            const jMatch = sid ? jsons.filter(j => sampleId(stem(j)) === sid) : jsons;
+            const jp = jMatch[0] || jsons[0];
+            const rank = sid || '0';
+            anyYield = true;
+            emit(rank, sp, pp, jp);
+        }
+        if (!anyYield) {
+            const sp = [...structs].sort((a, b) => structKey(a) - structKey(b))[0];
+            const pp = [...paes].sort((a, b) => paeKey(a) - paeKey(b))[0];
+            emit('0', sp, pp, jsons[0]);
+        }
     }
     return predictions;
 }
