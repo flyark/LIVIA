@@ -965,11 +965,12 @@ async function loadFilesIntoState(files, isFolder, folderName) {
                         chunks.push(value);
                     }
                     const blob = new Blob(chunks);
-                    const innerName = file.name.replace(/\.gz$/, '');
-                    if (innerName.endsWith('.cif') || innerName.endsWith('.pdb') || innerName.endsWith('.json')) {
-                        uniState.loadedFiles[innerName] = await blob.text();
-                    } else if (innerName.endsWith('.npz') || innerName.endsWith('.npy')) {
-                        uniState.loadedFiles[innerName] = await blob.arrayBuffer();
+                    // Preserve folder path from the dropped path, not just file.name
+                    const innerPath = path.replace(/\.gz$/, '');
+                    if (innerPath.endsWith('.cif') || innerPath.endsWith('.pdb') || innerPath.endsWith('.json')) {
+                        uniState.loadedFiles[innerPath] = await blob.text();
+                    } else if (innerPath.endsWith('.npz') || innerPath.endsWith('.npy')) {
+                        uniState.loadedFiles[innerPath] = await blob.arrayBuffer();
                     }
                 } catch (e) {
                     console.warn('Could not decompress .gz file:', file.name, e);
@@ -1008,6 +1009,23 @@ async function loadFilesIntoState(files, isFolder, folderName) {
                         uniState.loadedFiles[zpath] = await entry.async('string');
                     } else if (zname.endsWith('.npz') || zname.endsWith('.npy')) {
                         uniState.loadedFiles[zpath] = await entry.async('arraybuffer');
+                    } else if (zname.endsWith('.gz')) {
+                        // gzipped entry inside the zip — decompress and store under inner path
+                        try {
+                            const buf = await entry.async('arraybuffer');
+                            const ds = new DecompressionStream('gzip');
+                            const blobStream = new Blob([buf]).stream().pipeThrough(ds);
+                            const decompressedBuf = await new Response(blobStream).arrayBuffer();
+                            const innerPath = zpath.replace(/\.gz$/, '');
+                            const innerBase = innerPath.split('/').pop();
+                            if (innerBase.endsWith('.cif') || innerBase.endsWith('.pdb') || innerBase.endsWith('.json')) {
+                                uniState.loadedFiles[innerPath] = new TextDecoder().decode(decompressedBuf);
+                            } else if (innerBase.endsWith('.npz') || innerBase.endsWith('.npy')) {
+                                uniState.loadedFiles[innerPath] = decompressedBuf;
+                            }
+                        } catch (e) {
+                            console.warn('Could not decompress .gz inside zip:', zpath, e);
+                        }
                     }
                 }
             }
