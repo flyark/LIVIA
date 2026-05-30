@@ -5453,7 +5453,11 @@ function buildChordDiagram() {
         const contactDist = 8;
         const allContactsByPair = {}; // pairKey → Map("resA-resB" → {resA, resB, dist, ci, cj})
         for (let mi = 0; mi < uniState.modelPairs.length; mi++) {
-            const miStructText = uniState.structureContents[String(mi)];
+            // modelData[mi].structText is keyed positionally and always defined.
+            // Earlier code used structureContents[String(mi)], which broke for
+            // ensembles whose ranks are non-numeric (e.g. 's1', 'A').
+            const miStructText = uniState.modelData[mi]?.structText
+                                 ?? uniState.structureContents[String(mi)];
             if (!miStructText) continue;
             const miCoords = parseStructureCoords(miStructText, uniState.structureFormat);
             const miCoordMap = new Map();
