@@ -1619,19 +1619,43 @@ function discoverESMFold2(filenames) {
 }
 
 function discoverESMFold2Native(filenames) {
-    // Folder-per-pair (and optionally per-sample-within-pair).
-    // Single-sample case: one struct + one PAE [+one json] in a folder → 1 model.
-    // Multi-sample (ensemble) case: e.g. complex_s1.pdb.gz + pae_s1.npz +
-    //   metrics_s1.json × N in the same folder → N models matched by the last
-    //   underscore-separated token before extensions (the "sample id").
-    // Uncompressed structures preferred over compressed; .npy over .npz.
+    // Naming-agnostic folder-per-pair discovery.
+    // Multi-sample matching uses longest-common-prefix within each file-type
+    // group, so the suffix becomes the sample ID. This handles:
+    //   complex_s1.pdb.gz + pae_s1.npz + metrics_s1.json
+    //   model_1.pdb + pae_1.npz + scores_1.json
+    //   protein_pair_0.pdb + pae_0.npy + scores_0.json
+    //   model1.pdb + pae1.npz       (no underscore)
+    //   anything.cif + anything.npz (single)
+    // Priority: uncompressed > compressed, .npy > .npz.
     const STRUCT_RX = /\.(pdb|cif)(\.gz|\.xz)?$/i;
     const PAE_RX = /\.(npy|npz)$/i;
     const EXT_STRIP_RX = /\.(pdb|cif|npy|npz|json)(\.gz|\.xz)?$/i;
     const stem = p => p.split('/').pop().replace(EXT_STRIP_RX, '');
-    const sampleId = s => { const m = s.match(/_([A-Za-z0-9]+)$/); return m ? m[1] : ''; };
     const structKey = p => (/(\.gz|\.xz)$/i.test(p) ? 1 : 0);
     const paeKey = p => (/\.npy$/i.test(p) ? 0 : 1);
+
+    const longestCommonPrefix = (strs) => {
+        if (!strs.length) return '';
+        let s1 = strs[0], s2 = strs[0];
+        for (const s of strs) { if (s < s1) s1 = s; if (s > s2) s2 = s; }
+        let i = 0;
+        while (i < s1.length && i < s2.length && s1[i] === s2[i]) i++;
+        return s1.slice(0, i);
+    };
+    const idsByLcp = (files) => {
+        // Returns { sampleId: filePath }
+        if (files.length === 1) return { '': files[0] };
+        const stems = files.map(stem);
+        const pref = longestCommonPrefix(stems);
+        const out = {};
+        for (let i = 0; i < files.length; i++) {
+            let sid = stems[i].slice(pref.length);
+            sid = sid.replace(/^[_\-.]+/, '');
+            out[sid] = files[i];
+        }
+        return out;
+    };
 
     const predictions = {};
     const byDir = new Map();
@@ -1642,10 +1666,13 @@ function discoverESMFold2Native(filenames) {
         byDir.get(dir).push(f);
     }
     for (const [dir, files] of byDir) {
-        const structs = files.filter(f => STRUCT_RX.test(f.split('/').pop()));
-        const paes    = files.filter(f => PAE_RX.test(f.split('/').pop()));
-        const jsons   = files.filter(f => f.split('/').pop().toLowerCase().endsWith('.json'));
+        let structs = files.filter(f => STRUCT_RX.test(f.split('/').pop()));
+        let paes    = files.filter(f => PAE_RX.test(f.split('/').pop()));
+        const jsons = files.filter(f => f.split('/').pop().toLowerCase().endsWith('.json'));
         if (structs.length === 0 || paes.length === 0) continue;
+
+        structs = [...structs].sort((a, b) => structKey(a) - structKey(b));
+        paes    = [...paes].sort((a, b) => paeKey(a) - paeKey(b));
 
         const predName = dir ? dir.split('/').pop() : 'prediction';
         if (!predictions[predName]) predictions[predName] = {};
@@ -1661,36 +1688,27 @@ function discoverESMFold2Native(filenames) {
             };
         };
 
-        if (structs.length === 1) {
-            const sp = [...structs].sort((a, b) => structKey(a) - structKey(b))[0];
-            const pp = [...paes].sort((a, b) => paeKey(a) - paeKey(b))[0];
-            emit('0', sp, pp, jsons[0]);
+        // If only one struct or one PAE → single-model
+        if (structs.length === 1 || paes.length === 1) {
+            emit('0', structs[0], paes[0], jsons[0]);
             continue;
         }
 
-        // Multi-sample: group by sample id
-        const byId = new Map();
-        for (const s of structs) {
-            const id = sampleId(stem(s));
-            if (!byId.has(id)) byId.set(id, []);
-            byId.get(id).push(s);
+        // Multi-sample: split each file-type by LCP, pair common IDs
+        const structIds = idsByLcp(structs);
+        const paeIds    = idsByLcp(paes);
+        const jsonIds   = jsons.length ? idsByLcp(jsons) : {};
+        const common = Object.keys(structIds).filter(k => k in paeIds);
+        if (common.length === 0) {
+            emit('0', structs[0], paes[0], jsons[0]);
+            continue;
         }
-        let anyYield = false;
-        for (const [sid, sgroup] of byId) {
-            const sp = [...sgroup].sort((a, b) => structKey(a) - structKey(b))[0];
-            const paeMatch = sid ? paes.filter(p => sampleId(stem(p)) === sid) : paes;
-            if (paeMatch.length === 0) continue;
-            const pp = [...paeMatch].sort((a, b) => paeKey(a) - paeKey(b))[0];
-            const jMatch = sid ? jsons.filter(j => sampleId(stem(j)) === sid) : jsons;
-            const jp = jMatch[0] || jsons[0];
+        for (const sid of common.sort()) {
+            const sp = structIds[sid];
+            const pp = paeIds[sid];
+            const jp = jsonIds[sid] || jsons[0];
             const rank = sid || '0';
-            anyYield = true;
             emit(rank, sp, pp, jp);
-        }
-        if (!anyYield) {
-            const sp = [...structs].sort((a, b) => structKey(a) - structKey(b))[0];
-            const pp = [...paes].sort((a, b) => paeKey(a) - paeKey(b))[0];
-            emit('0', sp, pp, jsons[0]);
         }
     }
     return predictions;
