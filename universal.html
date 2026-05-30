@@ -816,7 +816,8 @@ async function handleInputFiles(fileList) {
         }).filter(n => n !== 'msas' && n !== 'templates' && !n.endsWith('.md'));
 
         if (jobs.length > 1) {
-            // Multiple jobs — show selector
+            // Multiple jobs — show selector (sorted naturally: 001 < 002 < 010 < 020 …)
+            jobs.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
             setStatus(`Found ${jobs.length} predictions. Select one:`, 'loading');
             dropZone.classList.add('has-file');
             document.getElementById('file-name').textContent = `${topDir}/ (${jobs.length} predictions)`;
@@ -839,7 +840,9 @@ async function handleInputFiles(fileList) {
     const pklWarning = hasPkl ? ' Note: .pkl files detected — PAE data must be converted to JSON first (use: python -c "import pickle,json,sys; d=pickle.load(open(sys.argv[1],\'rb\')); json.dump([{\'predicted_aligned_error\':d[\'predicted_aligned_error\'].tolist()}],open(sys.argv[2],\'w\'))" result_model_1.pkl pae_model_1.json)' : '';
 
     document.getElementById('btn-process').disabled = false;
-    setStatus(`Detected: ${platformLabel(platform)}. Click Process to analyze.${pklWarning}`);
+    setStatus(`Detected: ${platformLabel(platform)}. Analyzing…${pklWarning}`);
+    // Auto-process so the user doesn't need a second click after drop/select.
+    processFiles();
 }
 
 function showJobSelector(jobs) {
@@ -918,7 +921,9 @@ async function selectJob(jobName) {
     uniState.platform = platform;
     showPlatformBadge(platform);
     document.getElementById('btn-process').disabled = false;
-    setStatus(`Loaded ${jobName}: ${nFiles} files (${platformLabel(platform)}). Click Process.`, 'success');
+    setStatus(`Loaded ${jobName}: ${nFiles} files (${platformLabel(platform)}). Analyzing…`, 'success');
+    // Auto-process: skip the extra "Process" click after selecting a prediction.
+    processFiles();
 }
 
 async function loadFilesIntoState(files, isFolder, folderName) {
