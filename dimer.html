@@ -426,7 +426,7 @@
 <script src="js/livia-colors.js"></script>
 <script>
 // ── Callbacks for shared modules ──
-onColorChange = () => { if (dimerPairResult) { generateAndDisplayScript(); buildDimerSequenceViewer(); buildDimerContactMap(); buildChordDiagram(); updateViewer3d(); } };
+onColorChange = () => { if (dimerPairResult) { generateAndDisplayScript(); buildDimerSequenceViewer(); buildDimerContactMap(); buildChordDiagram(); buildComparisonCharts(); updateViewer3d(); } };
 onScriptTabSwitch = () => { if (dimerPairResult) generateAndDisplayScript(); };
 document.addEventListener('DOMContentLoaded', initColorPickers);
 
