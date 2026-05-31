@@ -655,7 +655,6 @@ async function loadExample(platform) {
         const blob = await resp.blob();
         const file = new File([blob], ex.file, { type: 'application/zip' });
         await handleInputFiles([file]);
-        processFiles();
     } catch (e) {
         setStatus('Could not load example: ' + e.message, 'error');
     }
