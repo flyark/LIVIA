@@ -1756,8 +1756,10 @@ function buildComparisonCharts() {
         genes[1] || genes[0] || uniprotIds[1] || uniprotIds[0] || v.cj
     ];
 
-    // For homodimer, show one chart; for heterodimer, show both
-    const chainsToShow = isHomodimer ? [0] : [0, 1];
+    // Always show both chains — even homodimers can have slightly different
+    // per-residue intra-chain LIS / pLDDT because PAE is asymmetric and each
+    // chain sees its partner from its own perspective.
+    const chainsToShow = [0, 1];
 
     for (const ci of chainsToShow) {
         const chainName = v.chainNames[ci];
@@ -1841,7 +1843,7 @@ function buildComparisonCharts() {
         const clirF = new Set([...clirRaw].filter(r => lirF.has(r)));
         chainConfigs.push({
             chainName,
-            label: chainLabels[ci] + (isHomodimer ? ' (homodimer)' : ` (Chain ${chainName})`),
+            label: chainLabels[ci] + ` (Chain ${chainName}${isHomodimer ? ', homodimer' : ''})`,
             chainLen, dimerArr, monoArr, interPae, dimerLisArr, monoLisArr,
             lir: lirF,
             clir: clirF,
@@ -1896,7 +1898,7 @@ function buildComparisonCharts() {
 
 function drawComparisonChart(container, cc) {
     const W = Math.max(Math.min(container.clientWidth || 900, 1200), 400);
-    const H = 200;
+    const H = 145;
     const PAD = { left: 50, right: 20, top: 14, bottom: 35 };
     const plotW = W - PAD.left - PAD.right;
     const plotH = H - PAD.top - PAD.bottom;
@@ -2017,7 +2019,7 @@ function drawComparisonChart(container, cc) {
 
 function drawLisComparisonChart(container, cc) {
     const W = Math.max(Math.min(container.clientWidth || 900, 1200), 400);
-    const H = 200;
+    const H = 145;
     const PAD = { left: 50, right: 20, top: 14, bottom: 35 };
     const plotW = W - PAD.left - PAD.right;
     const plotH = H - PAD.top - PAD.bottom;
