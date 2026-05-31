@@ -1746,6 +1746,15 @@ function buildComparisonCharts() {
     const genes = selectedDimer?.gene || [];
     const isHomodimer = !uniprotIds[1] || uniprotIds[0] === uniprotIds[1];
 
+    // Read current colors from the Visualization Script picker (Teal/Coral,
+    // Blue/Orange, etc.). Chain A gets _a colors, chain B gets _b colors.
+    const chartColors = {
+        lir_a:  document.getElementById('color-lir-a')?.value  || '#80CBC4',
+        clir_a: document.getElementById('color-clir-a')?.value || '#00897B',
+        lir_b:  document.getElementById('color-lir-b')?.value  || '#FFAB91',
+        clir_b: document.getElementById('color-clir-b')?.value || '#E64A19',
+    };
+
     // Get dimer pLDDT per residue from CIF
     const dimerPlddt = parseBfactorsPerResidue(dimerCifText);
 
@@ -1847,6 +1856,8 @@ function buildComparisonCharts() {
             chainLen, dimerArr, monoArr, interPae, dimerLisArr, monoLisArr,
             lir: lirF,
             clir: clirF,
+            lirColor:  ci === 0 ? chartColors.lir_a  : chartColors.lir_b,
+            clirColor: ci === 0 ? chartColors.clir_a : chartColors.clir_b,
         });
     }
 
@@ -1939,17 +1950,19 @@ function drawComparisonChart(container, cc) {
     ctx.fillStyle = '#fafafa';
     ctx.fillRect(PAD.left, PAD.top, plotW, plotH);
 
-    // LIR/cLIR bar at bottom
+    // LIR/cLIR bar at bottom (per-chain colors from Visualization Script preset)
     const barY = H - PAD.bottom + 2;
     const barH = 6;
+    const clirCol = cc.clirColor || '#00897b';
+    const lirCol  = cc.lirColor  || '#80cbc4';
     for (let r = 1; r <= n; r++) {
         const x0 = xScale(r - 1);
         const x1 = xScale(r);
         if (cc.clir.has(r)) {
-            ctx.fillStyle = '#00897b';
+            ctx.fillStyle = clirCol;
             ctx.fillRect(x0, barY, x1 - x0 + 0.5, barH);
         } else if (cc.lir.has(r)) {
-            ctx.fillStyle = '#80cbc4';
+            ctx.fillStyle = lirCol;
             ctx.fillRect(x0, barY, x1 - x0 + 0.5, barH);
         }
     }
@@ -2064,17 +2077,19 @@ function drawLisComparisonChart(container, cc) {
     ctx.fillStyle = '#fafafa';
     ctx.fillRect(PAD.left, PAD.top, plotW, plotH);
 
-    // LIR/cLIR bar at bottom
+    // LIR/cLIR bar at bottom (per-chain colors from Visualization Script preset)
     const barY = H - PAD.bottom + 2;
     const barH = 6;
+    const clirCol = cc.clirColor || '#00897b';
+    const lirCol  = cc.lirColor  || '#80cbc4';
     for (let r = 1; r <= n; r++) {
         const x0 = xScale(r - 1);
         const x1 = xScale(r);
         if (cc.clir.has(r)) {
-            ctx.fillStyle = '#00897b';
+            ctx.fillStyle = clirCol;
             ctx.fillRect(x0, barY, x1 - x0 + 0.5, barH);
         } else if (cc.lir.has(r)) {
-            ctx.fillStyle = '#80cbc4';
+            ctx.fillStyle = lirCol;
             ctx.fillRect(x0, barY, x1 - x0 + 0.5, barH);
         }
     }
