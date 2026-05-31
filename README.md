@@ -2,7 +2,7 @@
 
 Browser-based tools for analyzing protein-protein interactions from structure predictions. All analysis runs locally in your browser — no data leaves your device and no installation is needed.
 
-**Web:** https://flyark.github.io/LIVIA/ &nbsp;·&nbsp; **Paper:** [Kim & Perrimon 2026, *bioRxiv*](https://doi.org/10.64898/2026.05.01.721633)
+**Web:** https://flyark.github.io/LIVIA/ &nbsp;·&nbsp; **Preprint:** [Kim & Perrimon 2026, *bioRxiv*](https://doi.org/10.64898/2026.05.01.721633)
 
 ## Example
 
@@ -31,7 +31,7 @@ Browser-based tools for analyzing protein-protein interactions from structure pr
 
 | Page | Description |
 |------|-------------|
-| **[Prediction Analysis](https://flyark.github.io/LIVIA/universal.html)** | Upload and analyze predictions from AlphaFold3, ColabFold, Boltz, Chai-1, OpenFold3 |
+| **[Prediction Analysis](https://flyark.github.io/LIVIA/universal.html)** | Upload and analyze multi-platform predictions |
 | **[FlyPredictome](https://flyark.github.io/LIVIA/flypredictome.html)** | *Drosophila* PPI analysis from [FlyPredictome](https://www.flyrnai.org/tools/fly_predictome) |
 | **[Ortholog Interactome](https://flyark.github.io/LIVIA/ortholog_predictome.html)** | Non-fly predictions from [FlyPredictome](https://www.flyrnai.org/tools/fly_predictome) ortholog search |
 | **[AFDB Dimer](https://flyark.github.io/LIVIA/dimer.html)** | Dimer analysis from [AlphaFold DB](https://alphafold.ebi.ac.uk) |
@@ -43,7 +43,7 @@ Browser-based tools for analyzing protein-protein interactions from structure pr
 
 Prediction Analysis auto-detects the platform from uploaded files:
 
-**AlphaFold3** · **AlphaFold2** · **ColabFold** · **Boltz-1/2** · **Chai-1** · **OpenFold3**
+**AlphaFold3** · **AlphaFold2** · **ColabFold** · **Boltz-1/2** · **Chai-1** · **OpenFold3** · **Protenix-v2** · **ESMFold2**
 
 ## Key Metrics
 
