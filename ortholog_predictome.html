@@ -451,7 +451,7 @@
 <script src="js/livia-colors.js"></script>
 <script>
 // ── Callbacks for shared modules ──
-onColorChange = () => { if (flyParsed && flyCurrentRank) loadRank(flyCurrentRank); };
+onColorChange = () => { if (flyParsed && flyCurrentRank) { loadRank(flyCurrentRank); updateCombinedChord(); } };
 onScriptTabSwitch = () => { updateScriptPreview(); };
 document.addEventListener('DOMContentLoaded', initColorPickers);
 
