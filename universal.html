@@ -781,6 +781,9 @@ async function handleInputFiles(fileList) {
     uniState.multiChainColors = null;
     uniState.currentPairResult = null;
     pendingJobs = null;
+    // Clear drop-zone label so a fresh drop overwrites the previous folder name
+    const fnEl = document.getElementById('file-name');
+    if (fnEl) fnEl.textContent = '';
     // Clear prediction selector from previous upload
     const predSelect = document.getElementById('prediction-select');
     if (predSelect) predSelect.innerHTML = '';
