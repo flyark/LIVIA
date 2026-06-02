@@ -315,10 +315,24 @@ def detect_platform(filenames, read_fn):
     if has_esm_model and has_esm_pae:
         return 'esmfold2'
 
-    # ESMFold2 native (folder-per-pair): complex.pdb + pae.npy + metrics.json
-    if (any(os.path.basename(f) == 'pae.npy' for f in filenames)
-            and any(os.path.basename(f) == 'complex.pdb' for f in filenames)):
-        return 'esmfold2_native'
+    # Folder-per-pair pattern (filename-agnostic, format-flexible). Any folder that
+    # contains at least one structure file (.pdb / .cif / .pdb.gz / .cif.gz / .pdb.xz /
+    # .cif.xz) AND at least one PAE-style array file (.npy / .npz) is treated as a
+    # single-model prediction. An optional .json carries the scores. The folder
+    # basename becomes the prediction name. Mixed redundancy (e.g. both .pdb AND
+    # .pdb.gz in the same folder) is fine — _find_esmfold2_native picks one by
+    # priority (uncompressed > compressed, .npy > .npz).
+    from collections import defaultdict as _dd
+    _by_dir = _dd(list)
+    for _f in filenames:
+        _by_dir[os.path.dirname(_f)].append(os.path.basename(_f))
+    _STRUCT_EXTS = ('.pdb', '.cif', '.pdb.gz', '.cif.gz', '.pdb.xz', '.cif.xz')
+    _PAE_EXTS = ('.npy', '.npz')
+    for _d, _names in _by_dir.items():
+        _has_struct = any(n.endswith(_STRUCT_EXTS) for n in _names)
+        _has_pae    = any(n.endswith(_PAE_EXTS) for n in _names)
+        if _has_struct and _has_pae:
+            return 'esmfold2_native'
 
     return 'generic'
 
@@ -590,20 +604,113 @@ def _find_esmfold2(filenames, basenames_map):
 
 
 def _find_esmfold2_native(filenames, basenames_map):
-    """ESMFold2 native batch (folder-per-pair):
-       <folder>/{complex.pdb, pae.npy, metrics.json}.
-       Folder name (e.g. '001_GeneA___GeneB') becomes the prediction name."""
-    fset = set(filenames)
-    for name in filenames:
-        if os.path.basename(name) != 'complex.pdb':
+    """Folder-per-pair (and optionally per-sample-within-pair).
+
+    Naming is fully agnostic: a folder is a prediction set whenever it contains
+    one or more structure files and one or more PAE files. Multi-sample matching
+    uses the longest-common-prefix trick — whatever prefix is shared by all
+    struct stems is treated as common, and the remaining suffix is the sample ID.
+    The same is done for PAE stems and JSON stems. IDs that appear in both
+    struct- and PAE-sets are paired. This handles cases like:
+
+      complex_s1.pdb.gz + pae_s1.npz + metrics_s1.json       (suffix _s1)
+      model_1.pdb + pae_1.npz + scores_1.json                (suffix _1)
+      protein_pair_0.pdb + pae_0.npy + scores_0.json         (mixed prefixes)
+      Fsn___SkpB_0.pdb + Fsn___SkpB_0.npz + Fsn___SkpB_0.json
+      model1.pdb + pae1.npz                                  (no underscore)
+
+    Accepted structure formats: .pdb, .cif, .pdb.gz, .cif.gz, .pdb.xz, .cif.xz
+    Accepted PAE formats:       .npy, .npz   (.npy preferred — direct array)
+    For each struct/PAE/json candidate, uncompressed wins over compressed when
+    both exist for the same sample ID.
+    """
+    import re
+    from collections import defaultdict
+    by_dir = defaultdict(list)
+    for f in filenames:
+        by_dir[os.path.dirname(f)].append(f)
+
+    STRUCT_EXT_RX = re.compile(r'\.(pdb|cif)(\.gz|\.xz)?$', re.IGNORECASE)
+    PAE_EXT_RX = re.compile(r'\.(npy|npz)$', re.IGNORECASE)
+    EXT_STRIP_RX = re.compile(r'\.(pdb|cif|npy|npz|json)(\.gz|\.xz)?$', re.IGNORECASE)
+
+    def stem(path):
+        return EXT_STRIP_RX.sub('', os.path.basename(path))
+
+    def longest_common_prefix(strs):
+        if not strs:
+            return ''
+        s1, s2 = min(strs), max(strs)
+        i = 0
+        while i < len(s1) and i < len(s2) and s1[i] == s2[i]:
+            i += 1
+        return s1[:i]
+
+    def ids_by_lcp(files):
+        """Return {sample_id: file} where sample_id = stem - common_prefix.
+        With 1 file, sample_id is '' (treated as a single-model marker)."""
+        stems = [stem(f) for f in files]
+        if len(files) == 1:
+            return {'': files[0]}
+        pref = longest_common_prefix(stems)
+        out = {}
+        for f, st in zip(files, stems):
+            sid = st[len(pref):].lstrip('_-.')  # trim common leading separators
+            out[sid] = f
+        return out
+
+    def struct_priority_key(p):
+        b = os.path.basename(p).lower()
+        return 0 if not (b.endswith('.gz') or b.endswith('.xz')) else 1
+
+    def pae_priority_key(p):
+        return 0 if p.lower().endswith('.npy') else 1
+
+    for d, files in by_dir.items():
+        struct_files = [f for f in files if STRUCT_EXT_RX.search(os.path.basename(f))]
+        pae_files = [f for f in files if PAE_EXT_RX.search(os.path.basename(f))]
+        json_files = [f for f in files if os.path.basename(f).lower().endswith('.json')]
+        if not struct_files or not pae_files:
             continue
-        folder = os.path.dirname(name)
-        pae = (folder + '/pae.npy') if folder else 'pae.npy'
-        scores = (folder + '/metrics.json') if folder else 'metrics.json'
-        if pae not in fset or scores not in fset:
+
+        pred_name = os.path.basename(d) or 'prediction'
+
+        # Pre-sort by priority so duplicates resolve cleanly
+        struct_files = sorted(struct_files, key=struct_priority_key)
+        pae_files = sorted(pae_files, key=pae_priority_key)
+
+        # If only one struct or one PAE, treat as single-model
+        if len(struct_files) == 1 or len(pae_files) == 1:
+            sp = struct_files[0]
+            pp = pae_files[0]
+            jp = json_files[0] if json_files else pp
+            fmt = 'cif' if '.cif' in os.path.basename(sp).lower() else 'pdb'
+            yield (pred_name, '0', os.path.basename(sp), sp, pp, jp, fmt)
             continue
-        pred_name = os.path.basename(folder) or 'prediction'
-        yield (pred_name, '0', 'complex.pdb', name, pae, scores, 'pdb')
+
+        # Multi-sample: derive sample IDs by stripping the longest common prefix
+        # within each file-type group, then pair up matching IDs.
+        struct_ids = ids_by_lcp(struct_files)
+        pae_ids = ids_by_lcp(pae_files)
+        json_ids = ids_by_lcp(json_files) if json_files else {}
+
+        common = set(struct_ids) & set(pae_ids)
+        if not common:
+            # Could not split by ID — fall back to single pair
+            sp = struct_files[0]
+            pp = pae_files[0]
+            jp = json_files[0] if json_files else pp
+            fmt = 'cif' if '.cif' in os.path.basename(sp).lower() else 'pdb'
+            yield (pred_name, '0', os.path.basename(sp), sp, pp, jp, fmt)
+            continue
+
+        for sid in sorted(common):
+            sp = struct_ids[sid]
+            pp = pae_ids[sid]
+            jp = json_ids.get(sid) or (json_files[0] if json_files else pp)
+            fmt = 'cif' if '.cif' in os.path.basename(sp).lower() else 'pdb'
+            rank = sid or '0'
+            yield (pred_name, rank, os.path.basename(sp), sp, pp, jp, fmt)
 
 
 def _find_generic(filenames, basenames_map):
