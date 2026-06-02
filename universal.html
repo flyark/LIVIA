@@ -1084,29 +1084,6 @@ function detectPlatform() {
     const hasESMFoldPae = basenames.some(f => /_pae\.json$/.test(f));
     if (hasESMFoldModel && hasESMFoldPae) return 'esmfold2';
 
-    // Folder-per-pair pattern (filename-agnostic, format-flexible). Any folder
-    // that contains at least one structure file (.pdb / .cif / .pdb.gz / .cif.gz /
-    // .pdb.xz / .cif.xz) AND at least one PAE-style array (.npy / .npz) is a
-    // single-model prediction. Mixed redundancy (both .pdb and .pdb.gz) is fine —
-    // discoverESMFold2Native picks one by priority.
-    {
-        const STRUCT_EXTS = ['.pdb', '.cif', '.pdb.gz', '.cif.gz', '.pdb.xz', '.cif.xz'];
-        const PAE_EXTS    = ['.npy', '.npz'];
-        const byDir = new Map();
-        for (const f of filenames) {
-            const idx = f.lastIndexOf('/');
-            const dir = idx >= 0 ? f.slice(0, idx) : '';
-            const base = idx >= 0 ? f.slice(idx + 1) : f;
-            if (!byDir.has(dir)) byDir.set(dir, []);
-            byDir.get(dir).push(base);
-        }
-        for (const [, names] of byDir) {
-            const hasStruct = names.some(n => STRUCT_EXTS.some(e => n.endsWith(e)));
-            const hasPae    = names.some(n => PAE_EXTS.some(e => n.endsWith(e)));
-            if (hasStruct && hasPae) return 'esmfold2_native';
-        }
-    }
-
     // ColabFold: *_unrelaxed_rank_*.pdb + *_scores_rank_*.json
     const hasCFModel = basenames.some(f => /_unrelaxed_rank_\d+/.test(f) && (f.endsWith('.pdb') || f.endsWith('.cif')));
     const hasCFScores = basenames.some(f => /_scores_rank_\d+/.test(f) && f.endsWith('.json'));
@@ -1135,6 +1112,28 @@ function detectPlatform() {
     const hasOFCif = basenames.some(f => f.endsWith('.cif'));
     const hasOFFullData = basenames.some(f => /full_data/.test(f) && f.endsWith('.json'));
     if (hasOFCif && hasOFFullData && !hasAF3Summary) return 'openfold';
+
+    // ESMFold2 native (fallback) — folder-per-pair with .pdb/.cif + .npy/.npz PAE.
+    // Kept LAST so platform-specific layouts (Boltz, Chai, ColabFold, AF2, OpenFold,
+    // Protenix) win their own detection first; only true single-folder ensembles
+    // (e.g. complex.pdb + pae.npz) fall through to here.
+    {
+        const STRUCT_EXTS = ['.pdb', '.cif', '.pdb.gz', '.cif.gz', '.pdb.xz', '.cif.xz'];
+        const PAE_EXTS    = ['.npy', '.npz'];
+        const byDir = new Map();
+        for (const f of filenames) {
+            const idx = f.lastIndexOf('/');
+            const dir = idx >= 0 ? f.slice(0, idx) : '';
+            const base = idx >= 0 ? f.slice(idx + 1) : f;
+            if (!byDir.has(dir)) byDir.set(dir, []);
+            byDir.get(dir).push(base);
+        }
+        for (const [, names] of byDir) {
+            const hasStruct = names.some(n => STRUCT_EXTS.some(e => n.endsWith(e)));
+            const hasPae    = names.some(n => PAE_EXTS.some(e => n.endsWith(e)));
+            if (hasStruct && hasPae) return 'esmfold2_native';
+        }
+    }
 
     // Generic: any .cif/.pdb with JSON containing predicted_aligned_error
     const hasStructure = basenames.some(f => f.endsWith('.cif') || f.endsWith('.pdb'));
