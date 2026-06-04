@@ -77,7 +77,7 @@
 
         <div class="bm-row">
             <a class="bm-link" title="Drag me to your bookmarks bar"
-               href="javascript:(function(){var u=location.href,p=location.origin+location.pathname,t=null,m;if(m=u.match(/alphafold\.ebi\.ac\.uk\/entry\/(AF-\d+)/))t='https://flyark.github.io/LIVIA/dimer.html?id='+m[1];else if(/flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details_ortho\//.test(u))t='https://flyark.github.io/LIVIA/ortholog_predictome.html?url='+encodeURIComponent(p);else if(/flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details\//.test(u))t='https://flyark.github.io/LIVIA/flypredictome.html?url='+encodeURIComponent(p);if(t)window.open(t,'_blank','noopener');else alert('LIVIA: Unsupported page. Use on an AlphaFold DB entry page (alphafold.ebi.ac.uk/entry/AF-...) or FlyPredictome details page (flyrnai.org/.../famdb_details[_ortho]/...).');})();">Open in LIVIA</a>
+               href="javascript:(function(){var u=location.href,p=location.origin+location.pathname,t=null,m;if(m=u.match(/alphafold\.ebi\.ac\.uk\/entry\/(AF-\d+)/))t='https://flyark.github.io/LIVIA/dimer.html?id='+m[1];else if(m=u.match(/alphafold\.ebi\.ac\.uk\/entry\/([A-Z0-9]{6,10})/i))t='https://flyark.github.io/LIVIA/monomer.html?id='+m[1].toUpperCase();else if(/flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details_ortho\//.test(u))t='https://flyark.github.io/LIVIA/ortholog_predictome.html?url='+encodeURIComponent(p);else if(/flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details\//.test(u))t='https://flyark.github.io/LIVIA/flypredictome.html?url='+encodeURIComponent(p);if(t)window.open(t,'_blank','noopener');else alert('LIVIA: Unsupported page. Use on an AlphaFold DB entry page (alphafold.ebi.ac.uk/entry/...) or FlyPredictome details page (flyrnai.org/.../famdb_details[_ortho]/...).');})();">Open in LIVIA</a>
             <span class="bm-hint">&larr; drag to your bookmarks bar</span>
         </div>
 
@@ -89,9 +89,14 @@
         <div class="targets">
             <table>
                 <tr>
-                    <td>AlphaFold DB</td>
+                    <td>AlphaFold DB dimer/complex</td>
                     <td>alphafold.ebi.ac.uk/entry/AF-&hellip;</td>
                     <td>&rarr; AFDB Dimer</td>
+                </tr>
+                <tr>
+                    <td>AlphaFold DB monomer</td>
+                    <td>alphafold.ebi.ac.uk/entry/&lt;UniProt&gt;</td>
+                    <td>&rarr; AFDB Monomer Subdomain</td>
                 </tr>
                 <tr>
                     <td>FlyPredictome</td>
@@ -123,7 +128,7 @@
             <li>Name: anything you like (e.g. <code>LIVIA</code>).</li>
             <li>URL: paste the code below.</li>
         </ol>
-        <div class="code">javascript:(function(){var u=location.href,p=location.origin+location.pathname,t=null,m;if(m=u.match(/alphafold\.ebi\.ac\.uk\/entry\/(AF-\d+)/))t='https://flyark.github.io/LIVIA/dimer.html?id='+m[1];else if(/flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details_ortho\//.test(u))t='https://flyark.github.io/LIVIA/ortholog_predictome.html?url='+encodeURIComponent(p);else if(/flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details\//.test(u))t='https://flyark.github.io/LIVIA/flypredictome.html?url='+encodeURIComponent(p);if(t)window.open(t,'_blank','noopener');else alert('LIVIA: Unsupported page. Use on an AlphaFold DB entry page (alphafold.ebi.ac.uk/entry/AF-...) or FlyPredictome details page (flyrnai.org/.../famdb_details[_ortho]/...).');})();</div>
+        <div class="code">javascript:(function(){var u=location.href,p=location.origin+location.pathname,t=null,m;if(m=u.match(/alphafold\.ebi\.ac\.uk\/entry\/(AF-\d+)/))t='https://flyark.github.io/LIVIA/dimer.html?id='+m[1];else if(m=u.match(/alphafold\.ebi\.ac\.uk\/entry\/([A-Z0-9]{6,10})/i))t='https://flyark.github.io/LIVIA/monomer.html?id='+m[1].toUpperCase();else if(/flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details_ortho\//.test(u))t='https://flyark.github.io/LIVIA/ortholog_predictome.html?url='+encodeURIComponent(p);else if(/flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details\//.test(u))t='https://flyark.github.io/LIVIA/flypredictome.html?url='+encodeURIComponent(p);if(t)window.open(t,'_blank','noopener');else alert('LIVIA: Unsupported page. Use on an AlphaFold DB entry page (alphafold.ebi.ac.uk/entry/...) or FlyPredictome details page (flyrnai.org/.../famdb_details[_ortho]/...).');})();</div>
         <p style="font-size:0.84rem; color:#888; margin-top:0.8rem;">Tested on desktop Chrome. Other browsers (Firefox, Safari, Edge) typically support bookmarklets too, but were not verified.</p>
     </div>
 

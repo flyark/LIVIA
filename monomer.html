@@ -436,7 +436,13 @@
 onScriptTabSwitch = () => { /* handled by page-specific switchScriptTab override */ };
 // monomer has dynamic region pickers as well as static color-lir-a/b pickers;
 // initColorPickers upgrades the static ones (with hex input editing + change handler)
-document.addEventListener('DOMContentLoaded', initColorPickers);
+document.addEventListener('DOMContentLoaded', () => {
+    initColorPickers();
+    // Deep link: ?id=<UniProt accession> loads the monomer on page open
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if (id) loadExample(id);
+});
 
 // ============================================================================
 // GLOBAL STATE
