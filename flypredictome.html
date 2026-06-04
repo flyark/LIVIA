@@ -508,6 +508,10 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('pair-gene-b').value = parts[1].trim();
             setTimeout(() => searchGenePair(), 500);
         }
+    } else if (params.get('url')) {
+        switchTab('url');
+        document.getElementById('url-input').value = params.get('url');
+        setTimeout(() => generate(), 500);
     }
 });
 
@@ -1609,6 +1613,12 @@ async function generate() {
             html = fetched;
             status.textContent = 'Page fetched successfully.';
             status.className = 'fetch-status success';
+            // Sync URL so this analysis is shareable / reloadable
+            const u = new URL(window.location);
+            u.searchParams.set('url', urlInput);
+            u.searchParams.delete('gene');
+            u.searchParams.delete('pair');
+            history.replaceState({}, '', u);
         } else {
             status.innerHTML = 'Could not fetch URL. Please check the URL and try again.';
             status.className = 'fetch-status error';

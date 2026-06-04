@@ -453,7 +453,20 @@
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (flyParsed && flyCurrentRank) { loadRank(flyCurrentRank); updateCombinedChord(); } };
 onScriptTabSwitch = () => { updateScriptPreview(); };
-document.addEventListener('DOMContentLoaded', initColorPickers);
+document.addEventListener('DOMContentLoaded', () => {
+    initColorPickers();
+    // Deep link: ?gene=CDK2 or ?url=https://www.flyrnai.org/.../SET_xxx/
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('gene')) {
+        switchTab('search');
+        document.getElementById('gene-search-input').value = params.get('gene');
+        setTimeout(() => searchGene(), 500);
+    } else if (params.get('url')) {
+        switchTab('url');
+        document.getElementById('url-input').value = params.get('url');
+        setTimeout(() => generate(), 500);
+    }
+});
 
 // ── Tab switching ──
 function switchTab(tab) {
@@ -1261,6 +1274,11 @@ async function generate() {
             html = fetched;
             status.textContent = 'Page fetched successfully.';
             status.className = 'fetch-status success';
+            // Sync URL so this analysis is shareable / reloadable
+            const u = new URL(window.location);
+            u.searchParams.set('url', urlInput);
+            u.searchParams.delete('gene');
+            history.replaceState({}, '', u);
         } else {
             status.innerHTML = 'Could not fetch URL. Please check the URL and try again.';
             status.className = 'fetch-status error';
