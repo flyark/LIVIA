@@ -11,10 +11,10 @@
         .header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.15rem; color: #1a5276; letter-spacing: -0.02em; }
         .header h1 .livia { color: #2471A3; font-weight: 700; }
         .header .subtitle { font-size: 0.92rem; color: #888; margin-bottom: 0.8rem; font-weight: 400; }
-        .header-links { display: flex; gap: 0.6rem; flex-wrap: wrap; }
-        .header-links a { color: #555; text-decoration: none; font-size: 0.82rem; padding: 0.3rem 0.7rem; border: 1px solid #ddd; border-radius: 6px; transition: all 0.2s; background: #f8f9fa; }
+        .header-links { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+        .header-links a { color: #555; text-decoration: none; font-size: 0.74rem; padding: 0.22rem 0.5rem; border: 1px solid #ddd; border-radius: 6px; transition: all 0.2s; background: #f8f9fa; }
         .header-links a:hover { background: #2471A3; color: white; border-color: #2471A3; }
-        .container { max-width: 900px; margin: 0 auto; padding: 1.5rem; flex: 1; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; flex: 1; }
 
         .card { background: white; border-radius: 14px; padding: 1.6rem 2rem; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 1.2rem; }
         .card h2 { font-size: 1.3rem; color: #1a5276; margin-bottom: 0.4rem; }
@@ -63,6 +63,7 @@
             <a href="monomer.html">AFDB Monomer Subdomain</a>
             <a href="tutorials.html">Tutorials</a>
             <a href="about.html">About</a>
+            <a href="bookmarklet.html" style="background:#2471A3; color:white; border-color:#2471A3; font-weight:600;" aria-current="page">Bookmarklet &#9733;</a>
             <a href="https://github.com/flyark/LIVIA" target="_blank">GitHub</a>
         </div>
     </div>
@@ -116,18 +117,14 @@
             <li>Click the new bookmark &mdash; the tab navigates to the matching LIVIA page.</li>
         </ol>
 
-        <h3>If drag doesn't work (Firefox, mobile, locked-down setups)</h3>
+        <h3>If drag doesn't work</h3>
         <ol>
             <li>Right-click the bookmarks bar &rarr; <em>Add page</em> (or <em>New bookmark</em>).</li>
             <li>Name: <code>Open in LIVIA</code></li>
             <li>URL: paste the code below.</li>
         </ol>
         <div class="code">javascript:(function(){var u=location.href,p=location.origin+location.pathname,m;if(m=u.match(/alphafold\.ebi\.ac\.uk\/entry\/(AF-\d+)/))location.href='https://flyark.github.io/LIVIA/dimer.html?id='+m[1];else if(/flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details_ortho\//.test(u))location.href='https://flyark.github.io/LIVIA/ortholog_predictome.html?url='+encodeURIComponent(p);else if(/flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details\//.test(u))location.href='https://flyark.github.io/LIVIA/flypredictome.html?url='+encodeURIComponent(p);else alert('LIVIA: Unsupported page. Use on an AlphaFold DB entry page (alphafold.ebi.ac.uk/entry/AF-...) or FlyPredictome details page (flyrnai.org/.../famdb_details[_ortho]/...).');})();</div>
-    </div>
-
-    <div class="card">
-        <h3>Privacy</h3>
-        <p>The bookmarklet reads the current tab's URL only to build the LIVIA link, then navigates to it. No data is sent anywhere else &mdash; same privacy posture as the rest of LIVIA (analysis runs locally in your browser).</p>
+        <p style="font-size:0.84rem; color:#888; margin-top:0.8rem;">Tested on desktop Chrome. Other browsers (Firefox, Safari, Edge) typically support bookmarklets too, but were not verified.</p>
     </div>
 
 </div>
