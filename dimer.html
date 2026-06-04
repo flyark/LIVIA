@@ -2190,11 +2190,39 @@ function processDimer() {
     let chainStarts = [];
 
     if (chains.length >= 2) {
-        // Use chains from PAE JSON
+        // Use chains from PAE JSON. For a few AFDB entries the PAE-JSON
+        // `label_asym_id` field is swapped relative to the CIF (e.g. PAE
+        // says chain A=376aa Actin, but CIF chain A is the 126aa Profilin).
+        // Re-map each entry to the CIF chain that actually has the declared
+        // residue count, so coordinate lookup by chain id stays correct.
+        const cifResCountByChain = new Map();
+        const cifCoordsForCheck = parseCifCoords(dimerCifText);
+        for (const cc of cifCoordsForCheck) {
+            const seen = cifResCountByChain.get(cc.chain) || new Set();
+            seen.add(cc.resnum);
+            cifResCountByChain.set(cc.chain, seen);
+        }
+        const cifSizeByChain = new Map();
+        for (const [cid, set] of cifResCountByChain) cifSizeByChain.set(cid, set.size);
+        const usedCifChains = new Set();
         for (const c of chains) {
-            chainNames.push(c.label_asym_id || c.name);
-            const len = c.sequenceEnd - c.sequenceStart + 1;
-            chainSizes.push(len);
+            const expectedLen = c.sequenceEnd - c.sequenceStart + 1;
+            const declared = c.label_asym_id || c.name;
+            const declaredCifSize = cifSizeByChain.get(declared);
+            let effectiveChainId = declared;
+            if (declaredCifSize !== expectedLen) {
+                // size mismatch — find any unused CIF chain with the matching size
+                for (const [cifId, cifSize] of cifSizeByChain) {
+                    if (cifSize === expectedLen && !usedCifChains.has(cifId)) {
+                        effectiveChainId = cifId;
+                        console.warn(`dimer: PAE-JSON chain "${declared}" (${expectedLen}aa) re-mapped to CIF chain "${cifId}" (${cifSize}aa) due to size mismatch`);
+                        break;
+                    }
+                }
+            }
+            usedCifChains.add(effectiveChainId);
+            chainNames.push(effectiveChainId);
+            chainSizes.push(expectedLen);
             chainStarts.push(c.sequenceStart - 1); // 0-based
         }
     } else {
