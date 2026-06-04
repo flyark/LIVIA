@@ -428,7 +428,13 @@
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (dimerPairResult) { generateAndDisplayScript(); buildDimerSequenceViewer(); buildDimerContactMap(); buildChordDiagram(); buildComparisonCharts(); updateViewer3d(); } };
 onScriptTabSwitch = () => { if (dimerPairResult) generateAndDisplayScript(); };
-document.addEventListener('DOMContentLoaded', initColorPickers);
+document.addEventListener('DOMContentLoaded', () => {
+    initColorPickers();
+    // Deep link: ?id=AF-... or ?id=<UniProt acc> loads the entry on page open
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if (id) tryExample(id);
+});
 
 // ============================================================================
 // GLOBAL STATE
@@ -782,6 +788,13 @@ async function selectDimer(idx, trEl) {
 
     const modelEntityId = entry.modelEntityId;
     const version = entry.latestVersion || entry.modelVersion || 1;
+
+    // Sync URL so the page can be shared / reloaded back to this dimer
+    if (modelEntityId) {
+        const url = new URL(window.location);
+        url.searchParams.set('id', modelEntityId);
+        history.replaceState({}, '', url);
+    }
 
     try {
         setStatus(`Fetching CIF for ${modelEntityId}...`, 'loading');
