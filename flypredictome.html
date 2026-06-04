@@ -1602,8 +1602,16 @@ async function generate() {
     document.getElementById('error-msg').classList.remove('active');
     document.getElementById('results').classList.remove('active');
 
-    // If URL is provided, try fetching it
-    if (urlInput && urlInput.startsWith('http') && urlInput.includes('flyrnai.org')) {
+    // If URL is provided, try fetching it.
+    // Strict hostname check: only the real FlyPredictome host. Substring matches
+    // like `flyrnai.org.evil.com` or `attacker.com/?flyrnai.org` are rejected.
+    let isFlyHost = false;
+    try {
+        const p = new URL(urlInput);
+        isFlyHost = (p.protocol === 'http:' || p.protocol === 'https:')
+                    && (p.hostname === 'www.flyrnai.org' || p.hostname === 'flyrnai.org');
+    } catch (e) {}
+    if (urlInput && isFlyHost) {
         status.textContent = 'Fetching page from FlyPredictome... (can take several seconds)';
         status.className = 'fetch-status loading';
         document.getElementById('btn-generate').disabled = true;
