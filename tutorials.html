@@ -292,7 +292,7 @@
                 </div>
                 <div class="step-item" data-step="5" onclick="goToStep('dimer', 5)">
                     <div class="step-badge">6</div>
-                    <div class="step-text">Bookmarklet also routes ortholog interactome pages to LIVIA ortholog</div>
+                    <div class="step-text">FlyPredictome's ortholog detail pages also route to LIVIA Ortholog</div>
                 </div>
             </div>
             <div class="screenshot-area" data-tutorial="dimer">
@@ -309,149 +309,6 @@
     <!-- ============================================================ -->
     <!-- TUTORIAL 3: FlyPredictome -->
     <!-- ============================================================ -->
-    <div class="tutorial-card" id="tut-fly">
-        <div class="tutorial-header">
-            <div>
-                <h3>FlyPredictome</h3>
-                <p>Browse <em>Drosophila</em> protein-protein interaction predictions</p>
-            </div>
-            <a class="try-btn" href="flypredictome.html">Try it &rarr;</a>
-        </div>
-        <div class="tutorial-body">
-            <div class="steps-sidebar" data-tutorial="fly">
-                <div class="step-item active" data-step="0" onclick="goToStep('fly', 0)">
-                    <div class="step-badge">1</div>
-                    <div class="step-text">Search by gene, gene pair, or paste a FlyPredictome URL</div>
-                </div>
-                <div class="step-item" data-step="1" onclick="goToStep('fly', 1)">
-                    <div class="step-badge">2</div>
-                    <div class="step-text">Per-rank metrics for the selected pair</div>
-                </div>
-                <div class="step-item" data-step="2" onclick="goToStep('fly', 2)">
-                    <div class="step-badge">3</div>
-                    <div class="step-text">Sequence Viewer with LIR / cLIR highlighting</div>
-                </div>
-                <div class="step-item" data-step="3" onclick="goToStep('fly', 3)">
-                    <div class="step-badge">4</div>
-                    <div class="step-text">Linear Contact Map &mdash; cLIR residue pairs</div>
-                </div>
-                <div class="step-item" data-step="4" onclick="goToStep('fly', 4)">
-                    <div class="step-badge">5</div>
-                    <div class="step-text">Circular Contact Map &mdash; chord across both chains</div>
-                </div>
-                <div class="step-item" data-step="5" onclick="goToStep('fly', 5)">
-                    <div class="step-badge">6</div>
-                    <div class="step-text">View the 3D structure in Mol* viewer</div>
-                </div>
-            </div>
-            <div class="screenshot-area" data-tutorial="fly">
-                <img id="img-fly" src="screenshots/tut_fly_1.png" alt="Tutorial step">
-                <div class="screenshot-caption" id="cap-fly">Search by gene (e.g. Akt1), a gene pair, or paste a FlyPredictome detail URL</div>
-                <div class="progress-dots" id="dots-fly"></div>
-                <div class="playback-controls">
-                    <button class="playback-btn" onclick="togglePlayback('fly')" id="play-btn-fly" title="Pause/Resume">&#9646;&#9646; Pause</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ============================================================ -->
-    <!-- TUTORIAL 4: Ortholog Interactome -->
-    <!-- ============================================================ -->
-    <div class="tutorial-card" id="tut-ortho">
-        <div class="tutorial-header">
-            <div>
-                <h3>Ortholog Interactome</h3>
-                <p>Human/ortholog protein interaction predictions from FlyPredictome ortholog search</p>
-            </div>
-            <a class="try-btn" href="ortholog_predictome.html">Try it &rarr;</a>
-        </div>
-        <div class="tutorial-body">
-            <div class="steps-sidebar" data-tutorial="ortho">
-                <div class="step-item active" data-step="0" onclick="goToStep('ortho', 0)">
-                    <div class="step-badge">1</div>
-                    <div class="step-text">Search by human/ortholog gene or paste an ortholog URL</div>
-                </div>
-                <div class="step-item" data-step="1" onclick="goToStep('ortho', 1)">
-                    <div class="step-badge">2</div>
-                    <div class="step-text">Per-rank metrics and Average row</div>
-                </div>
-                <div class="step-item" data-step="2" onclick="goToStep('ortho', 2)">
-                    <div class="step-badge">3</div>
-                    <div class="step-text">Sequence Viewer for both chains</div>
-                </div>
-                <div class="step-item" data-step="3" onclick="goToStep('ortho', 3)">
-                    <div class="step-badge">4</div>
-                    <div class="step-text">Linear Contact Map &mdash; cLIR pairs</div>
-                </div>
-                <div class="step-item" data-step="4" onclick="goToStep('ortho', 4)">
-                    <div class="step-badge">5</div>
-                    <div class="step-text">Circular Contact Map</div>
-                </div>
-                <div class="step-item" data-step="5" onclick="goToStep('ortho', 5)">
-                    <div class="step-badge">6</div>
-                    <div class="step-text">3D viewer in Mol*</div>
-                </div>
-            </div>
-            <div class="screenshot-area" data-tutorial="ortho">
-                <img id="img-ortho" src="screenshots/tut_ortho_1.png" alt="Tutorial step">
-                <div class="screenshot-caption" id="cap-ortho">Search by gene (e.g. CDK2) or paste an ortholog detail URL</div>
-                <div class="progress-dots" id="dots-ortho"></div>
-                <div class="playback-controls">
-                    <button class="playback-btn" onclick="togglePlayback('ortho')" id="play-btn-ortho" title="Pause/Resume">&#9646;&#9646; Pause</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ============================================================ -->
-    <!-- TUTORIAL 5: AFDB Monomer Subdomain -->
-    <!-- ============================================================ -->
-    <div class="tutorial-card" id="tut-monomer">
-        <div class="tutorial-header">
-            <div>
-                <h3>AFDB Monomer Subdomain</h3>
-                <p>Identify intramolecular domain interactions in AlphaFold monomer predictions</p>
-            </div>
-            <a class="try-btn" href="monomer.html">Try it &rarr;</a>
-        </div>
-        <div class="tutorial-body">
-            <div class="steps-sidebar" data-tutorial="monomer">
-                <div class="step-item active" data-step="0" onclick="goToStep('monomer', 0)">
-                    <div class="step-badge">1</div>
-                    <div class="step-text">Enter a UniProt ID (auto-fetches structure + domain regions)</div>
-                </div>
-                <div class="step-item" data-step="1" onclick="goToStep('monomer', 1)">
-                    <div class="step-badge">2</div>
-                    <div class="step-text">Per-Residue intra-chain LIS &amp; pLDDT charts</div>
-                </div>
-                <div class="step-item" data-step="2" onclick="goToStep('monomer', 2)">
-                    <div class="step-badge">3</div>
-                    <div class="step-text">Subdomain interaction chord</div>
-                </div>
-                <div class="step-item" data-step="3" onclick="goToStep('monomer', 3)">
-                    <div class="step-badge">4</div>
-                    <div class="step-text">Sequence Viewer with cLIR contacts</div>
-                </div>
-                <div class="step-item" data-step="4" onclick="goToStep('monomer', 4)">
-                    <div class="step-badge">5</div>
-                    <div class="step-text">3D viewer in Mol*</div>
-                </div>
-                <div class="step-item" data-step="5" onclick="goToStep('monomer', 5)">
-                    <div class="step-badge">6</div>
-                    <div class="step-text">Download ChimeraX/PyMOL script and PDB</div>
-                </div>
-            </div>
-            <div class="screenshot-area" data-tutorial="monomer">
-                <img id="img-monomer" src="screenshots/tut_monomer_1.png" alt="Tutorial step">
-                <div class="screenshot-caption" id="cap-monomer">Enter a UniProt accession &mdash; structure + auto-detected regions appear</div>
-                <div class="progress-dots" id="dots-monomer"></div>
-                <div class="playback-controls">
-                    <button class="playback-btn" onclick="togglePlayback('monomer')" id="play-btn-monomer" title="Pause/Resume">&#9646;&#9646; Pause</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
 </div>
 
@@ -486,40 +343,7 @@ const tutorials = {
             { src: 'screenshots/tut_dimer_3.png', caption: 'Click the bookmark \u2014 LIVIA dimer opens in a new tab with interface metrics auto-loaded' },
             { src: 'screenshots/tut_fly_bm.png', caption: 'Same flow on FlyPredictome \u2014 visit a famdb_details page and click the bookmark' },
             { src: 'screenshots/tut_fly_2.png', caption: 'LIVIA FlyPredictome opens with per-rank metrics, sequence viewer, contact maps, and a 3D viewer' },
-            { src: 'screenshots/tut_ortho_bm.png', caption: 'Ortholog pages (famdb_details_ortho) route to LIVIA Ortholog Interactome' }
-        ],
-        current: 0, timer: null, paused: false
-    },
-    fly: {
-        steps: [
-            { src: 'screenshots/tut_fly_1.png', caption: 'Search by gene, gene pair, or paste a FlyPredictome detail URL' },
-            { src: 'screenshots/tut_fly_2.png', caption: 'Per-rank metrics for the selected pair (iLIS, ipTM, LIR/cLIR counts)' },
-            { src: 'screenshots/tut_fly_seq.png', caption: 'Sequence Viewer with LIR (light) and cLIR (dark) highlighting' },
-            { src: 'screenshots/tut_fly_3.png', caption: 'Linear Contact Map \u2014 cLIR residue pairs within C\u03B2 8 \u00C5' },
-            { src: 'screenshots/tut_fly_4.png', caption: 'Circular Contact Map across both chains' },
-            { src: 'screenshots/tut_fly_5.png', caption: 'View the 3D structure in Mol* viewer' }
-        ],
-        current: 0, timer: null, paused: false
-    },
-    ortho: {
-        steps: [
-            { src: 'screenshots/tut_ortho_1.png', caption: 'Search by gene (e.g. CDK2) or paste an ortholog detail URL' },
-            { src: 'screenshots/tut_ortho_2.png', caption: 'Per-rank metrics with Average row for the predicted pair' },
-            { src: 'screenshots/tut_ortho_seq.png', caption: 'Sequence Viewer for both chains' },
-            { src: 'screenshots/tut_ortho_3.png', caption: 'Linear Contact Map \u2014 cLIR pairs' },
-            { src: 'screenshots/tut_ortho_4.png', caption: 'Circular Contact Map' },
-            { src: 'screenshots/tut_ortho_5.png', caption: 'Interactive 3D structure in Mol* viewer' }
-        ],
-        current: 0, timer: null, paused: false
-    },
-    monomer: {
-        steps: [
-            { src: 'screenshots/tut_monomer_1.png', caption: 'Enter a UniProt accession (e.g. Q8INB9) \u2014 LIVIA auto-fetches the AlphaFold structure and detects domain regions' },
-            { src: 'screenshots/tut_monomer_2.png', caption: 'Per-Residue intra-chain LIS & pLDDT charts identify interaction-prone residues' },
-            { src: 'screenshots/tut_monomer_3.png', caption: 'Subdomain interaction chord \u2014 visualize domain\u2013domain contacts' },
-            { src: 'screenshots/tut_monomer_seq.png', caption: 'Sequence Viewer with cLIR contacts marked per region' },
-            { src: 'screenshots/tut_monomer_4.png', caption: 'View the 3D structure in Mol* viewer with subdomain coloring' },
-            { src: 'screenshots/tut_monomer_5.png', caption: 'Download the ChimeraX/PyMOL script and PDB' }
+            { src: 'screenshots/tut_ortho_bm.png', caption: 'FlyPredictome’s ortholog detail pages also route to LIVIA Ortholog Interactome' }
         ],
         current: 0, timer: null, paused: false
     }
