@@ -272,35 +272,27 @@
             <div class="steps-sidebar" data-tutorial="dimer">
                 <div class="step-item active" data-step="0" onclick="goToStep('dimer', 0)">
                     <div class="step-badge">1</div>
-                    <div class="step-text">Install the <em>Open in LIVIA</em> bookmarklet (drag to bookmarks bar)</div>
+                    <div class="step-text">Drag the <em>Open in LIVIA</em> button to your browser's bookmarks bar</div>
                 </div>
                 <div class="step-item" data-step="1" onclick="goToStep('dimer', 1)">
                     <div class="step-badge">2</div>
-                    <div class="step-text">On an AlphaFold DB dimer page, click the bookmark &mdash; LIVIA opens in a new tab</div>
+                    <div class="step-text">On any AlphaFold DB dimer entry page, click the bookmark</div>
                 </div>
                 <div class="step-item" data-step="2" onclick="goToStep('dimer', 2)">
                     <div class="step-badge">3</div>
-                    <div class="step-text">Review interface metrics &mdash; iLIS, LIS, cLIS, ipSAE, ipTM</div>
+                    <div class="step-text">LIVIA opens in a new tab with interface metrics auto-loaded</div>
                 </div>
                 <div class="step-item" data-step="3" onclick="goToStep('dimer', 3)">
                     <div class="step-badge">4</div>
-                    <div class="step-text">Explore PAE, LIS, and cLIS heatmaps</div>
+                    <div class="step-text">Circular Contact Map of cLIR residue pairs</div>
                 </div>
                 <div class="step-item" data-step="4" onclick="goToStep('dimer', 4)">
                     <div class="step-badge">5</div>
-                    <div class="step-text">Sequence Viewer &mdash; LIR and cLIR residues highlighted</div>
+                    <div class="step-text">View the 3D structure in Mol* viewer</div>
                 </div>
                 <div class="step-item" data-step="5" onclick="goToStep('dimer', 5)">
                     <div class="step-badge">6</div>
-                    <div class="step-text">Circular Contact Map of cLIR pairs</div>
-                </div>
-                <div class="step-item" data-step="6" onclick="goToStep('dimer', 6)">
-                    <div class="step-badge">7</div>
-                    <div class="step-text">View the 3D structure in Mol* viewer</div>
-                </div>
-                <div class="step-item" data-step="7" onclick="goToStep('dimer', 7)">
-                    <div class="step-badge">8</div>
-                    <div class="step-text">Download ChimeraX/PyMOL script and CIF</div>
+                    <div class="step-text">Download the ChimeraX/PyMOL script and CIF</div>
                 </div>
             </div>
             <div class="screenshot-area" data-tutorial="dimer">
@@ -489,12 +481,11 @@ const tutorials = {
     },
     dimer: {
         steps: [
-            { src: 'screenshots/tut_dimer_1.png', caption: 'Install the Open in LIVIA bookmarklet by dragging the blue button to your bookmarks bar' },
-            { src: 'screenshots/tut_dimer_2.png', caption: 'On an AlphaFold DB dimer page, click the bookmark \u2014 LIVIA opens in a new tab with interface metrics' },
-            { src: 'screenshots/tut_dimer_3.png', caption: 'PAE, LIS, and cLIS heatmaps' },
-            { src: 'screenshots/tut_dimer_seq.png', caption: 'Sequence Viewer \u2014 LIR (light) and cLIR (dark) residues' },
+            { src: 'screenshots/tut_dimer_1.png', caption: 'Drag the blue Open in LIVIA button to your browser\u2019s bookmarks bar \u2014 one-time install' },
+            { src: 'screenshots/tut_dimer_2.png', caption: 'On any AlphaFold DB dimer entry page (alphafold.ebi.ac.uk/entry/AF-\u2026), click the bookmark' },
+            { src: 'screenshots/tut_dimer_3.png', caption: 'LIVIA opens in a new tab with interface metrics auto-loaded (iLIS, LIS, cLIS, ipSAE, ipTM)' },
             { src: 'screenshots/tut_dimer_4.png', caption: 'Circular Contact Map \u2014 chord lines connect cLIR residue pairs in contact' },
-            { src: 'screenshots/tut_dimer_5.png', caption: 'Interactive 3D structure in Mol* viewer' },
+            { src: 'screenshots/tut_dimer_5.png', caption: 'Interactive 3D structure in Mol* viewer with LIR/cLIR coloring' },
             { src: 'screenshots/tut_dimer_6.png', caption: 'Download the ChimeraX/PyMOL script and CIF \u2014 reproduce locally' }
         ],
         current: 0, timer: null, paused: false
