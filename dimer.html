@@ -2203,56 +2203,27 @@ function processDimer() {
     let chainSizes = [];
     let chainStarts = [];
 
-    if (chains.length >= 2) {
-        // Use chains from PAE JSON. For a few AFDB entries the PAE-JSON
-        // `label_asym_id` field is swapped relative to the CIF (e.g. PAE
-        // says chain A=376aa Actin, but CIF chain A is the 126aa Profilin).
-        // Re-map each entry to the CIF chain that actually has the declared
-        // residue count, so coordinate lookup by chain id stays correct.
-        const cifResCountByChain = new Map();
-        const cifCoordsForCheck = parseCifCoords(dimerCifText);
-        for (const cc of cifCoordsForCheck) {
-            const seen = cifResCountByChain.get(cc.chain) || new Set();
-            seen.add(cc.resnum);
-            cifResCountByChain.set(cc.chain, seen);
-        }
-        const cifSizeByChain = new Map();
-        for (const [cid, set] of cifResCountByChain) cifSizeByChain.set(cid, set.size);
-        const usedCifChains = new Set();
-        for (const c of chains) {
-            const expectedLen = c.sequenceEnd - c.sequenceStart + 1;
-            const declared = c.label_asym_id || c.name;
-            const declaredCifSize = cifSizeByChain.get(declared);
-            let effectiveChainId = declared;
-            if (declaredCifSize !== expectedLen) {
-                // size mismatch — find any unused CIF chain with the matching size
-                for (const [cifId, cifSize] of cifSizeByChain) {
-                    if (cifSize === expectedLen && !usedCifChains.has(cifId)) {
-                        effectiveChainId = cifId;
-                        console.warn(`dimer: PAE-JSON chain "${declared}" (${expectedLen}aa) re-mapped to CIF chain "${cifId}" (${cifSize}aa) due to size mismatch`);
-                        break;
-                    }
-                }
+    // Build chainNames / sizes in CIF atom-record order. The PAE matrix is
+    // concatenated in the model's atom-record order (same as the CIF), but the
+    // PAE-JSON `chains` array order is metadata only — for some AFDB entries it
+    // differs from the matrix order (e.g. AF-0000000205252810 lists chain B
+    // before A; AF-0000000204175496 swaps label_asym_id sizes entirely).
+    // CIF order is the only reliable source for chain block boundaries.
+    {
+        const cifCoordsForOrder = parseCifCoords(dimerCifText);
+        const cifChainOrder = [];           // unique chain ids in first-appearance order
+        const cifChainResnums = new Map();  // chain id → Set of residue numbers
+        for (const cc of cifCoordsForOrder) {
+            if (!cifChainResnums.has(cc.chain)) {
+                cifChainOrder.push(cc.chain);
+                cifChainResnums.set(cc.chain, new Set());
             }
-            usedCifChains.add(effectiveChainId);
-            chainNames.push(effectiveChainId);
-            chainSizes.push(expectedLen);
-            chainStarts.push(c.sequenceStart - 1); // 0-based
+            cifChainResnums.get(cc.chain).add(cc.resnum);
         }
-    } else {
-        // Infer from CIF coordinates
-        const coords = parseCifCoords(dimerCifText);
-        const chainMap = new Map();
-        for (const c of coords) {
-            if (!chainMap.has(c.chain)) chainMap.set(c.chain, 0);
-            chainMap.set(c.chain, chainMap.get(c.chain) + 1);
-        }
-        let offset = 0;
-        for (const [name, size] of chainMap) {
-            chainNames.push(name);
-            chainSizes.push(size);
-            chainStarts.push(offset);
-            offset += size;
+        for (const cid of cifChainOrder) {
+            chainNames.push(cid);
+            chainSizes.push(cifChainResnums.get(cid).size);
+            chainStarts.push(0); // per-chain residue numbering starts at 1
         }
     }
 
@@ -3153,7 +3124,8 @@ function updateViewer3d() {
 
     // Slow path: structure changed → full iframe rebuild
     viewer3dStructText = dimerCifText;
-    const page = buildMolstarPage(dimerCifText, fmt, colorComponents);
+    const liviaBaseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
+    const page = buildMolstarPage(dimerCifText, fmt, colorComponents, liviaBaseUrl);
     const blob = new Blob([page], { type: 'text/html' });
     if (viewer3dBlobUrl) URL.revokeObjectURL(viewer3dBlobUrl);
     viewer3dBlobUrl = URL.createObjectURL(blob);

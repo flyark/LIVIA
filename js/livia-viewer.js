@@ -160,30 +160,97 @@ function applyColorsToMolstarFrame(frameId, colorComponents, fmt) {
 // structData: raw structure text (PDB or mmCIF)
 // fmt: 'pdb' or 'mmcif'
 // colorComponents: array of { chain, ranges: [{start, end}], color: '#hex' }
-function buildMolstarPage(structData, fmt, colorComponents) {
+// parentBaseUrl: absolute URL of the parent LIVIA page (used for self-hosted Mol* fallback)
+const MOLSTAR_VERSION = '5.9.0';
+function buildMolstarPage(structData, fmt, colorComponents, parentBaseUrl) {
     const mvsJson = buildMvsJson(colorComponents, fmt);
+    const selfHostBase = parentBaseUrl || '';
 
     return `<!DOCTYPE html>
 <html><head>
-<script src="https://cdn.jsdelivr.net/npm/molstar@latest/build/viewer/molstar.js"><\/script>
-<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/molstar@latest/build/viewer/molstar.css" />
 <style>
 #viewer1 { position:absolute; top:0; left:0; right:0; bottom:0; }
 @media (max-width: 768px) {
   .msp-layout-right { display: none !important; }
   .msp-viewport-controls { display: none !important; }
 }
+#loading-overlay, #error-overlay {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: white; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; z-index: 1000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+#error-overlay { display: none; }
+#loading-overlay .loading-text { font-size: 13px; color: #555; margin-bottom: 14px; }
+#loading-overlay .loading-source { font-size: 11px; color: #aaa; margin-top: 8px; }
+#loading-overlay .spinner-bar { width: 220px; height: 3px; background: #eee; border-radius: 2px; overflow: hidden; position: relative; }
+#loading-overlay .spinner-fill { position: absolute; width: 30%; height: 100%; background: #2471A3; animation: livia-slide 1.2s ease-in-out infinite; }
+@keyframes livia-slide { 0% { left: -30%; } 100% { left: 100%; } }
+#error-overlay .error-text { font-size: 13px; color: #c62828; margin-bottom: 12px; }
+#error-overlay button { padding: 6px 16px; background: #2471A3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+#error-overlay button:hover { background: #1a5276; }
 </style>
 </head><body>
 <div id="viewer1"></div>
+<div id="loading-overlay">
+  <div class="loading-text">Loading 3D viewer&hellip;</div>
+  <div class="spinner-bar"><div class="spinner-fill"></div></div>
+  <div class="loading-source" id="loading-source"></div>
+</div>
+<div id="error-overlay">
+  <div class="error-text">Could not load 3D viewer.</div>
+  <button onclick="parent.postMessage({type:'molstarRetry'},'*');">Retry</button>
+</div>
 <script>
 var structData = ${JSON.stringify(structData)};
 var fmt = "${fmt}";
 var mvsTemplate = ${JSON.stringify(JSON.stringify(mvsJson))};
+var SELF_HOST_BASE = ${JSON.stringify(selfHostBase)};
+var MOLSTAR_VERSION = ${JSON.stringify(MOLSTAR_VERSION)};
+var MOLSTAR_SOURCES = [
+    {label:'jsdelivr', js:'https://cdn.jsdelivr.net/npm/molstar@'+MOLSTAR_VERSION+'/build/viewer/molstar.js', css:'https://cdn.jsdelivr.net/npm/molstar@'+MOLSTAR_VERSION+'/build/viewer/molstar.css'},
+    {label:'unpkg',    js:'https://unpkg.com/molstar@'+MOLSTAR_VERSION+'/build/viewer/molstar.js',           css:'https://unpkg.com/molstar@'+MOLSTAR_VERSION+'/build/viewer/molstar.css'},
+    {label:'self-host',js:SELF_HOST_BASE+'lib/molstar/molstar.js',                                            css:SELF_HOST_BASE+'lib/molstar/molstar.css'},
+];
 var _viewer = null;
 var _structUrl = null;
 var _ready = false;
 var _pendingColorMvs = null;
+
+function _setLoadingSource(label) {
+    var el = document.getElementById('loading-source');
+    if (el) el.textContent = 'Source: ' + label;
+}
+function _hideLoading() {
+    var l = document.getElementById('loading-overlay');
+    if (l) l.style.display = 'none';
+}
+function _showError() {
+    _hideLoading();
+    var e = document.getElementById('error-overlay');
+    if (e) e.style.display = 'flex';
+    try { parent.postMessage({ type: 'molstarFailed' }, '*'); } catch(_) {}
+}
+
+function _loadMolstarLib(idx) {
+    if (idx >= MOLSTAR_SOURCES.length) { _showError(); return; }
+    var src = MOLSTAR_SOURCES[idx];
+    _setLoadingSource(src.label);
+    var link = document.createElement('link');
+    link.rel = 'stylesheet'; link.type = 'text/css'; link.href = src.css;
+    document.head.appendChild(link);
+    var s = document.createElement('script');
+    s.src = src.js;
+    s.onload = function() {
+        init().catch(function(e) { console.error('Mol* init error:', e); _showError(); });
+    };
+    s.onerror = function() {
+        console.warn('Mol* source failed:', src.label, src.js);
+        try { link.remove(); s.remove(); } catch(_) {}
+        _loadMolstarLib(idx + 1);
+    };
+    document.head.appendChild(s);
+}
 
 // Apply Mol*'s "Illustrative" style preset (matches the UI's Apply Style → Illustrative button)
 // Equivalent to: ignoreLight on components + outline + occlusion + shadow off
@@ -322,28 +389,51 @@ async function init() {
     _structUrl = structUrl;
     var mvsStr = mvsTemplate.replace('__STRUCT_BLOB_URL__', structUrl);
 
+    // Load structure, awaiting promise so reject (not just sync throw) triggers fallback.
     try {
-        viewer.loadMvsData(mvsStr, 'mvsj');
+        var p = viewer.loadMvsData(mvsStr, 'mvsj');
+        if (p && typeof p.then === 'function') await p;
     } catch(e) {
-        console.warn('MVS failed, falling back:', e);
-        viewer.loadStructureFromData(structData, fmt);
+        console.warn('MVS load failed, falling back to loadStructureFromData:', e);
+        try {
+            var p2 = viewer.loadStructureFromData(structData, fmt);
+            if (p2 && typeof p2.then === 'function') await p2;
+        } catch(e2) {
+            console.error('Fallback structure load also failed:', e2);
+            _showError();
+            return;
+        }
     }
 
-    // Apply illustrative style AFTER loading
-    setTimeout(function() {
-        _applyIllustrativeStyle(viewer);
-        // Default screenshot to transparent background
-        try {
-            var sh = viewer.plugin.helpers.viewportScreenshot;
-            if (sh) {
-                var cur = sh.behaviors.values.value;
-                sh.behaviors.values.next(Object.assign({}, cur, { transparent: true }));
-            }
-        } catch(e3) {}
-        _notifyReady();
-    }, 2000);
+    // Apply illustrative style after the actual structure load
+    try { await _applyIllustrativeStyle(viewer); } catch(_) {}
+    try {
+        var sh = viewer.plugin.helpers.viewportScreenshot;
+        if (sh) {
+            var cur = sh.behaviors.values.value;
+            sh.behaviors.values.next(Object.assign({}, cur, { transparent: true }));
+        }
+    } catch(e3) {}
+    _hideLoading();
+    _notifyReady();
 }
-init().catch(function(e) { console.error('Mol* error:', e); });
+_loadMolstarLib(0);
 <\/script>
 </body></html>`;
+}
+
+// ── Parent-side: handle retry requests from inside the iframe ──
+// User clicks "Retry" in the iframe's error overlay → iframe posts 'molstarRetry'.
+// We rebuild the iframe with the same blob URL so the fallback chain runs again.
+if (typeof window !== 'undefined' && !window.__livia_molstar_retry_listener) {
+    window.__livia_molstar_retry_listener = true;
+    window.addEventListener('message', function(e) {
+        if (!e.data || e.data.type !== 'molstarRetry') return;
+        const frame = document.getElementById('viewer3d-frame');
+        if (!frame || !frame.src) return;
+        const parent = frame.parentNode;
+        const newFrame = frame.cloneNode(false);
+        newFrame.src = frame.src;
+        parent.replaceChild(newFrame, frame);
+    });
 }

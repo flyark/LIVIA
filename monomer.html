@@ -2687,7 +2687,8 @@ function updateViewer3d(validRegions) {
 
     // Slow path: structure changed → full iframe rebuild
     viewer3dStructText = monPdbText;
-    const page = buildMolstarPage(monPdbText, 'pdb', colorComponents);
+    const liviaBaseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
+    const page = buildMolstarPage(monPdbText, 'pdb', colorComponents, liviaBaseUrl);
     const blob = new Blob([page], { type: 'text/html' });
     if (viewer3dBlobUrl) URL.revokeObjectURL(viewer3dBlobUrl);
     viewer3dBlobUrl = URL.createObjectURL(blob);
