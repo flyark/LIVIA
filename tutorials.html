@@ -258,41 +258,41 @@
     </div>
 
     <!-- ============================================================ -->
-    <!-- TUTORIAL 2: AFDB Dimer + Bookmarklet -->
+    <!-- TUTORIAL 2: Bookmarklet for AFDB and FlyPredictome -->
     <!-- ============================================================ -->
     <div class="tutorial-card" id="tut-dimer">
         <div class="tutorial-header">
             <div>
-                <h3>AFDB Dimer + Bookmarklet</h3>
-                <p>Jump from any AlphaFold DB dimer page straight into LIVIA analysis</p>
+                <h3>Bookmarklet for AFDB and FlyPredictome</h3>
+                <p>One-click jump from AlphaFold DB or FlyPredictome straight into LIVIA</p>
             </div>
-            <a class="try-btn" href="dimer.html">Try it &rarr;</a>
+            <a class="try-btn" href="bookmarklet.html">Install &rarr;</a>
         </div>
         <div class="tutorial-body">
             <div class="steps-sidebar" data-tutorial="dimer">
                 <div class="step-item active" data-step="0" onclick="goToStep('dimer', 0)">
                     <div class="step-badge">1</div>
-                    <div class="step-text">Drag the <em>Open in LIVIA</em> button to your browser's bookmarks bar</div>
+                    <div class="step-text">Drag the <em>Open in LIVIA</em> button to your browser's bookmarks bar (one-time)</div>
                 </div>
                 <div class="step-item" data-step="1" onclick="goToStep('dimer', 1)">
                     <div class="step-badge">2</div>
-                    <div class="step-text">On any AlphaFold DB dimer entry page, click the bookmark</div>
+                    <div class="step-text">Open any AlphaFold DB dimer entry page</div>
                 </div>
                 <div class="step-item" data-step="2" onclick="goToStep('dimer', 2)">
                     <div class="step-badge">3</div>
-                    <div class="step-text">LIVIA opens in a new tab with interface metrics auto-loaded</div>
+                    <div class="step-text">Click the bookmark &mdash; LIVIA dimer opens in a new tab with metrics auto-loaded</div>
                 </div>
                 <div class="step-item" data-step="3" onclick="goToStep('dimer', 3)">
                     <div class="step-badge">4</div>
-                    <div class="step-text">Circular Contact Map of cLIR residue pairs</div>
+                    <div class="step-text">Same workflow on FlyPredictome &mdash; visit a famdb_details page and click the bookmark</div>
                 </div>
                 <div class="step-item" data-step="4" onclick="goToStep('dimer', 4)">
                     <div class="step-badge">5</div>
-                    <div class="step-text">View the 3D structure in Mol* viewer</div>
+                    <div class="step-text">LIVIA FlyPredictome opens with the same analysis pipeline</div>
                 </div>
                 <div class="step-item" data-step="5" onclick="goToStep('dimer', 5)">
                     <div class="step-badge">6</div>
-                    <div class="step-text">Download the ChimeraX/PyMOL script and CIF</div>
+                    <div class="step-text">Bookmarklet also routes ortholog interactome pages to LIVIA ortholog</div>
                 </div>
             </div>
             <div class="screenshot-area" data-tutorial="dimer">
@@ -482,11 +482,11 @@ const tutorials = {
     dimer: {
         steps: [
             { src: 'screenshots/tut_dimer_1.png', caption: 'Drag the blue Open in LIVIA button to your browser\u2019s bookmarks bar \u2014 one-time install' },
-            { src: 'screenshots/tut_dimer_2.png', caption: 'On any AlphaFold DB dimer entry page (alphafold.ebi.ac.uk/entry/AF-\u2026), click the bookmark' },
-            { src: 'screenshots/tut_dimer_3.png', caption: 'LIVIA opens in a new tab with interface metrics auto-loaded (iLIS, LIS, cLIS, ipSAE, ipTM)' },
-            { src: 'screenshots/tut_dimer_4.png', caption: 'Circular Contact Map \u2014 chord lines connect cLIR residue pairs in contact' },
-            { src: 'screenshots/tut_dimer_5.png', caption: 'Interactive 3D structure in Mol* viewer with LIR/cLIR coloring' },
-            { src: 'screenshots/tut_dimer_6.png', caption: 'Download the ChimeraX/PyMOL script and CIF \u2014 reproduce locally' }
+            { src: 'screenshots/tut_dimer_2.png', caption: 'Open any AlphaFold DB dimer entry page (alphafold.ebi.ac.uk/entry/AF-\u2026)' },
+            { src: 'screenshots/tut_dimer_3.png', caption: 'Click the bookmark \u2014 LIVIA dimer opens in a new tab with interface metrics auto-loaded' },
+            { src: 'screenshots/tut_fly_bm.png', caption: 'Same flow on FlyPredictome \u2014 visit a famdb_details page and click the bookmark' },
+            { src: 'screenshots/tut_fly_2.png', caption: 'LIVIA FlyPredictome opens with per-rank metrics, sequence viewer, contact maps, and a 3D viewer' },
+            { src: 'screenshots/tut_ortho_bm.png', caption: 'Ortholog pages (famdb_details_ortho) route to LIVIA Ortholog Interactome' }
         ],
         current: 0, timer: null, paused: false
     },
