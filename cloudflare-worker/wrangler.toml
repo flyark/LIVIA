@@ -1,0 +1,4 @@
+name = "livia-proxy"
+main = "worker.js"
+compatibility_date = "2026-06-08"
+# Free Workers plan supports 100k requests/day — plenty for LIVIA traffic.

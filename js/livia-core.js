@@ -151,9 +151,11 @@ function lightenColor(hex, amount) {
 }
 
 // ── CORS proxy URL builders ──
+// Primary: self-hosted Cloudflare Worker (source: cloudflare-worker/worker.js).
+// Fallback: corsproxy.io (paywalled — works on localhost only, kept as dev safety net).
+// Removed: api.codetabs.com / api.allorigins.win — both went offline in 2026.
 const CORS_PROXIES = [
-    url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    url => `https://livia-proxy.flyark.workers.dev/?url=${encodeURIComponent(url)}`,
     url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
 ];
 
