@@ -3251,6 +3251,7 @@ function buildFlySeqViewer(row, sym1, sym2, colors, chainSeqs) {
                 const el = document.createElement('span');
                 el.className = 'seq-res' + (isClir ? ' clir' : '');
                 el.style.background = isClir ? cc.clirColor : isLir ? lightenColor(cc.clirColor.replace('#',''), 0.4) : grayNonLir ? '#D5D5D5' : 'transparent';
+                if (i > rowStart && (i - rowStart) % 10 === 0) el.style.marginLeft = '3px';
                 if (aa) el.textContent = aa;
                 el.addEventListener('mouseenter', (e) => {
                     tooltip.textContent = (aa ? `${aa}${resnum}` : `Res ${resnum}`) + (isClir ? ' (cLIR)' : isLir ? ' (LIR)' : '');
@@ -3260,12 +3261,6 @@ function buildFlySeqViewer(row, sym1, sym2, colors, chainSeqs) {
                 });
                 el.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
                 blocks.appendChild(el);
-
-                if ((i - rowStart + 1) % 10 === 0 && i < rowEnd - 1) {
-                    const gap = document.createElement('span');
-                    gap.style.cssText = 'width:3px; display:inline-block;';
-                    blocks.appendChild(gap);
-                }
             }
             rowDiv.appendChild(blocks);
 
