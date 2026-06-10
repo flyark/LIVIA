@@ -292,6 +292,11 @@
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Interactive 3D preview powered by <a href="https://molstar.org" target="_blank" style="color:#2471A3;">Mol*</a> (<a href="https://doi.org/10.1093/nar/gkab314" target="_blank" style="color:#2471A3;">Sehnal et al. 2021</a>). LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom. <span style="color:#999;">If the viewer appears empty, refresh the page.</span>
             </div>
+            <div id="chain-toggle-bar" style="display:none; align-items:center; gap:0.4rem; margin-bottom:0.5rem; flex-wrap:wrap; font-size:0.82rem; color:#555;">
+                <span>Chains shown in 3D &amp; chord:</span>
+                <div id="chain-toggle-buttons" style="display:flex; gap:0.25rem; flex-wrap:wrap;"></div>
+                <button id="chain-toggle-reset" onclick="resetChainVisibility()" style="padding:0.2rem 0.55rem; border:1px solid #ddd; border-radius:4px; background:#f8f9fa; cursor:pointer; font-size:0.75rem; color:#555;">Reset</button>
+            </div>
             <iframe id="viewer3d-frame" style="width:100%; height:660px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin allow-downloads" allowfullscreen></iframe>
             <div style="text-align:right; margin-top:0.3rem;">
                 <button onclick="document.getElementById('viewer3d-frame').requestFullscreen()" style="padding:0.25rem 0.6rem; border:1px solid #ddd; border-radius:4px; background:#f8f9fa; cursor:pointer; font-size:0.78rem; color:#555;">Fullscreen</button>
@@ -513,9 +518,11 @@ let uniState = {
     structureFormat: 'cif', // 'cif' or 'pdb'
     multiChainColors: null,
     cxcColorMode: '',
+    hiddenChains: new Set(), // chain names toggled off — hides them in 3D viewer + chord
 };
 let viewer3dBlobUrl = null;  // blob URL for current iframe page
 let viewer3dStructText = null;  // cached structure text — postMessage fast-path detection
+let viewer3dWarmedUp = false;  // iframe was pre-loaded at page entry with placeholder structure
 function updateScriptPreview() {
     if (!uniState.currentPairResult) return;
     const v = uniState.currentPairResult;
@@ -781,6 +788,7 @@ async function handleInputFiles(fileList) {
     uniState.structureFormat = 'cif';
     uniState.multiChainColors = null;
     uniState.currentPairResult = null;
+    uniState.hiddenChains = new Set();
     pendingJobs = null;
     // Clear drop-zone label so a fresh drop overwrites the previous folder name
     const fnEl = document.getElementById('file-name');
@@ -913,6 +921,7 @@ async function selectJob(jobName) {
     uniState.structureFilenames = {};
     uniState.multiChainColors = null;
     uniState.currentPairResult = null;
+    uniState.hiddenChains = new Set();
     await loadFilesIntoState(jobFiles, true, folderName);
 
     const nFiles = Object.keys(uniState.loadedFiles).length;
@@ -1290,6 +1299,52 @@ function setupMultiChainColors() {
     uniState.multiChainColors._gradient = true;
     uniState.cxcColorMode = '';
     row.children[0].classList.add('active');
+}
+
+// ── Chain visibility toggle (hides selected chains in 3D viewer + chord) ──
+function renderChainToggleBar() {
+    const bar = document.getElementById('chain-toggle-bar');
+    const btnHolder = document.getElementById('chain-toggle-buttons');
+    if (!bar || !btnHolder) return;
+    const chainNames = uniState.chainNames || [];
+    if (chainNames.length < 2) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    btnHolder.innerHTML = '';
+    for (const name of chainNames) {
+        const btn = document.createElement('button');
+        btn.dataset.chain = name;
+        btn.textContent = name;
+        btn.onclick = () => toggleChainVisibility(name);
+        applyChainToggleStyle(btn, !uniState.hiddenChains.has(name));
+        btnHolder.appendChild(btn);
+    }
+}
+function applyChainToggleStyle(btn, visible) {
+    const baseColor = (uniState.multiChainColors && uniState.multiChainColors[btn.dataset.chain]) || '#888';
+    btn.style.cssText = visible
+        ? `padding:0.2rem 0.6rem; border:1px solid ${baseColor}; background:${baseColor}; color:#fff; border-radius:4px; cursor:pointer; font-size:0.78rem; font-weight:600; min-width:1.6rem;`
+        : `padding:0.2rem 0.6rem; border:1px solid #ccc; background:#fff; color:#888; border-radius:4px; cursor:pointer; font-size:0.78rem; min-width:1.6rem; text-decoration:line-through;`;
+}
+function toggleChainVisibility(name) {
+    if (!uniState.hiddenChains) uniState.hiddenChains = new Set();
+    if (uniState.hiddenChains.has(name)) uniState.hiddenChains.delete(name);
+    else uniState.hiddenChains.add(name);
+    const btn = document.querySelector(`#chain-toggle-buttons button[data-chain="${name}"]`);
+    if (btn) applyChainToggleStyle(btn, !uniState.hiddenChains.has(name));
+    refreshChainVisibilityViews();
+}
+function resetChainVisibility() {
+    if (!uniState.hiddenChains || uniState.hiddenChains.size === 0) return;
+    uniState.hiddenChains = new Set();
+    const buttons = document.querySelectorAll('#chain-toggle-buttons button');
+    buttons.forEach(b => applyChainToggleStyle(b, true));
+    refreshChainVisibilityViews();
+}
+function refreshChainVisibilityViews() {
+    // Re-render 3D viewer (color-only fast path since structure text unchanged)
+    if (uniState.currentPairKey) updateViewer3d(uniState.currentPairKey);
+    // Re-render chord (both Selected Model + All Models Combined)
+    buildChordDiagram();
 }
 
 function getColorsForPair(ci, cj) {
@@ -2325,10 +2380,15 @@ async function processFiles() {
         uniState.chainTypes = null;
         uniState.nTotal = 0;
         uniState.multiChainColors = null;
-        // Reset Mol* viewer
-        if (viewer3dBlobUrl) { URL.revokeObjectURL(viewer3dBlobUrl); viewer3dBlobUrl = null; }
-        const v3frame = document.getElementById('viewer3d-frame');
-        if (v3frame) v3frame.src = 'about:blank';
+        uniState.hiddenChains = new Set();
+        // Reset Mol* viewer. Preserve the warmed-up iframe (Mol* JS already loaded);
+        // just invalidate the structure cache so the next updateViewer3d does an in-place swap.
+        viewer3dStructText = null;
+        if (!viewer3dWarmedUp) {
+            if (viewer3dBlobUrl) { URL.revokeObjectURL(viewer3dBlobUrl); viewer3dBlobUrl = null; }
+            const v3frame = document.getElementById('viewer3d-frame');
+            if (v3frame) v3frame.src = 'about:blank';
+        }
 
         const paeCutoff = parseFloat(document.getElementById('pae-cutoff').value) || 12;
         const cbCutoff = parseFloat(document.getElementById('cb-cutoff').value) || 8;
@@ -2830,6 +2890,7 @@ function displayResults(results, jobName) {
 
     document.getElementById('results').classList.add('active');
     setupMultiChainColors();
+    renderChainToggleBar();
     drawAllScoreMatrices();
     drawAllMaps();
     document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
@@ -2874,6 +2935,7 @@ function buildColorComponents(v) {
     const types = uniState.chainTypes || [];
     const isNonProteinChain = (ch) => { const t = types[uniState.chainNames?.indexOf(ch)]; return t === 'ion' || t === 'rna' || t === 'dna'; };
     const addComp = (chain, ranges, color) => {
+        if (uniState.hiddenChains?.has(chain)) return; // chain toggle bar: hidden chain → skip
         const t = types[uniState.chainNames?.indexOf(chain)];
         components.push({ chain, ranges, color, isIon: t === 'ion' });
     };
@@ -3156,7 +3218,15 @@ async function updateViewer3d(pairKey) {
         return;
     }
 
-    // Slow path: structure changed → full iframe rebuild
+    // Warm-up path: iframe was pre-booted with placeholder structure → swap in place via
+    // postMessage so we avoid reloading Mol* JS (the 4.87 MB CDN fetch happens once per session)
+    if (viewer3dWarmedUp) {
+        viewer3dStructText = structText;
+        swapMolstarStructure('viewer3d-frame', structText, colorComponents, fmt);
+        return;
+    }
+
+    // Slow path (fallback): structure changed AND no warm-up → full iframe rebuild
     viewer3dStructText = structText;
     const liviaBaseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
     const page = buildMolstarPage(structText, fmt, colorComponents, liviaBaseUrl);
@@ -3167,6 +3237,64 @@ async function updateViewer3d(pairKey) {
     const newFrame = frame.cloneNode(false);
     newFrame.src = viewer3dBlobUrl;
     parent.replaceChild(newFrame, frame);
+}
+
+// ── Warm-up Mol* at page entry so the 4.87 MB JS download + boot finish while
+// the user is still uploading/analyzing. When real results arrive we just swap
+// the structure via postMessage (no iframe rebuild, no second JS download). ──
+const MOLSTAR_WARMUP_PLACEHOLDER_CIF = `data_warmup
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.auth_seq_id
+_atom_site.auth_asym_id
+ATOM 1 C CA . ALA A 1 1 ? 0.0 0.0 0.0 1.0 50.0 1 A
+`;
+function warmupMolstar() {
+    const frame = document.getElementById('viewer3d-frame');
+    if (!frame || viewer3dWarmedUp) return;
+    try {
+        const liviaBaseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
+        const page = buildMolstarPage(MOLSTAR_WARMUP_PLACEHOLDER_CIF, 'mmcif', [], liviaBaseUrl);
+        const blob = new Blob([page], { type: 'text/html' });
+        if (viewer3dBlobUrl) URL.revokeObjectURL(viewer3dBlobUrl);
+        viewer3dBlobUrl = URL.createObjectURL(blob);
+        frame.src = viewer3dBlobUrl;
+        viewer3dWarmedUp = true;
+        // Listen once for failure: if Mol* couldn't boot, drop the warm flag so the
+        // existing slow-path iframe rebuild runs when real results arrive.
+        const onMsg = (ev) => {
+            if (ev.source !== frame.contentWindow) return;
+            if (ev.data?.type === 'molstarFailed') {
+                viewer3dWarmedUp = false;
+                window.removeEventListener('message', onMsg);
+            } else if (ev.data?.type === 'molstarReady') {
+                window.removeEventListener('message', onMsg);
+            }
+        };
+        window.addEventListener('message', onMsg);
+    } catch (e) {
+        console.warn('Mol* warm-up failed:', e);
+        viewer3dWarmedUp = false;
+    }
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', warmupMolstar);
+} else {
+    warmupMolstar();
 }
 
 function selectPair(key) {
@@ -5197,9 +5325,11 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
     }
 
     // Draw contact lines with distance-based alpha
+    const hiddenSet = (typeof uniState !== 'undefined' && uniState.hiddenChains) || new Set();
     const maxDist = contacts.length > 0 ? Math.max(...contacts.map(c => c.dist || 8)) : 8;
     const minDist = contacts.length > 0 ? Math.min(...contacts.map(c => c.dist || 0)) : 0;
     for (const c of contacts) {
+        if (hiddenSet.has(c.ci) || hiddenSet.has(c.cj)) continue; // chain visibility toggle
         const colI = chainColors[c.ci] || '#888', colJ = chainColors[c.cj] || '#888';
         const angA = resToAngle(c.ci, c.resA), angB = resToAngle(c.cj, c.resB);
         const xA = cxC + Math.cos(angA) * chordR, yA = cyC + Math.sin(angA) * chordR;
@@ -5214,19 +5344,20 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
         ctx.strokeStyle = grad; ctx.lineWidth = 1.2; ctx.stroke();
     }
 
-    // Draw arcs and labels (same as drawChord)
+    // Draw arcs and labels (same as drawChord; hidden chains drawn as muted placeholder)
     for (const arc of arcs) {
+        const hidden = hiddenSet.has(arc.name);
         ctx.beginPath(); ctx.arc(cxC, cyC, outerR, arc.start, arc.end); ctx.arc(cxC, cyC, innerR, arc.end, arc.start, true); ctx.closePath();
-        ctx.fillStyle = chainColors[arc.name] || '#888'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.fillStyle = hidden ? '#e8e8e8' : (chainColors[arc.name] || '#888'); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
         const labelAngle = arc.mid;
         let textAngle = labelAngle + Math.PI / 2;
         const normA = ((textAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
         if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
         ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+14), cyC + Math.sin(labelAngle) * (outerR+14));
-        ctx.rotate(textAngle); ctx.fillStyle = '#333'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.rotate(textAngle); ctx.fillStyle = hidden ? '#bbb' : '#333'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(arc.type === 'ion' ? arc.displayName : arc.name, 0, 0); ctx.restore();
         ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+24), cyC + Math.sin(labelAngle) * (outerR+24));
-        ctx.rotate(textAngle); ctx.fillStyle = '#888'; ctx.font = '7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.rotate(textAngle); ctx.fillStyle = '#bbb'; ctx.font = '7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`, 0, 0); ctx.restore();
     }
     ctx.restore();
@@ -5266,13 +5397,15 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
         angle += sweep + gapAngle;
     }
 
-    // Draw outer arcs
+    // Draw outer arcs (hidden chains rendered as muted placeholder so the layout stays stable)
+    const hiddenSet = (typeof uniState !== 'undefined' && uniState.hiddenChains) || new Set();
     for (const arc of arcs) {
+        const hidden = hiddenSet.has(arc.name);
         ctx.beginPath();
         ctx.arc(cxC, cyC, outerR, arc.start, arc.end);
         ctx.arc(cxC, cyC, innerR, arc.end, arc.start, true);
         ctx.closePath();
-        ctx.fillStyle = chainColors[arc.name] || '#888';
+        ctx.fillStyle = hidden ? '#e8e8e8' : (chainColors[arc.name] || '#888');
         ctx.fill();
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1;
@@ -5289,7 +5422,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
         const normA = ((textAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
         if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
         ctx.rotate(textAngle);
-        ctx.fillStyle = '#333';
+        ctx.fillStyle = hidden ? '#bbb' : '#333';
         ctx.font = 'bold 9px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -5325,6 +5458,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
     // cLIR is restricted to filtered LIR before pair drawing)
     const contactDist = 8;
     for (const cp of contactPairs) {
+        if (hiddenSet.has(cp.ci) || hiddenSet.has(cp.cj)) continue; // chain visibility toggle
         const idxI = chainNames.indexOf(cp.ci), idxJ = chainNames.indexOf(cp.cj);
         const typeI = chainTypes[idxI], typeJ = chainTypes[idxJ];
         const isIonPair = typeI === 'ion' || typeJ === 'ion';

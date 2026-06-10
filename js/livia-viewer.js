@@ -156,6 +156,23 @@ function applyColorsToMolstarFrame(frameId, colorComponents, fmt) {
     return true;
 }
 
+// ── Swap the structure inside an already-booted Mol* iframe (warm-up pattern) ──
+// The iframe must have been built with buildMolstarPage. Use this to replace the
+// placeholder structure loaded at page-entry warmup with the real prediction structure
+// once analysis finishes, without rebuilding the iframe (avoids re-downloading Mol* JS).
+function swapMolstarStructure(frameId, structData, colorComponents, fmt) {
+    const frame = document.getElementById(frameId);
+    if (!frame || !frame.contentWindow) return false;
+    const mvsJson = buildMvsJson(colorComponents, fmt);
+    frame.contentWindow.postMessage({
+        type: 'loadStructure',
+        structData: structData,
+        mvsStr: JSON.stringify(mvsJson),
+        fmt: fmt,
+    }, '*');
+    return true;
+}
+
 // ── Build complete Mol* viewer HTML page with MVS coloring ──
 // structData: raw structure text (PDB or mmCIF)
 // fmt: 'pdb' or 'mmcif'
@@ -216,6 +233,7 @@ var _viewer = null;
 var _structUrl = null;
 var _ready = false;
 var _pendingColorMvs = null;
+var _pendingStructure = null;
 
 function _setLoadingSource(label) {
     var el = document.getElementById('loading-source');
@@ -263,10 +281,15 @@ async function _applyIllustrativeStyle(viewer) {
             await compMgr.setOptions(Object.assign({}, compMgr.state.options, { ignoreLight: true }));
         }
         // 2) Postprocessing: outline ON, occlusion ON, shadow OFF
+        // 3) cameraClipping.radius = 0 — keep the "Clipping" slider pinned at 0 so the
+        //    whole scene is always visible (no surprise scene-cropping after camera resets
+        //    or structure swaps).
         var c3d = plugin.canvas3d;
         if (c3d) {
             var pp = c3d.props.postprocessing || {};
+            var clip = (c3d.props && c3d.props.cameraClipping) || {};
             c3d.setProps({
+                cameraClipping: Object.assign({}, clip, { radius: 0 }),
                 postprocessing: {
                     outline: {
                         name: 'on',
@@ -313,9 +336,43 @@ function _injectCurrentCameraIntoMvs(mvsStr) {
     } catch (_e) { return mvsStr; }
 }
 
-// Listen for parent postMessage color updates
+// Listen for parent postMessage: structure swap (warm-up pattern) + color update
 window.addEventListener('message', function(ev) {
-    if (!ev.data || ev.data.type !== 'updateColors' || !ev.data.mvsStr) return;
+    if (!ev.data) return;
+    if (ev.data.type === 'loadStructure' && ev.data.structData && ev.data.mvsStr) {
+        if (!_ready || !_viewer) { _pendingStructure = ev.data; return; }
+        try {
+            if (_structUrl) { try { URL.revokeObjectURL(_structUrl); } catch(_) {} }
+            var newBlob = new Blob([ev.data.structData], { type: 'text/plain' });
+            _structUrl = URL.createObjectURL(newBlob);
+            var newMvs = ev.data.mvsStr.replace('__STRUCT_BLOB_URL__', _structUrl);
+            // Structure changed → must explicitly refit camera, otherwise Mol* keeps the
+            // canvas3d state from the previous load (e.g. the tight zoom around the
+            // warm-up placeholder atom at the origin) and the new structure ends up
+            // mostly off-screen.
+            var p = _viewer.loadMvsData(newMvs, 'mvsj');
+            var refit = function() {
+                _applyIllustrativeStyle(_viewer);
+                var resetCamera = function() {
+                    try {
+                        var c3d = _viewer && _viewer.plugin && _viewer.plugin.canvas3d;
+                        if (c3d && typeof c3d.requestCameraReset === 'function') c3d.requestCameraReset();
+                        else if (_viewer && _viewer.plugin && _viewer.plugin.managers && _viewer.plugin.managers.camera && typeof _viewer.plugin.managers.camera.reset === 'function') _viewer.plugin.managers.camera.reset();
+                    } catch(_e) {}
+                };
+                // Retry across a few frames — Mol*'s structure ingestion may finish
+                // a tick after loadMvsData's promise resolves.
+                resetCamera();
+                requestAnimationFrame(function() { resetCamera(); requestAnimationFrame(resetCamera); });
+                setTimeout(resetCamera, 100);
+                setTimeout(resetCamera, 300);
+            };
+            if (p && typeof p.then === 'function') p.then(refit, refit);
+            else setTimeout(refit, 50);
+        } catch (e) { console.warn('Structure swap failed:', e); }
+        return;
+    }
+    if (ev.data.type !== 'updateColors' || !ev.data.mvsStr) return;
     if (!_ready || !_viewer || !_structUrl) {
         _pendingColorMvs = ev.data.mvsStr;
         return;
@@ -357,6 +414,35 @@ window.addEventListener('message', function(ev) {
 function _notifyReady() {
     _ready = true;
     try { parent.postMessage({ type: 'molstarReady' }, '*'); } catch(e) {}
+    if (_pendingStructure && _viewer) {
+        // Process queued structure swap (warm-up → real prediction transition)
+        try {
+            if (_structUrl) { try { URL.revokeObjectURL(_structUrl); } catch(_) {} }
+            var psBlob = new Blob([_pendingStructure.structData], { type: 'text/plain' });
+            _structUrl = URL.createObjectURL(psBlob);
+            var psMvs = _pendingStructure.mvsStr.replace('__STRUCT_BLOB_URL__', _structUrl);
+            var psP = _viewer.loadMvsData(psMvs, 'mvsj');
+            var psRefit = function() {
+                _applyIllustrativeStyle(_viewer);
+                var resetCamera = function() {
+                    try {
+                        var c3d = _viewer && _viewer.plugin && _viewer.plugin.canvas3d;
+                        if (c3d && typeof c3d.requestCameraReset === 'function') c3d.requestCameraReset();
+                        else if (_viewer && _viewer.plugin && _viewer.plugin.managers && _viewer.plugin.managers.camera && typeof _viewer.plugin.managers.camera.reset === 'function') _viewer.plugin.managers.camera.reset();
+                    } catch(_e) {}
+                };
+                resetCamera();
+                requestAnimationFrame(function() { resetCamera(); requestAnimationFrame(resetCamera); });
+                setTimeout(resetCamera, 100);
+                setTimeout(resetCamera, 300);
+            };
+            if (psP && typeof psP.then === 'function') psP.then(psRefit, psRefit);
+            else setTimeout(psRefit, 50);
+        } catch (e) { console.warn('Pending structure load failed:', e); }
+        _pendingStructure = null;
+        _pendingColorMvs = null; // colors are baked into MVS that came with the structure
+        return;
+    }
     if (_pendingColorMvs && _viewer && _structUrl) {
         try {
             var newMvs = _pendingColorMvs.replace('__STRUCT_BLOB_URL__', _structUrl);
@@ -370,10 +456,13 @@ function _notifyReady() {
 }
 
 async function init() {
-    var isMobile = window.innerWidth < 768;
+    // Always render the right-side Structure Tools panel — CSS @media @max-width:768px
+    // hides it on mobile. Detecting mobile via window.innerWidth here is unreliable when
+    // the iframe boots inside a display:none parent (warm-up case), which collapses
+    // innerWidth to 0 and would incorrectly drop the panel even on desktop.
     var viewer = await molstar.Viewer.create('viewer1', {
         layoutIsExpanded: false,
-        layoutShowControls: !isMobile,
+        layoutShowControls: true,
         layoutShowRemoteState: false,
         layoutShowSequence: false,
         layoutShowLog: false,
