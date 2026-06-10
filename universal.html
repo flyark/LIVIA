@@ -2930,10 +2930,12 @@ function buildColorComponents(v) {
         return ranges;
     }
 
-    // Other chains for multi-subunit context (reuse the per-chain union computed above)
+    // Other chains for multi-subunit context (reuse the per-chain union computed above).
+    // Apply Min segment filter so other-chain noise (isolated 1–2 residue cLIR from low-confidence
+    // pairs) is hidden consistently with the seq viewer and chord map.
     const otherChains = (uniState.chainNames || []).filter(c => c !== v.ci && c !== v.cj);
     const otherLIR = {};
-    for (const c of otherChains) otherLIR[c] = new Set(allLIR_3d[c] || []);
+    for (const c of otherChains) otherLIR[c] = filterSmallSegments(allLIR_3d[c] || new Set());
 
     // Save original LIR before expanding (needed for gray non-LIR)
     const otherLIR_orig = {};
@@ -3075,9 +3077,9 @@ function buildColorComponents(v) {
             addComp(v.cj, toRanges(clirJSet), colors.clir_b);
         }
 
-        // Other chains: reuse the per-chain union cLIR for gradient distinction
+        // Other chains: cLIR restricted to filtered LIR (matches seq viewer / chord behavior)
         const otherCLIR = {};
-        for (const c of otherChains) otherCLIR[c] = new Set(allCLIR_3d[c] || []);
+        for (const c of otherChains) otherCLIR[c] = new Set([...(allCLIR_3d[c] || [])].filter(r => otherLIR_orig[c].has(r)));
 
         for (const c of otherChains) {
             if (isNonProteinChain(c)) continue; // ions handled below
