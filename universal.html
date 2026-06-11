@@ -492,12 +492,8 @@
 <script src="js/livia-colors.js"></script>
 <script>
 // ── Callbacks for shared modules ──
-onColorChange = () => {
-    const sel = document.querySelector('#pairs-tbody tr.selected');
-    if (sel) sel.click();
-    // Re-color chain toggle buttons to match the picker / palette change
-    if (typeof renderChainToggleBar === 'function') renderChainToggleBar();
-};
+// selectPair calls renderChainToggleBar, and sel.click() flows through selectPair.
+onColorChange = () => { const sel = document.querySelector('#pairs-tbody tr.selected'); if (sel) sel.click(); };
 onScriptTabSwitch = () => { updateScriptPreview(); };
 document.addEventListener('DOMContentLoaded', initColorPickers);
 
@@ -3333,6 +3329,9 @@ function selectPair(key) {
     buildContactMap(key);
     buildChordDiagram();
     updateViewer3d(key);
+    // Refresh chain toggle button colors — preset chips / swap / Tab10 chip all funnel
+    // through here via selectedRow.click(), and the picker hex may have just changed.
+    renderChainToggleBar();
 
     const colors = getColorsForPair(v.ci, v.cj);
     const seedVal = document.getElementById('seed-select').value;
