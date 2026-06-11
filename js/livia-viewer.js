@@ -356,6 +356,12 @@ window.addEventListener('message', function(ev) {
                 var resetCamera = function() {
                     try {
                         var c3d = _viewer && _viewer.plugin && _viewer.plugin.canvas3d;
+                        // Force Mol* to recompute viewport size: when the iframe just
+                        // transitioned from display:none → visible (warm-up → real
+                        // results), ResizeObserver may not have fired yet and the
+                        // camera would fit using stale 0x0 dimensions (looks broken
+                        // on mobile in particular).
+                        if (c3d && typeof c3d.handleResize === 'function') c3d.handleResize();
                         if (c3d && typeof c3d.requestCameraReset === 'function') c3d.requestCameraReset();
                         else if (_viewer && _viewer.plugin && _viewer.plugin.managers && _viewer.plugin.managers.camera && typeof _viewer.plugin.managers.camera.reset === 'function') _viewer.plugin.managers.camera.reset();
                     } catch(_e) {}
@@ -427,6 +433,12 @@ function _notifyReady() {
                 var resetCamera = function() {
                     try {
                         var c3d = _viewer && _viewer.plugin && _viewer.plugin.canvas3d;
+                        // Force Mol* to recompute viewport size: when the iframe just
+                        // transitioned from display:none → visible (warm-up → real
+                        // results), ResizeObserver may not have fired yet and the
+                        // camera would fit using stale 0x0 dimensions (looks broken
+                        // on mobile in particular).
+                        if (c3d && typeof c3d.handleResize === 'function') c3d.handleResize();
                         if (c3d && typeof c3d.requestCameraReset === 'function') c3d.requestCameraReset();
                         else if (_viewer && _viewer.plugin && _viewer.plugin.managers && _viewer.plugin.managers.camera && typeof _viewer.plugin.managers.camera.reset === 'function') _viewer.plugin.managers.camera.reset();
                     } catch(_e) {}
@@ -456,13 +468,17 @@ function _notifyReady() {
 }
 
 async function init() {
-    // Always render the right-side Structure Tools panel — CSS @media @max-width:768px
-    // hides it on mobile. Detecting mobile via window.innerWidth here is unreliable when
-    // the iframe boots inside a display:none parent (warm-up case), which collapses
-    // innerWidth to 0 and would incorrectly drop the panel even on desktop.
+    // Mobile detection: the iframe boots inside a display:none parent during warm-up,
+    // which collapses window.innerWidth to 0. Fall back to the parent window's width
+    // (same-origin blob iframe → accessible) so the original desktop-vs-mobile choice
+    // is restored. CSS @media @max-width:768px also hides the panel visually as a
+    // belt-and-suspenders measure.
+    var pw = 0;
+    try { pw = (parent && parent !== window && parent.innerWidth) || 0; } catch(_e) {}
+    var isMobile = (pw > 0 ? pw : window.innerWidth) < 768;
     var viewer = await molstar.Viewer.create('viewer1', {
         layoutIsExpanded: false,
-        layoutShowControls: true,
+        layoutShowControls: !isMobile,
         layoutShowRemoteState: false,
         layoutShowSequence: false,
         layoutShowLog: false,

@@ -492,7 +492,12 @@
 <script src="js/livia-colors.js"></script>
 <script>
 // ── Callbacks for shared modules ──
-onColorChange = () => { const sel = document.querySelector('#pairs-tbody tr.selected'); if (sel) sel.click(); };
+onColorChange = () => {
+    const sel = document.querySelector('#pairs-tbody tr.selected');
+    if (sel) sel.click();
+    // Re-color chain toggle buttons to match the picker / palette change
+    if (typeof renderChainToggleBar === 'function') renderChainToggleBar();
+};
 onScriptTabSwitch = () => { updateScriptPreview(); };
 document.addEventListener('DOMContentLoaded', initColorPickers);
 
@@ -1319,8 +1324,28 @@ function renderChainToggleBar() {
         btnHolder.appendChild(btn);
     }
 }
+function getChainToggleColor(chainName) {
+    // Multi-chain palette active (Tab10/Tab20 chip in Visualization Script)
+    if (uniState.multiChainColors?._active && uniState.multiChainColors[chainName]) {
+        return uniState.multiChainColors[chainName];
+    }
+    // 2-chain (dimer) and selected pair within a multi-chain: use the picker values
+    // from the Visualization Script tab so the toggle colors track the user's choices.
+    const v = uniState.currentPairKey ? uniState.results?.[uniState.currentPairKey] : null;
+    if (v) {
+        if (chainName === v.ci) return document.getElementById('color-clir-a')?.value || '#00897B';
+        if (chainName === v.cj) return document.getElementById('color-clir-b')?.value || '#E64A19';
+    }
+    // Other chains in multi-chain: fall back to the Tab10 palette by index
+    const idx = (uniState.chainNames || []).indexOf(chainName);
+    if (idx >= 0) {
+        const palette = (uniState.chainNames.length <= 10) ? TAB10 : TAB20;
+        return palette[idx % palette.length];
+    }
+    return '#888';
+}
 function applyChainToggleStyle(btn, visible) {
-    const baseColor = (uniState.multiChainColors && uniState.multiChainColors[btn.dataset.chain]) || '#888';
+    const baseColor = getChainToggleColor(btn.dataset.chain);
     btn.style.cssText = visible
         ? `padding:0.2rem 0.6rem; border:1px solid ${baseColor}; background:${baseColor}; color:#fff; border-radius:4px; cursor:pointer; font-size:0.78rem; font-weight:600; min-width:1.6rem;`
         : `padding:0.2rem 0.6rem; border:1px solid #ccc; background:#fff; color:#888; border-radius:4px; cursor:pointer; font-size:0.78rem; min-width:1.6rem; text-decoration:line-through;`;
