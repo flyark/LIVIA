@@ -717,10 +717,14 @@ async function fetchData() {
     showComplete = true;
     document.querySelectorAll('.show-complete-cb').forEach(el => { el.checked = true; });
 
-    // Reset Mol* viewer
-    if (viewer3dBlobUrl) { URL.revokeObjectURL(viewer3dBlobUrl); viewer3dBlobUrl = null; }
-    const v3frame = document.getElementById('viewer3d-frame');
-    if (v3frame) v3frame.src = 'about:blank';
+    // Reset Mol* viewer. Preserve the warmed-up iframe so we can swap structures
+    // in-place via postMessage rather than reload Mol* JS for the new selection.
+    viewer3dStructText = null;
+    if (!isMolstarFrameWarmedUp('viewer3d-frame')) {
+        if (viewer3dBlobUrl) { URL.revokeObjectURL(viewer3dBlobUrl); viewer3dBlobUrl = null; }
+        const v3frame = document.getElementById('viewer3d-frame');
+        if (v3frame) v3frame.src = 'about:blank';
+    }
     const v3card = document.getElementById('viewer3d-card');
     if (v3card) v3card.style.display = 'none';
 
@@ -2679,7 +2683,14 @@ function updateViewer3d(validRegions) {
         return;
     }
 
-    // Slow path: structure changed → full iframe rebuild
+    // Warm-up path: iframe pre-booted at page entry with placeholder → swap in place
+    if (isMolstarFrameWarmedUp('viewer3d-frame')) {
+        viewer3dStructText = monPdbText;
+        swapMolstarStructure('viewer3d-frame', monPdbText, colorComponents, 'pdb');
+        return;
+    }
+
+    // Slow path: structure changed AND no warm-up → full iframe rebuild
     viewer3dStructText = monPdbText;
     const liviaBaseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
     const page = buildMolstarPage(monPdbText, 'pdb', colorComponents, liviaBaseUrl);
@@ -2690,6 +2701,13 @@ function updateViewer3d(validRegions) {
     const newFrame = frame.cloneNode(false);
     newFrame.src = viewer3dBlobUrl;
     parent.replaceChild(newFrame, frame);
+}
+
+// Warm up Mol* at page entry
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => warmupMolstarFrame('viewer3d-frame'));
+} else {
+    warmupMolstarFrame('viewer3d-frame');
 }
 
 // ── PyMOL helpers ──

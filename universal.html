@@ -523,7 +523,7 @@ let uniState = {
 };
 let viewer3dBlobUrl = null;  // blob URL for current iframe page
 let viewer3dStructText = null;  // cached structure text — postMessage fast-path detection
-let viewer3dWarmedUp = false;  // iframe was pre-loaded at page entry with placeholder structure
+// Warm-up state is tracked by shared livia-viewer.js (warmupMolstarFrame / isMolstarFrameWarmedUp).
 function updateScriptPreview() {
     if (!uniState.currentPairResult) return;
     const v = uniState.currentPairResult;
@@ -2405,7 +2405,7 @@ async function processFiles() {
         // Reset Mol* viewer. Preserve the warmed-up iframe (Mol* JS already loaded);
         // just invalidate the structure cache so the next updateViewer3d does an in-place swap.
         viewer3dStructText = null;
-        if (!viewer3dWarmedUp) {
+        if (!isMolstarFrameWarmedUp('viewer3d-frame')) {
             if (viewer3dBlobUrl) { URL.revokeObjectURL(viewer3dBlobUrl); viewer3dBlobUrl = null; }
             const v3frame = document.getElementById('viewer3d-frame');
             if (v3frame) v3frame.src = 'about:blank';
@@ -3241,7 +3241,7 @@ async function updateViewer3d(pairKey) {
 
     // Warm-up path: iframe was pre-booted with placeholder structure → swap in place via
     // postMessage so we avoid reloading Mol* JS (the 4.87 MB CDN fetch happens once per session)
-    if (viewer3dWarmedUp) {
+    if (isMolstarFrameWarmedUp('viewer3d-frame')) {
         viewer3dStructText = structText;
         swapMolstarStructure('viewer3d-frame', structText, colorComponents, fmt);
         return;
@@ -3260,58 +3260,8 @@ async function updateViewer3d(pairKey) {
     parent.replaceChild(newFrame, frame);
 }
 
-// ── Warm-up Mol* at page entry so the 4.87 MB JS download + boot finish while
-// the user is still uploading/analyzing. When real results arrive we just swap
-// the structure via postMessage (no iframe rebuild, no second JS download). ──
-const MOLSTAR_WARMUP_PLACEHOLDER_CIF = `data_warmup
-loop_
-_atom_site.group_PDB
-_atom_site.id
-_atom_site.type_symbol
-_atom_site.label_atom_id
-_atom_site.label_alt_id
-_atom_site.label_comp_id
-_atom_site.label_asym_id
-_atom_site.label_entity_id
-_atom_site.label_seq_id
-_atom_site.pdbx_PDB_ins_code
-_atom_site.Cartn_x
-_atom_site.Cartn_y
-_atom_site.Cartn_z
-_atom_site.occupancy
-_atom_site.B_iso_or_equiv
-_atom_site.auth_seq_id
-_atom_site.auth_asym_id
-ATOM 1 C CA . ALA A 1 1 ? 0.0 0.0 0.0 1.0 50.0 1 A
-`;
-function warmupMolstar() {
-    const frame = document.getElementById('viewer3d-frame');
-    if (!frame || viewer3dWarmedUp) return;
-    try {
-        const liviaBaseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
-        const page = buildMolstarPage(MOLSTAR_WARMUP_PLACEHOLDER_CIF, 'mmcif', [], liviaBaseUrl);
-        const blob = new Blob([page], { type: 'text/html' });
-        if (viewer3dBlobUrl) URL.revokeObjectURL(viewer3dBlobUrl);
-        viewer3dBlobUrl = URL.createObjectURL(blob);
-        frame.src = viewer3dBlobUrl;
-        viewer3dWarmedUp = true;
-        // Listen once for failure: if Mol* couldn't boot, drop the warm flag so the
-        // existing slow-path iframe rebuild runs when real results arrive.
-        const onMsg = (ev) => {
-            if (ev.source !== frame.contentWindow) return;
-            if (ev.data?.type === 'molstarFailed') {
-                viewer3dWarmedUp = false;
-                window.removeEventListener('message', onMsg);
-            } else if (ev.data?.type === 'molstarReady') {
-                window.removeEventListener('message', onMsg);
-            }
-        };
-        window.addEventListener('message', onMsg);
-    } catch (e) {
-        console.warn('Mol* warm-up failed:', e);
-        viewer3dWarmedUp = false;
-    }
-}
+// Warm up Mol* at page entry — shared helper in js/livia-viewer.js handles the iframe.
+function warmupMolstar() { warmupMolstarFrame('viewer3d-frame'); }
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', warmupMolstar);
 } else {

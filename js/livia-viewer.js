@@ -173,6 +173,63 @@ function swapMolstarStructure(frameId, structData, colorComponents, fmt) {
     return true;
 }
 
+// ── Warm-up Mol* in an iframe at page entry with a 1-atom placeholder structure.
+// The 4.87 MB Mol* JS finishes downloading while the user is still uploading/
+// analyzing; when real results arrive, swapMolstarStructure() updates the structure
+// in-place via postMessage — no second iframe build, no second JS fetch. ──
+const _MOLSTAR_WARMUP_CIF = `data_warmup
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.auth_seq_id
+_atom_site.auth_asym_id
+ATOM 1 C CA . ALA A 1 1 ? 0.0 0.0 0.0 1.0 50.0 1 A
+`;
+const _molstarWarmState = new Map(); // frameId → { warmedUp, blobUrl }
+function warmupMolstarFrame(frameId, parentBaseUrl) {
+    const frame = document.getElementById(frameId);
+    if (!frame) return false;
+    const prev = _molstarWarmState.get(frameId);
+    if (prev && prev.warmedUp) return true;
+    try {
+        const base = parentBaseUrl || (window.location.origin + window.location.pathname.replace(/[^/]*$/, ''));
+        const page = buildMolstarPage(_MOLSTAR_WARMUP_CIF, 'mmcif', [], base);
+        const blob = new Blob([page], { type: 'text/html' });
+        if (prev && prev.blobUrl) { try { URL.revokeObjectURL(prev.blobUrl); } catch(_e) {} }
+        const url = URL.createObjectURL(blob);
+        frame.src = url;
+        _molstarWarmState.set(frameId, { warmedUp: true, blobUrl: url });
+        const onMsg = (ev) => {
+            if (ev.source !== frame.contentWindow) return;
+            if (ev.data && ev.data.type === 'molstarFailed') {
+                _molstarWarmState.delete(frameId);
+                window.removeEventListener('message', onMsg);
+            } else if (ev.data && ev.data.type === 'molstarReady') {
+                window.removeEventListener('message', onMsg);
+            }
+        };
+        window.addEventListener('message', onMsg);
+        return true;
+    } catch (e) { console.warn('Mol* warm-up failed for', frameId, e); return false; }
+}
+function isMolstarFrameWarmedUp(frameId) {
+    const s = _molstarWarmState.get(frameId);
+    return !!(s && s.warmedUp);
+}
+
 // ── Build complete Mol* viewer HTML page with MVS coloring ──
 // structData: raw structure text (PDB or mmCIF)
 // fmt: 'pdb' or 'mmcif'
