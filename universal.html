@@ -165,6 +165,12 @@
                     <button onclick="loadExample('protenix-v2')" class="example-btn">Protenix-v2 (21 MB)</button>
                     <button onclick="loadExample('esmfold2')" class="example-btn">ESMFold2 (2 MB)</button>
                 </div>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-top:0.4rem;">
+                    <span style="color:#888; font-size:0.82rem;">3- to 4-chain complexes (AlphaFold3):</span>
+                    <button onclick="loadExample('prc2')"   class="example-btn"><b>PRC2</b> &mdash; EZH2 / SUZ12 / EED (17 MB)</button>
+                    <button onclick="loadExample('bbsome')" class="example-btn"><b>BBSome</b> &mdash; BBIP1 / BBS4 / BBS8 (8 MB)</button>
+                    <button onclick="loadExample('mis12c')" class="example-btn"><b>MIS12C</b> &mdash; DSN1 / MIS12 / NSL1 / PMF1 (6 MB)</button>
+                </div>
                 <div style="font-size:0.72rem; color:#aaa; margin-top:0.3rem;">AlphaFold3 predicted via <a href="https://alphafoldserver.com" target="_blank" style="color:#aaa;">AlphaFold Server</a>. ColabFold, Boltz-2, Chai-1, OpenFold3, and Protenix-v2 predicted via <a href="https://www.tamarind.bio" target="_blank" style="color:#aaa;">Tamarind Bio</a>. ESMFold2 predicted via <a href="https://biohub.ai" target="_blank" style="color:#aaa;">biohub API</a>.</div>
                 <div style="margin-top:0.6rem; padding:0.5rem 0.8rem; background:#eaf2f8; border-radius:6px; font-size:0.8rem; color:#555;">
                     For batch analysis, use <code style="background:#d6e9f8; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis.py</code> (PPI scoring) and <code style="background:#d6e9f8; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis_to_cxc.py</code> (ChimeraX script generation) from <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a>.
@@ -649,6 +655,10 @@ const EXAMPLES = {
     'openfold3':  { file: 'openfold3_p53_mdm2.zip',  label: 'p53–MDM2 (OpenFold3)',  size: '33 MB' },
     'protenix-v2': { file: 'protenix-v2_p53_mdm2.zip', label: 'p53–MDM2 (Protenix-v2)', size: '21 MB' },
     'esmfold2':    { file: 'esmfold2_p53_mdm2.zip',    label: 'p53–MDM2 (ESMFold2)',    size: '2 MB' },
+    // 3- to 4-chain CORUM-validated complexes (AlphaFold3)
+    'prc2':    { file: 'alphafold3_prc2.zip',    label: 'PRC2 — EZH2 / SUZ12 / EED (AlphaFold3)',                 size: '17 MB' },
+    'mis12c':  { file: 'alphafold3_mis12c.zip',  label: 'MIS12C — DSN1 / MIS12 / NSL1 / PMF1 (AlphaFold3)',       size: '6 MB' },
+    'bbsome':  { file: 'alphafold3_bbsome.zip',  label: 'BBSome linker — BBIP1 / BBS4 / BBS8 (AlphaFold3)',       size: '8 MB' },
 };
 
 async function loadExample(platform) {
