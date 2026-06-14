@@ -530,9 +530,13 @@ async function init() {
     // (same-origin blob iframe → accessible) so the original desktop-vs-mobile choice
     // is restored. CSS @media @max-width:768px also hides the panel visually as a
     // belt-and-suspenders measure.
+    // When the page is opened via file:// the browser treats the parent as a null
+    // origin and blocks parent.innerWidth access; if iframe's own width is also 0
+    // (warm-up phase), default to desktop so the Structure Tools panel still shows.
     var pw = 0;
     try { pw = (parent && parent !== window && parent.innerWidth) || 0; } catch(_e) {}
-    var isMobile = (pw > 0 ? pw : window.innerWidth) < 768;
+    var iw = window.innerWidth;
+    var isMobile = pw > 0 ? pw < 768 : (iw > 0 ? iw < 768 : false);
     var viewer = await molstar.Viewer.create('viewer1', {
         layoutIsExpanded: false,
         layoutShowControls: !isMobile,

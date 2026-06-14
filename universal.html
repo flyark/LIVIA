@@ -801,6 +801,7 @@ async function handleInputFiles(fileList) {
     uniState.multiChainColors = null;
     uniState.currentPairResult = null;
     uniState.hiddenChains = new Set();
+    uniState.ipTMIsRankingScore = false;
     pendingJobs = null;
     // Clear drop-zone label so a fresh drop overwrites the previous folder name
     const fnEl = document.getElementById('file-name');
@@ -934,6 +935,7 @@ async function selectJob(jobName) {
     uniState.multiChainColors = null;
     uniState.currentPairResult = null;
     uniState.hiddenChains = new Set();
+    uniState.ipTMIsRankingScore = false;
     await loadFilesIntoState(jobFiles, true, folderName);
 
     const nFiles = Object.keys(uniState.loadedFiles).length;
@@ -963,7 +965,7 @@ async function loadFilesIntoState(files, isFolder, folderName) {
                 if (entry.dir || path.startsWith('__MACOSX') || path.includes('/__MACOSX/')) continue;
                 const fname = path.split('/').pop();
                 if (!fname) continue;
-                if (fname.endsWith('.cif') || fname.endsWith('.pdb') || fname.endsWith('.json') || fname.endsWith('.csv')) {
+                if (fname.endsWith('.cif') || fname.endsWith('.pdb') || fname.endsWith('.json') || fname.endsWith('.csv') || fname.endsWith('.txt')) {
                     uniState.loadedFiles[path] = await entry.async('string');
                 } else if (fname.endsWith('.npz') || fname.endsWith('.npy')) {
                     uniState.loadedFiles[path] = await entry.async('arraybuffer');
@@ -978,7 +980,7 @@ async function loadFilesIntoState(files, isFolder, folderName) {
         for (const file of files) {
             const path = file.webkitRelativePath || file.name;
             if (path.includes('__MACOSX') || path.includes('/msas/') || path.includes('/templates/')) continue;
-            if (file.name.endsWith('.cif') || file.name.endsWith('.pdb') || file.name.endsWith('.json') || file.name.endsWith('.csv')) {
+            if (file.name.endsWith('.cif') || file.name.endsWith('.pdb') || file.name.endsWith('.json') || file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
                 uniState.loadedFiles[path] = await file.text();
             } else if (file.name.endsWith('.npz') || file.name.endsWith('.npy')) {
                 uniState.loadedFiles[path] = await file.arrayBuffer();
@@ -1526,11 +1528,16 @@ function discoverAF2(filenames) {
             const fb = f.split('/').pop();
             return fb.endsWith('.json') && (fb.includes(`model_${rank}`) || fb.includes('pae'));
         });
+        // ranked_N_iPTM-plus-PTM.txt is a single scalar (AF-Multimer ranking confidence)
+        const rankTxt = filenames.find(f => {
+            const fb = f.split('/').pop();
+            return new RegExp(`^ranked_${rank}_iPTM-plus-PTM\\.txt$`, 'i').test(fb);
+        });
 
         predictions[prefix][rank] = {
             structurePath: structPath,
             paeSource: paeCsv || paeJson || null,
-            confidencePath: filenames.find(f => f.split('/').pop() === 'ranking_debug.json') || null,
+            confidencePath: rankTxt || filenames.find(f => f.split('/').pop() === 'ranking_debug.json') || null,
             format: 'pdb',
             label: `ranked_${rank}`,
         };
@@ -1985,6 +1992,16 @@ function extractConfidenceScores(confidencePath, platform) {
     if (!confidencePath) return {};
     const content = uniState.loadedFiles[confidencePath];
     if (!content || typeof content !== 'string') return {};
+
+    // Plain-text scalar (e.g. ranked_N_iPTM-plus-PTM.txt = "0.2599...").
+    // AF-Multimer ranking confidence = 0.8*iPTM + 0.2*pTM, conventionally reported
+    // as iPTM in downstream tooling when the pure iPTM (in pickle) is unavailable.
+    // The ipTMNote flag triggers a tooltip on the iPTM column to disclose this.
+    const trimmed = content.trim();
+    if (/^-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?$/.test(trimmed)) {
+        const v = parseFloat(trimmed);
+        if (!isNaN(v)) return { ipTM: v, rankingScore: v, ipTMNote: 'iptm_plus_ptm' };
+    }
 
     try {
         const json = JSON.parse(content);
@@ -2447,6 +2464,7 @@ async function processFiles() {
         uniState.nTotal = 0;
         uniState.multiChainColors = null;
         uniState.hiddenChains = new Set();
+        uniState.ipTMIsRankingScore = false;
         // Reset Mol* viewer. Preserve the warmed-up iframe (Mol* JS already loaded);
         // just invalidate the structure cache so the next updateViewer3d does an in-place swap.
         viewer3dStructText = null;
@@ -2489,6 +2507,8 @@ async function processFiles() {
                     if (scores[k] === undefined) scores[k] = v;
                 }
             }
+            // Flag iPTM-as-ranking-score formats so the table can disclose via tooltip
+            if (scores.ipTMNote === 'iptm_plus_ptm') uniState.ipTMIsRankingScore = true;
             if (mi === 0) globalConfidenceScores = scores;
 
             // Parse chain info from structure
@@ -2863,8 +2883,34 @@ function displayConfidenceScores(scores) {
     grid.innerHTML = html;
 }
 
+// Helper: render an ipTM table cell. When the active prediction format provides a
+// combined iPTM+pTM ranking score in place of pure iPTM (e.g. AF-Multimer scalar
+// from a .txt file), append an asterisk + title attribute to disclose this.
+function iptmCell(val) {
+    const v = (val || 0).toFixed(2);
+    if (uniState.ipTMIsRankingScore) {
+        return `<td title="iPTM+pTM ranking confidence (0.8·iPTM + 0.2·pTM). Pure iPTM is not available for this prediction format.">${v}*</td>`;
+    }
+    return `<td>${v}</td>`;
+}
+
 function displayResults(results, jobName) {
     document.getElementById('result-title').textContent = jobName;
+    // Update iPTM column header: append asterisk + tooltip when value is iPTM+pTM
+    const ths = document.querySelectorAll('#pairs-table thead th');
+    for (const th of ths) {
+        const txt = th.textContent.replace(/\*$/, '');
+        if (txt === 'ipTM') {
+            if (uniState.ipTMIsRankingScore) {
+                th.textContent = 'ipTM*';
+                th.title = 'iPTM+pTM ranking confidence (0.8·iPTM + 0.2·pTM). Pure iPTM is not available for this prediction format.';
+            } else {
+                th.textContent = 'ipTM';
+                th.removeAttribute('title');
+            }
+            break;
+        }
+    }
 
     const perModelSym = uniState.modelPairs.map(mp => symmetrizePairs(mp));
 
@@ -2930,7 +2976,7 @@ function displayResults(results, jobName) {
                 tr.className = (isFirstPair && mi === bestIdx) ? 'clickable selected' : 'clickable';
                 if (sortedMi.indexOf(mi) === 0 && pi > 0) tr.style.borderTop = '3px solid #2471A3';
                 tr.onclick = () => selectRow(key, String(mi), tr);
-                tr.innerHTML = `<td>${uniState.modelData[mi]?.label || 'model_' + mi}</td><td>${mv.ci} \u2014 ${mv.cj}</td><td>${ilisHtml(mv.iLIS)}</td><td>${(mv.iLIA||0).toFixed(1)}</td><td>${(mv.iLISA||0).toFixed(1)}</td><td>${(mv.ipSAE||0).toFixed(3)}</td><td>${(mv.actifpTM||0).toFixed(3)}</td><td>${(mv.ipTM||0).toFixed(2)}</td><td>${mv.LIS.toFixed(3)}</td><td>${mv.cLIS.toFixed(3)}</td><td>${mv.lirI.size} / ${mv.lirJ.size}</td><td>${mv.clirI.size} / ${mv.clirJ.size}</td>`;
+                tr.innerHTML = `<td>${uniState.modelData[mi]?.label || 'model_' + mi}</td><td>${mv.ci} \u2014 ${mv.cj}</td><td>${ilisHtml(mv.iLIS)}</td><td>${(mv.iLIA||0).toFixed(1)}</td><td>${(mv.iLISA||0).toFixed(1)}</td><td>${(mv.ipSAE||0).toFixed(3)}</td><td>${(mv.actifpTM||0).toFixed(3)}</td>${iptmCell(mv.ipTM)}<td>${mv.LIS.toFixed(3)}</td><td>${mv.cLIS.toFixed(3)}</td><td>${mv.lirI.size} / ${mv.lirJ.size}</td><td>${mv.clirI.size} / ${mv.clirJ.size}</td>`;
                 tbody.appendChild(tr);
             }
             // Average row — auto-selected for first pair
@@ -2938,14 +2984,14 @@ function displayResults(results, jobName) {
             avgTr.className = 'clickable avg-row';
             avgTr.dataset.pinned = 'true';
             avgTr.onclick = () => selectRow(key, 'avg', avgTr);
-            avgTr.innerHTML = `<td>Average</td><td>${avg.ci} \u2014 ${avg.cj}</td><td>${ilisHtml(avg.iLIS, true)}</td><td>${(avg.iLIA||0).toFixed(1)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td><td>${(avg.ipTM||0).toFixed(2)}</td><td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td><td>${avg.avgLirI ?? avg.lirI.size} / ${avg.avgLirJ ?? avg.lirJ.size}</td><td>${avg.avgClirI ?? avg.clirI.size} / ${avg.avgClirJ ?? avg.clirJ.size}</td>`;
+            avgTr.innerHTML = `<td>Average</td><td>${avg.ci} \u2014 ${avg.cj}</td><td>${ilisHtml(avg.iLIS, true)}</td><td>${(avg.iLIA||0).toFixed(1)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td><td>${avg.avgLirI ?? avg.lirI.size} / ${avg.avgLirJ ?? avg.lirJ.size}</td><td>${avg.avgClirI ?? avg.clirI.size} / ${avg.avgClirJ ?? avg.clirJ.size}</td>`;
             tbody.appendChild(avgTr);
         } else {
             // Single model row — auto-selected for first pair
             const tr = document.createElement('tr');
             tr.className = isFirstPair ? 'clickable selected' : 'clickable';
             tr.onclick = () => selectRow(key, '0', tr);
-            tr.innerHTML = `<td>${uniState.modelData[0]?.label || '0'}</td><td>${avg.ci} \u2014 ${avg.cj}</td><td>${ilisHtml(avg.iLIS)}</td><td>${(avg.iLIA||0).toFixed(1)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td><td>${(avg.ipTM||0).toFixed(2)}</td><td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td><td>${avg.lirI.size} / ${avg.lirJ.size}</td><td>${avg.clirI.size} / ${avg.clirJ.size}</td>`;
+            tr.innerHTML = `<td>${uniState.modelData[0]?.label || '0'}</td><td>${avg.ci} \u2014 ${avg.cj}</td><td>${ilisHtml(avg.iLIS)}</td><td>${(avg.iLIA||0).toFixed(1)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td><td>${avg.lirI.size} / ${avg.lirJ.size}</td><td>${avg.clirI.size} / ${avg.clirJ.size}</td>`;
             tbody.appendChild(tr);
         }
     }
