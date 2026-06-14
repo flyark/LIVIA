@@ -138,10 +138,10 @@
         <div class="step-header">Upload Prediction Files &nbsp;<span style="font-weight:400; font-size:0.8rem; color:#888;">(upload your prediction files &mdash; all analysis runs locally in your browser)</span></div>
         <div class="drop-zone" id="drop-zone">
             <div class="drop-zone-icon">&#128230;</div>
-            <div class="drop-zone-text">Drop prediction files or folders here (.zip, .gz, .xz, .cif, .pdb, .json, .npz, .npy) or click to browse</div>
+            <div class="drop-zone-text">Drop prediction files or folders here (.zip, .gz, .xz, .cif, .pdb, .json, .npz, .npy, .csv) or click to browse</div>
             <div class="drop-zone-filename" id="file-name"></div>
         </div>
-        <input type="file" id="file-input" accept=".zip,.gz,.xz,.cif,.pdb,.json,.npz,.npy,.pkl" multiple style="display:none">
+        <input type="file" id="file-input" accept=".zip,.gz,.xz,.cif,.pdb,.json,.npz,.npy,.pkl,.csv" multiple style="display:none">
         <input type="file" id="folder-input" webkitdirectory style="display:none">
         <div style="display:flex; gap:0.5rem; margin-top:0.8rem;">
             <button class="btn btn-primary" style="flex:1; margin:0;" onclick="document.getElementById('file-input').click()">Select Files</button>
@@ -963,7 +963,7 @@ async function loadFilesIntoState(files, isFolder, folderName) {
                 if (entry.dir || path.startsWith('__MACOSX') || path.includes('/__MACOSX/')) continue;
                 const fname = path.split('/').pop();
                 if (!fname) continue;
-                if (fname.endsWith('.cif') || fname.endsWith('.pdb') || fname.endsWith('.json')) {
+                if (fname.endsWith('.cif') || fname.endsWith('.pdb') || fname.endsWith('.json') || fname.endsWith('.csv')) {
                     uniState.loadedFiles[path] = await entry.async('string');
                 } else if (fname.endsWith('.npz') || fname.endsWith('.npy')) {
                     uniState.loadedFiles[path] = await entry.async('arraybuffer');
@@ -978,7 +978,7 @@ async function loadFilesIntoState(files, isFolder, folderName) {
         for (const file of files) {
             const path = file.webkitRelativePath || file.name;
             if (path.includes('__MACOSX') || path.includes('/msas/') || path.includes('/templates/')) continue;
-            if (file.name.endsWith('.cif') || file.name.endsWith('.pdb') || file.name.endsWith('.json')) {
+            if (file.name.endsWith('.cif') || file.name.endsWith('.pdb') || file.name.endsWith('.json') || file.name.endsWith('.csv')) {
                 uniState.loadedFiles[path] = await file.text();
             } else if (file.name.endsWith('.npz') || file.name.endsWith('.npy')) {
                 uniState.loadedFiles[path] = await file.arrayBuffer();
@@ -1113,12 +1113,15 @@ function detectPlatform() {
 
     // AlphaFold2 (original): ranked_*.pdb or relaxed_model_*.pdb + ranking_debug.json
     // PAE is in result_model_*.pkl (Python pickle, not browser-readable)
-    // Users must pre-convert .pkl to JSON, or provide PAE JSON separately
+    // Users must pre-convert .pkl to JSON, or provide PAE JSON separately.
+    // CSV PAE variant: per-pair pipelines that ship ranked_*.pdb + ranked_*_PAE.csv
+    // (PAE as N x N CSV, first row + first column are residue indices).
     const hasAF2Ranked = basenames.some(f => /^ranked_\d+\.pdb$/.test(f));
     const hasAF2Relaxed = basenames.some(f => /^relaxed_model_\d+\.pdb$/.test(f));
     const hasAF2Ranking = basenames.some(f => f === 'ranking_debug.json');
     const hasAF2Unrelaxed = basenames.some(f => /^unrelaxed_model_\d+\.pdb$/.test(f));
-    if ((hasAF2Ranked || hasAF2Relaxed || hasAF2Unrelaxed) && (hasAF2Ranking || basenames.some(f => /result_model_\d+/.test(f)))) return 'alphafold2';
+    const hasCsvPae = basenames.some(f => /^ranked_\d+_PAE\.csv$/i.test(f));
+    if ((hasAF2Ranked || hasAF2Relaxed || hasAF2Unrelaxed) && (hasAF2Ranking || hasCsvPae || basenames.some(f => /result_model_\d+/.test(f)))) return 'alphafold2';
 
     // Boltz: confidence_*.json + *.cif or *.pdb (and possibly pae_*.npz)
     const hasBoltzConf = basenames.some(f => /^confidence_/.test(f) && f.endsWith('.json'));
@@ -1498,8 +1501,9 @@ function discoverAF3(filenames) {
 }
 
 function discoverAF2(filenames) {
-    const predictions = {};
+    // Two-level structure: predictions[jobPrefix][rank] = { ... } — matches AF3/CF/etc.
     const prefix = 'alphafold2';
+    const predictions = { [prefix]: {} };
     // Look for ranked_*.pdb (preferred) or relaxed_model_*.pdb or unrelaxed_model_*.pdb
     for (const name of filenames) {
         const base = name.split('/').pop();
@@ -1512,26 +1516,30 @@ function discoverAF2(filenames) {
         else if (mUnrelaxed) { rank = mUnrelaxed[1]; structPath = name; }
         else continue;
 
-        // Look for PAE JSON (user must pre-convert from .pkl)
-        // Try: pae_model_*.json, result_model_*_pae.json, or any JSON with predicted_aligned_error
+        // Prefer ranked_N_PAE.csv shipped by per-pair pipelines; otherwise look for
+        // JSON-style PAE (user must pre-convert from .pkl).
+        const paeCsv = filenames.find(f => {
+            const fb = f.split('/').pop();
+            return new RegExp(`^ranked_${rank}_PAE\\.csv$`, 'i').test(fb);
+        });
         const paeJson = filenames.find(f => {
             const fb = f.split('/').pop();
             return fb.endsWith('.json') && (fb.includes(`model_${rank}`) || fb.includes('pae'));
         });
 
-        predictions[rank] = {
+        predictions[prefix][rank] = {
             structurePath: structPath,
-            paeSource: paeJson || null,
+            paeSource: paeCsv || paeJson || null,
             confidencePath: filenames.find(f => f.split('/').pop() === 'ranking_debug.json') || null,
             format: 'pdb',
             label: `ranked_${rank}`,
         };
     }
     // If no ranked files, check for any .pdb files
-    if (Object.keys(predictions).length === 0) {
+    if (Object.keys(predictions[prefix]).length === 0) {
         for (const name of filenames) {
             if (name.endsWith('.pdb')) {
-                predictions['0'] = { structurePath: name, paeSource: null, confidencePath: null, format: 'pdb', label: name.split('/').pop() };
+                predictions[prefix]['0'] = { structurePath: name, paeSource: null, confidencePath: null, format: 'pdb', label: name.split('/').pop() };
                 break;
             }
         }
@@ -1853,6 +1861,32 @@ async function extractPAE(paeSource, platform) {
     if (!paeSource) return null;
     const content = uniState.loadedFiles[paeSource];
     if (!content) return null;
+
+    // CSV file (per-pair AF2 pipelines): N x N matrix; first row + first column
+    // are residue indices and must be skipped. Cell values are PAE in Å.
+    if (paeSource.toLowerCase().endsWith('.csv')) {
+        try {
+            const text = typeof content === 'string' ? content : new TextDecoder().decode(content);
+            const lines = text.split(/\r?\n/).filter(l => l.length > 0);
+            const grid = lines.map(l => l.split(','));
+            // Detect index header: row 0 col 0 is empty or non-numeric
+            const firstCell = (grid[0] && grid[0][0] || '').trim();
+            const startRow = firstCell === '' || isNaN(parseFloat(firstCell)) || parseFloat(grid[0][1] || 'NaN') === 0 ? 1 : 0;
+            const firstDataRow = grid[startRow] || [];
+            const startCol = (firstDataRow.length === grid[0].length && firstDataRow[0] !== undefined && (isNaN(parseFloat(firstDataRow[0])) || (startRow === 1 && parseFloat(firstDataRow[0]) === 0))) ? 1 : 0;
+            const pae = [];
+            for (let i = startRow; i < grid.length; i++) {
+                const row = grid[i].slice(startCol).map(v => parseFloat(v));
+                if (row.some(v => isNaN(v))) continue;
+                pae.push(row);
+            }
+            if (pae.length > 0 && pae.length === pae[0].length) return pae;
+            console.warn('CSV PAE parse: non-square or malformed', pae.length, 'rows x', pae[0]?.length, 'cols');
+        } catch (e) {
+            console.warn('CSV PAE parse failed:', e);
+        }
+        return null;
+    }
 
     // NPY file (Chai-1) — raw numpy array
     if (paeSource.endsWith('.npy')) {
