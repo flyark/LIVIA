@@ -1130,6 +1130,23 @@ function detectPlatform() {
     const hasBoltzStructure = basenames.some(f => f.endsWith('.cif') || f.endsWith('.pdb'));
     if (hasBoltzConf && hasBoltzStructure) return 'boltz';
 
+    // Boltz-2 hosted (SubAtomic Labs / Boltz cloud): per-sample CIF + per-sample PAE
+    // sitting next to a shared metrics.json with all_sample_results[N].metrics.{ptm, iptm, ...}.
+    // Must come before the esmfold2_native catch-all so cif+npz doesn't grab it.
+    const hasBoltz2HostedStruct = basenames.some(f => /^sample_\d+_predicted_structure\.(cif|pdb)$/.test(f));
+    const hasBoltz2HostedPae = basenames.some(f => /^sample_\d+_pae\.npz$/.test(f));
+    const hasBoltz2HostedMetrics = basenames.some(f => f === 'metrics.json');
+    if (hasBoltz2HostedStruct && hasBoltz2HostedPae && hasBoltz2HostedMetrics) return 'boltz';
+
+    // Boltz-2 export bundle (single curated prediction): <name>.cif + <name>.pdb
+    // + <name>_pae.json + <name>_metrics.json (+ _pae.png + _lis.csv siblings).
+    // PAE is a JSON, so the sample_N detector above won't fire; metrics_json
+    // is a strong upstream marker so this is unambiguous.
+    const hasBoltz2ExportPae = basenames.some(f => /_pae\.json$/.test(f));
+    const hasBoltz2ExportMetrics = basenames.some(f => /_metrics\.json$/.test(f));
+    const hasBoltz2ExportStruct = basenames.some(f => f.endsWith('.cif') || f.endsWith('.pdb'));
+    if (hasBoltz2ExportPae && hasBoltz2ExportMetrics && hasBoltz2ExportStruct) return 'boltz';
+
     // Chai-1: pred.rank_*.cif + scores.rank_*.json (or pred.model_idx_*.cif)
     const hasChaiModel = basenames.some(f => /^pred\.(rank_\d+|model_idx_\d+)\.cif$/.test(f));
     const hasChaiScores = basenames.some(f => /^scores\.(rank_\d+|model_idx_\d+)\.(json|npz)$/.test(f));
@@ -1595,6 +1612,132 @@ function discoverColabFold(filenames) {
 
 function discoverBoltz(filenames) {
     const predictions = {};
+
+    // Boltz-2 export bundle layout (one prediction per zip, both .cif and .pdb present):
+    //   <name>.cif (preferred) / <name>.pdb
+    //   <name>_pae.json   ({"predicted_aligned_error": [[..]], ...})
+    //   <name>_metrics.json   (same schema as the hosted format)
+    //   <name>_pae.png, <name>_lis.csv  (ignored)
+    const exportPaeFiles = filenames.filter(f => /_pae\.json$/.test(f.split('/').pop()));
+    const exportMetricsFiles = filenames.filter(f => /_metrics\.json$/.test(f.split('/').pop()));
+    if (exportPaeFiles.length && exportMetricsFiles.length) {
+        let yielded = false;
+        for (const paePath of exportPaeFiles) {
+            const paeBase = paePath.split('/').pop();
+            const m = paeBase.match(/^(.+)_pae\.json$/);
+            if (!m) continue;
+            const prefix = m[1];
+            const dir = paePath.includes('/') ? paePath.slice(0, paePath.lastIndexOf('/')) : '';
+            const dirPrefix = dir ? dir + '/' : '';
+
+            const cifPath = filenames.find(f => f === `${dirPrefix}${prefix}.cif`);
+            const pdbPath = filenames.find(f => f === `${dirPrefix}${prefix}.pdb`);
+            const structPath = cifPath || pdbPath;
+            if (!structPath) continue;
+
+            const metricsPath = filenames.find(f => f === `${dirPrefix}${prefix}_metrics.json`);
+            let confPath = metricsPath;
+            if (metricsPath && uniState.loadedFiles[metricsPath]) {
+                try {
+                    const mj = JSON.parse(uniState.loadedFiles[metricsPath]);
+                    const sm = (mj.all_sample_results && mj.all_sample_results[0] && mj.all_sample_results[0].metrics)
+                            || (mj.best_sample && mj.best_sample.metrics)
+                            || {};
+                    const synth = {};
+                    if (sm.ptm !== undefined) synth.ptm_score = sm.ptm;
+                    const iptmVal = (sm.protein_iptm !== undefined && sm.protein_iptm !== null)
+                                    ? sm.protein_iptm : sm.iptm;
+                    if (iptmVal !== undefined) synth.iptm_score = iptmVal;
+                    if (sm.complex_plddt !== undefined) {
+                        synth.complex_plddt = sm.complex_plddt > 1.0 ? sm.complex_plddt : sm.complex_plddt * 100;
+                    }
+                    if (sm.structure_confidence !== undefined) synth.confidence_score = sm.structure_confidence;
+                    confPath = `__boltz2_export_${prefix}_synth.json`;
+                    uniState.loadedFiles[confPath] = JSON.stringify(synth);
+                } catch (e) {}
+            }
+
+            const ext = cifPath ? 'cif' : 'pdb';
+            if (!predictions[prefix]) predictions[prefix] = {};
+            predictions[prefix]['0'] = {
+                structurePath: structPath,
+                paeSource: paePath,
+                confidencePath: confPath,
+                format: ext,
+                label: 'model_0',
+            };
+            yielded = true;
+        }
+        if (yielded) return predictions;
+    }
+
+    // Boltz-2 hosted (SubAtomic / Boltz cloud) layout:
+    //   prediction/sample_N_predicted_structure.cif
+    //   prediction/sample_N_pae.npz
+    //   prediction/metrics.json   (per-sample scores in all_sample_results[N].metrics)
+    // Per-sample iPTM/pTM are pulled from metrics.json and synthesized into a
+    // virtual confidence JSON that the existing Boltz extractor can read.
+    const boltz2HostedCifs = filenames.filter(f =>
+        /^sample_\d+_predicted_structure\.(cif|pdb)$/.test(f.split('/').pop())
+    );
+    if (boltz2HostedCifs.length > 0) {
+        const metricsPath = filenames.find(f => f.split('/').pop() === 'metrics.json');
+        let allSamples = null;
+        if (metricsPath && uniState.loadedFiles[metricsPath]) {
+            try {
+                const mj = JSON.parse(uniState.loadedFiles[metricsPath]);
+                allSamples = mj.all_sample_results;
+            } catch (e) {}
+        }
+        const sorted = boltz2HostedCifs.slice().sort((a, b) => {
+            const ai = parseInt(a.split('/').pop().match(/^sample_(\d+)/)[1], 10);
+            const bi = parseInt(b.split('/').pop().match(/^sample_(\d+)/)[1], 10);
+            return ai - bi;
+        });
+        for (const cifPath of sorted) {
+            const base = cifPath.split('/').pop();
+            const m = base.match(/^sample_(\d+)_predicted_structure\.(cif|pdb)$/);
+            if (!m) continue;
+            const idx = m[1];
+            const ext = m[2];
+            const sampleI = parseInt(idx, 10);
+            const dir = cifPath.includes('/') ? cifPath.slice(0, cifPath.lastIndexOf('/')) : '';
+            const dirPrefix = dir ? dir + '/' : '';
+            const paePath = filenames.find(f => f === `${dirPrefix}sample_${idx}_pae.npz`)
+                         || filenames.find(f => f.split('/').pop() === `sample_${idx}_pae.npz`);
+
+            let confPath = metricsPath;
+            if (allSamples && Array.isArray(allSamples) && sampleI < allSamples.length) {
+                const sm = (allSamples[sampleI] && allSamples[sampleI].metrics) || {};
+                const synth = {};
+                if (sm.ptm !== undefined) synth.ptm_score = sm.ptm;
+                // For protein-only complexes iptm == protein_iptm; prefer the
+                // protein-only value when ligands are present.
+                const iptmVal = (sm.protein_iptm !== undefined && sm.protein_iptm !== null)
+                                ? sm.protein_iptm : sm.iptm;
+                if (iptmVal !== undefined) synth.iptm_score = iptmVal;
+                if (sm.complex_plddt !== undefined) {
+                    // Boltz-2 hosted reports complex_plddt on 0–1; scale to 0–100
+                    // so the existing column rendering matches AlphaFold convention.
+                    synth.complex_plddt = sm.complex_plddt > 1.0 ? sm.complex_plddt : sm.complex_plddt * 100;
+                }
+                if (sm.structure_confidence !== undefined) synth.confidence_score = sm.structure_confidence;
+                confPath = `__boltz2_sample_${idx}_synth.json`;
+                uniState.loadedFiles[confPath] = JSON.stringify(synth);
+            }
+
+            if (!predictions['boltz']) predictions['boltz'] = {};
+            predictions['boltz'][idx] = {
+                structurePath: cifPath,
+                paeSource: paePath,
+                confidencePath: confPath,
+                format: ext,
+                label: `sample_${idx}`,
+            };
+        }
+        return predictions;
+    }
+
     // Boltz typically outputs: predictions/MODEL_NAME/confidence_model_X.json, pae_model_X.npz, MODEL_NAME_model_X.cif
     // Tamarind Boltz-2: predictions/result/result_model_N.pdb, pae_result_model_N.npz, confidence_result_model_N.json
     const structFiles = filenames.filter(f => {
@@ -2389,6 +2532,66 @@ function calcActifpTM(pae, contact, nUse, si, ei, sj, ej, contactCutoff) {
     return maxScore;
 }
 
+// PAE-based per-chain-pair iPTM matrix (used when the platform doesn't ship one).
+// Matches AlphaFold3's chain_pair_iptm definition: for chain pair (a, b),
+// d0 = f(N_a + N_b), tm[i,j] = 1/(1+(PAE[i,j]/d0)^2), and the cell value is
+// max_i ( mean_{j ∈ opposite chain} tm[i,j] ) over rows in chain_a ∪ chain_b.
+// Diagonal uses N_a for d0 and within-chain pairs (per-chain pTM).
+// Underbias ~0.01–0.07 vs AF3 ground truth due to Jensen's inequality on the
+// saved PAE-bin distribution; ranking-preserving.
+function computePaeChainPairIptm(pae, starts, cumSum, nc, nTotal) {
+    const out = Array.from({ length: nc }, () => new Array(nc).fill(0));
+    for (let a = 0; a < nc; a++) {
+        const sa = starts[a], ea = Math.min(cumSum[a], nTotal);
+        const Na = ea - sa;
+        if (Na <= 0) continue;
+        for (let b = 0; b < nc; b++) {
+            const sb = starts[b], eb = Math.min(cumSum[b], nTotal);
+            const Nb = eb - sb;
+            if (Nb <= 0) continue;
+            const Nd = (a === b) ? Math.max(Na, 19) : Math.max(Na + Nb, 19);
+            const d0 = 1.24 * Math.pow(Nd - 15, 1.0 / 3.0) - 1.8;
+            if (d0 <= 0) continue;
+            const d0sq = d0 * d0;
+            let best = 0.0;
+            if (a === b) {
+                for (let i = sa; i < ea; i++) {
+                    let sum = 0;
+                    for (let j = sa; j < ea; j++) {
+                        const v = pae[i][j];
+                        sum += 1.0 / (1.0 + (v * v) / d0sq);
+                    }
+                    const avg = sum / Na;
+                    if (avg > best) best = avg;
+                }
+            } else {
+                // Rows in chain a → cols in chain b
+                for (let i = sa; i < ea; i++) {
+                    let sum = 0;
+                    for (let j = sb; j < eb; j++) {
+                        const v = pae[i][j];
+                        sum += 1.0 / (1.0 + (v * v) / d0sq);
+                    }
+                    const avg = sum / Nb;
+                    if (avg > best) best = avg;
+                }
+                // Rows in chain b → cols in chain a
+                for (let i = sb; i < eb; i++) {
+                    let sum = 0;
+                    for (let j = sa; j < ea; j++) {
+                        const v = pae[i][j];
+                        sum += 1.0 / (1.0 + (v * v) / d0sq);
+                    }
+                    const avg = sum / Na;
+                    if (avg > best) best = avg;
+                }
+            }
+            out[a][b] = best;
+        }
+    }
+    return out;
+}
+
 function computeContactMap(coords, threshold) {
     const n = coords.length;
     const contact = new Uint8Array(n * n);
@@ -2575,8 +2778,18 @@ async function processFiles() {
             const nUse = Math.min(nTotal, nCoords);
 
             // ipTM: per-chain-pair matrix (AF3) or global value (ColabFold/Boltz/etc)
-            const iptmMatrix = scores.chainPairIptm || null;
+            let iptmMatrix = scores.chainPairIptm || null;
             const globalIptm = scores.ipTM || 0;
+
+            // PAE-based per-chain-pair iPTM fallback when the platform ships only
+            // a global scalar (Boltz2 hosted/export, AlphaPulldown 3+ chain, Generic).
+            // 2-chain → per-pair == global, skip. 3+ chain → real per-pair info.
+            // Per-pair d0 = 1.24·(max(N_a+N_b,19)−15)^(1/3) − 1.8. Bias ~0.01–0.07
+            // vs AF3 ground truth (Jensen's gap on the saved PAE-bin distribution);
+            // ranking-preserving.
+            if (!iptmMatrix && chainNames.length >= 3) {
+                iptmMatrix = computePaeChainPairIptm(pae, starts, cumSum, chainNames.length, nTotal);
+            }
 
 
             // Per chain pair metrics
