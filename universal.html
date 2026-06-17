@@ -2349,7 +2349,13 @@ function getChainsFromCif(cifText) {
         if (inAtomSite && !line.startsWith('_atom_site.') && !line.startsWith('#') && line.trim()) {
             if (line.startsWith('loop_') || line.startsWith('_')) { inAtomSite = false; continue; }
             const parts = line.trim().split(/\s+/);
-            if (parts.length < colNames.length) continue;
+            // Boltz CIFs wrap the trailing pdbx_PDB_model_num field onto the next
+            // line for some atoms (only 18 fields on the data line + a lone "1"
+            // continuation). Don't enforce the strict colNames match — just gate
+            // on parts[0] being a real ATOM/HETATM token. getCol() returns ''
+            // for any column index past parts.length, which is harmless here
+            // (we only read columns 0..17, never the wrapped model_num).
+            if (!parts.length || (parts[0] !== 'ATOM' && parts[0] !== 'HETATM')) continue;
             const getCol = (name) => parts[colNames.indexOf(name)] || '';
             const groupPDB = getCol('group_PDB');
             const atomName = getCol('label_atom_id');
@@ -4805,7 +4811,13 @@ function parseCifSequence(cifText) {
         if (inAtomSite && !line.startsWith('_atom_site.') && !line.startsWith('#') && line.trim()) {
             if (line.startsWith('loop_') || line.startsWith('_')) { inAtomSite = false; continue; }
             const parts = line.trim().split(/\s+/);
-            if (parts.length < colNames.length) continue;
+            // Boltz CIFs wrap the trailing pdbx_PDB_model_num field onto the next
+            // line for some atoms (only 18 fields on the data line + a lone "1"
+            // continuation). Don't enforce the strict colNames match — just gate
+            // on parts[0] being a real ATOM/HETATM token. getCol() returns ''
+            // for any column index past parts.length, which is harmless here
+            // (we only read columns 0..17, never the wrapped model_num).
+            if (!parts.length || (parts[0] !== 'ATOM' && parts[0] !== 'HETATM')) continue;
             const getCol = (name) => parts[colNames.indexOf(name)] || '';
             const groupPDB = getCol('group_PDB');
             const atomName = getCol('label_atom_id');

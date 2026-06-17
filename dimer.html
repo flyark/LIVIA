@@ -935,7 +935,10 @@ function parseCifSequence(cifText) {
         if (inAtomSite && !line.startsWith('_atom_site.') && !line.startsWith('#') && line.trim()) {
             if (line.startsWith('loop_') || line.startsWith('_')) { inAtomSite = false; continue; }
             const parts = line.trim().split(/\s+/);
-            if (parts.length < colNames.length) continue;
+            // Boltz CIFs wrap the trailing pdbx_PDB_model_num field onto the next
+            // line for some atoms; gate on parts[0] being ATOM/HETATM instead of
+            // a strict colNames match (getCol returns '' for out-of-bounds columns).
+            if (!parts.length || (parts[0] !== 'ATOM' && parts[0] !== 'HETATM')) continue;
             const getCol = (name) => parts[colNames.indexOf(name)] || '';
             if (getCol('group_PDB') !== 'ATOM') continue;
             if (getCol('label_atom_id') !== 'CA') continue;
@@ -1625,7 +1628,10 @@ function parseCifCoords(cifText) {
         if (inAtomSite && !line.startsWith('_atom_site.') && !line.startsWith('#') && line.trim()) {
             if (line.startsWith('loop_') || line.startsWith('_')) { inAtomSite = false; continue; }
             const parts = line.trim().split(/\s+/);
-            if (parts.length < colNames.length) continue;
+            // Boltz CIFs wrap the trailing pdbx_PDB_model_num field onto the next
+            // line for some atoms; gate on parts[0] being ATOM/HETATM instead of
+            // a strict colNames match (getCol returns '' for out-of-bounds columns).
+            if (!parts.length || (parts[0] !== 'ATOM' && parts[0] !== 'HETATM')) continue;
 
             const getCol = (name) => parts[colNames.indexOf(name)] || '';
             const groupPDB = getCol('group_PDB');
