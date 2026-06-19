@@ -226,6 +226,18 @@ body {
 .data-table tr.selected td { background: #faf8f4; }
 .data-table tr.selected td:first-child { box-shadow: inset 4px 0 0 #c4a35a; }
 .model-badge { font-size: 0.7rem; font-weight: 500; color: #2471A3; background: #eaf2f8; padding: 0.15rem 0.5rem; border-radius: 4px; vertical-align: middle; }
+/* Interactive per-model selector chips (replace the static model badge on single-model cards).
+   Selection is global (hidden #seed-select); clicking a chip routes through selectRow so the
+   summary table, all viewers, and every chip strip stay in sync. Only universal.html renders
+   .model-selector markup, so other pages sharing this stylesheet are unaffected. */
+.model-selector { display: flex; gap: 0.3rem; flex-wrap: wrap; align-items: stretch; margin: 0; }
+.model-chip { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 62px; padding: 0.22rem 0.55rem; border: 1px solid #e0e0e0; border-radius: 6px; background: #f8f9fa; color: #555; cursor: pointer; font-family: inherit; line-height: 1.15; transition: background .12s, border-color .12s, box-shadow .12s; }
+.model-chip:not(.selected):hover { border-color: #2471A3; background: #f0f7fc; }
+.model-chip.selected { background: #2471A3; border-color: #2471A3; color: #fff; box-shadow: 0 1px 3px rgba(36,113,163,0.3); }
+.model-chip-name { font-size: 0.72rem; font-weight: 600; }
+.model-chip-ilis { font-size: 0.7rem; font-weight: 500; }
+.model-chip-metric { font-size: 0.6rem; font-weight: 600; opacity: 0.55; margin-right: 3px; letter-spacing: 0.01em; }
+.model-chip.selected .model-chip-metric { opacity: 0.8; }
 .data-table tr.clickable { cursor: pointer; }
 .data-table tr.clickable:hover { background: #f0f7fc; }
 

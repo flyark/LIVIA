@@ -259,7 +259,10 @@
 
         <!-- Sequence Viewer -->
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
-            <h2>Sequence Viewer <span class="model-badge" id="seq-model-badge"></span></h2>
+            <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+                <h2 style="margin-bottom:0;">Sequence Viewer</h2>
+                <div class="model-selector" id="seq-model-selector"></div>
+            </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Light background = LIR (PAE &le; 12 &Aring;). Dark background with white text = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each chain uses its own color.
             </div>
@@ -268,7 +271,10 @@
 
         <!-- Linear Contact Map (2-chain linear) -->
         <div class="card result-card" id="contact-map-card" style="display:none;">
-            <h2>Linear Contact Map <span class="model-badge" id="contact-model-badge"></span></h2>
+            <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+                <h2 style="margin-bottom:0;">Linear Contact Map</h2>
+                <div class="model-selector" id="contact-model-selector"></div>
+            </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B.
             </div>
@@ -277,7 +283,10 @@
 
         <!-- Circular Contact Map (multi-chain) -->
         <div class="card result-card" id="chord-card" style="display:none;">
-            <h2>Circular Contact Map <span class="model-badge" id="chord-model-badge"></span></h2>
+            <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+                <h2 style="margin-bottom:0;">Circular Contact Map</h2>
+                <div class="model-selector" id="chord-model-selector"></div>
+            </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent chains. Lines connect cLIR residue pairs in physical contact across all chain pairs.
             </div>
@@ -295,7 +304,10 @@
 
         <!-- 3D Structure Viewer -->
         <div class="card result-card" id="viewer3d-card" style="display:none;">
-            <h2>3D Structure Viewer <span class="model-badge" id="viewer3d-model-badge"></span></h2>
+            <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+                <h2 style="margin-bottom:0;">3D Structure Viewer</h2>
+                <div class="model-selector" id="viewer3d-model-selector"></div>
+            </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Interactive 3D preview powered by <a href="https://molstar.org" target="_blank" style="color:#2471A3;">Mol*</a> (<a href="https://doi.org/10.1093/nar/gkab314" target="_blank" style="color:#2471A3;">Sehnal et al. 2021</a>). LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom. <span style="color:#999;">If the viewer appears empty, refresh the page.</span>
             </div>
@@ -312,7 +324,7 @@
 
         <!-- Script -->
         <div class="card result-card" id="script-card">
-            <h2>Visualization Script <span class="model-badge" id="script-model-badge"></span></h2>
+            <h2>Visualization Script</h2>
 
             <div style="margin-bottom:1rem;">
                 <label>Local Interaction Residue (LIR) Display</label>
@@ -430,7 +442,10 @@
 
         <!-- Per-Residue pLDDT & Intra-chain LIS -->
         <div class="card result-card" id="per-residue-card" style="display:none;">
-            <h2>Per-Residue Intra-chain LIS &amp; pLDDT <span class="model-badge" id="perresidue-model-badge"></span></h2>
+            <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+                <h2 style="margin-bottom:0;">Per-Residue Intra-chain LIS &amp; pLDDT</h2>
+                <div class="model-selector" id="perresidue-model-selector"></div>
+            </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Per-residue metrics for each chain across all models. Selected model as solid line; other models as light traces; average as dashed line.
             </div>
@@ -3132,6 +3147,8 @@ function displayResults(results, jobName) {
     }
 
     const perModelSym = uniState.modelPairs.map(mp => symmetrizePairs(mp));
+    // Cache for the per-model selector chips (renderModelSelectors reads per-model iLIS per pair)
+    uniState.perModelSym = perModelSym;
 
     const pairKeys = Object.keys(results).sort((a, b) => {
         const [a1, a2] = a.split('-');
@@ -3194,6 +3211,7 @@ function displayResults(results, jobName) {
                 const tr = document.createElement('tr');
                 tr.className = (isFirstPair && mi === bestIdx) ? 'clickable selected' : 'clickable';
                 if (sortedMi.indexOf(mi) === 0 && pi > 0) tr.style.borderTop = '3px solid #2471A3';
+                tr.dataset.pairkey = key; tr.dataset.model = String(mi);
                 tr.onclick = () => selectRow(key, String(mi), tr);
                 tr.innerHTML = `<td>${uniState.modelData[mi]?.label || 'model_' + mi}</td><td>${mv.ci} \u2014 ${mv.cj}</td><td>${ilisHtml(mv.iLIS)}</td><td>${(mv.iLIA||0).toFixed(1)}</td><td>${(mv.iLISA||0).toFixed(1)}</td><td>${(mv.ipSAE||0).toFixed(3)}</td><td>${(mv.actifpTM||0).toFixed(3)}</td>${iptmCell(mv.ipTM)}<td>${mv.LIS.toFixed(3)}</td><td>${mv.cLIS.toFixed(3)}</td><td>${mv.lirI.size} / ${mv.lirJ.size}</td><td>${mv.clirI.size} / ${mv.clirJ.size}</td>`;
                 tbody.appendChild(tr);
@@ -3202,6 +3220,7 @@ function displayResults(results, jobName) {
             const avgTr = document.createElement('tr');
             avgTr.className = 'clickable avg-row';
             avgTr.dataset.pinned = 'true';
+            avgTr.dataset.pairkey = key; avgTr.dataset.model = 'avg';
             avgTr.onclick = () => selectRow(key, 'avg', avgTr);
             avgTr.innerHTML = `<td>Average</td><td>${avg.ci} \u2014 ${avg.cj}</td><td>${ilisHtml(avg.iLIS, true)}</td><td>${(avg.iLIA||0).toFixed(1)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td><td>${avg.avgLirI ?? avg.lirI.size} / ${avg.avgLirJ ?? avg.lirJ.size}</td><td>${avg.avgClirI ?? avg.clirI.size} / ${avg.avgClirJ ?? avg.clirJ.size}</td>`;
             tbody.appendChild(avgTr);
@@ -3209,6 +3228,7 @@ function displayResults(results, jobName) {
             // Single model row — auto-selected for first pair
             const tr = document.createElement('tr');
             tr.className = isFirstPair ? 'clickable selected' : 'clickable';
+            tr.dataset.pairkey = key; tr.dataset.model = '0';
             tr.onclick = () => selectRow(key, '0', tr);
             tr.innerHTML = `<td>${uniState.modelData[0]?.label || '0'}</td><td>${avg.ci} \u2014 ${avg.cj}</td><td>${ilisHtml(avg.iLIS)}</td><td>${(avg.iLIA||0).toFixed(1)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td><td>${avg.lirI.size} / ${avg.lirJ.size}</td><td>${avg.clirI.size} / ${avg.clirJ.size}</td>`;
             tbody.appendChild(tr);
@@ -3242,12 +3262,55 @@ function selectRow(pairKey, modelIdx, trEl) {
     document.querySelectorAll('#pairs-tbody tr').forEach(tr => tr.classList.remove('selected'));
     if (trEl) trEl.classList.add('selected');
 
-    // Update model badge on visualization headers
-    const badgeText = modelIdx === 'avg' ? 'Average' : (uniState.modelData[parseInt(modelIdx)]?.label || 'model_' + modelIdx);
-    document.querySelectorAll('.model-badge').forEach(el => { el.textContent = badgeText; });
-
-    
+    // Per-model selector chips (header strips on every single-model card) are refreshed
+    // inside selectPair → renderModelSelectors, which reads #seed-select + currentPairKey.
     selectPair(pairKey);
+}
+
+// Click handler for a model-selector chip: switch the active model for the CURRENT pair.
+// Routes through selectRow (via the matching summary-table row) so the table highlight,
+// hidden #seed-select, all viewers, and every chip strip stay in sync — exactly as if the
+// user had clicked that row in the summary table.
+function selectModel(modelIdx) {
+    const key = uniState.currentPairKey;
+    if (!key) return;
+    let tr = null;
+    try {
+        tr = document.querySelector(`#pairs-tbody tr[data-pairkey="${CSS.escape(key)}"][data-model="${modelIdx}"]`);
+    } catch (_e) { tr = null; }
+    selectRow(key, String(modelIdx), tr);
+}
+
+// Populate the per-model selector chip strips (one per single-model card; all identical
+// because selection is global). Each chip shows the model label + that model's iLIS for the
+// current pair; an "Average" chip is added when there is more than one model. The chip
+// matching #seed-select is highlighted. Called from selectPair so it tracks pair + model.
+function renderModelSelectors() {
+    const selectors = document.querySelectorAll('.model-selector');
+    if (!selectors.length) return;
+    const key = uniState.currentPairKey;
+    const nModels = uniState.modelData?.length || 0;
+    if (!key || !nModels || !uniState.perModelSym) {
+        selectors.forEach(s => { s.innerHTML = ''; s.style.display = 'none'; });
+        return;
+    }
+    const seedVal = String(document.getElementById('seed-select')?.value ?? '0');
+
+    const chips = [];
+    for (let i = 0; i < nModels; i++) {
+        const mv = uniState.perModelSym[i]?.[key];
+        chips.push({ idx: String(i), label: uniState.modelData[i]?.label || ('model_' + i), ilis: mv ? mv.iLIS : null });
+    }
+
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const html = chips.map(c => {
+        const sel = seedVal === c.idx ? ' selected' : '';
+        const ilisStr = (c.ilis == null || isNaN(c.ilis)) ? '—' : c.ilis.toFixed(3);
+        const label = esc(c.label);
+        return `<button type="button" class="model-chip${sel}" onclick="selectModel('${c.idx}')" title="Select ${label} (iLIS ${ilisStr})"><span class="model-chip-name">${label}</span><span class="model-chip-ilis"><span class="model-chip-metric">iLIS</span>${ilisStr}</span></button>`;
+    }).join('');
+
+    selectors.forEach(s => { s.innerHTML = html; s.style.display = 'flex'; });
 }
 
 // ============================================================================
@@ -3613,6 +3676,9 @@ function selectPair(key) {
     dlStruct.download = structFilename;
     dlStruct.textContent = `\u2193 Download .${uniState.structureFormat}`;
     dlStruct.className = `btn-download cif`;
+
+    // Refresh the per-model selector chips (label + per-pair iLIS, selected highlighted)
+    renderModelSelectors();
 }
 
 // ============================================================================
@@ -5020,11 +5086,7 @@ function buildPerResidueCharts(pairKey) {
     card.style.display = '';
     container.offsetWidth; // force reflow
 
-    // Update model badge
-    const badgeText = seedVal === 'avg' ? 'Average' : (uniState.modelData[selectedModelIdx]?.label || 'model_' + seedVal);
-    const badge = document.getElementById('perresidue-model-badge');
-    if (badge) badge.textContent = badgeText;
-
+    // (Model label now shown by the per-model selector chips via renderModelSelectors.)
     const singleModel = uniState.modelData.length === 1;
 
     for (const cd of chainData) {

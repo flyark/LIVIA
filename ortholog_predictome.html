@@ -223,7 +223,10 @@
 
         <!-- Sequence Viewer -->
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
-            <h2>Sequence Viewer <span class="model-badge" id="seq-model-badge"></span></h2>
+            <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+                <h2 style="margin-bottom:0;">Sequence Viewer</h2>
+                <div class="model-selector" id="seq-model-selector"></div>
+            </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Light background = LIR (PAE &le; 12 &Aring;). Dark background = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each chain uses its own color.
             </div>
@@ -232,7 +235,10 @@
 
         <!-- Interaction Connection Diagram -->
         <div class="card result-card" id="connection-diagram-card" style="display:none;">
-            <h2>Linear Contact Map <span class="model-badge" id="contact-model-badge"></span></h2>
+            <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+                <h2 style="margin-bottom:0;">Linear Contact Map</h2>
+                <div class="model-selector" id="contact-model-selector"></div>
+            </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Per-rank structures fetched automatically.
             </div>
@@ -242,7 +248,10 @@
 
         <!-- Circular Contact Map -->
         <div class="card result-card" id="chord-card" style="display:none;">
-            <h2>Circular Contact Map <span class="model-badge" id="chord-model-badge"></span></h2>
+            <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+                <h2 style="margin-bottom:0;">Circular Contact Map</h2>
+                <div class="model-selector" id="chord-model-selector"></div>
+            </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent chains (proportional to length). Lines connect cLIR residue pairs in physical contact.
             </div>
@@ -260,7 +269,10 @@
 
         <!-- 3D Structure Viewer -->
         <div class="card result-card" id="viewer3d-card" style="display:none;">
-            <h2>3D Structure Viewer <span class="model-badge" id="viewer3d-model-badge"></span></h2>
+            <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+                <h2 style="margin-bottom:0;">3D Structure Viewer</h2>
+                <div class="model-selector" id="viewer3d-model-selector"></div>
+            </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Interactive 3D preview powered by <a href="https://molstar.org" target="_blank" style="color:#2471A3;">Mol*</a> (<a href="https://doi.org/10.1093/nar/gkab314" target="_blank" style="color:#2471A3;">Sehnal et al. 2021</a>). LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom.
             </div>
@@ -277,7 +289,7 @@
 
         <!-- Script -->
         <div class="card result-card">
-            <h2>Visualization Script <span class="model-badge" id="script-model-badge"></span></h2>
+            <h2>Visualization Script</h2>
             <div style="margin-bottom:1rem;">
 
                 <label>Local Interaction Residue (LIR) Display</label>
@@ -400,7 +412,10 @@
 
         <!-- Per-Residue pLDDT -->
         <div class="card result-card" id="plddt-card" style="display:none;">
-            <h2>Per-Residue pLDDT <span class="model-badge" id="plddt-model-badge"></span></h2>
+            <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+                <h2 style="margin-bottom:0;">Per-Residue pLDDT</h2>
+                <div class="model-selector" id="plddt-model-selector"></div>
+            </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Per-residue pLDDT for each chain across all ranks. Selected rank as solid line; other ranks as avg &plusmn; SD shading.
             </div>
@@ -1754,7 +1769,7 @@ async function loadRank(rankNum) {
 
     const titleLabel = isAvg ? 'Average' : `Rank ${rankNum}`;
     document.getElementById('result-title').textContent = `${sym1} \u2014 ${sym2} (${titleLabel})`;
-    document.querySelectorAll('.model-badge').forEach(el => { el.textContent = titleLabel; });
+    // (Model label now shown by the per-rank selector chips via renderModelSelectors, called below.)
 
     document.querySelectorAll('#ranks-tbody tr').forEach(tr => {
         tr.classList.toggle('selected', tr.cells[0].textContent.trim() === String(isAvg ? 'Avg' : rankNum));
@@ -1784,6 +1799,34 @@ async function loadRank(rankNum) {
 
     // Per-residue pLDDT charts
     buildFlyPlddtCharts(rankNum, colors);
+
+    // Per-rank selector chips (label + iLIS, selected highlighted) on every viewer card
+    renderModelSelectors();
+}
+
+// Populate the per-rank selector chip strips (one per viewer card; all identical because
+// rank selection is global). Each chip shows "Rank N" + that rank's iLIS; the chip matching
+// flyCurrentRank is highlighted. Clicking routes through loadRank, which also highlights the
+// matching All-Ranks table row — so chips, table, and all viewers stay in sync. No "Average"
+// chip (the All-Ranks table keeps its Avg row); the Visualization Script card has no selector.
+function renderModelSelectors() {
+    const selectors = document.querySelectorAll('.model-selector');
+    if (!selectors.length) return;
+    if (!flyParsed || !flyParsed.rows || !flyParsed.rows.length) {
+        selectors.forEach(s => { s.innerHTML = ''; s.style.display = 'none'; });
+        return;
+    }
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const html = flyParsed.rows.map(r => {
+        const rk = parseInt(r['Rank']);
+        if (isNaN(rk)) return '';
+        const sel = (flyCurrentRank !== 'avg' && rk === parseInt(flyCurrentRank)) ? ' selected' : '';
+        const ilis = parseFloat(r['iLIS']);
+        const ilisStr = isNaN(ilis) ? '—' : ilis.toFixed(3);
+        const label = 'Rank ' + rk;
+        return `<button type="button" class="model-chip${sel}" onclick="loadRank(${rk})" title="Select ${esc(label)} (iLIS ${ilisStr})"><span class="model-chip-name">${esc(label)}</span><span class="model-chip-ilis"><span class="model-chip-metric">iLIS</span>${ilisStr}</span></button>`;
+    }).join('');
+    selectors.forEach(s => { s.innerHTML = html; s.style.display = 'flex'; });
 }
 
 // ============================================================================
@@ -1834,8 +1877,7 @@ function buildFlyPlddtCharts(selectedRank, colors) {
     card.style.display = '';
     container.offsetWidth;
 
-    const badge = document.getElementById('plddt-model-badge');
-    if (badge) badge.textContent = isAvg ? 'Average' : 'Rank ' + selectedRank;
+    // (Rank label now shown by the per-rank selector chips via renderModelSelectors.)
 
     const target = isAvg ? flyAverageRow : (flyParsed.rows.find(r => parseInt(r['Rank']) === selRankNum) || flyParsed.rows[0]);
 
