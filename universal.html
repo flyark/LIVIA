@@ -2247,6 +2247,7 @@ function extractConfidenceScores(confidencePath, platform) {
 
 function parseCifCoords(cifText) {
     const residues = new Map();
+    let hetIdx = 0;
     const lines = cifText.split('\n');
     let inAtomSite = false;
     const colNames = [];
@@ -2276,10 +2277,19 @@ function parseCifCoords(cifText) {
 
             if (isNaN(x)) continue;
 
-            // Handle ions first (label_seq_id may be '.' for HETATM ions)
-            if (groupPDB === 'HETATM' && ION_NAMES.has(compId)) {
-                if (!residues.has(`${chain}:1`)) {
-                    residues.set(`${chain}:1`, { chain, resnum: 1, x, y, z, hasP: false });
+            // HETATM (label_seq_id is often '.'): AlphaFold3 tokenizes every
+            // non-polymer atom separately, so the PAE matrix has one token per
+            // HETATM atom. We must emit one coordinate per atom (ion = 1 atom;
+            // glycan/ligand = N atoms) in file order, otherwise the contact map
+            // falls out of alignment with the PAE tokens and every chain after a
+            // glycan loses its contact-based metrics (cLIS/iLIS, actifpTM).
+            if (groupPDB === 'HETATM') {
+                if (ION_NAMES.has(compId)) {
+                    if (!residues.has(`${chain}:1`)) {
+                        residues.set(`${chain}:1`, { chain, resnum: 1, x, y, z, hasP: false });
+                    }
+                } else {
+                    residues.set(`het:${chain}:${hetIdx++}`, { chain, resnum: 1, x, y, z, hasP: atomName.includes('P') });
                 }
                 continue;
             }
@@ -2301,6 +2311,7 @@ function parseCifCoords(cifText) {
 
 function parsePdbCoords(pdbText) {
     const residues = new Map();
+    let hetIdx = 0;
     for (const line of pdbText.split('\n')) {
         if (!line.startsWith('ATOM') && !line.startsWith('HETATM')) continue;
         if (line.length < 54) continue;
@@ -2312,14 +2323,20 @@ function parsePdbCoords(pdbText) {
         const y = parseFloat(line.substring(38, 46));
         const z = parseFloat(line.substring(46, 54));
         const key = `${chain}:${resnum}`;
-        if (atomName === 'CB') {
+        if (line.startsWith('HETATM')) {
+            // One token per HETATM atom (ion = 1 atom, glycan/ligand = N atoms),
+            // keeping coords aligned with the per-atom PAE tokens. See parseCifCoords.
+            if (ION_NAMES.has(compId)) {
+                if (!residues.has(`${chain}:1`)) residues.set(`${chain}:1`, { chain, resnum: 1, x, y, z, hasP: false });
+            } else {
+                residues.set(`het:${chain}:${hetIdx++}`, { chain, resnum: 1, x, y, z, hasP: atomName.includes('P') });
+            }
+        } else if (atomName === 'CB') {
             residues.set(key, { chain, resnum, x, y, z, hasP: false });
         } else if (atomName === 'CA' && compId === 'GLY' && !residues.has(key)) {
             residues.set(key, { chain, resnum, x, y, z, hasP: false });
         } else if (atomName === 'P' && !residues.has(key)) {
             residues.set(key, { chain, resnum, x, y, z, hasP: true });
-        } else if (line.startsWith('HETATM') && ION_NAMES.has(compId) && !residues.has(`${chain}:1`)) {
-            residues.set(`${chain}:1`, { chain, resnum: 1, x, y, z, hasP: false });
         }
     }
     return [...residues.values()];
@@ -2394,6 +2411,12 @@ function getChainsFromCif(cifText) {
                     counted = true;
                     chainTypes.set(chain, 'ion');
                 }
+            } else if (groupPDB === 'HETATM') {
+                // Glycan / ligand (non-ion HETATM): AlphaFold3 makes one token per
+                // atom, so count every atom (not deduped per residue) and tag the
+                // chain so it renders as ball-and-stick, not a protein cartoon.
+                chainTypes.set(chain, 'glycan');
+                counted = true;
             }
             if (counted) {
                 if (!chainCounts.has(chain)) {
@@ -3327,11 +3350,13 @@ function buildColorComponents(v) {
     const mode = (!uniState.cxcColorMode && nc > 2 && !multiActive) ? 'bychain' : uniState.cxcColorMode;
     const components = [];
     const types = uniState.chainTypes || [];
-    const isNonProteinChain = (ch) => { const t = types[uniState.chainNames?.indexOf(ch)]; return t === 'ion' || t === 'rna' || t === 'dna'; };
+    const NONPROTEIN = new Set(['ion', 'rna', 'dna', 'glycan', 'ligand']);
+    const BALLSTICK = new Set(['ion', 'glycan', 'ligand']); // ball-and-stick, not cartoon
+    const isNonProteinChain = (ch) => NONPROTEIN.has(types[uniState.chainNames?.indexOf(ch)]);
     const addComp = (chain, ranges, color) => {
         if (uniState.hiddenChains?.has(chain)) return; // chain toggle bar: hidden chain → skip
         const t = types[uniState.chainNames?.indexOf(chain)];
-        components.push({ chain, ranges, color, isIon: t === 'ion' });
+        components.push({ chain, ranges, color, isIon: BALLSTICK.has(t) });
     };
 
     // Union LIR/cLIR across all pairs per chain (mistake #27 rule: per-chain UI
@@ -3565,23 +3590,28 @@ function buildColorComponents(v) {
         }
     }
 
-    // Always show ALL ion chains (selected pair or other)
+    // Always show ALL non-protein chains (ion/glycan/ligand → ball-and-stick;
+    // rna/dna → cartoon). Color each by its own chord/legend color (getChainToggleColor)
+    // rather than a hardcoded red, and span the full chain so multi-residue nucleic
+    // chains render as a complete cartoon instead of a single red residue.
     const allChains = [v.ci, v.cj, ...otherChains];
+    const npNames = uniState.chainNames || [];
+    const npSizes = uniState.chainSizes || [];
     for (const c of allChains) {
         if (!isNonProteinChain(c)) continue;
-        if (!components.some(comp => comp.chain === c)) {
-            let ionColor = '#FF0000';
-            if (mode === 'plddt') {
-                // Use pLDDT color for ion
-                const seedVal = document.getElementById('seed-select').value;
-                const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
-                const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
-                const bfactors = parseBfactorsPerResidue(structText, uniState.structureFormat);
-                const bf = bfactors.get(`${c}:1`);
-                if (bf !== undefined) ionColor = plddtColor(bf);
-            }
-            addComp(c, [{ start: 1, end: 1 }], ionColor);
+        if (components.some(comp => comp.chain === c)) continue;
+        const idx = npNames.indexOf(c);
+        const sz = (idx >= 0 && npSizes[idx]) ? npSizes[idx] : 1;
+        let color = getChainToggleColor(c);
+        if (mode === 'plddt') {
+            const seedVal = document.getElementById('seed-select').value;
+            const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
+            const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
+            const bfactors = parseBfactorsPerResidue(structText, uniState.structureFormat);
+            const bf = bfactors.get(`${c}:1`);
+            if (bf !== undefined) color = plddtColor(bf);
         }
+        addComp(c, [{ start: 1, end: sz }], color);
     }
 
     return components.filter(c => c.ranges.length > 0);
@@ -3757,7 +3787,7 @@ function generateCxc(v, structFilename, colors) {
 
     const showChain = (spec, ch) => {
         const ct = chainType(ch);
-        if (ct === 'ion') return [`show #1/${ch} atoms`];
+        if (ct === 'ion' || ct === 'glycan' || ct === 'ligand') return [`show #1/${ch} atoms`];
         if (ct === 'rna' || ct === 'dna') return [`show #1${spec} cartoons`, `show #1${spec} atoms`];
         return [`show #1${spec} cartoons`];
     };
@@ -3994,17 +4024,19 @@ function generatePml(v, structFilename, colors) {
         }
     }
 
-    // ── Show ions (all modes) ──
+    // ── Show ions / glycans / ligands (all modes) ──
     lines.push('');
     for (let ci = 0; ci < (uniState.chainNames || []).length; ci++) {
-        if (types[ci] === 'ion') {
+        const t = types[ci];
+        if (t === 'ion' || t === 'glycan' || t === 'ligand') {
             const ionCh = uniState.chainNames[ci];
-            lines.push(`show spheres, chain ${ionCh}`);
+            lines.push(`${t === 'ion' ? 'show spheres' : 'show sticks'}, chain ${ionCh}`);
             if (uniState.cxcColorMode === 'plddt') {
-                // Color ion by its pLDDT
+                // Color by pLDDT
                 colorByPlddt(`chain ${ionCh}`);
             } else {
-                lines.push(`color red, chain ${ionCh}`);
+                lines.push(`set_color chcol_${ionCh}, ${hexToRgbFloat(getChainToggleColor(ionCh))}`);
+                lines.push(`color chcol_${ionCh}, chain ${ionCh}`);
             }
         }
     }
@@ -4584,7 +4616,7 @@ function downloadAllChainsCxc() {
             const lir = allLIR[name];
             const ct = types[ci] || 'protein';
             if (lir.size === 0 && ct === 'protein') continue;
-            if (ct === 'ion') {
+            if (ct === 'ion' || ct === 'glycan' || ct === 'ligand') {
                 lines.push(`show #1/${name} atoms`);
             } else if (ct === 'rna' || ct === 'dna') {
                 const spec = lir.size > 0 ? resSpec(fillGaps(lir), name) : `/${name}`;
@@ -4639,13 +4671,13 @@ function downloadAllChainsCxc() {
         lines.push('');
     }
 
-    // Show ion chains
-    const ionChains = uniState.chainNames.filter((n, i) => types[i] === 'ion');
+    // Show ion / glycan / ligand chains (ball-and-stick), each in its chord color
+    const ionChains = uniState.chainNames.filter((n, i) => types[i] === 'ion' || types[i] === 'glycan' || types[i] === 'ligand');
     if (ionChains.length > 0) {
-        lines.push('# \u2500\u2500 Show ions \u2500\u2500');
+        lines.push('# \u2500\u2500 Show ions / glycans / ligands \u2500\u2500');
         for (const c of ionChains) {
             lines.push(`show #1/${c} atoms`);
-            lines.push(`color #1/${c} red`);
+            lines.push(`color #1/${c} ${getChainToggleColor(c)}`);
         }
         lines.push('');
     }
@@ -4735,7 +4767,7 @@ function downloadAllChainsPml() {
                 lines.push('color nonlir_gray, all');
                 for (let ci = 0; ci < uniState.chainNames.length; ci++) {
                     const name = uniState.chainNames[ci];
-                    if (types[ci] === 'ion') continue;
+                    if (types[ci] === 'ion' || types[ci] === 'glycan' || types[ci] === 'ligand') continue;
                     const spec = pmlResSpec(fillGaps(allLIR[name]), name);
                     if (spec) colorByPlddt(spec);
                 }
@@ -4745,7 +4777,7 @@ function downloadAllChainsPml() {
         } else {
             for (let ci = 0; ci < uniState.chainNames.length; ci++) {
                 const name = uniState.chainNames[ci];
-                if (types[ci] === 'ion') continue;
+                if (types[ci] === 'ion' || types[ci] === 'glycan' || types[ci] === 'ligand') continue;
                 const lir = allLIR[name];
                 if (lir.size === 0) continue;
                 const spec = pmlResSpec(fillGaps(lir), name);
@@ -4759,7 +4791,7 @@ function downloadAllChainsPml() {
         } else {
             for (let ci = 0; ci < uniState.chainNames.length; ci++) {
                 const name = uniState.chainNames[ci];
-                if (types[ci] === 'ion') continue;
+                if (types[ci] === 'ion' || types[ci] === 'glycan' || types[ci] === 'ligand') continue;
                 const spec = pmlResSpec(fillGaps(allLIR[name]), name);
                 if (spec) lines.push(`show cartoon, ${spec}`);
             }
@@ -4776,7 +4808,7 @@ function downloadAllChainsPml() {
         } else {
             for (let ci = 0; ci < uniState.chainNames.length; ci++) {
                 const name = uniState.chainNames[ci];
-                if (types[ci] === 'ion') continue;
+                if (types[ci] === 'ion' || types[ci] === 'glycan' || types[ci] === 'ligand') continue;
                 const lir = allLIR[name];
                 if (lir.size === 0) continue;
                 const spec = pmlResSpec(fillGaps(lir), name);
@@ -4798,7 +4830,7 @@ function downloadAllChainsPml() {
             };
             for (let ci = 0; ci < nc; ci++) {
                 const name = uniState.chainNames[ci];
-                if (types[ci] === 'ion') continue;
+                if (types[ci] === 'ion' || types[ci] === 'glycan' || types[ci] === 'ligand') continue;
                 const lirColor = ci === 0 ? pickerColors.lir_a : pickerColors.lir_b;
                 const clirColor = ci === 0 ? pickerColors.clir_a : pickerColors.clir_b;
 
@@ -4815,7 +4847,7 @@ function downloadAllChainsPml() {
             // 3+ chains: use Tab10 with gradient support
             for (let ci = 0; ci < nc; ci++) {
                 const name = uniState.chainNames[ci];
-                if (types[ci] === 'ion') continue;
+                if (types[ci] === 'ion' || types[ci] === 'glycan' || types[ci] === 'ligand') continue;
                 const color = chainColors[name] || palette[ci % palette.length];
                 const lirColor = isGradient ? lighten(color, 0.5) : color;
 
@@ -4832,16 +4864,18 @@ function downloadAllChainsPml() {
         }
     }
 
-    // Show ions (all modes)
+    // Show ions / glycans / ligands (all modes), each in its chord color
     lines.push('');
     for (let ci = 0; ci < uniState.chainNames.length; ci++) {
-        if (types[ci] === 'ion') {
+        const t = types[ci];
+        if (t === 'ion' || t === 'glycan' || t === 'ligand') {
             const ionCh = uniState.chainNames[ci];
-            lines.push(`show spheres, chain ${ionCh}`);
+            lines.push(`${t === 'ion' ? 'show spheres' : 'show sticks'}, chain ${ionCh}`);
             if (colorMode === 'plddt') {
                 colorByPlddt(`chain ${ionCh}`);
             } else {
-                lines.push(`color red, chain ${ionCh}`);
+                lines.push(`set_color chcol_${ionCh}, ${hexToRgbFloat(getChainToggleColor(ionCh))}`);
+                lines.push(`color chcol_${ionCh}, chain ${ionCh}`);
             }
         }
     }
@@ -4983,7 +5017,7 @@ function buildPerResidueCharts(pairKey) {
     const chainData = []; // [{name, size, models: [{plddt:[], intraLis:[]}], avgPlddt:[], avgLis:[], lir, clir}]
 
     for (let ci = 0; ci < chainNames.length; ci++) {
-        if (chainTypes[ci] === 'ion') continue;
+        if (chainTypes[ci] === 'ion' || chainTypes[ci] === 'glycan' || chainTypes[ci] === 'ligand') continue;
         const chainName = chainNames[ci];
         const chainLen = chainSizes[ci];
         const offset = chainSizes.slice(0, ci).reduce((a, b) => a + b, 0);
@@ -5813,7 +5847,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
         if (hiddenSet.has(cp.ci) || hiddenSet.has(cp.cj)) continue; // chain visibility toggle
         const idxI = chainNames.indexOf(cp.ci), idxJ = chainNames.indexOf(cp.cj);
         const typeI = chainTypes[idxI], typeJ = chainTypes[idxJ];
-        const isIonPair = typeI === 'ion' || typeJ === 'ion';
+        const isIonPair = ['ion', 'glycan', 'ligand'].includes(typeI) || ['ion', 'glycan', 'ligand'].includes(typeJ);
         const lirI_f = filterSmallSegments(cp.lirI || new Set());
         const lirJ_f = filterSmallSegments(cp.lirJ || new Set());
         const clirI_f = new Set([...(cp.clirI || [])].filter(r => lirI_f.has(r)));
@@ -5956,7 +5990,7 @@ function buildChordDiagram() {
                 if (!allContactsByPair[key]) allContactsByPair[key] = new Map();
                 const idxI = chainNames.indexOf(v.ci), idxJ = chainNames.indexOf(v.cj);
                 const typeI = chainTypes[idxI], typeJ = chainTypes[idxJ];
-                const isIonPair = typeI === 'ion' || typeJ === 'ion';
+                const isIonPair = ['ion', 'glycan', 'ligand'].includes(typeI) || ['ion', 'glycan', 'ligand'].includes(typeJ);
                 // Apply Min segment filter; cLIR restricted to filtered LIR
                 const lirI_f = filterSmallSegments(v.lirI || new Set());
                 const lirJ_f = filterSmallSegments(v.lirJ || new Set());
