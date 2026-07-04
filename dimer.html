@@ -1126,18 +1126,20 @@ function buildDimerContactMap() {
         }
     }
 
+    // Gap-fill (fillGaps) so clustered LIR/cLIR render as clean solid regions instead of a
+    // comb of hairline per-residue marks. Contact lines below still use the raw cLIR sets.
     // Chain A bar (filtered)
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_A, barW, barH);
-    paintBarRanges(barY_A, lirI_f, xA, v.lenI, colors.lir_a);
-    paintBarRanges(barY_A, clirI_f, xA, v.lenI, colors.clir_a);
+    paintBarRanges(barY_A, fillGaps(lirI_f), xA, v.lenI, colors.lir_a);
+    paintBarRanges(barY_A, fillGaps(clirI_f), xA, v.lenI, colors.clir_a);
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_A, barW, barH);
 
     // Chain B bar (filtered)
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_B, barW, barH);
-    paintBarRanges(barY_B, lirJ_f, xB, v.lenJ, colors.lir_b);
-    paintBarRanges(barY_B, clirJ_f, xB, v.lenJ, colors.clir_b);
+    paintBarRanges(barY_B, fillGaps(lirJ_f), xB, v.lenJ, colors.lir_b);
+    paintBarRanges(barY_B, fillGaps(clirJ_f), xB, v.lenJ, colors.clir_b);
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_B, barW, barH);
 
     // Labels

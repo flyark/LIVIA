@@ -2783,11 +2783,13 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
         }
     }
 
+    // Gap-fill (fillGaps) so clustered LIR/cLIR render as clean solid regions instead of a
+    // comb of hairline per-residue marks. Contact lines below still use the raw cLIR sets.
     // Draw Chain A bar
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_A, barW, barH);
-    paintBarRanges(barY_A, LIR_A, xA, lenA, colors.lir_a);
-    paintBarRanges(barY_A, cLIR_A, xA, lenA, colors.clir_a);
+    paintBarRanges(barY_A, fillGaps(LIR_A), xA, lenA, colors.lir_a);
+    paintBarRanges(barY_A, fillGaps(cLIR_A), xA, lenA, colors.clir_a);
     ctx.strokeStyle = '#999';
     ctx.lineWidth = 0.5;
     ctx.strokeRect(barLeft, barY_A, barW, barH);
@@ -2795,8 +2797,8 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     // Draw Chain B bar
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_B, barW, barH);
-    paintBarRanges(barY_B, LIR_B, xB, lenB, colors.lir_b);
-    paintBarRanges(barY_B, cLIR_B, xB, lenB, colors.clir_b);
+    paintBarRanges(barY_B, fillGaps(LIR_B), xB, lenB, colors.lir_b);
+    paintBarRanges(barY_B, fillGaps(cLIR_B), xB, lenB, colors.clir_b);
     ctx.strokeStyle = '#999';
     ctx.lineWidth = 0.5;
     ctx.strokeRect(barLeft, barY_B, barW, barH);
