@@ -1703,6 +1703,8 @@ function updateCombinedChord() {
     if (lenA === 0 || lenB === 0) return;
 
     const colors = {
+        lir_a: document.getElementById('color-lir-a').value,
+        lir_b: document.getElementById('color-lir-b').value,
         clir_a: document.getElementById('color-clir-a').value,
         clir_b: document.getElementById('color-clir-b').value,
     };
@@ -1735,7 +1737,7 @@ function updateCombinedChord() {
     const unionContacts = [...allContacts.values()];
     if (unionContacts.length > 0) {
         chordAllWrap.style.display = '';
-        drawChordFromContacts(canvasAll, unionContacts, lenA, lenB, sym1, sym2, colors);
+        drawChordFromContacts(canvasAll, unionContacts, lenA, lenB, sym1, sym2, colors, flyAverageRow._LIR_A, flyAverageRow._cLIR_A, flyAverageRow._LIR_B, flyAverageRow._cLIR_B);
     }
 }
 
@@ -2519,7 +2521,40 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     }
 }
 
-function drawChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coordA, coordB, skipDistFilter) {
+// Convert a Set of residue numbers into sorted contiguous [start, end] ranges.
+function setToRanges(set) {
+    const sorted = [...set].sort((a, b) => a - b);
+    const ranges = [];
+    let s = null, p = null;
+    for (const r of sorted) {
+        if (s === null) { s = p = r; }
+        else if (r === p + 1) { p = r; }
+        else { ranges.push([s, p]); s = p = r; }
+    }
+    if (s !== null) ranges.push([s, p]);
+    return ranges;
+}
+
+// Paint one chain's chord-ring arc: grey base → LIR residues (light) → cLIR residues
+// (dark) on top, matching the LIR/cLIR shading in the seq viewer & linear contact map.
+function paintChordArcBand(ctx, cx, cy, outerR, innerR, sA, eA, len, lirSet, clirSet, lightCol, darkCol) {
+    const donut = (a0, a1) => { ctx.beginPath(); ctx.arc(cx, cy, outerR, a0, a1); ctx.arc(cx, cy, innerR, a1, a0, true); ctx.closePath(); };
+    donut(sA, eA); ctx.fillStyle = '#e8e8e8'; ctx.fill();
+    const paint = (set, color) => {
+        if (!set || !set.size) return;
+        ctx.fillStyle = color;
+        for (const [s, e] of setToRanges(set)) {
+            const a0 = sA + (eA - sA) * ((s - 1) / Math.max(1, len));
+            const a1 = sA + (eA - sA) * (e / Math.max(1, len));
+            donut(a0, a1); ctx.fill();
+        }
+    };
+    paint(lirSet, lightCol);
+    paint(clirSet, darkCol);
+    donut(sA, eA); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+}
+
+function drawChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coordA, coordB, skipDistFilter, LIR_A, LIR_B) {
     const S = 2, size = 350;
     canvas.width = size * S; canvas.height = size * S;
     canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
@@ -2588,10 +2623,11 @@ function drawChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coord
         }
     }
 
-    // Arcs
-    for (const [sA, eA, col] of [[startA, endA, colA], [startB, endB, colB]]) {
-        ctx.beginPath(); ctx.arc(cx, cy, outerR, sA, eA); ctx.arc(cx, cy, innerR, eA, sA, true); ctx.closePath();
-        ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+    // Arcs (grey base + LIR light + cLIR dark, matching seq viewer / linear map)
+    {
+        const lightA = colors.lir_a || colA, lightB = colors.lir_b || colB;
+        paintChordArcBand(ctx, cx, cy, outerR, innerR, startA, endA, lenA, LIR_A, cLIR_A, lightA, colA);
+        paintChordArcBand(ctx, cx, cy, outerR, innerR, startB, endB, lenB, LIR_B, cLIR_B, lightB, colB);
     }
 
     // Labels
@@ -2612,7 +2648,7 @@ function drawChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coord
     ctx.restore();
 }
 
-function drawChordFromContacts(canvas, contacts, lenA, lenB, sym1, sym2, colors) {
+function drawChordFromContacts(canvas, contacts, lenA, lenB, sym1, sym2, colors, LIR_A, cLIR_A, LIR_B, cLIR_B) {
     const S = 2, size = 350;
     canvas.width = size * S; canvas.height = size * S;
     canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
@@ -2647,9 +2683,10 @@ function drawChordFromContacts(canvas, contacts, lenA, lenB, sym1, sym2, colors)
         ctx.strokeStyle = grad; ctx.lineWidth = 1.2; ctx.stroke();
     }
 
-    for (const [sA, eA, col] of [[startA,endA,colA],[startB,endB,colB]]) {
-        ctx.beginPath(); ctx.arc(cx,cy,outerR,sA,eA); ctx.arc(cx,cy,innerR,eA,sA,true); ctx.closePath();
-        ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+    {
+        const lightA = colors.lir_a || colA, lightB = colors.lir_b || colB;
+        paintChordArcBand(ctx, cx, cy, outerR, innerR, startA, endA, lenA, LIR_A, cLIR_A, lightA, colA);
+        paintChordArcBand(ctx, cx, cy, outerR, innerR, startB, endB, lenB, LIR_B, cLIR_B, lightB, colB);
     }
 
     for (const arc of [{mid:(startA+endA)/2, name:`${sym1} (A)`, size:lenA}, {mid:(startB+endB)/2, name:`${sym2} (B)`, size:lenB}]) {
@@ -2686,7 +2723,7 @@ function buildChordDiagram(row, sym1, sym2, colors, pdbText) {
     if (!coordA || !coordB) { card.style.display = 'none'; return; }
 
     card.style.display = '';
-    drawChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coordA, coordB, false);
+    drawChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coordA, coordB, false, row._LIR_A, row._LIR_B);
 
     const hasMultipleRanks = flyParsed && flyParsed.rows && flyParsed.rows.length > 1;
     if (chordAllWrap) chordAllWrap.style.display = hasMultipleRanks ? '' : 'none';
@@ -2717,7 +2754,7 @@ function buildChordDiagram(row, sym1, sym2, colors, pdbText) {
             }
         }
         const unionContacts = [...allContacts.values()];
-        if (unionContacts.length > 0) drawChordFromContacts(canvasAll, unionContacts, lenA, lenB, sym1, sym2, colors);
+        if (unionContacts.length > 0) drawChordFromContacts(canvasAll, unionContacts, lenA, lenB, sym1, sym2, colors, flyAverageRow._LIR_A, flyAverageRow._cLIR_A, flyAverageRow._LIR_B, flyAverageRow._cLIR_B);
     }
 }
 

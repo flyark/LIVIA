@@ -5678,7 +5678,70 @@ function buildContactMap(pairKey) {
     ctx.restore();
 }
 
-function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, contacts, chainColors) {
+// Convert a Set of residue numbers into sorted contiguous [start, end] ranges.
+function setToRanges(set) {
+    const sorted = [...set].sort((a, b) => a - b);
+    const ranges = [];
+    let s = null, p = null;
+    for (const r of sorted) {
+        if (s === null) { s = p = r; }
+        else if (r === p + 1) { p = r; }
+        else { ranges.push([s, p]); s = p = r; }
+    }
+    if (s !== null) ranges.push([s, p]);
+    return ranges;
+}
+
+// Union each chain's LIR and cLIR residues across a set of pair results (per-chain,
+// union-over-partners), applying the same Min-segment filter + cLIR⊆LIR restriction
+// used elsewhere so the chord-arc shading matches the seq viewer / linear map.
+function collectArcResidues(pairs, chainNames) {
+    const lir = {}, clir = {};
+    for (const name of chainNames) { lir[name] = new Set(); clir[name] = new Set(); }
+    for (const v of pairs) {
+        const lirI_f = filterSmallSegments(v.lirI || new Set());
+        const lirJ_f = filterSmallSegments(v.lirJ || new Set());
+        const clirI_f = new Set([...(v.clirI || [])].filter(r => lirI_f.has(r)));
+        const clirJ_f = new Set([...(v.clirJ || [])].filter(r => lirJ_f.has(r)));
+        if (lir[v.ci]) { for (const r of lirI_f) lir[v.ci].add(r); for (const r of clirI_f) clir[v.ci].add(r); }
+        if (lir[v.cj]) { for (const r of lirJ_f) lir[v.cj].add(r); for (const r of clirJ_f) clir[v.cj].add(r); }
+    }
+    return { lir, clir };
+}
+
+// Paint one chain's arc on the chord ring. When per-residue LIR/cLIR sets are supplied,
+// draw grey base → LIR residues (light color) → cLIR residues (dark color) on top,
+// matching the LIR/cLIR shading in the sequence viewer & linear contact map. Falls back
+// to the legacy solid-color arc when no LIR/cLIR data is passed.
+function paintChordArc(ctx, cxC, cyC, outerR, innerR, arc, hidden, arcLIR, arcCLIR, chainColors, arcLightColors) {
+    const donut = (a0, a1) => { ctx.beginPath(); ctx.arc(cxC, cyC, outerR, a0, a1); ctx.arc(cxC, cyC, innerR, a1, a0, true); ctx.closePath(); };
+    if (!arcLIR) {
+        donut(arc.start, arc.end);
+        ctx.fillStyle = hidden ? '#e8e8e8' : (chainColors[arc.name] || '#888');
+        ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+        return;
+    }
+    donut(arc.start, arc.end); ctx.fillStyle = '#e8e8e8'; ctx.fill();
+    if (!hidden) {
+        const dark = chainColors[arc.name] || '#888';
+        const light = (arcLightColors && arcLightColors[arc.name]) || dark;
+        const paint = (set, color) => {
+            if (!set || !set.size) return;
+            ctx.fillStyle = color;
+            for (const [s, e] of setToRanges(set)) {
+                const a0 = arc.start + (arc.end - arc.start) * ((s - 1) / Math.max(1, arc.size));
+                const a1 = arc.start + (arc.end - arc.start) * (e / Math.max(1, arc.size));
+                donut(a0, a1); ctx.fill();
+            }
+        };
+        paint(arcLIR && arcLIR[arc.name], light);
+        paint(arcCLIR && arcCLIR[arc.name], dark);
+    }
+    donut(arc.start, arc.end); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+}
+
+function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, contacts, chainColors, arcLIR, arcCLIR, arcLightColors) {
     // Draws pre-computed contacts without distance re-filtering
     const nc = chainNames.length;
     const S = 2;
@@ -5733,8 +5796,7 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
     // Draw arcs and labels (same as drawChord; hidden chains drawn as muted placeholder)
     for (const arc of arcs) {
         const hidden = hiddenSet.has(arc.name);
-        ctx.beginPath(); ctx.arc(cxC, cyC, outerR, arc.start, arc.end); ctx.arc(cxC, cyC, innerR, arc.end, arc.start, true); ctx.closePath();
-        ctx.fillStyle = hidden ? '#e8e8e8' : (chainColors[arc.name] || '#888'); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+        paintChordArc(ctx, cxC, cyC, outerR, innerR, arc, hidden, arcLIR, arcCLIR, chainColors, arcLightColors);
         const labelAngle = arc.mid;
         let textAngle = labelAngle + Math.PI / 2;
         const normA = ((textAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
@@ -5749,7 +5811,7 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
     ctx.restore();
 }
 
-function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors) {
+function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors, arcLIR, arcCLIR, arcLightColors) {
     const nc = chainNames.length;
     const S = 2;
     const cxC = size / 2, cyC = size / 2;
@@ -5787,15 +5849,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
     const hiddenSet = (typeof uniState !== 'undefined' && uniState.hiddenChains) || new Set();
     for (const arc of arcs) {
         const hidden = hiddenSet.has(arc.name);
-        ctx.beginPath();
-        ctx.arc(cxC, cyC, outerR, arc.start, arc.end);
-        ctx.arc(cxC, cyC, innerR, arc.end, arc.start, true);
-        ctx.closePath();
-        ctx.fillStyle = hidden ? '#e8e8e8' : (chainColors[arc.name] || '#888');
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1;
-        ctx.stroke();
+        paintChordArc(ctx, cxC, cyC, outerR, innerR, arc, hidden, arcLIR, arcCLIR, chainColors, arcLightColors);
 
         // Label (rotated along arc)
         const labelAngle = arc.mid;
@@ -5953,16 +6007,33 @@ function buildChordDiagram() {
         }
     }
 
+    // Light (LIR) colors per chain — parallel to chainColors (dark/cLIR); used to shade
+    // the chord-ring arcs (LIR light, cLIR dark) like the seq viewer / linear map.
+    const chainLightColors = {};
+    if (nc === 2) {
+        chainLightColors[chainNames[0]] = document.getElementById('color-lir-a')?.value || '#B2DFDB';
+        chainLightColors[chainNames[1]] = document.getElementById('color-lir-b')?.value || '#FFCCBC';
+    } else {
+        const colorsL = selPair ? getColorsForPair(selPair.ci, selPair.cj) : null;
+        for (const name of chainNames) {
+            if (colorsL && name === selPair.ci) chainLightColors[name] = colorsL.lir_a;
+            else if (colorsL && name === selPair.cj) chainLightColors[name] = colorsL.lir_b;
+            else chainLightColors[name] = lightenColor(chainColors[name] || '#888', 0.55);
+        }
+    }
+
     const S = 2;
     const size = 350;
 
     // --- Draw individual model chord ---
     const contactPairs = Object.values(results);
+    // Per-chain LIR/cLIR (union over partners) for the selected model's arc shading
+    const { lir: selLIR, clir: selCLIR } = collectArcResidues(contactPairs, chainNames);
     canvas.width = size * S;
     canvas.height = size * S;
     canvas.style.width = size + 'px';
     canvas.style.height = size + 'px';
-    drawChord(canvas.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors);
+    drawChord(canvas.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors, selLIR, selCLIR, chainLightColors);
 
     // --- Draw combined all-models chord ---
     const hasMultipleModels = uniState.modelPairs && uniState.modelPairs.length > 1;
@@ -5972,6 +6043,9 @@ function buildChordDiagram() {
         // Collect contacts from each model using its own structure coordinates
         const contactDist = 8;
         const allContactsByPair = {}; // pairKey → Map("resA-resB" → {resA, resB, dist, ci, cj})
+        // Per-chain LIR/cLIR unioned across ALL models, for the all-models arc shading
+        const allLIR = {}, allCLIR = {};
+        for (const name of chainNames) { allLIR[name] = new Set(); allCLIR[name] = new Set(); }
         for (let mi = 0; mi < uniState.modelPairs.length; mi++) {
             // modelData[mi].structText is keyed positionally and always defined.
             // Earlier code used structureContents[String(mi)], which broke for
@@ -5996,6 +6070,8 @@ function buildChordDiagram() {
                 const lirJ_f = filterSmallSegments(v.lirJ || new Set());
                 const clirI_f = new Set([...(v.clirI || [])].filter(r => lirI_f.has(r)));
                 const clirJ_f = new Set([...(v.clirJ || [])].filter(r => lirJ_f.has(r)));
+                if (allLIR[v.ci]) { for (const r of lirI_f) allLIR[v.ci].add(r); for (const r of clirI_f) allCLIR[v.ci].add(r); }
+                if (allLIR[v.cj]) { for (const r of lirJ_f) allLIR[v.cj].add(r); for (const r of clirJ_f) allCLIR[v.cj].add(r); }
                 const setI = (clirI_f.size > 0) ? clirI_f : isIonPair ? lirI_f : new Set();
                 const setJ = (clirJ_f.size > 0) ? clirJ_f : isIonPair ? lirJ_f : new Set();
                 const coordsI = miCoordMap.get(v.ci), coordsJ = miCoordMap.get(v.cj);
@@ -6030,7 +6106,7 @@ function buildChordDiagram() {
             canvasAll.height = size * S;
             canvasAll.style.width = size + 'px';
             canvasAll.style.height = size + 'px';
-            drawChordFromContacts(canvasAll.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, allContacts, chainColors);
+            drawChordFromContacts(canvasAll.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, allContacts, chainColors, allLIR, allCLIR, chainLightColors);
         }
     }
 }
