@@ -1096,8 +1096,7 @@ function buildDimerContactMap() {
     const width = Math.min(900, (card.clientWidth || 900) - 32), height = 280 + (domainRowH + tedRowH) * 2;
     const barH = 14;
     const barY_A = 45 + domainRowH + tedRowH, barY_B = height - 55 - domainRowH - tedRowH;
-    const barLeft = 60, barRight = width - 20;
-    const barW = barRight - barLeft;
+    const barRight = width - 20;
 
     canvas.width = width * S;
     canvas.height = height * S;
@@ -1110,6 +1109,13 @@ function buildDimerContactMap() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.scale(S, S);
+
+    // Size the left margin to fit the chain labels so they aren't clipped off the left edge;
+    // the font shrinks as a fallback for very long names when drawn.
+    ctx.font = 'bold 13px sans-serif';
+    const labelA = `Chain ${v.ci}`, labelB = `Chain ${v.cj}`;
+    const barLeft = Math.max(60, Math.min(170, Math.ceil(Math.max(ctx.measureText(labelA).width, ctx.measureText(labelB).width)) + 12));
+    const barW = barRight - barLeft;
 
     const xA = (res) => barLeft + ((res - 1) / Math.max(1, v.lenI - 1)) * barW;
     const xB = (res) => barLeft + ((res - 1) / Math.max(1, v.lenJ - 1)) * barW;
@@ -1126,26 +1132,31 @@ function buildDimerContactMap() {
         }
     }
 
-    // Gap-fill (fillGaps) so clustered LIR/cLIR render as clean solid regions instead of a
-    // comb of hairline per-residue marks. Contact lines below still use the raw cLIR sets.
+    // Contiguous LIR/cLIR runs merged into solid blocks (via setToRanges in paintBarRanges),
+    // matching the circular map. cLIR is NOT gap-filled, so it stays exact.
     // Chain A bar (filtered)
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_A, barW, barH);
-    paintBarRanges(barY_A, fillGaps(lirI_f), xA, v.lenI, colors.lir_a);
-    paintBarRanges(barY_A, fillGaps(clirI_f), xA, v.lenI, colors.clir_a);
+    paintBarRanges(barY_A, lirI_f, xA, v.lenI, colors.lir_a);
+    paintBarRanges(barY_A, clirI_f, xA, v.lenI, colors.clir_a);
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_A, barW, barH);
 
     // Chain B bar (filtered)
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_B, barW, barH);
-    paintBarRanges(barY_B, fillGaps(lirJ_f), xB, v.lenJ, colors.lir_b);
-    paintBarRanges(barY_B, fillGaps(clirJ_f), xB, v.lenJ, colors.clir_b);
+    paintBarRanges(barY_B, lirJ_f, xB, v.lenJ, colors.lir_b);
+    paintBarRanges(barY_B, clirJ_f, xB, v.lenJ, colors.clir_b);
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_B, barW, barH);
 
-    // Labels
-    ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = colors.clir_a; ctx.fillText(`Chain ${v.ci}`, barLeft - 5, barY_A + barH/2);
-    ctx.fillStyle = colors.clir_b; ctx.fillText(`Chain ${v.cj}`, barLeft - 5, barY_B + barH/2);
+    // Labels — right-aligned in the left margin; shrink font to fit if the name is long.
+    const drawChainLabel = (text, y, color) => {
+        let fs = 13; ctx.font = `bold ${fs}px sans-serif`;
+        while (ctx.measureText(text).width > barLeft - 4 && fs > 8) { fs--; ctx.font = `bold ${fs}px sans-serif`; }
+        ctx.fillStyle = color; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        ctx.fillText(text, barLeft - 5, y);
+    };
+    drawChainLabel(labelA, barY_A + barH/2, colors.clir_a);
+    drawChainLabel(labelB, barY_B + barH/2, colors.clir_b);
 
     // Ticks
     ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';

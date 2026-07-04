@@ -2313,8 +2313,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     const width = Math.min(900, (card.clientWidth || 900) - 32), height = 300 + (domRowH + tedRowH) * 2;
     const barH = 14;
     const barY_A = 50 + domRowH + tedRowH, barY_B = height - 50 - domRowH - tedRowH;
-    const barLeft = 60, barRight = width - 20;
-    const barW = barRight - barLeft;
+    const barRight = width - 20;
 
     canvas.width = width * S; canvas.height = height * S;
     // Responsive display: scale to fit the container (capped at the drawn width) so the
@@ -2323,6 +2322,13 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save(); ctx.scale(S, S);
+
+    // Size the left margin to fit the (gene-symbol) chain labels so they aren't clipped
+    // off the left edge; the font shrinks as a fallback for very long names when drawn.
+    ctx.font = 'bold 13px sans-serif';
+    const labelA = `${sym1} (A)`, labelB = `${sym2} (B)`;
+    const barLeft = Math.max(60, Math.min(170, Math.ceil(Math.max(ctx.measureText(labelA).width, ctx.measureText(labelB).width)) + 12));
+    const barW = barRight - barLeft;
 
     const xA = (res) => barLeft + ((res - 1) / Math.max(1, lenA - 1)) * barW;
     const xB = (res) => barLeft + ((res - 1) / Math.max(1, lenB - 1)) * barW;
@@ -2339,24 +2345,29 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
         }
     }
 
-    // Gap-fill (fillGaps) so clustered LIR/cLIR render as clean solid regions instead of a
-    // comb of hairline per-residue marks. Contact lines below still use the raw cLIR sets.
+    // Contiguous LIR/cLIR runs merged into solid blocks (via setToRanges in paintBarRanges),
+    // matching the circular map. cLIR is NOT gap-filled, so it stays exact.
     // Chain A bar
     ctx.fillStyle = '#f0f0f0'; ctx.fillRect(barLeft, barY_A, barW, barH);
-    paintBarRanges(barY_A, fillGaps(LIR_A), xA, lenA, colors.lir_a);
-    paintBarRanges(barY_A, fillGaps(cLIR_A), xA, lenA, colors.clir_a);
+    paintBarRanges(barY_A, LIR_A, xA, lenA, colors.lir_a);
+    paintBarRanges(barY_A, cLIR_A, xA, lenA, colors.clir_a);
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_A, barW, barH);
 
     // Chain B bar
     ctx.fillStyle = '#f0f0f0'; ctx.fillRect(barLeft, barY_B, barW, barH);
-    paintBarRanges(barY_B, fillGaps(LIR_B), xB, lenB, colors.lir_b);
-    paintBarRanges(barY_B, fillGaps(cLIR_B), xB, lenB, colors.clir_b);
+    paintBarRanges(barY_B, LIR_B, xB, lenB, colors.lir_b);
+    paintBarRanges(barY_B, cLIR_B, xB, lenB, colors.clir_b);
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_B, barW, barH);
 
-    // Labels
-    ctx.fillStyle = colors.clir_a; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    ctx.fillText(`${sym1} (A)`, barLeft - 5, barY_A + barH / 2);
-    ctx.fillStyle = colors.clir_b; ctx.fillText(`${sym2} (B)`, barLeft - 5, barY_B + barH / 2);
+    // Labels — right-aligned in the left margin; shrink font to fit if the name is long.
+    const drawChainLabel = (text, y, color) => {
+        let fs = 13; ctx.font = `bold ${fs}px sans-serif`;
+        while (ctx.measureText(text).width > barLeft - 4 && fs > 8) { fs--; ctx.font = `bold ${fs}px sans-serif`; }
+        ctx.fillStyle = color; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        ctx.fillText(text, barLeft - 5, y);
+    };
+    drawChainLabel(labelA, barY_A + barH / 2, colors.clir_a);
+    drawChainLabel(labelB, barY_B + barH / 2, colors.clir_b);
 
     // Residue ticks
     ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';

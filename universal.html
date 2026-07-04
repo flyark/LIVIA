@@ -5642,24 +5642,20 @@ function buildContactMap(pairKey) {
         }
     }
 
-    // Gap-fill so clustered LIR/cLIR render as clean solid regions instead of a comb of
-    // hairline per-residue marks (matches the 3D viewer's fillGaps). The contact lines
-    // below still use the raw cLIR sets, so contact positions stay exact.
-    const lirI_bar = fillGaps(lirI_f), clirI_bar = fillGaps(clirI_f);
-    const lirJ_bar = fillGaps(lirJ_f), clirJ_bar = fillGaps(clirJ_f);
-
-    // Chain A bar (filtered)
+    // Chain A bar (filtered) — contiguous LIR/cLIR runs merged into solid blocks (via
+    // setToRanges in paintBarRanges), matching the circular map. cLIR is NOT gap-filled,
+    // so it stays exact (no LIR-only region painted as cLIR).
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_A, barW, barH);
-    paintBarRanges(barY_A, lirI_bar, xA, v.lenI, colors.lir_a);
-    paintBarRanges(barY_A, clirI_bar, xA, v.lenI, colors.clir_a);
+    paintBarRanges(barY_A, lirI_f, xA, v.lenI, colors.lir_a);
+    paintBarRanges(barY_A, clirI_f, xA, v.lenI, colors.clir_a);
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_A, barW, barH);
 
     // Chain B bar (filtered)
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_B, barW, barH);
-    paintBarRanges(barY_B, lirJ_bar, xB, v.lenJ, colors.lir_b);
-    paintBarRanges(barY_B, clirJ_bar, xB, v.lenJ, colors.clir_b);
+    paintBarRanges(barY_B, lirJ_f, xB, v.lenJ, colors.lir_b);
+    paintBarRanges(barY_B, clirJ_f, xB, v.lenJ, colors.clir_b);
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_B, barW, barH);
 
     // Labels
