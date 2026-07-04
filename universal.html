@@ -5616,8 +5616,11 @@ function buildContactMap(pairKey) {
 
     canvas.width = width * S;
     canvas.height = height * S;
-    canvas.style.width = width + 'px';
-    canvas.style.height = height + 'px';
+    // Responsive display: scale to fit the container (capped at the drawn width) so the
+    // map never overflows on narrow windows and rescales on resize.
+    canvas.style.width = '100%';
+    canvas.style.height = 'auto';
+    canvas.style.maxWidth = width + 'px';
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
@@ -5626,18 +5629,31 @@ function buildContactMap(pairKey) {
     const xA = (res) => barLeft + ((res - 1) / Math.max(1, v.lenI - 1)) * barW;
     const xB = (res) => barLeft + ((res - 1) / Math.max(1, v.lenJ - 1)) * barW;
 
+    // Paint contiguous LIR/cLIR runs as solid blocks. Drawing one rect per residue
+    // leaves hairline grey gaps between adjacent residues (the "lines between residues"
+    // barcode artifact); merging runs via setToRanges gives clean blocks like the chord map.
+    function paintBarRanges(yBar, set, xFn, len, color) {
+        const resW = barW / Math.max(1, len - 1);
+        ctx.fillStyle = color;
+        for (const [s, e] of setToRanges(set)) {
+            const x0 = Math.max(barLeft, xFn(s) - resW / 2);
+            const x1 = Math.min(barRight, xFn(e) + resW / 2);
+            ctx.fillRect(x0, yBar, Math.max(1.5, x1 - x0), barH);
+        }
+    }
+
     // Chain A bar (filtered)
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_A, barW, barH);
-    for (const res of lirI_f) { ctx.fillStyle = colors.lir_a; ctx.fillRect(xA(res) - 0.5, barY_A, 1.5, barH); }
-    for (const res of clirI_f) { ctx.fillStyle = colors.clir_a; ctx.fillRect(xA(res) - 0.5, barY_A, 1.5, barH); }
+    paintBarRanges(barY_A, lirI_f, xA, v.lenI, colors.lir_a);
+    paintBarRanges(barY_A, clirI_f, xA, v.lenI, colors.clir_a);
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_A, barW, barH);
 
     // Chain B bar (filtered)
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_B, barW, barH);
-    for (const res of lirJ_f) { ctx.fillStyle = colors.lir_b; ctx.fillRect(xB(res) - 0.5, barY_B, 1.5, barH); }
-    for (const res of clirJ_f) { ctx.fillStyle = colors.clir_b; ctx.fillRect(xB(res) - 0.5, barY_B, 1.5, barH); }
+    paintBarRanges(barY_B, lirJ_f, xB, v.lenJ, colors.lir_b);
+    paintBarRanges(barY_B, clirJ_f, xB, v.lenJ, colors.clir_b);
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_B, barW, barH);
 
     // Labels

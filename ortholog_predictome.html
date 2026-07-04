@@ -2317,7 +2317,9 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     const barW = barRight - barLeft;
 
     canvas.width = width * S; canvas.height = height * S;
-    canvas.style.width = width + 'px'; canvas.style.height = height + 'px';
+    // Responsive display: scale to fit the container (capped at the drawn width) so the
+    // map never overflows on narrow windows and rescales on resize.
+    canvas.style.width = '100%'; canvas.style.height = 'auto'; canvas.style.maxWidth = width + 'px';
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save(); ctx.scale(S, S);
@@ -2325,16 +2327,28 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     const xA = (res) => barLeft + ((res - 1) / Math.max(1, lenA - 1)) * barW;
     const xB = (res) => barLeft + ((res - 1) / Math.max(1, lenB - 1)) * barW;
 
+    // Paint contiguous LIR/cLIR runs as solid blocks (merged so adjacent residues don't
+    // leave hairline gaps — the "lines between residues" barcode artifact).
+    function paintBarRanges(yBar, set, xFn, len, color) {
+        const resW = barW / Math.max(1, len - 1);
+        ctx.fillStyle = color;
+        for (const [s, e] of setToRanges(set)) {
+            const x0 = Math.max(barLeft, xFn(s) - resW / 2);
+            const x1 = Math.min(barRight, xFn(e) + resW / 2);
+            ctx.fillRect(x0, yBar, Math.max(1.5, x1 - x0), barH);
+        }
+    }
+
     // Chain A bar
     ctx.fillStyle = '#f0f0f0'; ctx.fillRect(barLeft, barY_A, barW, barH);
-    for (const res of LIR_A) { ctx.fillStyle = colors.lir_a; ctx.fillRect(xA(res) - 0.5, barY_A, 1.5, barH); }
-    for (const res of cLIR_A) { ctx.fillStyle = colors.clir_a; ctx.fillRect(xA(res) - 0.5, barY_A, 1.5, barH); }
+    paintBarRanges(barY_A, LIR_A, xA, lenA, colors.lir_a);
+    paintBarRanges(barY_A, cLIR_A, xA, lenA, colors.clir_a);
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_A, barW, barH);
 
     // Chain B bar
     ctx.fillStyle = '#f0f0f0'; ctx.fillRect(barLeft, barY_B, barW, barH);
-    for (const res of LIR_B) { ctx.fillStyle = colors.lir_b; ctx.fillRect(xB(res) - 0.5, barY_B, 1.5, barH); }
-    for (const res of cLIR_B) { ctx.fillStyle = colors.clir_b; ctx.fillRect(xB(res) - 0.5, barY_B, 1.5, barH); }
+    paintBarRanges(barY_B, LIR_B, xB, lenB, colors.lir_b);
+    paintBarRanges(barY_B, cLIR_B, xB, lenB, colors.clir_b);
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_B, barW, barH);
 
     // Labels
