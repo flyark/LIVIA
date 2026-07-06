@@ -222,7 +222,7 @@
         <div class="card result-card" id="score-matrix-card" style="display:none;">
             <h2>Score Matrix</h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                Lower-left: iLIS (Oranges). Upper-right: iLIA (Greens). Diagonal: self.
+                Lower-left <select id="mtx-lower" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS" selected>iLIS</option><option value="iLIA">iLIA</option><option value="ipTM">ipTM</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option></select> (Oranges) &middot; Upper-right <select id="mtx-upper" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS">iLIS</option><option value="iLIA" selected>iLIA</option><option value="ipTM">ipTM</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option></select> (Greens) &middot; Diagonal: self.
             </div>
             <div class="map-row" id="score-matrix-row"></div>
         </div>
@@ -4115,15 +4115,14 @@ function drawAllScoreMatrices() {
     row.innerHTML = '';
     const displaySize = calcMapDisplaySize();
 
-    // Find global max iLIA across all models for consistent scaling
-    let globalMaxIlia = 1;
-    for (const md of uniState.modelData) {
-        const g = md.iliaGrid;
-        if (!g) continue;
-        for (let i = 0; i < nc; i++)
-            for (let j = 0; j < nc; j++)
-                if (i !== j && g[i][j] > globalMaxIlia) globalMaxIlia = g[i][j];
-    }
+    // selectable metric per triangle (default iLIS lower-left, iLIA upper-right)
+    const MTX = { iLIS:{grid:'ilisGrid',unit:1}, iLIA:{grid:'iliaGrid',unit:0}, ipTM:{grid:'iptmGrid',unit:1}, LIR:{grid:'lirGrid',unit:0}, cLIR:{grid:'clirGrid',unit:0} };
+    const lc = MTX[(document.getElementById('mtx-lower')||{}).value] || MTX.iLIS;
+    const uc = MTX[(document.getElementById('mtx-upper')||{}).value] || MTX.iLIA;
+    const gmax = (cfg) => { if (cfg.unit === 1) return 1; let m = 1; for (const md of uniState.modelData){ const g = md[cfg.grid]; if (!g) continue; for (let i=0;i<nc;i++) for (let j=0;j<nc;j++) if (i!==j && g[i][j] > m) m = g[i][j]; } return m; };
+    const lowerMax = gmax(lc), upperMax = gmax(uc);
+    const fmtOf = (cfg) => cfg.unit === 1 ? ((v)=>v.toFixed(2)) : ((v)=>v.toFixed(0));
+    const zeros = Array.from({length:nc}, () => Array(nc).fill(0));
 
     for (let mi = 0; mi < uniState.modelData.length; mi++) {
         const md = uniState.modelData[mi];
@@ -4135,13 +4134,13 @@ function drawAllScoreMatrices() {
         title.textContent = md.label || ('model_' + mi);
         wrap.appendChild(title);
         const canvas = document.createElement('canvas');
-        drawOneScoreMatrix(canvas, md.ilisGrid, md.iliaGrid || Array.from({length:nc},()=>Array(nc).fill(0)), nc, globalMaxIlia, displaySize);
+        drawOneScoreMatrix(canvas, md[lc.grid] || zeros, md[uc.grid] || zeros, nc, lowerMax, upperMax, fmtOf(lc), fmtOf(uc), displaySize);
         wrap.appendChild(canvas);
         row.appendChild(wrap);
     }
 }
 
-function drawOneScoreMatrix(canvas, ilisG, iliaG, nc, maxIlia, displaySize) {
+function drawOneScoreMatrix(canvas, lowerG, upperG, nc, lowerMax, upperMax, lowerFmt, upperFmt, displaySize) {
     const S = 2;
     const leftMargin = 20;
     const bottomMargin = 18;
@@ -4172,25 +4171,25 @@ function drawOneScoreMatrix(canvas, ilisG, iliaG, nc, maxIlia, displaySize) {
             }
 
             if (i > j) {
-                const val = ilisG[i][j];
-                const [r, g, b] = orangesColor(val, 0, 1);
+                const val = lowerG[i][j];
+                const [r, g, b] = orangesColor(val, 0, lowerMax || 1);
                 ctx.fillStyle = `rgb(${r},${g},${b})`;
                 ctx.fillRect(x, y, cPx, cPx);
                 const fs = Math.max(7, Math.min(12, cellSize / 4)) * S;
                 ctx.font = `bold ${fs}px sans-serif`;
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillStyle = val > 0.5 ? 'white' : '#333';
-                ctx.fillText(val.toFixed(2), x + cPx / 2, y + cPx / 2);
+                ctx.fillStyle = (val / (lowerMax || 1)) > 0.5 ? 'white' : '#333';
+                ctx.fillText(lowerFmt(val), x + cPx / 2, y + cPx / 2);
             } else {
-                const val = iliaG[i][j];
-                const t = maxIlia > 0 ? Math.min(1, val / maxIlia) : 0;
+                const val = upperG[i][j];
+                const t = upperMax > 0 ? Math.min(1, val / upperMax) : 0;
                 ctx.fillStyle = val === 0 ? '#fff' : `rgb(${Math.round(255*(1-t))},${Math.round(255-t*85)},${Math.round(255*(1-t))})`;
                 ctx.fillRect(x, y, cPx, cPx);
                 const fs = Math.max(7, Math.min(12, cellSize / 4)) * S;
                 ctx.font = `bold ${fs}px sans-serif`;
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.fillStyle = t > 0.6 ? 'white' : '#333';
-                ctx.fillText(val.toFixed(0), x + cPx / 2, y + cPx / 2);
+                ctx.fillText(upperFmt(val), x + cPx / 2, y + cPx / 2);
             }
         }
     }
