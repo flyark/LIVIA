@@ -5721,7 +5721,7 @@ function buildContactMap(pairKey) {
     const topLane = laA ? laA.n * laneH : 0, botLane = laB ? laB.n * laneH : 0;   // stacked domain rows
     const width = Math.min(900, (card.clientWidth || 900) - 32);
     const barH = 12;
-    const barY_A = 10 + topLane;
+    const barY_A = 22 + topLane;                          // room above for chain-A ticks (kept off the ribbons)
     const barY_B = barY_A + barH + 60;                       // compact ribbon gap
     const height = barY_B + barH + 15 + botLane + 15;
     const barLeft = 60, barRight = width - 20;
@@ -5788,13 +5788,14 @@ function buildContactMap(pairKey) {
                 ctx.fillText(lab, (x0 + x1) / 2, y + domBoxH / 2 + 0.5); }
         }
     };
-    if (laA) drawDomLane(laA, xA, v.lenI, barY_A, -1);
+    if (laA) drawDomLane(laA, xA, v.lenI, barY_A - 12, -1);
     if (laB) drawDomLane(laB, xB, v.lenJ, barY_B + barH + 15, +1);
 
     // Ticks
     ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    for (const t of [1, Math.round(v.lenI/2), v.lenI]) ctx.fillText(t, xA(t), barY_A - 3);
     ctx.textBaseline = 'top';
-    for (const t of [1, Math.round(v.lenI/2), v.lenI]) ctx.fillText(t, xA(t), barY_A + barH + 3);
     for (const t of [1, Math.round(v.lenJ/2), v.lenJ]) ctx.fillText(t, xB(t), barY_B + barH + 3);
 
     // Connection lines
