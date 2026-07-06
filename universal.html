@@ -3283,7 +3283,7 @@ function displayResults(results, jobName) {
     document.getElementById('results').classList.add('active');
     setupMultiChainColors();
     renderChainToggleBar();
-    { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; } _cic.style.display = ''; } else { _cic.style.display = 'none'; } } }
+    { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; if (typeof identifyChains === 'function') setTimeout(identifyChains, 0); } _cic.style.display = ''; } else { _cic.style.display = 'none'; } } }
     { const _ec = document.getElementById('export-controls'); if (_ec) _ec.style.display = (uniState.chainNames && uniState.chainNames.length >= 2) ? '' : 'none'; }
     drawAllScoreMatrices();
     drawAllMaps();
@@ -5715,10 +5715,12 @@ function buildContactMap(pairKey) {
     const S = 2;
     const domsA = (uniState.chainDomains && uniState.chainDomains[v.ci]) || [];
     const domsB = (uniState.chainDomains && uniState.chainDomains[v.cj]) || [];
-    const topLane = domsA.length ? 22 : 0, botLane = domsB.length ? 22 : 0;
-    const width = Math.min(900, (card.clientWidth || 900) - 32), height = 280 + topLane + botLane;
-    const barH = 14;
-    const barY_A = 45 + topLane, barY_B = height - 55 - botLane;
+    const topLane = domsA.length ? 16 : 0, botLane = domsB.length ? 16 : 0;
+    const width = Math.min(900, (card.clientWidth || 900) - 32);
+    const barH = 12;
+    const barY_A = 10 + topLane;
+    const barY_B = barY_A + barH + 60;                       // compact ribbon gap (was ~166)
+    const height = barY_B + barH + (botLane ? 46 : 30);
     const barLeft = 60, barRight = width - 20;
     const barW = barRight - barLeft;
 
@@ -5782,15 +5784,14 @@ function buildContactMap(pairKey) {
                 ctx.fillText(lab, (x0 + x1) / 2, y + 6); }
         }
     };
-    if (domsA.length) drawDomLane(domsA, xA, v.lenI, barY_A - 18);
-    if (domsB.length) drawDomLane(domsB, xB, v.lenJ, barY_B + barH + 7);
+    if (domsA.length) drawDomLane(domsA, xA, v.lenI, barY_A - 14);
+    if (domsB.length) drawDomLane(domsB, xB, v.lenJ, barY_B + barH + 15);
 
     // Ticks
     ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (const t of [1, Math.round(v.lenI/2), v.lenI]) ctx.fillText(t, xA(t), barY_A + barH + 3);
-    ctx.textBaseline = 'bottom';
-    for (const t of [1, Math.round(v.lenJ/2), v.lenJ]) ctx.fillText(t, xB(t), barY_B - 3);
+    for (const t of [1, Math.round(v.lenJ/2), v.lenJ]) ctx.fillText(t, xB(t), barY_B + barH + 3);
 
     // Connection lines
     const minDist = Math.min(...contacts.map(c => c.dist));
@@ -5813,7 +5814,7 @@ function buildContactMap(pairKey) {
 
     // Label
     ctx.fillStyle = '#888'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width / 2, barY_B + barH + (botLane ? 32 : 18));
+    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width / 2, barY_B + barH + (botLane ? 30 : 15));
 
     ctx.restore();
 }
