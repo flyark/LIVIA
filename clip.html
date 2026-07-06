@@ -733,9 +733,17 @@ $('export').onclick = async () => {
     out = out.replace(/href="(?!https?:|#|mailto:)([^"]+\.html[^"]*)"/g, 'href="' + navBase + '$1"');
     const locals = ['js/clip-clustering.js', 'js/clip-pipeline.js', 'js/clip-resolver.js', 'js/livia-viewer.js'];
     for (const f of locals){ const js = await (await fetch(f)).text(); out = out.replace('<script src="' + f + '"><\/script>', '<script src="data:text/javascript;base64,' + b64(js) + '"></scr' + 'ipt>'); }
+    try { const ff = await (await fetch('https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js')).text(); out = out.replace('<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"><\/script>', '<script src="data:text/javascript;base64,' + b64(ff) + '"></scr' + 'ipt>'); } catch(e){}
     try { const css = await (await fetch('css/livia.css')).text(); out = out.replace('<link rel="stylesheet" href="css/livia.css">', '<style>\n' + css + '\n</style>'); } catch(e){}
-    const dataB64 = b64(JSON.stringify({ LAST, PALETTE, COMMONALITY, COLOR3D, AM_CUTOFF, ACTIVE: [...ACTIVE], badge: $('struct-badge').innerHTML, uniprot: $('query-uniprot').innerHTML }));
-    out = out.replace('</head>', '<script>window.__CLIP_DATA__ = JSON.parse(decodeURIComponent(escape(atob("' + dataB64 + '"))));</scr' + 'ipt>\n</head>');
+    // slim the bundled data: drop per-row residue-index / path columns not used for rendering
+    // (fingerprints already hold the cLIR data; the scatter/table only need metrics + names + counts)
+    const DROP = ['cLIR_indice_A', 'cLIR_indice_B', 'LIR_indice_A', 'LIR_indice_B', 'structure_file', 'pae_plot'];
+    const trimRow = (r) => { const o = {}; for (const k in r) if (DROP.indexOf(k) < 0) o[k] = r[k]; return o; };
+    const P = LAST.pipe, slimP = { ...P, rows: (P.rows||[]).map(trimRow), allPredictions: (P.allPredictions||[]).map(trimRow), allPoints: (P.allPoints||[]).map(trimRow) };
+    const slimLAST = { ...LAST, pipe: slimP };
+    const gz = fflate.gzipSync(fflate.strToU8(JSON.stringify({ LAST: slimLAST, PALETTE, COMMONALITY, COLOR3D, AM_CUTOFF, ACTIVE: [...ACTIVE], badge: $('struct-badge').innerHTML, uniprot: $('query-uniprot').innerHTML })));
+    let dataB64 = ''; for (let i = 0; i < gz.length; i += 0x8000) dataB64 += String.fromCharCode.apply(null, gz.subarray(i, i + 0x8000)); dataB64 = btoa(dataB64);
+    out = out.replace('</head>', '<script>window.__CLIP_DATA__ = JSON.parse(fflate.strFromU8(fflate.gunzipSync(Uint8Array.from(atob("' + dataB64 + '"), c => c.charCodeAt(0)))));</scr' + 'ipt>\n</head>');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out], { type: 'text/html' })); a.download = 'clip_' + LAST.gene + '.html';
     document.body.appendChild(a); a.click(); setTimeout(() => { try { URL.revokeObjectURL(a.href); } catch(e){} a.remove(); }, 2000);
   } catch(e){ console.error('export failed', e); alert('Export failed: ' + e.message); }
