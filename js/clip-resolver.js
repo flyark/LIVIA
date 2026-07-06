@@ -213,13 +213,27 @@
   // Fetch UniProt domain features for an accession → [{start, end, name}] (canonical coords)
   async function fetchDomains(acc) {
     try {
-      const d = await _json(`https://rest.uniprot.org/uniprotkb/${acc}?fields=ft_domain&format=json`);
+      const d = await _json(`https://rest.uniprot.org/uniprotkb/${acc}?fields=ft_domain,ft_dna_bind,ft_zn_fing&format=json`);
+      const KEEP = { 'Domain': 1, 'DNA binding': 1, 'Zinc finger': 1 };   // homeobox/ZF TFs annotate their key domain as "DNA binding"/"Zinc finger", not "Domain"
       return (d.features || [])
-        .filter((f) => f.type === 'Domain' && f.location && f.location.start && f.location.end)
-        .map((f) => ({ start: +f.location.start.value, end: +f.location.end.value, name: f.description || 'Domain' }))
+        .filter((f) => KEEP[f.type] && f.location && f.location.start && f.location.end)
+        .map((f) => ({ start: +f.location.start.value, end: +f.location.end.value, name: f.description || f.type }))
         .filter((f) => f.start && f.end);
     } catch (e) { return []; }
   }
 
-  return { crc64, parseFastaToSeqMap, baitSequence, resolveStructure, parseFragmentRange, alignMap, nwAlign, fetchDomains, SPECIES };
+  async function fetchAlphaMissense(acc) {
+    try {
+      const meta = await _json(`https://alphafold.ebi.ac.uk/api/prediction/${acc}`);
+      const e = Array.isArray(meta) ? meta[0] : meta;
+      const url = e && e.amAnnotationsUrl;
+      if (!url) return null;
+      const txt = await (await fetch(url)).text();
+      const sum = {}, cnt = {}, lines = txt.split('\n');
+      for (let i = 1; i < lines.length; i++){ const c = lines[i].split(','); if (c.length < 2) continue; const m = c[0].match(/^[A-Z](\d+)[A-Z]$/); const p = parseFloat(c[1]); if (!m || isNaN(p)) continue; const pos = +m[1]; sum[pos] = (sum[pos]||0) + p; cnt[pos] = (cnt[pos]||0) + 1; }
+      const out = []; for (const pos in sum) out[+pos] = sum[pos] / cnt[pos];
+      return out.length ? out : null;
+    } catch (e) { return null; }
+  }
+  return { crc64, parseFastaToSeqMap, baitSequence, resolveStructure, parseFragmentRange, alignMap, nwAlign, fetchDomains, fetchAlphaMissense, SPECIES };
 });

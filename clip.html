@@ -86,6 +86,17 @@
         <input id="in-struct" type="file" accept=".pdb,.cif,.bcif,.ent,.mmcif" class="hidden">
       </div>
     </div>
+    <div style="margin-top:.7rem; font-size:.85rem; color:#556;">
+      ▶ Try examples — kinase-transcription factor screen (Kim et al. 2025):<br>
+      <span style="color:#889; font-size:.8rem;">fly TF &rarr;</span>
+      <a href="#" class="load-ex" data-file="ftz_kinase_screen.csv" data-gene="ftz" style="color:#2471A3; font-weight:600; text-decoration:none;">ftz</a> ·
+      <a href="#" class="load-ex" data-file="eve_kinase_screen.csv" data-gene="eve" style="color:#2471A3; font-weight:600; text-decoration:none;">eve</a> ·
+      <a href="#" class="load-ex" data-file="antp_kinase_screen.csv" data-gene="Antp" style="color:#2471A3; font-weight:600; text-decoration:none;">Antp</a>
+      &nbsp; <span style="color:#889; font-size:.8rem;">human kinase &rarr;</span>
+      <a href="#" class="load-ex" data-file="akt1_tf_screen.csv" data-gene="AKT1" style="color:#2471A3; font-weight:600; text-decoration:none;">AKT1</a> ·
+      <a href="#" class="load-ex" data-file="p38a_tf_screen.csv" data-gene="MAPK14" style="color:#2471A3; font-weight:600; text-decoration:none;">p38&alpha;</a> ·
+      <a href="#" class="load-ex" data-file="chk1_tf_screen.csv" data-gene="CHEK1" style="color:#2471A3; font-weight:600; text-decoration:none;">CHK1</a>
+    </div>
     <div class="row" style="margin-top:1rem">
       <label>Query protein: <select id="gene"><option>—</option></select></label>
       <label>iLIS ≥ <input id="ilis" type="number" value="0.223" step="0.01" style="width:92px"></label>
@@ -110,34 +121,48 @@
         <div><h2 id="title" style="margin:0"></h2><div class="muted" id="subtitle"></div><div class="muted" id="query-uniprot" style="margin-top:3px"></div></div>
         <div>
           <span class="stat"><b id="s-partners">0</b><span>partners</span></span>
+          <span class="stat"><b id="s-predictions">0</b><span>predictions</span></span>
           <span class="stat"><b id="s-clusters">0</b><span>clusters</span></span>
           <span class="stat"><b id="s-len">0</b><span>query length</span></span>
         </div>
       </div>
     </div>
 
+    <div class="card" style="padding:.5rem 1rem; display:flex; align-items:center; gap:.7rem; flex-wrap:wrap">
+      <span style="font-weight:600; color:#1a5276">Cluster colors</span>
+      <select id="palette" style="font-size:.9rem; padding:2px 6px"><option value="auto">auto (scales with cluster count)</option><option value="tab10">tab10</option><option value="tab20" selected>tab20</option><option value="tab20b">tab20b</option><option value="tab20c">tab20c</option><option value="distinct">distinct (60+, no repeats)</option></select>
+      <span class="muted">&mdash; applies to all panels (heatmap, frequency, 3D, scatter)</span>
+    </div>
+
     <div class="card">
-      <h2>Contact residue frequency</h2>
-      <div class="muted">How often each query residue is a contact Local Interaction Residue (cLIR) across partners, colored by the dominant cluster · click clusters to filter. <b>C<i>n</i> (N)</b>: N = number of PPIs (partners) in that cluster.</div>
+      <h2 style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap">Contact residue frequency
+        <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem">SVG&nbsp; w<input id="svg-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="svg-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="svg-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"> <button class="ghost" id="svg-freq">&#8595; SVG</button></span>
+      </h2>
+      <div class="muted">How often each query residue is a contact Local Interaction Residue (cLIR) across partners, colored by the dominant cluster · click clusters to filter.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.<br>Tracks below the bars: AlphaFold <b>pLDDT</b> (0&ndash;100) &middot; <b style="color:#a33">AM path.</b> = AlphaMissense mean pathogenicity per residue (averaged over all ~19 substitutions at that position; blue = benign &rarr; red = pathogenic; human only, from AlphaFold DB).</div>
       <div id="freq-chips" class="chips" style="margin:.4rem 0"></div>
       <canvas id="freq"></canvas>
     </div>
 
     <div class="card">
-      <h2>Clustered interaction fingerprints</h2>
+      <h2 style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap">Clustered interaction fingerprint
+        <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem">SVG w<input id="hm-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="hm-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="hm-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"> <button class="ghost" id="svg-heatmap">&#8595; SVG</button></span>
+      </h2>
       <div class="muted">Rows = partners (dendrogram order), columns = query residues. <span style="color:#08306b;font-weight:600">Dark blue</span> = cLIR contact, very light = none; left: dendrogram + cluster strip.</div>
+      <div id="fp-chips" class="chips" style="margin:.4rem 0"></div>
       <canvas id="heatmap"></canvas>
     </div>
 
     <div class="card">
       <h2>Cluster info</h2>
-      <div class="muted">Partners in each cluster, in dendrogram order · <b>(N)</b> = number of PPIs.</div>
+      <div class="muted">Partners in each cluster (dendrogram order) — <b>(proteins / predictions)</b>. A partner can have several AlphaFold ranks, so it may appear at multiple rows and across clusters.</div>
       <div id="cluster-info" style="margin-top:.5rem; font-size:.85rem; line-height:1.55"></div>
     </div>
 
     <div class="card">
       <h2>3D structure <span id="struct-badge" class="muted" style="font-weight:400; font-size:.8rem"></span></h2>
-      <div class="muted">Query protein structure, residues colored by dominant contacting cluster · click clusters to isolate. <b>C<i>n</i> (N)</b>: N = number of PPIs (partners) in that cluster.</div>
+      <div class="muted">Query protein structure, residues colored by the cluster that consensus-contacts them · click clusters to isolate.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.</div>
+      <div class="muted" style="margin-top:.35rem">Color the structure by <select id="color3d" style="font-size:.82rem; padding:1px 4px"><option value="cluster" selected>cluster (consensus)</option><option value="plddt">AlphaFold pLDDT</option><option value="am">AlphaMissense (human)</option></select></div>
+      <div class="muted" style="margin-top:.35rem">Highlight residues contacted by &ge; <select id="commonality" style="font-size:.82rem; padding:1px 4px"><option value="0.5" selected>50%</option><option value="0.6">60%</option><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option></select> of a cluster's members (consensus / core residues).</div>
       <div id="cluster-chips" class="chips" style="margin:.5rem 0 0"></div>
       <iframe id="viewer3d-frame" style="width:100%; height:600px; border:1px solid var(--line); border-radius:8px; background:#fff; margin-top:.5rem" title="3D structure viewer"></iframe>
     </div>
@@ -146,7 +171,7 @@
       <h2>Interaction scatter plot</h2>
       <div class="row" style="font-size:.85rem; margin-bottom:.5rem">
         <label style="margin:0">Y <select id="scatter-y"></select></label>
-        <label style="margin:0">X <select id="scatter-x"></select></label>
+        <label style="margin:0">X <select id="scatter-x"></select></label> <span id="scatter-rho" class="muted" style="margin-left:.5rem; font-weight:600; color:#445"></span>
         <span class="muted">each point = a partner · gray = all predictions (incl. below cutoff) · colored = clustered</span>
       </div>
       <div id="scatter" style="height:380px"></div>
@@ -162,8 +187,25 @@
 <script>
 const TAB10 = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
 const TAB20 = ['#1f77b4','#aec7e8','#ff7f0e','#ffbb78','#2ca02c','#98df8a','#d62728','#ff9896','#9467bd','#c5b0d5','#8c564b','#c49c94','#e377c2','#f7b6d2','#7f7f7f','#c7c7c7','#bcbd22','#dbdb8d','#17becf','#9edae5'];
-function clusterColor(id, k){ const pal = k<=10?TAB10:TAB20; return pal[(id-1)%pal.length]; }
+const TAB20B = ['#393b79','#5254a3','#6b6ecf','#9c9ede','#637939','#8ca252','#b5cf6b','#cedb9c','#8c6d31','#bd9e39','#e7ba52','#e7cb94','#843c39','#ad494a','#d6616b','#e7969c','#7b4173','#a55194','#ce6dbd','#de9ed6'];
+const TAB20C = ['#3182bd','#6baed6','#9ecae1','#c6dbef','#e6550d','#fd8d3c','#fdae6b','#fdd0a2','#31a354','#74c476','#a1d99b','#c7e9c0','#756bb1','#9e9ac8','#bcbddc','#dadaeb','#636363','#969696','#bdbdbd','#d9d9d9'];
+const TAB60 = TAB20.concat(TAB20B, TAB20C);   // 60 distinct — 'auto' uses this beyond k=20
+const PALETTES = { tab10: TAB10, tab20: TAB20, tab20b: TAB20B, tab20c: TAB20C, distinct: TAB60 };
+let PALETTE = 'tab20';   // default; 'auto' scales with k (tab10->tab20->tab60->HSL); fixed palettes extend with generated colours past their length
+// golden-angle HSL so colours never collide when clusters exceed the curated palettes
+function hslDistinct(i){ const h = (i * 137.508) % 360, s = 62 + (i % 2) * 16, l = 42 + (i % 3) * 13; return `hsl(${h.toFixed(1)},${s}%,${l}%)`; }
+function clusterColor(id, k){
+  if (PALETTE === 'distinct') return id <= 60 ? TAB60[id - 1] : hslDistinct(id - 1);        // never cycles, any N
+  if (PALETTE !== 'auto' && PALETTES[PALETTE]){ const p = PALETTES[PALETTE]; return id <= p.length ? p[id - 1] : hslDistinct(id - 1); }   // fixed palette, extends with generated colours past its length
+  const pal = k <= 10 ? TAB10 : k <= 20 ? TAB20 : k <= 60 ? TAB60 : null;                    // auto: smallest curated palette that fits
+  return pal ? pal[(id - 1) % pal.length] : hslDistinct(id - 1);                             // k>60 -> generated distinct colours
+}
 // Single-model iLIS thresholds (Y2H reference sets in yeast/fly/human via ColabFold; Kim et al. 2026)
+function amColor(v){ const t=Math.max(0,Math.min(1,v));   // AlphaMissense: benign(blue) -> ambiguous(grey) -> pathogenic(red)
+  const lerp=(a,b,u)=>[0,1,2].map(i=>Math.round(a[i]+(b[i]-a[i])*u));
+  const c = t<0.5 ? lerp([44,123,182],[224,224,224],t/0.5) : lerp([224,224,224],[215,25,28],(t-0.5)/0.5);
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
 const FPR_ILIS = [['10% FPR', 0.223], ['5% FPR', 0.339], ['1% FPR', 0.551]];
 // Shared residue x-axis layout so the frequency plot and the fingerprint heatmap align column-for-column.
 // AX_L holds the heatmap's dendrogram + cluster strip (and the frequency plot's y-axis) → shared = aligned.
@@ -176,7 +218,7 @@ let FASTA_WARN = [];
 let STRUCT_FILE = null; // optional user-uploaded structure
 let ACTIVE = null;      // active cluster ids (shared: 3D viewer + frequency plot)
 let TABLE_SORT = null;  // {label, dir} for the partners table
-const CHIP_CONTAINERS = ['cluster-chips', 'freq-chips'];
+const CHIP_CONTAINERS = ['cluster-chips', 'freq-chips', 'fp-chips'];
 
 const $ = (id) => document.getElementById(id);
 // Three independent drop zones (CSV / FASTA / structure), each drag-or-click.
@@ -189,6 +231,18 @@ function wireZone(zoneId, inputId, kind){
   inp.addEventListener('change', ev => routeFiles(ev.target.files, kind));
 }
 wireZone('dz-csv', 'in-csv', 'csv'); wireZone('dz-fasta', 'in-fasta', 'fasta'); wireZone('dz-struct', 'in-struct', 'struct');
+// Examples: fly TF kinase screens (published, Kim et al. 2025) — load the CSV, pick the TF, generate.
+async function loadExample(file, gene) {
+  $('status').textContent = `loading ${gene} kinase–TF screen…`;
+  try {
+    const text = await (await fetch('examples/' + file)).text();
+    if (!FILES.some(f => f.name === file)) FILES.push({ name: file, rows: CLIPPipeline.convertRows(CLIPPipeline.parseCSV(text).rows) });
+    rebuildGenes(); updateLoaded();
+    const sel = $('gene'); if ([...sel.options].some(o => o.value === gene)) sel.value = gene;
+    $('run').click();
+  } catch (err) { $('status').textContent = '⚠ could not load example: ' + err.message; }
+}
+document.querySelectorAll('.load-ex').forEach(a => a.onclick = (e) => { e.preventDefault(); loadExample(a.dataset.file, a.dataset.gene); });
 // FPR ⇄ iLIS cutoff sync
 $('fpr').onchange = () => { if ($('fpr').value) $('ilis').value = $('fpr').value; };
 $('ilis').oninput = () => { $('fpr').value = ['0.223','0.339','0.551'].includes($('ilis').value) ? $('ilis').value : ''; };
@@ -246,6 +300,9 @@ $('run').onclick = () => {
     const pipe = CLIPPipeline.runPipelineRows(FILES.flatMap(f=>f.rows), gene, opts);
     if (pipe.fingerprints.length < 2){ $('status').textContent = `Only ${pipe.fingerprints.length} partner(s) passed filtering — need ≥2.`; return; }
     const cl = CLIPCluster.clusterInteractions(pipe.fingerprints, { maxK:30, dropThreshold:0.05 });
+    { const cnt = {}; for (const l of cl.labels) cnt[l] = (cnt[l]||0)+1;                     // renumber clusters by size: largest = cluster 1
+      const remap = {}; Object.keys(cnt).map(Number).sort((a,b) => cnt[b]-cnt[a] || a-b).forEach((old,i) => remap[old]=i+1);
+      cl.labels = cl.labels.map(l => remap[l]); }
     const order = CLIPCluster.leafOrder(cl.Z, pipe.fingerprints.length);
     LAST = { gene, opts, pipe, cl, order, ms: performance.now()-t0 };
     render(LAST);
@@ -257,16 +314,22 @@ $('run').onclick = () => {
 function render(A){
   const { gene, pipe, cl, order } = A;
   const n = pipe.fingerprints.length, k = cl.optimalK, plen = pipe.proteinLen;
+  const uniqueP = new Set(pipe.rows.map(r => r.Symbol_2)).size;
   ACTIVE = new Set(Array.from({length:k},(_,i)=>i+1));
   TABLE_SORT = null;
   $('report').classList.remove('hidden');
-  $('title').textContent = `${gene} — interactome (${n} partners, ${k} clusters)`;
+  $('title').textContent = `${gene} — interactome (${uniqueP} partners, ${n} predictions, ${k} clusters)`;
   $('subtitle').textContent = `query length ${plen} aa · cosine + average linkage · silhouette-optimal k`;
-  $('s-partners').textContent = n; $('s-clusters').textContent = k; $('s-len').textContent = plen;
+  $('s-partners').textContent = uniqueP; $('s-predictions').textContent = n; $('s-clusters').textContent = k; $('s-len').textContent = plen;
   populateAxes(A);   // fill X/Y axis options from the metrics present in the data
   renderHeatmap(A); renderFreq(A); renderScatter(A); renderTable(A); renderClusterInfo(A);
   CHIP_CONTAINERS.forEach(id => renderChipBar(id, A));
   $('scatter-x').onchange = $('scatter-y').onchange = () => renderScatter(LAST);
+  $('svg-freq').onclick = () => { if (LAST) downloadSVG(`clip_${LAST.gene}_frequency.svg`, svgFreq(LAST, svgOpts())); };
+  $('svg-heatmap').onclick = () => { if (LAST) downloadSVG(`clip_${LAST.gene}_fingerprint.svg`, svgHeatmap(LAST, heatOpts())); };
+  $('commonality').onchange = () => { COMMONALITY = +$('commonality').value; if (LAST) recolor3D(LAST); };
+  $('color3d').onchange = () => { if (LAST) recolor3D(LAST); };
+  $('palette').onchange = () => { PALETTE = $('palette').value; if (LAST) redraw(LAST); };
 }
 
 function mergeRuns(fp){
@@ -276,7 +339,10 @@ function mergeRuns(fp){
   out.push([a,p]); return out;
 }
 function renderHeatmap(A){
-  const { pipe, cl, order } = A, n = pipe.fingerprints.length, plen = pipe.proteinLen, k = cl.optimalK;
+  const { pipe, cl } = A, plen = pipe.proteinLen, k = cl.optimalK;
+  const showAll = !ACTIVE || ACTIVE.size === k;
+  const order = showAll ? A.order : A.order.filter(idx => ACTIVE.has(cl.labels[idx]));   // cluster chips: show only selected clusters' rows (dendrogram auto-hides when filtered, since Z.length !== n-1)
+  const n = order.length || 1;
   // sns.clustermap-style: row dendrogram | cluster row_colors strip |
   // binary contact matrix in Blues (non-cLIR = Blues min, cLIR = Blues max), rows in dendrogram
   // order, residue-number x-ticks. Integer buffer px → no seams. AX_L holds the dendrogram + strip
@@ -334,87 +400,206 @@ function renderClusterInfo(A){
   const members = {};
   for (let i = 0; i < pipe.rows.length; i++){ const c = cl.labels[i]; (members[c] = members[c] || []).push(pipe.rows[i].Symbol_2); }
   const seen = new Set(), ordered = [];              // cluster order = first appearance in dendrogram leaf order
-  for (const idx of order){ const c = cl.labels[idx]; if (!seen.has(c)){ seen.add(c); ordered.push(c); } }
+  for (let c = 1; c <= k; c++) ordered.push(c);   // largest cluster first (labels are size-ranked)
   let html = '';
   for (const c of ordered){
-    const mem = [...new Set(members[c])].sort((a, b) => String(a).toLowerCase().localeCompare(String(b).toLowerCase()));
+    const all = members[c]; const mem = [...new Set(all)].sort((a, b) => String(a).toLowerCase().localeCompare(String(b).toLowerCase()));
     html += `<div style="display:flex; align-items:flex-start; gap:.5rem; margin-bottom:.4rem">`
       + `<span style="background:${clusterColor(c,k)}; width:13px; height:13px; border-radius:3px; flex-shrink:0; margin-top:3px"></span>`
-      + `<span><b>Cluster ${c}</b> (${mem.length}): ${mem.join(', ')}</span></div>`;
+      + `<span><b>Cluster ${c}</b> (${mem.length} / ${all.length}): ${mem.join(', ')}</span></div>`;
   }
   $('cluster-info').innerHTML = html;
 }
 
 function renderFreq(A){
   const { pipe, cl } = A, n = pipe.fingerprints.length, plen = pipe.proteinLen, k = cl.optimalK;
-  // per-residue: total count + dominant cluster (active clusters only)
   const tot = new Float64Array(plen+1), byC = {};
   for (let i=0;i<n;i++){ const lab=cl.labels[i]; if(ACTIVE && !ACTIVE.has(lab)) continue; for (const res of pipe.fingerprints[i]){ if(res<1||res>plen)continue; tot[res]++; (byC[res]=byC[res]||{})[lab]=((byC[res]||{})[lab]||0)+1; } }
   let maxF=1; for (let r=1;r<=plen;r++) if(tot[r]>maxF)maxF=tot[r];
   const hasP = !!(A._plddt && A._plddt.size);
-  const S=2, W=PLOT_W, H=192, padL=AX_L, padR=AX_R, padT=20, padB=24;
-  const plotH = H-padT-padB, yBase = H-padB;
+  const S=2, W=PLOT_W, padL=AX_L, padR=AX_R;
+  const bw=(W-padL-padR)/plen, xOf=(r)=>padL+(r-1)*bw;
+  // domain boxes with lane-stacking (overlapping domains stack into rows)
+  let inv=null; if(A.residueMap){ inv={}; for(let i=0;i<A.residueMap.length;i++){ const sr=A.residueMap[i]; if(sr!=null && inv[sr]==null) inv[sr]=i+1; } }
+  const doms=[];
+  for (const d of (A._domains||[])){
+    const ps = inv ? (inv[d.start]||d.start) : d.start, pe = inv ? (inv[d.end]||d.end) : d.end;
+    if (pe<1 || ps>plen) continue;
+    const dx0=xOf(Math.max(1,ps)), dx1=Math.max(dx0+2, xOf(Math.min(plen,pe)+1));
+    doms.push({ x0:dx0, x1:dx1, name:d.name });
+  }
+  doms.sort((a,b)=>a.x0-b.x0);
+  const laneEnd=[];
+  for (const d of doms){ let l=0; while(l<laneEnd.length && laneEnd[l] > d.x0+0.5) l++; d.lane=l; laneEnd[l]=d.x1; }
+  const nL=laneEnd.length, DRH=13, domBoxH=11, domTop=2, domTotal=nL*DRH;
+  // vertical layout: domains | # partners | (pLDDT) | x-ticks
+  const padT = domTop + domTotal + (nL?4:14);
+  const freqH = 108, freqBase = padT + freqH;
+  const gap=15, plddtH=48;
+  const plddtTop = hasP ? freqBase+gap : freqBase, plddtBase = hasP ? plddtTop+plddtH : freqBase;
+  const hasAM = !!(A._am && A._am.length);
+  const amTop = plddtBase + 15, amH = 44, amBase = hasAM ? amTop + amH : plddtBase;
+  const padB=22, H = amBase + padB;
   const cv=$('freq'); cv.width=W*S; cv.height=H*S; cv.style.width='100%'; cv.style.maxWidth=W+'px'; cv.style.height='auto';
   const ctx=cv.getContext('2d'); ctx.scale(S,S); ctx.clearRect(0,0,W,H);
-  const bw=(W-padL-padR)/plen, xOf=(r)=>padL+(r-1)*bw;
-  // axes
-  ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.beginPath();
-  ctx.moveTo(padL,padT); ctx.lineTo(padL,yBase); ctx.lineTo(W-padR,yBase); if(hasP){ ctx.moveTo(W-padR,padT); ctx.lineTo(W-padR,yBase); } ctx.stroke();
-  // left axis ticks — # partners
+  // # partners panel
+  ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(padL,padT); ctx.lineTo(padL,freqBase); ctx.lineTo(W-padR,freqBase); ctx.stroke();
   ctx.fillStyle='#889'; ctx.font='9px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
-  for (const t of [...new Set([0, Math.round(maxF/2), maxF])]){ ctx.fillText(String(t), padL-4, yBase-(t/maxF)*plotH); }
-  // bars
-  for (let r=1;r<=plen;r++){ if(!tot[r])continue;
-    let dom=1,best=-1; const cc=byC[r]||{}; for(const c in cc) if(cc[c]>best){best=cc[c];dom=+c;}
-    const h=(tot[r]/maxF)*plotH; ctx.fillStyle=clusterColor(dom,k); ctx.fillRect(xOf(r), yBase-h, Math.max(1,bw), h);
+  for (const t of [...new Set([0, Math.round(maxF/2), maxF])]) ctx.fillText(String(t), padL-4, freqBase-(t/maxF)*freqH);
+  for (let r=1;r<=plen;r++){ if(!tot[r])continue; let dom=1,best=-1; const cc=byC[r]||{}; for(const c in cc) if(cc[c]>best){best=cc[c];dom=+c;}
+    const h=(tot[r]/maxF)*freqH; ctx.fillStyle=clusterColor(dom,k); ctx.fillRect(xOf(r), freqBase-h, Math.max(1,bw), h); }
+  ctx.save(); ctx.translate(11,(padT+freqBase)/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillStyle='#667'; ctx.fillText('# partners',0,0); ctx.restore();
+  // pLDDT panel (separate, below; AFDB confidence)
+  const xtickBase = amBase;
+  if (hasP){
+    const map=A.residueMap, yOf=(pl)=>plddtBase-(pl/100)*plddtH, xc=(r)=>padL+(r-1)*bw+bw/2, qc=A._queryChain||'A';
+    ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(padL,plddtTop); ctx.lineTo(padL,plddtBase); ctx.lineTo(W-padR,plddtBase); ctx.stroke();
+    let prev=null;
+    for (let r=1;r<=plen;r++){ const sr=map?map[r-1]:r; if(!sr){prev=null;continue;} const pl=A._plddt.get(qc+':'+sr); if(pl==null){prev=null;continue;}
+      const x=xc(r), y=yOf(pl); if(prev){ const mx=(prev.x+x)/2, my=(prev.y+y)/2; ctx.lineWidth=1.4; ctx.strokeStyle=plddtColor(prev.v); ctx.beginPath(); ctx.moveTo(prev.x,prev.y); ctx.lineTo(mx,my); ctx.stroke(); ctx.strokeStyle=plddtColor(pl); ctx.beginPath(); ctx.moveTo(mx,my); ctx.lineTo(x,y); ctx.stroke(); } prev={x,y,v:pl}; }
+    ctx.fillStyle='#889'; ctx.font='9px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
+    for (const t of [0,50,100]) ctx.fillText(String(t), padL-4, plddtBase-(t/100)*plddtH);
+    ctx.save(); ctx.translate(11,(plddtTop+plddtBase)/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillStyle='#5a86b3'; ctx.fillText('pLDDT',0,0); ctx.restore();
   }
-  // residue-number x-axis ticks (~15, same style as the fingerprint heatmap; centered on residue)
+  // AlphaMissense per-residue mean pathogenicity curve (human only; mean over all substitutions at each residue)
+  if (hasAM){ const amap=A.residueMap, yOfA=(v)=>amBase-v*amH, xcA=(r)=>padL+(r-1)*bw+bw/2;
+    ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(padL,amTop); ctx.lineTo(padL,amBase); ctx.lineTo(W-padR,amBase); ctx.stroke();
+    let prevA=null;
+    for (let r=1;r<=plen;r++){ const sr=amap?amap[r-1]:r; const v=sr?A._am[sr]:null; if(v==null){prevA=null;continue;} const x=xcA(r), y=yOfA(v); if(prevA){ const mx=(prevA.x+x)/2, my=(prevA.y+y)/2; ctx.lineWidth=1.4; ctx.strokeStyle=amColor(prevA.v); ctx.beginPath(); ctx.moveTo(prevA.x,prevA.y); ctx.lineTo(mx,my); ctx.stroke(); ctx.strokeStyle=amColor(v); ctx.beginPath(); ctx.moveTo(mx,my); ctx.lineTo(x,y); ctx.stroke(); } prevA={x,y,v}; }
+    ctx.fillStyle='#889'; ctx.font='9px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
+    for (const t of [0,0.5,1]) ctx.fillText(t.toFixed(1), padL-4, amBase-t*amH);
+    ctx.save(); ctx.translate(11,(amTop+amBase)/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.fillStyle='#a33'; ctx.fillText('AM path.',0,0); ctx.restore();
+  }
+  // shared residue x-axis ticks (bottom)
   ctx.fillStyle='#889'; ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.font='9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
   { const nT=15, ticks=[]; for (let i=0;i<nT;i++){ const r=Math.round(1+i*(plen-1)/(nT-1)); if(!ticks.includes(r)) ticks.push(r); }
-    for (const r of ticks){ const x=xOf(r)+bw/2; ctx.beginPath(); ctx.moveTo(x,yBase); ctx.lineTo(x,yBase+3); ctx.stroke(); ctx.fillText(String(r), x, yBase+5); } }
-  ctx.save(); ctx.translate(11,(padT+yBase)/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillStyle='#667'; ctx.fillText('# partners',0,0); ctx.restore();
-  // AFDB pLDDT overlay + right axis (0–100), line colored by AlphaFold confidence
-  if (hasP){
-    const map=A.residueMap, yOf=(pl)=>yBase-(pl/100)*plotH, xc=(r)=>padL+(r-1)*bw+bw/2;
-    let prev=null;
-    const qc=A._queryChain||'A';
-    for (let r=1;r<=plen;r++){ const sr=map?map[r-1]:r; if(!sr){prev=null;continue;} const pl=A._plddt.get(qc+':'+sr); if(pl==null){prev=null;continue;}
-      const x=xc(r), y=yOf(pl); if(prev){ ctx.strokeStyle=plddtColor(pl); ctx.lineWidth=1.4; ctx.beginPath(); ctx.moveTo(prev.x,prev.y); ctx.lineTo(x,y); ctx.stroke(); } prev={x,y}; }
-    ctx.fillStyle='#889'; ctx.font='9px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
-    for (const t of [0,50,100]){ ctx.fillText(String(t), W-padR+5, yBase-(t/100)*plotH); }
-    ctx.save(); ctx.translate(W-9,(padT+yBase)/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillStyle='#5a86b3'; ctx.fillText('pLDDT',0,0); ctx.restore();
-    ctx.textBaseline='alphabetic';
-  }
-  // UniProt domain track (top strip, mapped to predicted positions)
-  if (A._domains && A._domains.length){
-    let inv=null; if(A.residueMap){ inv={}; for(let i=0;i<A.residueMap.length;i++){ const sr=A.residueMap[i]; if(sr!=null && inv[sr]==null) inv[sr]=i+1; } }
-    ctx.save(); ctx.font='9px sans-serif'; ctx.textBaseline='middle';
-    for (const d of A._domains){
-      const ps = inv ? (inv[d.start]||d.start) : d.start, pe = inv ? (inv[d.end]||d.end) : d.end;
-      if (pe<1 || ps>plen) continue;
-      const x0 = xOf(Math.max(1,ps)), x1 = xOf(Math.min(plen,pe)+1), w = Math.max(2, x1-x0);
-      ctx.fillStyle='#e3e9f1'; ctx.fillRect(x0, 2, w, 14); ctx.strokeStyle='#9fb0c4'; ctx.lineWidth=.5; ctx.strokeRect(x0, 2, w, 14);
-      ctx.fillStyle='#456'; ctx.textAlign='center'; if (ctx.measureText(d.name).width < w-3) ctx.fillText(d.name, x0+w/2, 9);
-    }
-    ctx.restore();
-  }
+    for (const r of ticks){ const x=xOf(r)+bw/2; ctx.beginPath(); ctx.moveTo(x,xtickBase); ctx.lineTo(x,xtickBase+3); ctx.stroke(); ctx.fillText(String(r), x, xtickBase+5); } }
+  // domain track (stacked lanes, top)
+  ctx.font='9px sans-serif'; ctx.textBaseline='middle';
+  for (const d of doms){ const y=domTop + d.lane*DRH, w=d.x1-d.x0;
+    ctx.fillStyle='#e3e9f1'; ctx.fillRect(d.x0, y, w, domBoxH); ctx.strokeStyle='#9fb0c4'; ctx.lineWidth=.5; ctx.strokeRect(d.x0, y, w, domBoxH);
+    ctx.fillStyle='#456'; ctx.textAlign='center'; if (ctx.measureText(d.name).width < w-3) ctx.fillText(d.name, d.x0+w/2, y+domBoxH/2); }
 }
+
+// ---- publication SVG export (vector; same layout math as the canvas renderers) ----
+const _f = (v) => Math.round(v * 100) / 100;
+const _esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const SVG_FONT = 'Helvetica, Arial, sans-serif';
+
+function svgHeatmap(A, opts){
+  opts = opts || {};
+  const { pipe, cl } = A, plen = pipe.proteinLen, k = cl.optimalK;
+  const showAll = !ACTIVE || ACTIVE.size === k;
+  const order = showAll ? A.order : A.order.filter(idx => ACTIVE.has(cl.labels[idx]));
+  const n = order.length || 1;
+  const W = opts.width || PLOT_W, fs = opts.fontSize || 9;
+  const AXB = fs + 14;
+  const rowH = opts.rowH || (opts.height ? Math.max(0.5, (opts.height - AXB) / n) : Math.max(3, Math.min(10, 238 / n)));
+  const rowsH = n * rowH, H = rowsH + AXB;
+  const step = (W - AX_L - AX_R) / plen, edge = (r) => AX_L + (r - 1) * step;
+  const rowTop = (row) => row * rowH, rowMid = (row) => rowTop(row) + rowH / 2;
+  const dendroX0 = 2, dendroX1 = 28, stripX0 = 31, stripX1 = AX_L - 8, resX0 = AX_L, resX1 = W - AX_R;
+  const BG = '#f7fbff', CONTACT = '#08306b';
+  let s = '';
+  for (let row = 0; row < n; row++){
+    const idx = order[row], y0 = rowTop(row);
+    s += `<rect x="${stripX0}" y="${_f(y0)}" width="${_f(stripX1 - stripX0)}" height="${_f(rowH)}" fill="${clusterColor(cl.labels[idx], k)}"/>`;
+    s += `<rect x="${resX0}" y="${_f(y0)}" width="${_f(resX1 - resX0)}" height="${_f(rowH)}" fill="${BG}"/>`;
+    for (const [st, e] of mergeRuns(pipe.fingerprints[idx])){ const x0 = edge(st), x1 = Math.max(x0 + 0.5, edge(e + 1));
+      s += `<rect x="${_f(x0)}" y="${_f(y0)}" width="${_f(x1 - x0)}" height="${_f(rowH)}" fill="${CONTACT}"/>`; }
+  }
+  const Z = cl.Z || [];
+  if (Z.length === n - 1 && n >= 2){
+    const yv = {}, xv = {};
+    for (let row = 0; row < n; row++){ const id = order[row]; yv[id] = rowMid(row); xv[id] = dendroX1; }
+    const maxD = Z[Z.length - 1][2] || 1;
+    for (let m = 0; m < Z.length; m++){ const a = Z[m][0], b = Z[m][1], id = n + m; yv[id] = (yv[a] + yv[b]) / 2; xv[id] = dendroX0 + (dendroX1 - dendroX0) * (1 - Z[m][2] / maxD); }
+    let d = '';
+    for (let m = 0; m < Z.length; m++){ const a = Z[m][0], b = Z[m][1], xm = xv[n + m];
+      d += `M${_f(xv[a])} ${_f(yv[a])}L${_f(xm)} ${_f(yv[a])}M${_f(xv[b])} ${_f(yv[b])}L${_f(xm)} ${_f(yv[b])}M${_f(xm)} ${_f(yv[a])}L${_f(xm)} ${_f(yv[b])}`; }
+    s += `<path d="${d}" stroke="#8a97a8" stroke-width="0.8" fill="none"/>`;
+  }
+  const nT = 15, ticks = [];
+  for (let i = 0; i < nT; i++){ const r = Math.round(1 + i * (plen - 1) / (nT - 1)); if (!ticks.includes(r)) ticks.push(r); }
+  for (const r of ticks){ const x = edge(r) + step / 2;
+    s += `<line x1="${_f(x)}" y1="${_f(rowsH)}" x2="${_f(x)}" y2="${_f(rowsH + 3)}" stroke="#ccc" stroke-width="1"/>`
+      + `<text x="${_f(x)}" y="${_f(rowsH + 4 + fs)}" font-size="${fs}" fill="#889" text-anchor="middle">${r}</text>`; }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${_f(W)}" height="${_f(H)}" viewBox="0 0 ${_f(W)} ${_f(H)}" font-family="${SVG_FONT}">${s}</svg>`;
+}
+
+function svgFreq(A, opts){
+  opts = opts || {};
+  const { pipe, cl } = A, n = pipe.fingerprints.length, plen = pipe.proteinLen, k = cl.optimalK;
+  const W = opts.width || PLOT_W, fs = opts.fontSize || 9, padL = AX_L, padR = AX_R;
+  const bw = (W-padL-padR)/plen, xOf=(r)=>padL+(r-1)*bw;
+  const tot = new Float64Array(plen+1), byC = {};
+  for (let i=0;i<n;i++){ const lab=cl.labels[i]; if(ACTIVE&&!ACTIVE.has(lab))continue; for(const res of pipe.fingerprints[i]){ if(res<1||res>plen)continue; tot[res]++; (byC[res]=byC[res]||{})[lab]=((byC[res]||{})[lab]||0)+1; } }
+  let maxF=1; for(let r=1;r<=plen;r++) if(tot[r]>maxF)maxF=tot[r];
+  const hasP=!!(A._plddt&&A._plddt.size);
+  let inv=null; if(A.residueMap){ inv={}; for(let i=0;i<A.residueMap.length;i++){ const sr=A.residueMap[i]; if(sr!=null&&inv[sr]==null)inv[sr]=i+1; } }
+  const doms=[];
+  for(const d of (A._domains||[])){ const ps=inv?(inv[d.start]||d.start):d.start, pe=inv?(inv[d.end]||d.end):d.end; if(pe<1||ps>plen)continue; const dx0=xOf(Math.max(1,ps)), dx1=Math.max(dx0+2,xOf(Math.min(plen,pe)+1)); doms.push({x0:dx0,x1:dx1,name:d.name}); }
+  doms.sort((a,b)=>a.x0-b.x0);
+  const laneEnd=[]; for(const d of doms){ let l=0; while(l<laneEnd.length&&laneEnd[l]>d.x0+0.5)l++; d.lane=l; laneEnd[l]=d.x1; }
+  const nL=laneEnd.length, DRH=13, domBoxH=11, domTop=2, domTotal=nL*DRH;
+  const padT = domTop + domTotal + (nL?4:14);
+  const freqH = opts.height || 108, freqBase = padT + freqH;
+  const gap=15, plddtH = Math.round(freqH*0.44);
+  const plddtTop = hasP ? freqBase+gap : freqBase, plddtBase = hasP ? plddtTop+plddtH : freqBase;
+  const hasAM = !!(A._am && A._am.length);
+  const amTop = plddtBase + 15, amH = 44, amBase = hasAM ? amTop + amH : plddtBase;
+  const padB=22, H = amBase + padB;
+  let s='';
+  s += `<path d="M${padL} ${_f(padT)}L${padL} ${_f(freqBase)}L${_f(W-padR)} ${_f(freqBase)}" stroke="#ccc" stroke-width="1" fill="none"/>`;
+  for(const t of [...new Set([0,Math.round(maxF/2),maxF])]) s += `<text x="${padL-4}" y="${_f(freqBase-(t/maxF)*freqH)}" font-size="${fs}" fill="#889" text-anchor="end" dominant-baseline="central">${t}</text>`;
+  for(let r=1;r<=plen;r++){ if(!tot[r])continue; let dom=1,best=-1; const cc=byC[r]||{}; for(const c in cc)if(cc[c]>best){best=cc[c];dom=+c;} const h=(tot[r]/maxF)*freqH; s += `<rect x="${_f(xOf(r))}" y="${_f(freqBase-h)}" width="${_f(Math.max(0.5,bw))}" height="${_f(h)}" fill="${clusterColor(dom,k)}"/>`; }
+  const ycl1=_f((padT+freqBase)/2); s += `<text x="11" y="${ycl1}" font-size="${fs}" fill="#667" text-anchor="middle" transform="rotate(-90 11 ${ycl1})"># partners</text>`;
+  const xtickBase = amBase;
+  if(hasP){ const map=A.residueMap, yOf=(pl)=>plddtBase-(pl/100)*plddtH, xc=(r)=>padL+(r-1)*bw+bw/2, qc=A._queryChain||'A';
+    s += `<path d="M${padL} ${_f(plddtTop)}L${padL} ${_f(plddtBase)}L${_f(W-padR)} ${_f(plddtBase)}" stroke="#ccc" stroke-width="1" fill="none"/>`;
+    let prev=null;
+    for(let r=1;r<=plen;r++){ const sr=map?map[r-1]:r; if(!sr){prev=null;continue;} const pl=A._plddt.get(qc+':'+sr); if(pl==null){prev=null;continue;} const x=xc(r),y=yOf(pl); if(prev){ const mx=(prev.x+x)/2, my=(prev.y+y)/2; s+=`<line x1="${_f(prev.x)}" y1="${_f(prev.y)}" x2="${_f(mx)}" y2="${_f(my)}" stroke="${plddtColor(prev.v)}" stroke-width="1.4"/><line x1="${_f(mx)}" y1="${_f(my)}" x2="${_f(x)}" y2="${_f(y)}" stroke="${plddtColor(pl)}" stroke-width="1.4"/>`; } prev={x,y,v:pl}; }
+    for(const t of [0,50,100]) s += `<text x="${padL-4}" y="${_f(plddtBase-(t/100)*plddtH)}" font-size="${fs}" fill="#889" text-anchor="end" dominant-baseline="central">${t}</text>`;
+    const ycl2=_f((plddtTop+plddtBase)/2); s += `<text x="11" y="${ycl2}" font-size="${fs}" fill="#5a86b3" text-anchor="middle" transform="rotate(-90 11 ${ycl2})">pLDDT</text>`;
+  }
+  if (hasAM){ const amap=A.residueMap, yOfA=(v)=>amBase-v*amH, xcA=(r)=>padL+(r-1)*bw+bw/2;
+    s += `<path d="M${padL} ${_f(amTop)}L${padL} ${_f(amBase)}L${_f(W-padR)} ${_f(amBase)}" stroke="#ccc" stroke-width="1" fill="none"/>`;
+    let prevA=null;
+    for (let r=1;r<=plen;r++){ const sr=amap?amap[r-1]:r; const v=sr?A._am[sr]:null; if(v==null){prevA=null;continue;} const x=xcA(r), y=yOfA(v); if(prevA){ const mx=(prevA.x+x)/2, my=(prevA.y+y)/2; s += `<line x1="${_f(prevA.x)}" y1="${_f(prevA.y)}" x2="${_f(mx)}" y2="${_f(my)}" stroke="${amColor(prevA.v)}" stroke-width="1.4"/><line x1="${_f(mx)}" y1="${_f(my)}" x2="${_f(x)}" y2="${_f(y)}" stroke="${amColor(v)}" stroke-width="1.4"/>`; } prevA={x,y,v}; }
+    for (const t of [0,0.5,1]) s += `<text x="${padL-4}" y="${_f(amBase-t*amH)}" font-size="${fs}" fill="#889" text-anchor="end" dominant-baseline="central">${t.toFixed(1)}</text>`;
+    const yamL=_f((amTop+amBase)/2); s += `<text x="11" y="${yamL}" font-size="${fs}" fill="#a33" text-anchor="middle" transform="rotate(-90 11 ${yamL})">AM path.</text>`;
+  }
+  const nT=15,ticks=[]; for(let i=0;i<nT;i++){const r=Math.round(1+i*(plen-1)/(nT-1)); if(!ticks.includes(r))ticks.push(r);}
+  for(const r of ticks){ const x=xOf(r)+bw/2; s += `<line x1="${_f(x)}" y1="${_f(xtickBase)}" x2="${_f(x)}" y2="${_f(xtickBase+3)}" stroke="#ccc" stroke-width="1"/><text x="${_f(x)}" y="${_f(xtickBase+4+fs)}" font-size="${fs}" fill="#889" text-anchor="middle">${r}</text>`; }
+  for(const d of doms){ const y=domTop+d.lane*DRH, w=d.x1-d.x0; s += `<rect x="${_f(d.x0)}" y="${y}" width="${_f(w)}" height="${domBoxH}" fill="#e3e9f1" stroke="#9fb0c4" stroke-width="0.5"/>`; if(String(d.name).length*fs*0.55 < w-3) s += `<text x="${_f(d.x0+w/2)}" y="${y+domBoxH/2}" font-size="${fs}" fill="#456" text-anchor="middle" dominant-baseline="central">${_esc(d.name)}</text>`; }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${_f(W)}" height="${_f(H)}" viewBox="0 0 ${_f(W)} ${_f(H)}" font-family="${SVG_FONT}">${s}</svg>`;
+}
+function downloadSVG(filename, svg){
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function svgOpts(){ const w = $('svg-w'), h = $('svg-h'), f = $('svg-fs'); return { width: (w && +w.value) || PLOT_W, height: (h && +h.value) || undefined, fontSize: (f && +f.value) || 9 }; }
+function heatOpts(){ const w = $('hm-w'), h = $('hm-h'), f = $('hm-fs'); return { width: (w && +w.value) || PLOT_W, height: (h && +h.value) || undefined, fontSize: (f && +f.value) || 9 }; }
+function redraw(A){ renderHeatmap(A); renderFreq(A); renderScatter(A); renderTable(A); renderClusterInfo(A); CHIP_CONTAINERS.forEach(id => renderChipBar(id, A)); recolor3D(A); }
+
 
 function scVal(o, key){
   const v = (o[key] != null && o[key] !== '') ? parseFloat(o[key]) : NaN;
   if (!isNaN(v)) return v;
   if (key === 'iLISA') { const a = parseFloat(o.iLIS), b = parseFloat(o.iLIA); if (!isNaN(a) && !isNaN(b)) return a * b; }
+  if (key === 'pLDDT') { const a = parseFloat(o.pLDDT_A), b = parseFloat(o.pLDDT_B), la = parseFloat(o.Protein_Len_A)||1, lb = parseFloat(o.Protein_Len_B)||1; if (!isNaN(a) && !isNaN(b)) return (a*la + b*lb)/(la+lb); if (!isNaN(a)) return a; if (!isNaN(b)) return b; }
   return 0;
 }
 // Metrics offered on the scatter axes — known AFM-LIS/confidence metrics first (in order),
 // then any other numeric column present in the data. iLISA always available (computed).
-const METRIC_ORDER = ['iLIS','iLIA','iLISA','ipTM','ipSAE','actifpTM','LIS','cLIS','LIA','cLIA','pLDDT_A','pLDDT_B','LIpLDDT_A','LIpLDDT_B','cLIpLDDT_A','cLIpLDDT_B'];
+const METRIC_ORDER = ['iLIS','iLIA','iLISA','ipTM','ipSAE','actifpTM','LIS','cLIS','LIA','cLIA','pLDDT','pLDDT_A','pLDDT_B','LIpLDDT_A','LIpLDDT_B','cLIpLDDT_A','cLIpLDDT_B'];
 const SKIP_COLS = new Set(['Symbol_1','Symbol_2','Protein_1','Protein_2','Rank','name','chain_i','chain_j','model','structure_file','pae_plot','cLIR_indice_A','cLIR_indice_B','LIR_indice_A','LIR_indice_B','cLIR_A','cLIR_B','LIR_A','LIR_B','Protein_Len_A','Protein_Len_B','deeploc_1','deeploc_2','iLIS_x_iLIA']);
 function availableMetrics(rows){
   const first = rows[0] || {};
   const isNum = (c) => first[c]!=null && first[c]!=='' && !isNaN(parseFloat(first[c]));
   const out = [];
-  for (const m of METRIC_ORDER){ if (m==='iLISA' || isNum(m)) out.push(m); }
+  for (const m of METRIC_ORDER){ if (m==='iLISA' || m==='pLDDT' || isNum(m)) out.push(m); }
   for (const k in first){ if (!k.startsWith('_') && !SKIP_COLS.has(k) && !out.includes(k) && isNum(k)) out.push(k); }
   return out;
 }
@@ -426,21 +611,38 @@ function populateAxes(A){
   fill('scatter-y', metrics.includes('iLIS') ? 'iLIS' : metrics[0]);
   fill('scatter-x', metrics.includes('iLIA') ? 'iLIA' : (metrics[1] || metrics[0]));
 }
+function spearman(xs, ys){
+  const n = xs.length; if (n < 3) return NaN;
+  const rank = (a) => { const idx = a.map((v,i)=>[v,i]).sort((p,q)=>p[0]-q[0]); const r = new Array(a.length);
+    for (let i=0;i<idx.length;){ let j=i; while(j<idx.length && idx[j][0]===idx[i][0]) j++; const avg=(i+j-1)/2+1; for(let t=i;t<j;t++) r[idx[t][1]]=avg; i=j; } return r; };
+  const rx=rank(xs), ry=rank(ys); let mx=0,my=0; for(let i=0;i<n;i++){mx+=rx[i];my+=ry[i];} mx/=n; my/=n;
+  let num=0,dx=0,dy=0; for(let i=0;i<n;i++){const a=rx[i]-mx,b=ry[i]-my; num+=a*b; dx+=a*a; dy+=b*b;}
+  return (dx&&dy) ? num/Math.sqrt(dx*dy) : NaN;
+}
+function pearson(xs, ys){
+  const n = xs.length; if (n < 3) return NaN;
+  let mx=0,my=0; for(let i=0;i<n;i++){mx+=xs[i];my+=ys[i];} mx/=n; my/=n;
+  let num=0,dx=0,dy=0; for(let i=0;i<n;i++){const a=xs[i]-mx,b=ys[i]-my; num+=a*b; dx+=a*a; dy+=b*b;}
+  return (dx&&dy) ? num/Math.sqrt(dx*dy) : NaN;
+}
 function renderScatter(A){
   const { pipe, cl } = A, k = cl.optimalK;
   const cutoff = (A.opts && A.opts.ilisCutoff) || 0.223;
   const xKey = ($('scatter-x') && $('scatter-x').value) || 'iLIA';
   const yKey = ($('scatter-y') && $('scatter-y').value) || 'iLIS';
-  const HT = `%{text}<br>${xKey} %{x:.4g}<br>${yKey} %{y:.4g}<br>iLISA %{customdata:.1f}<extra></extra>`;
-  const bg = pipe.allPoints || [];
-  const bgTrace = { x: bg.map(p=>scVal(p,xKey)), y: bg.map(p=>scVal(p,yKey)), text: bg.map(p=>p.Symbol_2), customdata: bg.map(p=>scVal(p,'iLISA')),
-    mode:'markers', type:'scatter', name:`all predictions (${bg.length})`, marker:{ size:5, color:'#cdd3db', line:{width:0} }, hovertemplate: HT };
+  const rl = (p) => `${p.Symbol_2} (R${p.Rank != null && p.Rank !== '' ? p.Rank : '?'})`;   // rank label, e.g. "sqa (R1)"
+  const HT = `%{text}<br>iLIS %{customdata[0]:.4g}<br>iLIA %{customdata[1]:.4g}<br>iLISA %{customdata[2]:.1f}<br>ipTM %{customdata[3]:.3g}<extra></extra>`;
+  const pk = (p) => p.Symbol_2 + '\u0001' + p.Rank;
+  const passing = new Set(pipe.rows.map(pk));
+  const bg = (pipe.allPredictions || pipe.allPoints || []).filter(p => !passing.has(pk(p)));   // every rank, minus the clustered ones
+  const bgTrace = { x: bg.map(p=>scVal(p,xKey)), y: bg.map(p=>scVal(p,yKey)), text: bg.map(rl), customdata: bg.map(p=>[scVal(p,'iLIS'),scVal(p,'iLIA'),scVal(p,'iLISA'),scVal(p,'ipTM')]),
+    mode:'markers', type:'scatter', legendrank:9999, name:`other predictions (${bg.length})`, marker:{ size:5, color:'#cdd3db', line:{width:0} }, hovertemplate: HT };
   const traces = {};
   for (let i=0;i<pipe.rows.length;i++){ const lab=cl.labels[i], r=pipe.rows[i];
     (traces[lab]=traces[lab]||{x:[],y:[],text:[],cd:[]});
-    traces[lab].x.push(scVal(r,xKey)); traces[lab].y.push(scVal(r,yKey)); traces[lab].text.push(r.Symbol_2); traces[lab].cd.push(scVal(r,'iLISA')); }
+    traces[lab].x.push(scVal(r,xKey)); traces[lab].y.push(scVal(r,yKey)); traces[lab].text.push(rl(r)); traces[lab].cd.push([scVal(r,'iLIS'),scVal(r,'iLIA'),scVal(r,'iLISA'),scVal(r,'ipTM')]); }
   const clTraces = Object.keys(traces).sort((a,b)=>a-b).map(lab=>({ x:traces[lab].x, y:traces[lab].y, text:traces[lab].text, customdata:traces[lab].cd,
-    mode:'markers', type:'scatter', name:'cluster '+lab, marker:{ size:9, color:clusterColor(+lab,k), line:{width:.5,color:'#fff'} }, hovertemplate: HT }));
+    mode:'markers', type:'scatter', legendrank:+lab, name:'cluster '+lab+' ('+traces[lab].x.length+')', marker:{ size:9, color:clusterColor(+lab,k), line:{width:.5,color:'#fff'} }, hovertemplate: HT }));
   const layout = { margin:{t:10,r:10,b:45,l:62}, xaxis:{title:xKey, rangemode:'tozero'}, yaxis:{title:yKey, rangemode:'tozero'}, legend:{font:{size:10}} };
   // FPR iLIS reference lines when iLIS is on an axis (active cutoff = dashed+bold, others dotted)
   const fprShape = (ax, v) => ax==='y'
@@ -451,7 +653,12 @@ function renderScatter(A){
     : { yref:'paper', y:1, yanchor:'top', x:v, xanchor:'left', text:`${lbl} (${v})`, showarrow:false, font:{size:9, color:'#e07a5f'}, textangle:-90 };
   const ax = yKey==='iLIS' ? 'y' : (xKey==='iLIS' ? 'x' : null);
   if (ax){ layout.shapes = FPR_ILIS.map(([,v])=>fprShape(ax,v)); layout.annotations = FPR_ILIS.map(([l,v])=>fprAnn(ax,l,v)); }
-  Plotly.newPlot('scatter', [bgTrace, ...clTraces], layout, {displayModeBar:false, responsive:true});
+  const _cx=[], _cy=[];   // Spearman rank correlation of the two axes across all plotted predictions
+  for (const p of bg){ _cx.push(scVal(p,xKey)); _cy.push(scVal(p,yKey)); }
+  for (const lab in traces){ for (let i=0;i<traces[lab].x.length;i++){ _cx.push(traces[lab].x[i]); _cy.push(traces[lab].y[i]); } }
+  const _rho = spearman(_cx, _cy), _r = pearson(_cx, _cy);
+  { const el = $('scatter-rho'); if (el) el.textContent = (isNaN(_r) ? '' : `Pearson r = ${_r.toFixed(3)} \u00b7 `) + (isNaN(_rho) ? '' : `Spearman \u03c1 = ${_rho.toFixed(3)}`) + ` (n=${_cx.length})`; }
+  Plotly.newPlot('scatter', [bgTrace, ...clTraces], layout, {responsive:true, displaylogo:false});
 }
 
 function renderTable(A){
@@ -551,7 +758,7 @@ function toggleCluster(c, A){
     else if (ACTIVE.has(id)){ ACTIVE.delete(id); if(!ACTIVE.size) ACTIVE = _allClusters(k); }
     else ACTIVE.add(id);
   }
-  refreshChipVisuals(A); renderFreq(A); recolor3D(A);
+  refreshChipVisuals(A); renderHeatmap(A); renderFreq(A); recolor3D(A);
 }
 function refreshChipVisuals(A){
   const k = A.cl.optimalK, all = ACTIVE.size === k;
@@ -574,16 +781,23 @@ function pickQueryChain(plddtMap, queryLen){
   chains.sort((a,b) => Math.abs(counts[a]-queryLen) - Math.abs(counts[b]-queryLen) || (a<b?-1:1));
   return chains[0];
 }
+let COMMONALITY = 0.5;   // 3D: colour a residue with a cluster when >= this fraction of the cluster's members contact it
 function clusterColorComponents(A){
-  const { pipe, cl } = A, k = cl.optimalK, map = A.residueMap, active = ACTIVE || _allClusters(k);
-  const toStruct = (r) => map ? map[r-1] : r;      // predicted index → structure residue number
-  const byRes = {};
-  for (let i=0;i<pipe.fingerprints.length;i++){ const lab=cl.labels[i]; for (const res of pipe.fingerprints[i]){ const sr=toStruct(res); if(!sr||sr<1)continue; (byRes[sr]=byRes[sr]||{})[lab]=(byRes[sr][lab]||0)+1; } }
-  const N = A._structLen || pipe.proteinLen, GRAY = '#e6e6e6';
+  const { pipe, cl } = A, k = cl.optimalK, map = A.residueMap;
+  const N = A._structLen || pipe.proteinLen, GRAY = '#e6e6e6', qc = A._queryChain || 'A';
   const colorAt = new Array(N+1).fill(GRAY);
-  for (const res in byRes){ const r=+res; if(r<1||r>N)continue; let dom=null,best=-1; const cc=byRes[res];
-    for (const c in cc){ if(active.has(+c) && cc[c]>best){best=cc[c];dom=+c;} }
-    if (dom!=null) colorAt[r]=clusterColor(dom,k); }
+  const mode = ($('color3d') && $('color3d').value) || 'cluster';
+  if (mode === 'plddt' && A._plddt){ for (let sr=1;sr<=N;sr++){ const v=A._plddt.get(qc+':'+sr); if(v!=null) colorAt[sr]=plddtColor(v); } }
+  else if (mode === 'am' && A._am){ for (let sr=1;sr<=N;sr++){ const v=A._am[sr]; if(v!=null) colorAt[sr]=amColor(v); } }
+  else {   // cluster consensus: colour a residue with a cluster only when >= COMMONALITY fraction of its members contact it
+    const active = ACTIVE || _allClusters(k), toStruct = (r) => map ? map[r-1] : r, thr = COMMONALITY;
+    const byRes = {}, clusterSize = {};
+    for (let i=0;i<pipe.fingerprints.length;i++){ const lab=cl.labels[i]; clusterSize[lab]=(clusterSize[lab]||0)+1;
+      for (const res of pipe.fingerprints[i]){ const sr=toStruct(res); if(!sr||sr<1)continue; (byRes[sr]=byRes[sr]||{})[lab]=(byRes[sr][lab]||0)+1; } }
+    for (const res in byRes){ const r=+res; if(r<1||r>N)continue; let bestFrac=-1, dom=null; const cc=byRes[res];
+      for (const c in cc){ if(!active.has(+c)) continue; const frac=cc[c]/(clusterSize[c]||1); if(frac>=thr && frac>bestFrac){ bestFrac=frac; dom=+c; } }
+      if (dom!=null) colorAt[r]=clusterColor(dom,k); }
+  }
   const byColor = {}; let r=1;
   while (r<=N){ const c=colorAt[r]; let e=r; while(e<N && colorAt[e+1]===c) e++; (byColor[c]=byColor[c]||[]).push({start:r,end:e}); r=e+1; }
   return Object.entries(byColor).map(([color,ranges]) => ({ chain: A._queryChain || 'A', ranges, color }));
@@ -632,6 +846,7 @@ async function resolve3D(A){
   else if (res.structureLength && plen && res.structureLength !== plen){ note = `⚠ len ${res.structureLength}≠${plen}, no FASTA to align`; }
   else note = res.lengthOk ? 'len ✓' : `⚠ len ${res.structureLength}≠${plen}`;
   CLIPResolver.fetchDomains(res.accession).then(d => { if (d && d.length){ A._domains = d; renderFreq(A); } });   // UniProt domain track (needs only accession)
+  CLIPResolver.fetchAlphaMissense(res.accession).then(am => { if (am && am.length){ A._am = am; renderFreq(A); } });   // AlphaMissense per-residue pathogenicity (human only)
   if (!res.cifUrl){ badge.textContent = `· ${res.accession}${res.gene ? ' (' + res.gene + ')' : ''} · via ${res.matchedBy} · ⚠ no AFDB structure`; $('viewer3d-frame').src = 'about:blank'; return; }
   badge.textContent = `· AFDB ${res.accession}${res.organism ? ' · ' + res.organism : ''} · via ${res.matchedBy} · ${note}`;
   load3D({ url: res.cifUrl, structLen: res.structureLength }, A);

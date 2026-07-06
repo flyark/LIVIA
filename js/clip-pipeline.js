@@ -130,9 +130,14 @@
     if (s == null) return [];
     s = String(s).trim();
     if (!s) return [];
-    const cleaned = s.replace(/^\[|\]$/g, '').replace(/,/g, ' ');
+    const cleaned = s.replace(/^\[|\]$/g, '');            // strip brackets
     const out = [];
-    for (const t of cleaned.split(/\s+/)) { if (!t) continue; const v = parseFloat(t); if (!isNaN(v)) out.push(Math.trunc(v)); }
+    for (const tok of cleaned.split(/[,\s]+/)) {           // comma- or space-separated
+      if (!tok) continue;
+      const rng = tok.match(/^(\d+)\s*-\s*(\d+)$/);        // range "253-258" -> 253..258 (lis.py compresses runs)
+      if (rng) { const a = +rng[1], b = +rng[2]; for (let v = a; v <= b; v++) out.push(v); }
+      else { const v = parseFloat(tok); if (!isNaN(v)) out.push(Math.trunc(v)); }
+    }
     return out;
   }
 
@@ -172,7 +177,7 @@
     let plen = 0;
     for (const x of filt) { const v = num(x.Protein_Len_A); if (v && v > plen) plen = v; }
     const fp = buildFingerprints(filt, 'cLIR_indice_A', plen);
-    return { rows: fp.keptRows, fingerprints: fp.fingerprints, proteinLen: fp.proteinLen, allPoints };
+    return { rows: fp.keptRows, fingerprints: fp.fingerprints, proteinLen: fp.proteinLen, allPoints, allPredictions: hits };
   }
 
   // ---- full pipeline: raw CSV text(s) + gene → {rows, fingerprints, proteinLen, allPoints} ----
