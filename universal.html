@@ -234,7 +234,7 @@
         <div class="card result-card" id="chain-identity-card" style="display:none;">
             <h2>Chain identity</h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                Resolve each protein chain to its UniProt entry by exact sequence match (CRC64 checksum), then list its domains. Works for dimers and larger complexes; identical chains are resolved once.
+                Looks up each chain in UniProt by sequence and lists any domains found.
             </div>
             <button class="btn" id="identify-btn" onclick="identifyChains()">Identify chains via UniProt</button>
             <div id="chain-identity-out" style="margin-top:0.6rem; overflow-x:auto;"></div>
@@ -4123,7 +4123,7 @@ function greensColor(value, vmin, vmax) {
 
 let EXPORT_FONT = 1, EXPORT_W = 0;   // figure-export options (SVG font multiplier / target width; 0 = native)
 function setExp(k, v){ if (k === 'font') EXPORT_FONT = +v; else EXPORT_W = +v; }
-function chainLabel(name){ const g = uniState.chainGenes && uniState.chainGenes[name]; return g ? name + ' \u00b7 ' + g : name; }   // 'A' -> 'A \u00b7 TP53' once resolved
+function chainLabel(name){ const g = uniState.chainGenes && uniState.chainGenes[name]; return g ? g + ' (' + name + ')' : name; }   // 'A' -> 'TP53 (A)' once resolved
 function applyExportOpts(svg){
     if (EXPORT_FONT && EXPORT_FONT !== 1) svg = svg.replace(/font-size="([\d.]+)px"/g, (m, s) => 'font-size="' + (parseFloat(s) * EXPORT_FONT).toFixed(2) + 'px"');
     const m = svg.match(/<svg\b[^>]*\bwidth="([\d.]+)"[^>]*\bheight="([\d.]+)"/);
@@ -4312,7 +4312,7 @@ function drawOneScoreMatrix(canvas, lowerG, upperG, nc, lowerMax, upperMax, lowe
     const lf = Math.max(7, Math.min(10, cellSize / 3)) * S;
     ctx.fillStyle = '#333';
     for (let k = 0; k < nc; k++) {
-        const name = chainLabel(uniState.chainNames[k]);
+        const name = uniState.chainNames[k];
         ctx.font = `bold ${lf}px sans-serif`;
         ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
         ctx.fillText(name, leftPx - 3 * S, k * cPx + cPx / 2);
@@ -5728,8 +5728,7 @@ function buildContactMap(pairKey) {
     const barY_A = 22 + topLane;                          // room above for chain-A ticks (kept off the ribbons)
     const barY_B = barY_A + barH + 60;                       // compact ribbon gap
     const height = barY_B + barH + 15 + botLane + 15;
-    const barLeft = 60, barRight = width - 20;
-    const barW = barRight - barLeft;
+    // barLeft / barW are computed below, once the context is ready (measures chain labels)
 
     canvas.width = width * S;
     canvas.height = height * S;
@@ -5743,6 +5742,9 @@ function buildContactMap(pairKey) {
     ctx.save();
     ctx.scale(S, S);
 
+    ctx.font = 'bold 13px sans-serif';                       // size the left margin to fit the (possibly long) chain labels
+    const barLeft = Math.max(60, Math.ceil(Math.max(ctx.measureText(chainLabel(v.ci)).width, ctx.measureText(chainLabel(v.cj)).width)) + 12);
+    const barRight = width - 20, barW = barRight - barLeft;
     const xA = (res) => barLeft + ((res - 1) / Math.max(1, v.lenI - 1)) * barW;
     const xB = (res) => barLeft + ((res - 1) / Math.max(1, v.lenJ - 1)) * barW;
 
