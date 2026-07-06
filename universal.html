@@ -6249,6 +6249,8 @@ function buildChordDiagram() {
             canvasAll.style.width = size + 'px';
             canvasAll.style.height = size + 'px';
             drawChordFromContacts(canvasAll.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, allContacts, chainColors, allLIR, allCLIR, chainLightColors);
+            window.__chordAllDraw = (c) => { c.width = size * S; c.height = size * S; drawChordFromContacts(c.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, allContacts, chainColors, allLIR, allCLIR, chainLightColors); };
+            if (canvasAll.parentElement && !document.getElementById('chord-all-svg-btn')){ const _cb = document.createElement('button'); _cb.id = 'chord-all-svg-btn'; _cb.type = 'button'; _cb.textContent = '\u2193 SVG'; _cb.style.cssText = 'display:block; margin:4px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;'; _cb.onclick = () => { try { downloadSVGFile('chord_diagram_all_models.svg', svgFromDraw(window.__chordAllDraw)); } catch(e){ alert('SVG export failed: ' + e.message); } }; canvasAll.parentElement.appendChild(_cb); }
         }
     }
 }
