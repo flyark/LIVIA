@@ -109,7 +109,7 @@
             .colorbar-labels { width: 100%; max-width: 300px; }
         }
     </style>
-<script src="https://cdn.jsdelivr.net/npm/canvas2svg@1.0.16/canvas2svg.js"></script>
+<script src="js/canvas2svg.js"></script>
 <script src="js/clip-resolver.js"></script>
 </head>
 <body>
@@ -291,6 +291,7 @@
                 Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B.
             </div>
             <canvas id="contact-canvas"></canvas>
+            <div style="text-align:center; margin-top:2px;"><button type="button" onclick="downloadContactMapSVG()" style="font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;">&darr; SVG</button></div>
         </div>
 
         <!-- Circular Contact Map (multi-chain) -->
@@ -4117,6 +4118,16 @@ function svgFromDraw(drawClosure){
     drawClosure(fake);
     return ctx ? ctx.getSerializedSvg() : '';
 }
+function svgFromFixedCanvas(canvasId, redraw){   // figures that draw to a fixed <canvas> element (linear contact map)
+    const cv = document.getElementById(canvasId); if (!cv) return '';
+    const real = cv.getContext; let c2s = null;
+    cv.getContext = function(){ c2s = new C2S(this.width || 300, this.height || 150); return c2s; };
+    try { redraw(); } finally { cv.getContext = real; }
+    const svg = c2s ? c2s.getSerializedSvg() : '';
+    redraw();   // restore the on-screen bitmap render
+    return svg;
+}
+function downloadContactMapSVG(){ if (!uniState.currentPairKey) return; try { downloadSVGFile('linear_contact_map.svg', svgFromFixedCanvas('contact-canvas', () => buildContactMap(uniState.currentPairKey))); } catch(e){ alert('SVG export failed: ' + e.message); } }
 function downloadSVGFile(name, svg){ const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([svg], {type:'image/svg+xml'})); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
 function addPngBtn(container, name, canvas){
     const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = '\u2193 PNG';
@@ -6140,7 +6151,7 @@ function buildChordDiagram() {
     canvas.style.height = size + 'px';
     drawChord(canvas.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors, selLIR, selCLIR, chainLightColors);
     window.__chordDraw = (c) => { c.width = size * S; c.height = size * S; drawChord(c.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors, selLIR, selCLIR, chainLightColors); };
-    if (canvas.parentElement && !document.getElementById('chord-png-btn')){ const _cb = document.createElement('button'); _cb.id = 'chord-png-btn'; _cb.type = 'button'; _cb.textContent = '\u2193 PNG'; _cb.style.cssText = 'display:block; margin:4px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;'; _cb.onclick = () => { const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = 'chord_diagram.png'; a.click(); }; canvas.parentElement.appendChild(_cb); }
+    if (canvas.parentElement && !document.getElementById('chord-svg-btn')){ const _cb = document.createElement('button'); _cb.id = 'chord-svg-btn'; _cb.type = 'button'; _cb.textContent = '\u2193 SVG'; _cb.style.cssText = 'display:block; margin:4px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;'; _cb.onclick = () => { try { downloadSVGFile('chord_diagram.svg', svgFromDraw(window.__chordDraw)); } catch(e){ alert('SVG export failed: ' + e.message); } }; canvas.parentElement.appendChild(_cb); }
 
     // --- Draw combined all-models chord ---
     const hasMultipleModels = uniState.modelPairs && uniState.modelPairs.length > 1;
