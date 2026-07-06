@@ -138,7 +138,7 @@
       <h2 style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap">Contact residue frequency
         <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem">SVG&nbsp; w<input id="svg-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="svg-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="svg-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"> <button class="ghost" id="svg-freq">&#8595; SVG</button></span>
       </h2>
-      <div class="muted">How often each query residue is a contact Local Interaction Residue (cLIR) across partners, colored by the dominant cluster · click clusters to filter.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.<br>Tracks below the bars: AlphaFold <b>pLDDT</b> (0&ndash;100) &middot; <b style="color:#a33">AM path.</b> = AlphaMissense mean pathogenicity per residue (averaged over all ~19 substitutions at that position; blue = benign &rarr; red = pathogenic; human only, from AlphaFold DB).</div>
+      <div class="muted">How often each query residue is a contact Local Interaction Residue (cLIR) across partners, colored by the dominant cluster · click clusters to filter.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.<br>Tracks below the bars: AlphaFold <b>pLDDT</b> (0&ndash;100) <span class="am-only hidden">&middot; <b style="color:#a33">AM path.</b> = AlphaMissense mean pathogenicity per residue (averaged over all ~19 substitutions at that position; blue = benign &rarr; red = pathogenic; human only, from AlphaFold DB).</span></div>
       <div id="freq-chips" class="chips" style="margin:.4rem 0"></div>
       <canvas id="freq"></canvas>
     </div>
@@ -161,14 +161,14 @@
     <div class="card">
       <h2>3D structure <span id="struct-badge" class="muted" style="font-weight:400; font-size:.8rem"></span></h2>
       <div class="muted">Query protein structure, residues colored by the cluster that consensus-contacts them · click clusters to isolate.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.</div>
-      <div class="muted" style="margin-top:.35rem">Highlight residues contacted by &ge; <select id="commonality" style="font-size:.82rem; padding:1px 4px"><option value="0.5" selected>50%</option><option value="0.6">60%</option><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option></select> of a cluster's members (consensus / core residues).</div>
+      <div class="muted" style="margin-top:.35rem">Highlight residues contacted by &ge; <select id="commonality" style="font-size:.82rem; padding:1px 4px"><option value="0.5">50%</option><option value="0.6">60%</option><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option></select> of a cluster's members (consensus / core residues).</div>
       <div id="cluster-chips" class="chips" style="margin:.5rem 0 0"></div>
       <div class="row" style="margin-top:.5rem; gap:.4rem; align-items:center; flex-wrap:wrap">
-        <span class="muted">Color 3D:</span>
+        <span class="muted">Color selection:</span>
         <span class="cchip cmode sel" data-mode="cluster">cluster</span>
         <span class="cchip cmode" data-mode="plddt">pLDDT</span>
-        <span class="cchip cmode" data-mode="am">AlphaMissense</span>
-        <span id="am-cut-wrap" class="muted hidden">&middot; am pathogenicity average &ge; <select id="am-cutoff" style="font-size:.82rem; padding:1px 4px"><option value="0">0%</option><option value="0.1">10%</option><option value="0.2">20%</option><option value="0.3">30%</option><option value="0.4">40%</option><option value="0.5" selected>50%</option><option value="0.6">60%</option><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option><option value="1">100%</option></select></span>
+        <span class="cchip cmode am-only hidden" data-mode="am">AlphaMissense</span>
+        <span id="am-cut-wrap" class="muted hidden">&middot; AM pathogenicity average &ge; <select id="am-cutoff" style="font-size:.82rem; padding:1px 4px"><option value="0" selected>0%</option><option value="0.1">10%</option><option value="0.2">20%</option><option value="0.3">30%</option><option value="0.4">40%</option><option value="0.5">50%</option><option value="0.6">60%</option><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option><option value="1">100%</option></select></span>
       </div>
       <iframe id="viewer3d-frame" style="width:100%; height:600px; border:1px solid var(--line); border-radius:8px; background:#fff; margin-top:.5rem" title="3D structure viewer"></iframe>
     </div>
@@ -362,7 +362,7 @@ function renderHeatmap(A){
   const rowsHb = (H - AXB) * S;
   const BW = W * S, BH = H * S;
   const cv = $('heatmap'); cv.width = BW; cv.height = BH;
-  cv.style.width = '100%'; cv.style.maxWidth = W + 'px'; cv.style.height = 'auto';
+  cv.style.width = '100%'; cv.style.height = 'auto';
   const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, BW, BH);
   const Z = cl.Z || [];
   const step = (W - AX_L - AX_R) / plen;
@@ -451,7 +451,7 @@ function renderFreq(A){
   const hasAM = !!(A._am && A._am.length);
   const amTop = plddtBase + 15, amH = 44, amBase = hasAM ? amTop + amH : plddtBase;
   const padB=22, H = amBase + padB;
-  const cv=$('freq'); cv.width=W*S; cv.height=H*S; cv.style.width='100%'; cv.style.maxWidth=W+'px'; cv.style.height='auto';
+  const cv=$('freq'); cv.width=W*S; cv.height=H*S; cv.style.width='100%'; cv.style.height='auto';
   const ctx=cv.getContext('2d'); ctx.scale(S,S); ctx.clearRect(0,0,W,H);
   // # partners panel
   ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(padL,padT); ctx.lineTo(padL,freqBase); ctx.lineTo(W-padR,freqBase); ctx.stroke();
@@ -794,7 +794,7 @@ function pickQueryChain(plddtMap, queryLen){
 }
 let COMMONALITY = 0.5;   // 3D: colour a residue with a cluster when >= this fraction of the cluster's members contact it
 let COLOR3D = 'cluster';   // 3D colour mode: cluster | plddt | am
-let AM_CUTOFF = 0.5;       // AM mode: only colour residues with mean pathogenicity >= this
+let AM_CUTOFF = 0;         // AM mode: only colour residues with mean pathogenicity >= this (0 = show all)
 function clusterColorComponents(A){
   const { pipe, cl } = A, k = cl.optimalK, map = A.residueMap;
   const N = A._structLen || pipe.proteinLen, GRAY = '#e6e6e6', qc = A._queryChain || 'A';
@@ -858,8 +858,9 @@ async function resolve3D(A){
   } else if (predSeq && res.structureSequence){ const mi = CLIPResolver.alignMap(predSeq, res.structureSequence); A.residueMap = mi.map; note = mi.method === 'identical' ? 'seq 1:1 ✓' : `remapped (${mi.method}, ${Math.round(100 * mi.covered / predSeq.length)}% matched)`; }
   else if (res.structureLength && plen && res.structureLength !== plen){ note = `⚠ len ${res.structureLength}≠${plen}, no FASTA to align`; }
   else note = res.lengthOk ? 'len ✓' : `⚠ len ${res.structureLength}≠${plen}`;
+  document.querySelectorAll('.am-only').forEach(e => e.classList.add('hidden'));   // AM is human-only; revealed only if AlphaMissense loads
   CLIPResolver.fetchDomains(res.accession).then(d => { if (d && d.length){ A._domains = d; renderFreq(A); } });   // UniProt domain track (needs only accession)
-  CLIPResolver.fetchAlphaMissense(res.accession).then(am => { if (am && am.length){ A._am = am; renderFreq(A); } });   // AlphaMissense per-residue pathogenicity (human only)
+  CLIPResolver.fetchAlphaMissense(res.accession).then(am => { if (am && am.length){ A._am = am; renderFreq(A); document.querySelectorAll('.am-only').forEach(e => e.classList.remove('hidden')); } });   // AlphaMissense per-residue pathogenicity (human only)
   if (!res.cifUrl){ badge.textContent = `· ${res.accession}${res.gene ? ' (' + res.gene + ')' : ''} · via ${res.matchedBy} · ⚠ no AFDB structure`; $('viewer3d-frame').src = 'about:blank'; return; }
   badge.textContent = `· AFDB ${res.accession}${res.organism ? ' · ' + res.organism : ''} · via ${res.matchedBy} · ${note}`;
   load3D({ url: res.cifUrl, structLen: res.structureLength }, A);
