@@ -185,9 +185,9 @@
             <a href="ortholog_predictome.html">Ortholog Interactome</a>
             <a href="dimer.html">AFDB Dimer</a>
             <a href="monomer.html">AFDB Monomer Subdomain</a>
+            <a href="clip.html">cLIP <sup style="color:#e67e22; font-weight:700; font-size:.6em;">beta</sup></a>
             <a href="tutorials.html" class="active">Tutorials</a>
             <a href="about.html">About</a>
-            <a href="bookmarklet.html" style="background:#2471A3; color:white; border-color:#2471A3; font-weight:600;">Bookmarklet &#9733;</a>
             <a href="https://github.com/flyark/LIVIA" target="_blank">GitHub</a>
         </div>
     </div>
@@ -267,7 +267,7 @@
                 <h3>Bookmarklet for AFDB and FlyPredictome</h3>
                 <p>One-click jump from AlphaFold DB or FlyPredictome straight into LIVIA</p>
             </div>
-            <a class="try-btn" href="bookmarklet.html">Install &rarr;</a>
+            <a class="try-btn" href="#bm-install">Install &rarr;</a>
         </div>
         <div class="tutorial-body">
             <div class="steps-sidebar" data-tutorial="dimer">
@@ -308,6 +308,23 @@
                     <button class="playback-btn" onclick="togglePlayback('dimer')" id="play-btn-dimer" title="Pause/Resume">&#9646;&#9646; Pause</button>
                 </div>
             </div>
+        </div>
+        <div id="bm-install" style="border-top:1px solid #eef1f5; margin:0 1.5rem 1.5rem; padding-top:1.2rem;">
+            <h3 style="color:#1a5276; font-size:1.05rem; margin-bottom:.4rem;">Install the bookmarklet</h3>
+            <p style="font-size:.9rem; color:#555; line-height:1.55;">Drag the blue button to your browser's bookmarks bar. On an AlphaFold DB entry or a FlyPredictome details page, click the bookmark and LIVIA opens the matching analysis page automatically.</p>
+            <div style="display:flex; align-items:center; gap:1rem; margin:1rem 0 .5rem; flex-wrap:wrap;">
+                <a title="Drag me to your bookmarks bar" style="display:inline-block; padding:.6rem 1.2rem; background:#2471A3; color:#fff; border-radius:10px; font-weight:600; font-size:.95rem; text-decoration:none; cursor:grab; user-select:none;"
+                   href="javascript:(function(){var u=location.href,p=location.origin+location.pathname,t=null,m;if(m=u.match(/alphafold\.ebi\.ac\.uk\/entry\/(AF-\d+)/))t='https://flyark.github.io/LIVIA/dimer.html?id='+m[1];else if(m=u.match(/alphafold\.ebi\.ac\.uk\/entry\/(?:AF-)?([A-Z][0-9][A-Z0-9]{3}[0-9](?:[A-Z][A-Z0-9]{2}[0-9])?)/i))t='https://flyark.github.io/LIVIA/monomer.html?id='+m[1].toUpperCase();else if(/flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details_ortho\//.test(u))t='https://flyark.github.io/LIVIA/ortholog_predictome.html?url='+encodeURIComponent(p);else if(/flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details\//.test(u))t='https://flyark.github.io/LIVIA/flypredictome.html?url='+encodeURIComponent(p);if(t)window.open(t,'_blank','noopener');else alert('LIVIA: Unsupported page. Use on an AlphaFold DB entry page (alphafold.ebi.ac.uk/entry/...) or FlyPredictome details page (flyrnai.org/.../famdb_details[_ortho]/...).');})();">Open in LIVIA</a>
+                <span style="font-size:.82rem; color:#888;">&larr; drag to your bookmarks bar</span>
+            </div>
+            <div style="background:#eaf2f8; border:1px solid #d4e3f0; border-radius:8px; padding:.7rem 1rem; margin-top:.5rem; font-size:.85rem; color:#1a5276;">If the bookmarks bar isn't visible, enable it with <strong>View &rarr; Show Bookmarks Bar</strong> or <strong>Ctrl/Cmd+Shift+B</strong>.</div>
+            <h4 style="color:#1a5276; font-size:.92rem; margin:1.1rem 0 .4rem;">Where it works</h4>
+            <div style="background:#f8f9fa; border-radius:8px; padding:.6rem 1rem; font-size:.84rem; color:#555; line-height:1.6;">
+                AlphaFold DB dimer/complex &rarr; <b style="color:#1a5276">AFDB Dimer</b> &middot; AFDB monomer &rarr; <b style="color:#1a5276">AFDB Monomer Subdomain</b> &middot; FlyPredictome &rarr; <b style="color:#1a5276">FlyPredictome</b> &middot; FlyPredictome ortholog &rarr; <b style="color:#1a5276">Ortholog Interactome</b>. On any other page it shows a short message and does nothing.
+            </div>
+            <h4 style="color:#1a5276; font-size:.92rem; margin:1.1rem 0 .4rem;">If drag doesn't work</h4>
+            <p style="font-size:.9rem; color:#555; line-height:1.55;">Right-click the bookmarks bar &rarr; <em>Add page</em>, name it <code>LIVIA</code>, and paste this as the URL:</p>
+            <div style="background:#f4f6f8; border:1px solid #e0e6ec; border-radius:8px; padding:.7rem .9rem; margin-top:.5rem; font-family:ui-monospace,Menlo,monospace; font-size:.76rem; color:#555; line-height:1.45; white-space:pre-wrap; word-break:break-all;">javascript:(function(){var u=location.href,p=location.origin+location.pathname,t=null,m;if(m=u.match(/alphafold\.ebi\.ac\.uk\/entry\/(AF-\d+)/))t='https://flyark.github.io/LIVIA/dimer.html?id='+m[1];else if(m=u.match(/alphafold\.ebi\.ac\.uk\/entry\/(?:AF-)?([A-Z][0-9][A-Z0-9]{3}[0-9](?:[A-Z][A-Z0-9]{2}[0-9])?)/i))t='https://flyark.github.io/LIVIA/monomer.html?id='+m[1].toUpperCase();else if(/flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details_ortho\//.test(u))t='https://flyark.github.io/LIVIA/ortholog_predictome.html?url='+encodeURIComponent(p);else if(/flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details\//.test(u))t='https://flyark.github.io/LIVIA/flypredictome.html?url='+encodeURIComponent(p);if(t)window.open(t,'_blank','noopener');else alert('LIVIA: Unsupported page. Use on an AlphaFold DB entry page (alphafold.ebi.ac.uk/entry/...) or FlyPredictome details page (flyrnai.org/.../famdb_details[_ortho]/...).');})();</div>
         </div>
     </div>
 

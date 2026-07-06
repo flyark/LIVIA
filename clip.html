@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIVIA — cLIP</title>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2/plotly.min.js"></script>
+<script src="js/clip-clustering.js"></script>
+<script src="js/clip-pipeline.js"></script>
+<script src="js/clip-resolver.js"></script>
+<script src="js/livia-viewer.js"></script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="css/livia.css">
+<style>
+  /* cLIP-specific — livia.css provides the shell (body, .header, .container, .card, .btn) */
+  .card h2 { margin:0 0 .5rem; font-size:1.05rem; color:#1a5276; font-weight:600; }
+  .dropgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:.8rem; }
+  .dz { border:2px dashed #b7c6d6; border-radius:10px; padding:1rem .8rem; text-align:center; color:#557; cursor:pointer; transition:.15s; }
+  .dz.hover { border-color:#2471A3; background:#eef5fb; }
+  .dz-ic { font-size:1.4rem; }
+  .dz-t { font-weight:600; color:#334; margin-top:.2rem; }
+  .dz-h { font-size:.72rem; color:#889; margin-top:.15rem; }
+  .dz-l { font-size:.8rem; color:#2471A3; font-weight:600; margin-top:.4rem; min-height:1em; }
+  .opt { font-weight:400; font-size:.72rem; color:#9aa; }
+  @media (max-width:640px){ .dropgrid { grid-template-columns:1fr; } }
+  .chips { display:flex; flex-wrap:wrap; gap:.4rem; }
+  .cchip { display:inline-flex; align-items:center; gap:.35rem; padding:.22rem .6rem; border:1px solid #d0d8e0; border-radius:14px; font-size:.78rem; cursor:pointer; background:#fff; user-select:none; transition:.12s; }
+  .cchip .dot { width:11px; height:11px; border-radius:50%; }
+  .cchip.off { opacity:.35; }
+  .cchip.sel { background:#2471A3; color:#fff; border-color:#2471A3; }
+  .row { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; }
+  .row select, .row input[type=number] { font-size:0.9rem; padding:.4rem .6rem; border:1px solid #ccd6e0; border-radius:7px; background:#fff; }
+  button.ghost { background:none; border:none; color:#2471A3; cursor:pointer; font-size:.85rem; font-weight:600; }
+  .stat { display:inline-flex; flex-direction:column; padding:.5rem .9rem; background:#f5f7fa; border-radius:8px; margin-right:.6rem; }
+  .stat b { font-size:1.35rem; color:#1a5276; } .stat span { font-size:.72rem; color:#667; text-transform:uppercase; letter-spacing:.04em; }
+  table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+  th, td { padding:.4rem .6rem; border-bottom:1px solid #eef1f5; text-align:right; }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align:left; }
+  th { color:#556; font-weight:600; }
+  .chip { display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:middle; margin-right:5px; }
+  canvas { max-width:100%; }
+  .muted { color:#889; font-size:.82rem; }
+  .hidden { display:none; }
+  #status { font-size:.85rem; color:#667; margin-left:.5rem; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="container">
+    <h1><span style="color:#2471A3;">LIVIA</span> &mdash; cLIP <span style="font-weight:400;">(<b style="color:#2471A3">c</b>lustered <b style="color:#2471A3">L</b>ocal <b style="color:#2471A3">I</b>nteraction <b style="color:#2471A3">P</b>rofiler)</span></h1>
+    <p>Cluster a protein's interactome by shared contact Local Interaction Residues (cLIR) &mdash; drop lis.py output, all in your browser</p>
+    <div class="header-links">
+      <a href="index.html">Home</a>
+      <a href="universal.html">Prediction Analysis</a>
+      <a href="flypredictome.html">FlyPredictome</a>
+      <a href="ortholog_predictome.html">Ortholog Interactome</a>
+      <a href="dimer.html">AFDB Dimer</a>
+      <a href="monomer.html">AFDB Monomer Subdomain</a>
+            <a href="clip.html" class="active">cLIP <sup style="color:#e67e22; font-weight:700; font-size:.6em;">beta</sup></a>
+      <a href="tutorials.html">Tutorials</a>
+      <a href="about.html">About</a>
+      <a href="https://github.com/flyark/LIVIA" target="_blank">GitHub</a>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="card">
+    <div class="dropgrid">
+      <div class="dz" id="dz-csv">
+        <div class="dz-ic">📄</div><div class="dz-t">lis.py output CSV <b style="color:#c0392b">*</b></div>
+        <div class="dz-h">Drag lis.py output file(s) here or click to upload</div>
+        <div class="dz-l" id="ld-csv"></div>
+        <input id="in-csv" type="file" accept=".csv,.tsv,.txt" multiple class="hidden">
+      </div>
+      <div class="dz" id="dz-fasta">
+        <div class="dz-ic">🧬</div><div class="dz-t">FASTA <span class="opt">optional</span></div>
+        <div class="dz-h">Drag or click to upload predicted sequences to color contact residues (cLIR) on the 3D structure</div>
+        <div class="dz-l" id="ld-fasta"></div>
+        <input id="in-fasta" type="file" accept=".fasta,.fa,.faa,.fas,.fna,.mfa,.pep,.seq,.txt" multiple class="hidden">
+      </div>
+      <div class="dz" id="dz-struct">
+        <div class="dz-ic">🧊</div><div class="dz-t">Structure <span class="opt">optional</span></div>
+        <div class="dz-h">Drag or click to upload a structure (PDB/CIF) to use instead of AlphaFold DB</div>
+        <div class="dz-l" id="ld-struct"></div>
+        <input id="in-struct" type="file" accept=".pdb,.cif,.bcif,.ent,.mmcif" class="hidden">
+      </div>
+    </div>
+    <div class="row" style="margin-top:1rem">
+      <label>Query protein: <select id="gene"><option>—</option></select></label>
+      <label>iLIS ≥ <input id="ilis" type="number" value="0.223" step="0.01" style="width:92px"></label>
+      <label>FPR <select id="fpr">
+        <option value="">custom</option>
+        <option value="0.223" selected>10% (0.223)</option>
+        <option value="0.339">5% (0.339)</option>
+        <option value="0.551">1% (0.551)</option>
+      </select></label>
+      <label>top N <input id="topn" type="number" placeholder="all" step="5" style="width:64px"></label>
+      <button id="run" class="btn btn-primary" disabled>Generate report</button>
+      <span id="status"></span>
+    </div>
+    <div class="row" style="margin-top:.6rem; font-size:.85rem; color:#556">
+      <span class="muted">3D structure via AlphaFold DB — resolved from FASTA sequence (exact) or protein name + length.</span>
+    </div>
+  </div>
+
+  <div id="report" class="hidden">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h2 id="title" style="margin:0"></h2><div class="muted" id="subtitle"></div><div class="muted" id="query-uniprot" style="margin-top:3px"></div></div>
+        <div>
+          <span class="stat"><b id="s-partners">0</b><span>partners</span></span>
+          <span class="stat"><b id="s-clusters">0</b><span>clusters</span></span>
+          <span class="stat"><b id="s-len">0</b><span>query length</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Contact residue frequency</h2>
+      <div class="muted">How often each query residue is a contact Local Interaction Residue (cLIR) across partners, colored by the dominant cluster · click clusters to filter. <b>C<i>n</i> (N)</b>: N = number of PPIs (partners) in that cluster.</div>
+      <div id="freq-chips" class="chips" style="margin:.4rem 0"></div>
+      <canvas id="freq"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Clustered interaction fingerprints</h2>
+      <div class="muted">Rows = partners (dendrogram order), columns = query residues. <span style="color:#08306b;font-weight:600">Dark blue</span> = cLIR contact, very light = none; left: dendrogram + cluster strip.</div>
+      <canvas id="heatmap"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Cluster info</h2>
+      <div class="muted">Partners in each cluster, in dendrogram order · <b>(N)</b> = number of PPIs.</div>
+      <div id="cluster-info" style="margin-top:.5rem; font-size:.85rem; line-height:1.55"></div>
+    </div>
+
+    <div class="card">
+      <h2>3D structure <span id="struct-badge" class="muted" style="font-weight:400; font-size:.8rem"></span></h2>
+      <div class="muted">Query protein structure, residues colored by dominant contacting cluster · click clusters to isolate. <b>C<i>n</i> (N)</b>: N = number of PPIs (partners) in that cluster.</div>
+      <div id="cluster-chips" class="chips" style="margin:.5rem 0 0"></div>
+      <iframe id="viewer3d-frame" style="width:100%; height:600px; border:1px solid var(--line); border-radius:8px; background:#fff; margin-top:.5rem" title="3D structure viewer"></iframe>
+    </div>
+
+    <div class="card">
+      <h2>Interaction scatter plot</h2>
+      <div class="row" style="font-size:.85rem; margin-bottom:.5rem">
+        <label style="margin:0">Y <select id="scatter-y"></select></label>
+        <label style="margin:0">X <select id="scatter-x"></select></label>
+        <span class="muted">each point = a partner · gray = all predictions (incl. below cutoff) · colored = clustered</span>
+      </div>
+      <div id="scatter" style="height:380px"></div>
+    </div>
+
+    <div class="card">
+      <h2>Partners <button id="export" class="ghost" style="float:right">⬇ Download report HTML</button></h2>
+      <div style="max-height:360px; overflow:auto"><table id="ptable"></table></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TAB10 = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
+const TAB20 = ['#1f77b4','#aec7e8','#ff7f0e','#ffbb78','#2ca02c','#98df8a','#d62728','#ff9896','#9467bd','#c5b0d5','#8c564b','#c49c94','#e377c2','#f7b6d2','#7f7f7f','#c7c7c7','#bcbd22','#dbdb8d','#17becf','#9edae5'];
+function clusterColor(id, k){ const pal = k<=10?TAB10:TAB20; return pal[(id-1)%pal.length]; }
+// Single-model iLIS thresholds (Y2H reference sets in yeast/fly/human via ColabFold; Kim et al. 2026)
+const FPR_ILIS = [['10% FPR', 0.223], ['5% FPR', 0.339], ['1% FPR', 0.551]];
+// Shared residue x-axis layout so the frequency plot and the fingerprint heatmap align column-for-column.
+// AX_L holds the heatmap's dendrogram + cluster strip (and the frequency plot's y-axis) → shared = aligned.
+const PLOT_W = 900, AX_L = 58, AX_R = 46;
+
+let FILES = [];      // {name, rows} — parsed+converted once on drop, reused for gene list + every generate
+let LAST = null;     // last analysis result (for export)
+let FASTA_PARSE = null;  // parsed FASTA {map, byLen, seqs} from optional FASTA
+let FASTA_WARN = [];
+let STRUCT_FILE = null; // optional user-uploaded structure
+let ACTIVE = null;      // active cluster ids (shared: 3D viewer + frequency plot)
+let TABLE_SORT = null;  // {label, dir} for the partners table
+const CHIP_CONTAINERS = ['cluster-chips', 'freq-chips'];
+
+const $ = (id) => document.getElementById(id);
+// Three independent drop zones (CSV / FASTA / structure), each drag-or-click.
+function wireZone(zoneId, inputId, kind){
+  const z = $(zoneId), inp = $(inputId);
+  z.onclick = () => inp.click();
+  ['dragover','dragenter'].forEach(e => z.addEventListener(e, ev => { ev.preventDefault(); z.classList.add('hover'); }));
+  ['dragleave','drop'].forEach(e => z.addEventListener(e, ev => { ev.preventDefault(); z.classList.remove('hover'); }));
+  z.addEventListener('drop', ev => routeFiles(ev.dataTransfer.files, kind));
+  inp.addEventListener('change', ev => routeFiles(ev.target.files, kind));
+}
+wireZone('dz-csv', 'in-csv', 'csv'); wireZone('dz-fasta', 'in-fasta', 'fasta'); wireZone('dz-struct', 'in-struct', 'struct');
+// FPR ⇄ iLIS cutoff sync
+$('fpr').onchange = () => { if ($('fpr').value) $('ilis').value = $('fpr').value; };
+$('ilis').oninput = () => { $('fpr').value = ['0.223','0.339','0.551'].includes($('ilis').value) ? $('ilis').value : ''; };
+
+async function routeFiles(list, kind){
+  if (!list || !list.length) return;
+  if (kind === 'struct'){ STRUCT_FILE = list[0]; updateLoaded(); return; }   // read later as object URL
+  try {
+    for (const f of list){
+      const text = await f.text();
+      if (kind === 'fasta'){ FASTA_PARSE = CLIPResolver.parseFastaToSeqMap(text); FASTA_WARN = FASTA_PARSE.warn || []; }
+      else {                                                                  // csv — parse+convert ONCE, reuse for gene list + every generate
+        $('status').textContent = `parsing ${f.name}…`;
+        await new Promise(r => setTimeout(r, 0));                             // let the status paint before the blocking parse
+        const rows = CLIPPipeline.convertRows(CLIPPipeline.parseCSV(text).rows);
+        FILES.push({ name: f.name, rows });
+      }
+    }
+  } catch (e){ $('status').textContent = `⚠ error reading ${kind} file: ${e.message}`; console.error(e); return; }
+  if (kind === 'fasta' && (!FASTA_PARSE || !FASTA_PARSE.seqs.length)){
+    $('ld-fasta').textContent = '⚠ 0 sequences parsed'; $('status').textContent = 'FASTA loaded but no sequences parsed — check the file format.'; return;
+  }
+  if (kind === 'csv') rebuildGenes();
+  updateLoaded();
+}
+function rebuildGenes(){
+  const partners = {}, lenOf = {};   // symbol → distinct partners (# predictions) + aa length
+  for (const f of FILES){
+    for (const r of f.rows){ const a=r.Symbol_1, b=r.Symbol_2; if(!a||!b) continue;
+      (partners[a]=partners[a]||new Set()).add(b);
+      (partners[b]=partners[b]||new Set()).add(a);
+      if (lenOf[a]==null){ const l=+r.Protein_Len_A; if(l) lenOf[a]=l; }
+      if (lenOf[b]==null){ const l=+r.Protein_Len_B; if(l) lenOf[b]=l; } }
+  }
+  const genes = Object.keys(partners).sort((x,y)=>partners[y].size-partners[x].size);   // most-connected first
+  const sel = $('gene'); sel.innerHTML='';
+  for (const g of genes.slice(0,500)) { const o=document.createElement('option'); o.value=g; o.textContent=`${g} (${partners[g].size} predictions${lenOf[g]?', '+lenOf[g]+' aa':''})`; sel.appendChild(o); }
+  $('run').disabled = genes.length===0;
+}
+function updateLoaded(){
+  $('ld-csv').textContent = FILES.length ? `✓ ${FILES.length} file${FILES.length>1?'s':''}` : '';
+  const nf = FASTA_PARSE ? FASTA_PARSE.seqs.length : 0;
+  $('ld-fasta').textContent = nf ? `✓ ${nf} seq${FASTA_WARN.length ? ` ⚠${FASTA_WARN.length}` : ''}` : '';
+  $('ld-struct').textContent = STRUCT_FILE ? `✓ ${STRUCT_FILE.name}` : '';
+  $('status').textContent = FILES.length ? `${$('gene').options.length} proteins — pick a query and generate.` : 'Drop a lis.py CSV to begin.';
+}
+
+$('run').onclick = () => {
+  const gene = $('gene').value;
+  const tn = $('topn').value.trim();   // blank = all partners (no cap)
+  const opts = { ilisCutoff: parseFloat($('ilis').value)||0.223, topN: tn==='' ? Infinity : (parseInt(tn)||Infinity), sortBy:'iLIS' };
+  $('status').textContent = 'clustering…';
+  setTimeout(() => {
+    const t0 = performance.now();
+    const pipe = CLIPPipeline.runPipelineRows(FILES.flatMap(f=>f.rows), gene, opts);
+    if (pipe.fingerprints.length < 2){ $('status').textContent = `Only ${pipe.fingerprints.length} partner(s) passed filtering — need ≥2.`; return; }
+    const cl = CLIPCluster.clusterInteractions(pipe.fingerprints, { maxK:30, dropThreshold:0.05 });
+    const order = CLIPCluster.leafOrder(cl.Z, pipe.fingerprints.length);
+    LAST = { gene, opts, pipe, cl, order, ms: performance.now()-t0 };
+    render(LAST);
+    $('status').textContent = `done in ${LAST.ms.toFixed(0)} ms`;
+    resolve3D(LAST);   // async, best-effort — fills the 3D card when ready
+  }, 20);
+};
+
+function render(A){
+  const { gene, pipe, cl, order } = A;
+  const n = pipe.fingerprints.length, k = cl.optimalK, plen = pipe.proteinLen;
+  ACTIVE = new Set(Array.from({length:k},(_,i)=>i+1));
+  TABLE_SORT = null;
+  $('report').classList.remove('hidden');
+  $('title').textContent = `${gene} — interactome (${n} partners, ${k} clusters)`;
+  $('subtitle').textContent = `query length ${plen} aa · cosine + average linkage · silhouette-optimal k`;
+  $('s-partners').textContent = n; $('s-clusters').textContent = k; $('s-len').textContent = plen;
+  populateAxes(A);   // fill X/Y axis options from the metrics present in the data
+  renderHeatmap(A); renderFreq(A); renderScatter(A); renderTable(A); renderClusterInfo(A);
+  CHIP_CONTAINERS.forEach(id => renderChipBar(id, A));
+  $('scatter-x').onchange = $('scatter-y').onchange = () => renderScatter(LAST);
+}
+
+function mergeRuns(fp){
+  const s = fp.slice().sort((a,b)=>a-b), out=[]; if(!s.length) return out;
+  let a=s[0], p=s[0];
+  for(let i=1;i<s.length;i++){ if(s[i]===p+1) p=s[i]; else { out.push([a,p]); a=s[i]; p=s[i]; } }
+  out.push([a,p]); return out;
+}
+function renderHeatmap(A){
+  const { pipe, cl, order } = A, n = pipe.fingerprints.length, plen = pipe.proteinLen, k = cl.optimalK;
+  // sns.clustermap-style: row dendrogram | cluster row_colors strip |
+  // binary contact matrix in Blues (non-cLIR = Blues min, cLIR = Blues max), rows in dendrogram
+  // order, residue-number x-ticks. Integer buffer px → no seams. AX_L holds the dendrogram + strip
+  // and is shared with the frequency plot, so residue columns stay aligned.
+  const S = 2, W = PLOT_W, AXB = 22, H = 238 + AXB;               // AXB = bottom tick strip; rows 30% shorter
+  const rowsHb = (H - AXB) * S;
+  const BW = W * S, BH = H * S;
+  const cv = $('heatmap'); cv.width = BW; cv.height = BH;
+  cv.style.width = '100%'; cv.style.maxWidth = W + 'px'; cv.style.height = 'auto';
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, BW, BH);
+  const Z = cl.Z || [];
+  const step = (W - AX_L - AX_R) / plen;
+  const edge = (r) => Math.round((AX_L + (r - 1) * step) * S);
+  const rowTop = (row) => Math.round(row * rowsHb / n);
+  const rowMid = (row) => (rowTop(row) + rowTop(row + 1)) / 2;
+  const dendroX0 = 2 * S, dendroX1 = 28 * S;                      // dendrogram area (left)
+  const stripX0 = 31 * S, stripX1 = Math.round((AX_L - 8) * S);   // cluster row_colors strip
+  const BG = '#f7fbff', CONTACT = '#08306b';                      // Blues colormap min / max
+  const resX0 = Math.round(AX_L * S), resX1 = Math.round((W - AX_R) * S);
+  for (let row = 0; row < n; row++){
+    const idx = order[row], y0 = rowTop(row), hh = Math.max(1, rowTop(row + 1) - y0);
+    ctx.fillStyle = clusterColor(cl.labels[idx], k);
+    ctx.fillRect(stripX0, y0, stripX1 - stripX0, hh);            // left strip = cluster
+    ctx.fillStyle = BG; ctx.fillRect(resX0, y0, resX1 - resX0, hh);   // Blues-min background (non-cLIR)
+    ctx.fillStyle = CONTACT;
+    for (const [s, e] of mergeRuns(pipe.fingerprints[idx])){       // merged runs → no residue gaps
+      const x0 = edge(s), x1 = Math.max(x0 + 1, edge(e + 1));
+      ctx.fillRect(x0, y0, x1 - x0, hh);                          // cLIR contact (Blues-max)
+    }
+  }
+  // row dendrogram — leaves at the right edge of the dendro area, root at the left; x ∝ merge distance
+  if (Z.length === n - 1 && n >= 2){
+    const yv = {}, xv = {};
+    for (let row = 0; row < n; row++){ const id = order[row]; yv[id] = rowMid(row); xv[id] = dendroX1; }
+    const maxD = Z[Z.length - 1][2] || 1;
+    for (let m = 0; m < Z.length; m++){ const a = Z[m][0], b = Z[m][1], id = n + m; yv[id] = (yv[a] + yv[b]) / 2; xv[id] = dendroX0 + (dendroX1 - dendroX0) * (1 - Z[m][2] / maxD); }
+    ctx.strokeStyle = '#8a97a8'; ctx.lineWidth = 1; ctx.beginPath();
+    for (let m = 0; m < Z.length; m++){ const a = Z[m][0], b = Z[m][1], xm = xv[n + m];
+      ctx.moveTo(xv[a], yv[a]); ctx.lineTo(xm, yv[a]);
+      ctx.moveTo(xv[b], yv[b]); ctx.lineTo(xm, yv[b]);
+      ctx.moveTo(xm, yv[a]); ctx.lineTo(xm, yv[b]);
+    }
+    ctx.stroke();
+  }
+  // residue-number x-axis ticks (~15 evenly spaced; centered on the cell, aligned with frequency)
+  ctx.fillStyle = '#889'; ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
+  ctx.font = `${9 * S}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const nT = 15, ticks = [];
+  for (let i = 0; i < nT; i++){ const r = Math.round(1 + i * (plen - 1) / (nT - 1)); if (!ticks.includes(r)) ticks.push(r); }
+  for (const r of ticks){ const x = edge(r) + step * S / 2; ctx.beginPath(); ctx.moveTo(x, rowsHb); ctx.lineTo(x, rowsHb + 3 * S); ctx.stroke(); ctx.fillText(String(r), x, rowsHb + 5 * S); }
+}
+
+function renderClusterInfo(A){
+  const { pipe, cl, order } = A, k = cl.optimalK;
+  const members = {};
+  for (let i = 0; i < pipe.rows.length; i++){ const c = cl.labels[i]; (members[c] = members[c] || []).push(pipe.rows[i].Symbol_2); }
+  const seen = new Set(), ordered = [];              // cluster order = first appearance in dendrogram leaf order
+  for (const idx of order){ const c = cl.labels[idx]; if (!seen.has(c)){ seen.add(c); ordered.push(c); } }
+  let html = '';
+  for (const c of ordered){
+    const mem = [...new Set(members[c])].sort((a, b) => String(a).toLowerCase().localeCompare(String(b).toLowerCase()));
+    html += `<div style="display:flex; align-items:flex-start; gap:.5rem; margin-bottom:.4rem">`
+      + `<span style="background:${clusterColor(c,k)}; width:13px; height:13px; border-radius:3px; flex-shrink:0; margin-top:3px"></span>`
+      + `<span><b>Cluster ${c}</b> (${mem.length}): ${mem.join(', ')}</span></div>`;
+  }
+  $('cluster-info').innerHTML = html;
+}
+
+function renderFreq(A){
+  const { pipe, cl } = A, n = pipe.fingerprints.length, plen = pipe.proteinLen, k = cl.optimalK;
+  // per-residue: total count + dominant cluster (active clusters only)
+  const tot = new Float64Array(plen+1), byC = {};
+  for (let i=0;i<n;i++){ const lab=cl.labels[i]; if(ACTIVE && !ACTIVE.has(lab)) continue; for (const res of pipe.fingerprints[i]){ if(res<1||res>plen)continue; tot[res]++; (byC[res]=byC[res]||{})[lab]=((byC[res]||{})[lab]||0)+1; } }
+  let maxF=1; for (let r=1;r<=plen;r++) if(tot[r]>maxF)maxF=tot[r];
+  const hasP = !!(A._plddt && A._plddt.size);
+  const S=2, W=PLOT_W, H=192, padL=AX_L, padR=AX_R, padT=20, padB=24;
+  const plotH = H-padT-padB, yBase = H-padB;
+  const cv=$('freq'); cv.width=W*S; cv.height=H*S; cv.style.width='100%'; cv.style.maxWidth=W+'px'; cv.style.height='auto';
+  const ctx=cv.getContext('2d'); ctx.scale(S,S); ctx.clearRect(0,0,W,H);
+  const bw=(W-padL-padR)/plen, xOf=(r)=>padL+(r-1)*bw;
+  // axes
+  ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.beginPath();
+  ctx.moveTo(padL,padT); ctx.lineTo(padL,yBase); ctx.lineTo(W-padR,yBase); if(hasP){ ctx.moveTo(W-padR,padT); ctx.lineTo(W-padR,yBase); } ctx.stroke();
+  // left axis ticks — # partners
+  ctx.fillStyle='#889'; ctx.font='9px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for (const t of [...new Set([0, Math.round(maxF/2), maxF])]){ ctx.fillText(String(t), padL-4, yBase-(t/maxF)*plotH); }
+  // bars
+  for (let r=1;r<=plen;r++){ if(!tot[r])continue;
+    let dom=1,best=-1; const cc=byC[r]||{}; for(const c in cc) if(cc[c]>best){best=cc[c];dom=+c;}
+    const h=(tot[r]/maxF)*plotH; ctx.fillStyle=clusterColor(dom,k); ctx.fillRect(xOf(r), yBase-h, Math.max(1,bw), h);
+  }
+  // residue-number x-axis ticks (~15, same style as the fingerprint heatmap; centered on residue)
+  ctx.fillStyle='#889'; ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.font='9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+  { const nT=15, ticks=[]; for (let i=0;i<nT;i++){ const r=Math.round(1+i*(plen-1)/(nT-1)); if(!ticks.includes(r)) ticks.push(r); }
+    for (const r of ticks){ const x=xOf(r)+bw/2; ctx.beginPath(); ctx.moveTo(x,yBase); ctx.lineTo(x,yBase+3); ctx.stroke(); ctx.fillText(String(r), x, yBase+5); } }
+  ctx.save(); ctx.translate(11,(padT+yBase)/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillStyle='#667'; ctx.fillText('# partners',0,0); ctx.restore();
+  // AFDB pLDDT overlay + right axis (0–100), line colored by AlphaFold confidence
+  if (hasP){
+    const map=A.residueMap, yOf=(pl)=>yBase-(pl/100)*plotH, xc=(r)=>padL+(r-1)*bw+bw/2;
+    let prev=null;
+    const qc=A._queryChain||'A';
+    for (let r=1;r<=plen;r++){ const sr=map?map[r-1]:r; if(!sr){prev=null;continue;} const pl=A._plddt.get(qc+':'+sr); if(pl==null){prev=null;continue;}
+      const x=xc(r), y=yOf(pl); if(prev){ ctx.strokeStyle=plddtColor(pl); ctx.lineWidth=1.4; ctx.beginPath(); ctx.moveTo(prev.x,prev.y); ctx.lineTo(x,y); ctx.stroke(); } prev={x,y}; }
+    ctx.fillStyle='#889'; ctx.font='9px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
+    for (const t of [0,50,100]){ ctx.fillText(String(t), W-padR+5, yBase-(t/100)*plotH); }
+    ctx.save(); ctx.translate(W-9,(padT+yBase)/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillStyle='#5a86b3'; ctx.fillText('pLDDT',0,0); ctx.restore();
+    ctx.textBaseline='alphabetic';
+  }
+  // UniProt domain track (top strip, mapped to predicted positions)
+  if (A._domains && A._domains.length){
+    let inv=null; if(A.residueMap){ inv={}; for(let i=0;i<A.residueMap.length;i++){ const sr=A.residueMap[i]; if(sr!=null && inv[sr]==null) inv[sr]=i+1; } }
+    ctx.save(); ctx.font='9px sans-serif'; ctx.textBaseline='middle';
+    for (const d of A._domains){
+      const ps = inv ? (inv[d.start]||d.start) : d.start, pe = inv ? (inv[d.end]||d.end) : d.end;
+      if (pe<1 || ps>plen) continue;
+      const x0 = xOf(Math.max(1,ps)), x1 = xOf(Math.min(plen,pe)+1), w = Math.max(2, x1-x0);
+      ctx.fillStyle='#e3e9f1'; ctx.fillRect(x0, 2, w, 14); ctx.strokeStyle='#9fb0c4'; ctx.lineWidth=.5; ctx.strokeRect(x0, 2, w, 14);
+      ctx.fillStyle='#456'; ctx.textAlign='center'; if (ctx.measureText(d.name).width < w-3) ctx.fillText(d.name, x0+w/2, 9);
+    }
+    ctx.restore();
+  }
+}
+
+function scVal(o, key){
+  const v = (o[key] != null && o[key] !== '') ? parseFloat(o[key]) : NaN;
+  if (!isNaN(v)) return v;
+  if (key === 'iLISA') { const a = parseFloat(o.iLIS), b = parseFloat(o.iLIA); if (!isNaN(a) && !isNaN(b)) return a * b; }
+  return 0;
+}
+// Metrics offered on the scatter axes — known AFM-LIS/confidence metrics first (in order),
+// then any other numeric column present in the data. iLISA always available (computed).
+const METRIC_ORDER = ['iLIS','iLIA','iLISA','ipTM','ipSAE','actifpTM','LIS','cLIS','LIA','cLIA','pLDDT_A','pLDDT_B','LIpLDDT_A','LIpLDDT_B','cLIpLDDT_A','cLIpLDDT_B'];
+const SKIP_COLS = new Set(['Symbol_1','Symbol_2','Protein_1','Protein_2','Rank','name','chain_i','chain_j','model','structure_file','pae_plot','cLIR_indice_A','cLIR_indice_B','LIR_indice_A','LIR_indice_B','cLIR_A','cLIR_B','LIR_A','LIR_B','Protein_Len_A','Protein_Len_B','deeploc_1','deeploc_2','iLIS_x_iLIA']);
+function availableMetrics(rows){
+  const first = rows[0] || {};
+  const isNum = (c) => first[c]!=null && first[c]!=='' && !isNaN(parseFloat(first[c]));
+  const out = [];
+  for (const m of METRIC_ORDER){ if (m==='iLISA' || isNum(m)) out.push(m); }
+  for (const k in first){ if (!k.startsWith('_') && !SKIP_COLS.has(k) && !out.includes(k) && isNum(k)) out.push(k); }
+  return out;
+}
+function populateAxes(A){
+  const metrics = availableMetrics(A.pipe.rows);
+  const fill = (id, def) => { const s=$(id); if(!s) return; const cur=s.value;
+    s.innerHTML=''; for (const m of metrics){ const o=document.createElement('option'); o.value=m; o.textContent=m; s.appendChild(o); }
+    s.value = metrics.includes(cur) ? cur : def; };
+  fill('scatter-y', metrics.includes('iLIS') ? 'iLIS' : metrics[0]);
+  fill('scatter-x', metrics.includes('iLIA') ? 'iLIA' : (metrics[1] || metrics[0]));
+}
+function renderScatter(A){
+  const { pipe, cl } = A, k = cl.optimalK;
+  const cutoff = (A.opts && A.opts.ilisCutoff) || 0.223;
+  const xKey = ($('scatter-x') && $('scatter-x').value) || 'iLIA';
+  const yKey = ($('scatter-y') && $('scatter-y').value) || 'iLIS';
+  const HT = `%{text}<br>${xKey} %{x:.4g}<br>${yKey} %{y:.4g}<br>iLISA %{customdata:.1f}<extra></extra>`;
+  const bg = pipe.allPoints || [];
+  const bgTrace = { x: bg.map(p=>scVal(p,xKey)), y: bg.map(p=>scVal(p,yKey)), text: bg.map(p=>p.Symbol_2), customdata: bg.map(p=>scVal(p,'iLISA')),
+    mode:'markers', type:'scatter', name:`all predictions (${bg.length})`, marker:{ size:5, color:'#cdd3db', line:{width:0} }, hovertemplate: HT };
+  const traces = {};
+  for (let i=0;i<pipe.rows.length;i++){ const lab=cl.labels[i], r=pipe.rows[i];
+    (traces[lab]=traces[lab]||{x:[],y:[],text:[],cd:[]});
+    traces[lab].x.push(scVal(r,xKey)); traces[lab].y.push(scVal(r,yKey)); traces[lab].text.push(r.Symbol_2); traces[lab].cd.push(scVal(r,'iLISA')); }
+  const clTraces = Object.keys(traces).sort((a,b)=>a-b).map(lab=>({ x:traces[lab].x, y:traces[lab].y, text:traces[lab].text, customdata:traces[lab].cd,
+    mode:'markers', type:'scatter', name:'cluster '+lab, marker:{ size:9, color:clusterColor(+lab,k), line:{width:.5,color:'#fff'} }, hovertemplate: HT }));
+  const layout = { margin:{t:10,r:10,b:45,l:62}, xaxis:{title:xKey, rangemode:'tozero'}, yaxis:{title:yKey, rangemode:'tozero'}, legend:{font:{size:10}} };
+  // FPR iLIS reference lines when iLIS is on an axis (active cutoff = dashed+bold, others dotted)
+  const fprShape = (ax, v) => ax==='y'
+    ? { type:'line', xref:'paper', x0:0, x1:1, y0:v, y1:v, line:{ color:'#e07a5f', width: v===cutoff?1.4:0.8, dash: v===cutoff?'dash':'dot' } }
+    : { type:'line', yref:'paper', y0:0, y1:1, x0:v, x1:v, line:{ color:'#e07a5f', width: v===cutoff?1.4:0.8, dash: v===cutoff?'dash':'dot' } };
+  const fprAnn = (ax, lbl, v) => ax==='y'
+    ? { xref:'paper', x:1, xanchor:'right', y:v, yanchor:'bottom', text:`${lbl} (${v})`, showarrow:false, font:{size:9, color:'#e07a5f'} }
+    : { yref:'paper', y:1, yanchor:'top', x:v, xanchor:'left', text:`${lbl} (${v})`, showarrow:false, font:{size:9, color:'#e07a5f'}, textangle:-90 };
+  const ax = yKey==='iLIS' ? 'y' : (xKey==='iLIS' ? 'x' : null);
+  if (ax){ layout.shapes = FPR_ILIS.map(([,v])=>fprShape(ax,v)); layout.annotations = FPR_ILIS.map(([l,v])=>fprAnn(ax,l,v)); }
+  Plotly.newPlot('scatter', [bgTrace, ...clTraces], layout, {displayModeBar:false, responsive:true});
+}
+
+function renderTable(A){
+  const { pipe, cl } = A, k = cl.optimalK, first = pipe.rows[0] || {};
+  const has = (c) => first[c] != null && first[c] !== '';
+  const numFmt = (key, dp) => (r) => { if(key==='iLISA'){ const a=+r.iLIS||0,b=+r.iLIA||0; const v=(r.iLISA!=null&&r.iLISA!=='')?+r.iLISA:a*b; return v.toFixed(dp); } const v=+r[key]; return isNaN(v)?'':v.toFixed(dp); };
+  const numSort = (key) => (r) => key==='iLISA' ? ((r.iLISA!=null&&r.iLISA!=='')?+r.iLISA:(+r.iLIS||0)*(+r.iLIA||0)) : (isNaN(+r[key])?-Infinity:+r[key]);
+  const combo = (ka, kb) => (r) => `${Math.round(+r[ka]||0)} / ${Math.round(+r[kb]||0)}`;
+  const plddtKey = has('pLDDT') ? 'pLDDT' : (has('pLDDT_A') ? 'pLDDT_A' : null);
+  const cols = [
+    { l:'Partner', fmt:(r)=>r.Symbol_2, sort:(r)=>String(r.Symbol_2).toLowerCase() },
+    { l:'Rank', fmt:(r)=>Math.trunc(+r.Rank)||'', sort:(r)=>+r.Rank||0 },
+    { l:'Cluster', fmt:(r,lab)=>`<span class="chip" style="background:${clusterColor(lab,k)}"></span>${lab}`, sort:(r,lab)=>lab },
+  ];
+  const M = (l, key, dp) => { if (key==='iLISA' || has(key)) cols.push({ l, fmt:numFmt(key,dp), sort:numSort(key) }); };
+  M('iLIS','iLIS',3); M('iLIA','iLIA',1); M('iLISA','iLISA',1); M('ipSAE','ipSAE',3); M('actifpTM','actifpTM',3); M('ipTM','ipTM',3);
+  if (plddtKey) cols.push({ l:'pLDDT', fmt:numFmt(plddtKey,1), sort:numSort(plddtKey) });
+  M('LIS','LIS',3); M('cLIS','cLIS',3);
+  if (has('LIR_A')||has('LIR_B')) cols.push({ l:'LIR (i/j)', fmt:combo('LIR_A','LIR_B'), sort:(r)=>(+r.LIR_A||0)+(+r.LIR_B||0) });
+  if (has('cLIR_A')||has('cLIR_B')) cols.push({ l:'cLIR (i/j)', fmt:combo('cLIR_A','cLIR_B'), sort:(r)=>(+r.cLIR_A||0)+(+r.cLIR_B||0) });
+
+  let items = pipe.rows.map((r,i)=>({ r, lab: cl.labels[i] }));   // keep row↔cluster pairing
+  if (TABLE_SORT){
+    const col = cols.find(c=>c.l===TABLE_SORT.label);
+    if (col){ const d = TABLE_SORT.dir==='desc'?-1:1;
+      items.sort((a,b)=>{ const va=col.sort(a.r,a.lab), vb=col.sort(b.r,b.lab); const c = typeof va==='string'?va.localeCompare(vb):(va-vb); return d*c; }); }
+  }
+  const arrow = (l) => (TABLE_SORT && TABLE_SORT.label===l) ? (TABLE_SORT.dir==='desc'?' ▾':' ▴') : '';
+  let html = '<thead><tr><th>#</th>'+cols.map(c=>`<th data-col="${c.l}" style="cursor:pointer">${c.l}${arrow(c.l)}</th>`).join('')+'</tr></thead><tbody>';
+  items.forEach((it,i)=>{ html += `<tr><td>${i+1}</td>`+cols.map(c=>`<td>${c.fmt(it.r, it.lab)}</td>`).join('')+'</tr>'; });
+  const t = $('ptable'); t.innerHTML = html + '</tbody>';
+  t.querySelectorAll('th[data-col]').forEach(th => th.onclick = () => {
+    const l = th.dataset.col;
+    TABLE_SORT = (TABLE_SORT && TABLE_SORT.label===l) ? { label:l, dir: TABLE_SORT.dir==='desc'?'asc':'desc' } : { label:l, dir:'desc' };
+    renderTable(LAST);
+  });
+}
+
+$('export').onclick = async () => {
+  if (!LAST) return;
+  const btn = $('export'), prev = btn.textContent; btn.textContent = 'preparing…';
+  try {
+    const clone = $('report').cloneNode(true);
+    // heatmap + freq canvases → PNG (by id — a blanket canvas query also grabs Plotly's
+    // internal WebGL canvas and mis-indexes, which broke the old export)
+    for (const id of ['heatmap','freq']){
+      const src = document.getElementById(id), dst = clone.querySelector('#'+id);
+      if (src && dst){ const img=new Image(); img.src=src.toDataURL('image/png'); img.style.maxWidth='100%'; dst.replaceWith(img); }
+    }
+    // scatter (Plotly) → high-res static PNG (scale:2 fixes the blurry export)
+    let scatterJS = '';
+    try { const sd = $('scatter'), dst = clone.querySelector('#scatter');
+      if (dst && sd.data){ dst.id = 'exp-scatter'; dst.innerHTML=''; dst.removeAttribute('class'); dst.style.height='420px';
+        scatterJS = `Plotly.newPlot('exp-scatter', ${JSON.stringify(sd.data)}, ${JSON.stringify(sd.layout)}, {responsive:true});`; }
+    } catch(e){ console.warn('scatter export', e); }
+    // 3D → embed a live, self-contained Mol* viewer (same buildMolstarPage: structure + cluster
+    // colors baked in) via iframe srcdoc, so the exported report shows the colored structure too.
+    const fr = clone.querySelector('#viewer3d-frame');
+    if (fr && LAST._structText){
+      const base = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
+      const page = buildMolstarPage(LAST._structText, LAST._fmt, clusterColorComponents(LAST), base);
+      const nf = document.createElement('iframe');
+      nf.style.cssText = 'width:100%;height:600px;border:1px solid #e2e8f0;border-radius:8px;background:#fff';
+      nf.setAttribute('srcdoc', page);
+      const acc = (($('struct-badge').textContent||'').match(/AFDB (\w+)/)||[])[1];
+      const wrap = document.createElement('div'); wrap.appendChild(nf);
+      if (acc) wrap.insertAdjacentHTML('beforeend', `<div class="muted" style="margin-top:.3rem">AlphaFold DB <a href="https://alphafold.ebi.ac.uk/entry/${acc}">${acc}</a> · loads Mol* from CDN when opened online</div>`);
+      fr.replaceWith(wrap);
+    } else if (fr){ fr.replaceWith(document.createTextNode('')); }
+    const eb = clone.querySelector('#export'); if (eb) eb.remove();
+    const css = "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:1100px;margin:auto;padding:1rem;color:#222;background:#fff}.card{border:1px solid #e2e8f0;border-radius:10px;padding:1rem 1.2rem;margin-bottom:1rem}h2{color:#1a5276;font-size:1.05rem;margin:0 0 .5rem}table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{padding:.35rem .5rem;border-bottom:1px solid #eef1f5;text-align:right}th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}.chip{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;margin-right:5px}.cchip{display:inline-flex;align-items:center;gap:.35rem;padding:.22rem .6rem;border:1px solid #d0d8e0;border-radius:14px;font-size:.78rem;margin:2px}.cchip.off{opacity:.35}.cchip .dot{width:11px;height:11px;border-radius:50%}.muted{color:#889;font-size:.82rem}.stat{display:inline-flex;flex-direction:column;padding:.4rem .8rem;background:#f5f7fa;border-radius:8px;margin-right:.5rem}.stat b{font-size:1.2rem;color:#1a5276}.stat span{font-size:.7rem;color:#667;text-transform:uppercase}";
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>cLIP ${LAST.gene}</title>`+
+      `<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2/plotly.min.js"><\/script>`+
+      `<style>${css}</style></head><body>${clone.innerHTML}<script>${scatterJS}<\/script></body></html>`;
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], {type:'text/html'})); a.download = `clip_${LAST.gene}.html`;
+    document.body.appendChild(a); a.click(); setTimeout(()=>{ try{URL.revokeObjectURL(a.href);}catch(e){} a.remove(); }, 1500);
+  } catch(e){ console.error('export failed', e); alert('Export failed: ' + e.message); }
+  btn.textContent = prev;
+};
+
+// ---- cluster selection chips (shared control: 3D viewer + frequency plot) ----
+function _allClusters(k){ return new Set(Array.from({length:k},(_,i)=>i+1)); }
+function renderChipBar(id, A){
+  const k = A.cl.optimalK, box = $(id); if (!box) return;
+  const sizes = {}; for (const lab of A.cl.labels) sizes[lab] = (sizes[lab]||0)+1;   // # PPIs per cluster
+  let html = `<span class="cchip all sel" data-c="all">All clusters (${A.cl.labels.length})</span>`;
+  for (let c=1;c<=k;c++) html += `<span class="cchip" data-c="${c}"><span class="dot" style="background:${clusterColor(c,k)}"></span>C${c} (${sizes[c]||0})</span>`;
+  box.innerHTML = html;
+  box.querySelectorAll('.cchip').forEach(chip => chip.onclick = () => toggleCluster(chip.dataset.c, A));
+  refreshChipVisuals(A);
+}
+function toggleCluster(c, A){
+  const k = A.cl.optimalK;
+  if (c === 'all') ACTIVE = _allClusters(k);
+  else { const id = +c;
+    if (ACTIVE.size === k) ACTIVE = new Set([id]);            // all → isolate this one
+    else if (ACTIVE.has(id)){ ACTIVE.delete(id); if(!ACTIVE.size) ACTIVE = _allClusters(k); }
+    else ACTIVE.add(id);
+  }
+  refreshChipVisuals(A); renderFreq(A); recolor3D(A);
+}
+function refreshChipVisuals(A){
+  const k = A.cl.optimalK, all = ACTIVE.size === k;
+  CHIP_CONTAINERS.forEach(id => { const box = $(id); if (!box) return;
+    box.querySelectorAll('.cchip').forEach(chip => { const c = chip.dataset.c;
+      if (c === 'all') chip.classList.toggle('sel', all);
+      else { chip.classList.toggle('off', !all && !ACTIVE.has(+c)); chip.classList.toggle('sel', !all && ACTIVE.has(+c)); } });
+  });
+}
+
+// ---- 3D structure: LIVIA-style base Mol* iframe + MVS coloring, with remapped coords ----
+// Multi-chain (dimer) structure: the query is the chain whose residue count matches the query
+// length — not necessarily chain A (ColabFold order can put the query second). Length disambiguates.
+function pickQueryChain(plddtMap, queryLen){
+  if (!plddtMap || !plddtMap.size) return 'A';
+  const counts = {};
+  for (const key of plddtMap.keys()){ const ch = key.split(':')[0]; counts[ch] = (counts[ch]||0) + 1; }
+  const chains = Object.keys(counts);
+  if (chains.length <= 1) return chains[0] || 'A';
+  chains.sort((a,b) => Math.abs(counts[a]-queryLen) - Math.abs(counts[b]-queryLen) || (a<b?-1:1));
+  return chains[0];
+}
+function clusterColorComponents(A){
+  const { pipe, cl } = A, k = cl.optimalK, map = A.residueMap, active = ACTIVE || _allClusters(k);
+  const toStruct = (r) => map ? map[r-1] : r;      // predicted index → structure residue number
+  const byRes = {};
+  for (let i=0;i<pipe.fingerprints.length;i++){ const lab=cl.labels[i]; for (const res of pipe.fingerprints[i]){ const sr=toStruct(res); if(!sr||sr<1)continue; (byRes[sr]=byRes[sr]||{})[lab]=(byRes[sr][lab]||0)+1; } }
+  const N = A._structLen || pipe.proteinLen, GRAY = '#e6e6e6';
+  const colorAt = new Array(N+1).fill(GRAY);
+  for (const res in byRes){ const r=+res; if(r<1||r>N)continue; let dom=null,best=-1; const cc=byRes[res];
+    for (const c in cc){ if(active.has(+c) && cc[c]>best){best=cc[c];dom=+c;} }
+    if (dom!=null) colorAt[r]=clusterColor(dom,k); }
+  const byColor = {}; let r=1;
+  while (r<=N){ const c=colorAt[r]; let e=r; while(e<N && colorAt[e+1]===c) e++; (byColor[c]=byColor[c]||[]).push({start:r,end:e}); r=e+1; }
+  return Object.entries(byColor).map(([color,ranges]) => ({ chain: A._queryChain || 'A', ranges, color }));
+}
+function recolor3D(A){ if (A._structText) applyColorsToMolstarFrame('viewer3d-frame', clusterColorComponents(A), A._fmt); }
+async function load3D(source, A){
+  const frame = $('viewer3d-frame');
+  let text, fmt;
+  if (source.file){ text = await source.file.text(); fmt = /\.(pdb|ent)$/i.test(source.file.name) ? 'pdb' : 'mmcif'; }
+  else { text = await (await fetch(source.url)).text(); fmt = 'mmcif'; }
+  A._structText = text; A._fmt = fmt; A._structLen = source.structLen || null;
+  try { A._plddt = parseBfactorsPerResidue(text, fmt === 'mmcif' ? 'cif' : 'pdb'); } catch(e){ A._plddt = null; }
+  A._queryChain = pickQueryChain(A._plddt, A.pipe.proteinLen);   // dimer: pick the chain matching the query length, not always A
+  { const chs = A._plddt ? new Set([...A._plddt.keys()].map(k => k.split(':')[0])) : new Set();
+    if (chs.size > 1) $('struct-badge').textContent += ` · query = chain ${A._queryChain}`; }
+  renderFreq(A);   // re-render frequency with the AFDB pLDDT overlay now available
+  const base = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
+  const page = buildMolstarPage(text, fmt, clusterColorComponents(A), base);
+  const blob = new Blob([page], { type:'text/html' });
+  if (frame._url) { try { URL.revokeObjectURL(frame._url); } catch(e){} }
+  frame._url = URL.createObjectURL(blob); frame.src = frame._url;
+}
+async function resolve3D(A){
+  const badge = $('struct-badge'), gene = A.gene, plen = A.pipe.proteinLen, species = '';
+  A.residueMap = null; A._structText = null; A._domains = null; $('query-uniprot').innerHTML = '';
+  // bait sequence from FASTA — by symbol/pair-name, else by unique length (arbitrary headers)
+  const predSeq = CLIPResolver.baitSequence(FASTA_PARSE, gene, plen);
+  if (STRUCT_FILE){                                   // uploaded structure wins (offline / confidential)
+    badge.textContent = `· uploaded ${STRUCT_FILE.name} (coords 1:1 with predicted)`;
+    load3D({ file: STRUCT_FILE }, A); return;
+  }
+  badge.textContent = '· resolving…';
+  let res = null;
+  try { res = await CLIPResolver.resolveStructure({ gene, length: plen, seq: predSeq, species }); } catch(e){ console.warn(e); }
+  if (!res){ badge.textContent = `· no UniProt match (${gene}${species ? ', ' + species : ''}) — drop a structure or set species`; $('viewer3d-frame').src = 'about:blank'; return; }
+  // UniProt identity — shown whether or not an AFDB structure is available.
+  $('query-uniprot').innerHTML = `UniProt <a href="https://www.uniprot.org/uniprotkb/${res.accession}" target="_blank">${res.accession}</a>`
+    + (res.gene ? ` · gene <b>${res.gene}</b>` : '') + (res.organism ? ` · ${res.organism}` : '') + ` · via ${res.matchedBy}`
+    + (res.fragment ? ` · <b>fragment ${res.fragment.start}–${res.fragment.end}</b>${res.fragment.mutations.length ? ' ('+res.fragment.mutations.join('/')+')' : ''}` : '');
+  // Align predicted → structure (canonical) sequence and remap cLIR coordinates (isoform/len diffs).
+  let note;
+  if (res.fragment){                                   // partial protein: shift cLIR coords onto the full structure
+    A.residueMap = []; for (let i = 1; i <= plen; i++) A.residueMap[i-1] = res.fragment.offset + i;
+    note = `fragment ${res.fragment.start}–${res.fragment.end} on full ${res.accession}` + (res.fragment.mutations.length ? ` · ${res.fragment.mutations.join('/')}` : '');
+  } else if (predSeq && res.structureSequence){ const mi = CLIPResolver.alignMap(predSeq, res.structureSequence); A.residueMap = mi.map; note = mi.method === 'identical' ? 'seq 1:1 ✓' : `remapped (${mi.method}, ${Math.round(100 * mi.covered / predSeq.length)}% matched)`; }
+  else if (res.structureLength && plen && res.structureLength !== plen){ note = `⚠ len ${res.structureLength}≠${plen}, no FASTA to align`; }
+  else note = res.lengthOk ? 'len ✓' : `⚠ len ${res.structureLength}≠${plen}`;
+  CLIPResolver.fetchDomains(res.accession).then(d => { if (d && d.length){ A._domains = d; renderFreq(A); } });   // UniProt domain track (needs only accession)
+  if (!res.cifUrl){ badge.textContent = `· ${res.accession}${res.gene ? ' (' + res.gene + ')' : ''} · via ${res.matchedBy} · ⚠ no AFDB structure`; $('viewer3d-frame').src = 'about:blank'; return; }
+  badge.textContent = `· AFDB ${res.accession}${res.organism ? ' · ' + res.organism : ''} · via ${res.matchedBy} · ${note}`;
+  load3D({ url: res.cifUrl, structLen: res.structureLength }, A);
+}
+</script>
+</body>
+</html>
