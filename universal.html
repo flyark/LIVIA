@@ -222,7 +222,7 @@
         <div class="card result-card" id="score-matrix-card" style="display:none;">
             <h2>Score Matrix</h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                Lower-left <select id="mtx-lower" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS" selected>iLIS</option><option value="iLIA">iLIA</option><option value="ipTM">ipTM</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option></select> (Oranges) &middot; Upper-right <select id="mtx-upper" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS">iLIS</option><option value="iLIA" selected>iLIA</option><option value="ipTM">ipTM</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option></select> (Greens) &middot; Diagonal: self.
+                Lower-left <select id="mtx-lower" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS" selected>iLIS</option><option value="iLIA">iLIA</option><option value="iLISA">iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option></select> (Oranges) &middot; Upper-right <select id="mtx-upper" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS">iLIS</option><option value="iLIA" selected>iLIA</option><option value="iLISA">iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option></select> (Greens) &middot; Diagonal: self.
             </div>
             <div class="map-row" id="score-matrix-row"></div>
         </div>
@@ -2956,39 +2956,34 @@ async function processFiles() {
                 clisMap.push(row);
             }
 
-            // Build grids
-            const ilisGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
-            const iliaGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
-            const iptmGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
-            const lirGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
-            const clirGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
+            // Build one grid per metric (Score Matrix can display any of them)
+            const MG = {}; const MKEYS = ['iLIS','iLIA','iLISA','ipTM','ipSAE','actifpTM','LIS','cLIS','LIR','cLIR'];
+            for (const mk of MKEYS) MG[mk] = Array.from({ length: nc }, () => Array(nc).fill(0));
             for (let i = 0; i < nc; i++) {
                 for (let j = 0; j < nc; j++) {
-                    if (i === j) {
-                        iptmGrid[i][j] = iptmMatrix?.[i]?.[j] ?? globalIptm ?? 0;
-                        continue;
-                    }
+                    if (i === j) { MG.ipTM[i][j] = iptmMatrix?.[i]?.[j] ?? globalIptm ?? 0; continue; }
                     const fwd = pairs[`${chainNames[i]},${chainNames[j]}`];
                     const rev = pairs[`${chainNames[j]},${chainNames[i]}`];
                     if (fwd && rev) {
-                        const avgLIS = (fwd.LIS + rev.LIS) / 2;
-                        const avgCLIS = (fwd.cLIS + rev.cLIS) / 2;
-                        const avgLIA = (fwd.LIA + rev.LIA) / 2;
-                        const avgCLIA = (fwd.cLIA + rev.cLIA) / 2;
-                        ilisGrid[i][j] = Math.sqrt(avgLIS * avgCLIS);
-                        iliaGrid[i][j] = Math.sqrt(avgLIA * avgCLIA);
-                        iptmGrid[i][j] = (fwd.ipTM + rev.ipTM) / 2;
-                        lirGrid[i][j] = fwd.lirI.size;
-                        clirGrid[i][j] = fwd.clirI.size;
+                        const avgLIS = (fwd.LIS + rev.LIS) / 2, avgCLIS = (fwd.cLIS + rev.cLIS) / 2;
+                        const avgLIA = (fwd.LIA + rev.LIA) / 2, avgCLIA = (fwd.cLIA + rev.cLIA) / 2;
+                        MG.iLIS[i][j] = Math.sqrt(avgLIS * avgCLIS);
+                        MG.iLIA[i][j] = Math.sqrt(avgLIA * avgCLIA);
+                        MG.iLISA[i][j] = MG.iLIS[i][j] * MG.iLIA[i][j];
+                        MG.ipTM[i][j] = (fwd.ipTM + rev.ipTM) / 2;
+                        MG.ipSAE[i][j] = ((fwd.ipSAE||0) + (rev.ipSAE||0)) / 2;
+                        MG.actifpTM[i][j] = ((fwd.actifpTM||0) + (rev.actifpTM||0)) / 2;
+                        MG.LIS[i][j] = avgLIS; MG.cLIS[i][j] = avgCLIS;
+                        MG.LIR[i][j] = fwd.lirI.size; MG.cLIR[i][j] = fwd.clirI.size;
                     } else if (fwd) {
-                        ilisGrid[i][j] = fwd.iLIS;
-                        iliaGrid[i][j] = fwd.iLIA;
-                        iptmGrid[i][j] = fwd.ipTM;
-                        lirGrid[i][j] = fwd.lirI.size;
-                        clirGrid[i][j] = fwd.clirI.size;
+                        MG.iLIS[i][j] = fwd.iLIS; MG.iLIA[i][j] = fwd.iLIA; MG.iLISA[i][j] = fwd.iLISA || 0;
+                        MG.ipTM[i][j] = fwd.ipTM; MG.ipSAE[i][j] = fwd.ipSAE || 0; MG.actifpTM[i][j] = fwd.actifpTM || 0;
+                        MG.LIS[i][j] = fwd.LIS; MG.cLIS[i][j] = fwd.cLIS;
+                        MG.LIR[i][j] = fwd.lirI.size; MG.cLIR[i][j] = fwd.clirI.size;
                     }
                 }
             }
+            const ilisGrid = MG.iLIS, iliaGrid = MG.iLIA, iptmGrid = MG.ipTM, lirGrid = MG.LIR, clirGrid = MG.cLIR;
 
             allPairs.push(pairs);
             uniState.modelPairs.push(pairs);
@@ -2998,7 +2993,7 @@ async function processFiles() {
             if (!uniState.chainTypes) uniState.chainTypes = types;
 
             uniState.modelData.push({
-                pae, lisMap, clisMap, ilisGrid, iliaGrid, iptmGrid, lirGrid, clirGrid, nTotal, idx,
+                pae, lisMap, clisMap, ilisGrid, iliaGrid, iptmGrid, lirGrid, clirGrid, metricGrids: MG, nTotal, idx,
                 label: model.label || `model_${idx}`,
                 scores: scores,
                 structText: structText,
@@ -4116,12 +4111,14 @@ function drawAllScoreMatrices() {
     const displaySize = calcMapDisplaySize();
 
     // selectable metric per triangle (default iLIS lower-left, iLIA upper-right)
-    const MTX = { iLIS:{grid:'ilisGrid',unit:1}, iLIA:{grid:'iliaGrid',unit:0}, ipTM:{grid:'iptmGrid',unit:1}, LIR:{grid:'lirGrid',unit:0}, cLIR:{grid:'clirGrid',unit:0} };
-    const lc = MTX[(document.getElementById('mtx-lower')||{}).value] || MTX.iLIS;
-    const uc = MTX[(document.getElementById('mtx-upper')||{}).value] || MTX.iLIA;
-    const gmax = (cfg) => { if (cfg.unit === 1) return 1; let m = 1; for (const md of uniState.modelData){ const g = md[cfg.grid]; if (!g) continue; for (let i=0;i<nc;i++) for (let j=0;j<nc;j++) if (i!==j && g[i][j] > m) m = g[i][j]; } return m; };
-    const lowerMax = gmax(lc), upperMax = gmax(uc);
-    const fmtOf = (cfg) => cfg.unit === 1 ? ((v)=>v.toFixed(2)) : ((v)=>v.toFixed(0));
+    const MTX_UNIT = { iLIS:1, iLIA:0, iLISA:0, ipTM:1, ipSAE:1, actifpTM:1, LIS:1, cLIS:1, LIR:0, cLIR:0 };  // 1 = 0..1 scale, 0 = count (scale by global max)
+    const lowerM = (document.getElementById('mtx-lower')||{}).value || 'iLIS';
+    const upperM = (document.getElementById('mtx-upper')||{}).value || 'iLIA';
+    const gridOf = (md, m) => (md.metricGrids && md.metricGrids[m]) || md.ilisGrid;
+    const unitOf = (m) => MTX_UNIT[m] != null ? MTX_UNIT[m] : 1;
+    const gmax = (m) => { if (unitOf(m) === 1) return 1; let mx = 1; for (const md of uniState.modelData){ const g = gridOf(md,m); if (!g) continue; for (let i=0;i<nc;i++) for (let j=0;j<nc;j++) if (i!==j && g[i][j] > mx) mx = g[i][j]; } return mx; };
+    const lowerMax = gmax(lowerM), upperMax = gmax(upperM);
+    const fmtOf = (m) => unitOf(m) === 1 ? ((v)=>v.toFixed(2)) : ((v)=>v.toFixed(0));
     const zeros = Array.from({length:nc}, () => Array(nc).fill(0));
 
     for (let mi = 0; mi < uniState.modelData.length; mi++) {
@@ -4134,7 +4131,7 @@ function drawAllScoreMatrices() {
         title.textContent = md.label || ('model_' + mi);
         wrap.appendChild(title);
         const canvas = document.createElement('canvas');
-        drawOneScoreMatrix(canvas, md[lc.grid] || zeros, md[uc.grid] || zeros, nc, lowerMax, upperMax, fmtOf(lc), fmtOf(uc), displaySize);
+        drawOneScoreMatrix(canvas, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), displaySize);
         wrap.appendChild(canvas);
         row.appendChild(wrap);
     }
