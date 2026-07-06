@@ -5715,12 +5715,15 @@ function buildContactMap(pairKey) {
     const S = 2;
     const domsA = (uniState.chainDomains && uniState.chainDomains[v.ci]) || [];
     const domsB = (uniState.chainDomains && uniState.chainDomains[v.cj]) || [];
-    const topLane = domsA.length ? 16 : 0, botLane = domsB.length ? 16 : 0;
+    const laneH = 15, domBoxH = 13;
+    const assignLanes = (doms) => { const s = doms.slice().sort((a, b) => a.start - b.start); const ends = []; for (const d of s){ let k = 0; while (k < ends.length && ends[k] >= d.start) k++; d._lane = k; ends[k] = d.end; } return { list: s, n: ends.length }; };
+    const laA = domsA.length ? assignLanes(domsA) : null, laB = domsB.length ? assignLanes(domsB) : null;
+    const topLane = laA ? laA.n * laneH : 0, botLane = laB ? laB.n * laneH : 0;   // stacked domain rows
     const width = Math.min(900, (card.clientWidth || 900) - 32);
     const barH = 12;
     const barY_A = 10 + topLane;
-    const barY_B = barY_A + barH + 60;                       // compact ribbon gap (was ~166)
-    const height = barY_B + barH + (botLane ? 46 : 30);
+    const barY_B = barY_A + barH + 60;                       // compact ribbon gap
+    const height = barY_B + barH + 15 + botLane + 15;
     const barLeft = 60, barRight = width - 20;
     const barW = barRight - barLeft;
 
@@ -5774,18 +5777,19 @@ function buildContactMap(pairKey) {
     ctx.fillStyle = colors.clir_b; ctx.fillText(`${v.cj}`, barLeft - 5, barY_B + barH / 2);
 
     // UniProt domain lanes (populated by "Identify chains"): chain A above its bar, chain B below
-    const drawDomLane = (doms, xFn, len, y) => {
-        for (const d of doms){
+    const drawDomLane = (la, xFn, len, baseY, dir) => {   // dir -1 = stack up (chain A), +1 = down (chain B)
+        for (const d of la.list){
             const x0 = xFn(Math.max(1, d.start)), x1 = xFn(Math.min(len, d.end)), w = Math.max(2, x1 - x0);
-            ctx.fillStyle = '#8e7cc3'; ctx.fillRect(x0, y, w, 11);
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.6; ctx.strokeRect(x0, y, w, 11);
-            if (w > 22){ ctx.fillStyle = '#fff'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                const cap = Math.max(3, Math.floor(w / 6)); const lab = d.name.length > cap ? d.name.slice(0, cap - 1) + '\u2026' : d.name;
-                ctx.fillText(lab, (x0 + x1) / 2, y + 6); }
+            const y = dir < 0 ? baseY - (d._lane + 1) * laneH : baseY + d._lane * laneH;
+            ctx.fillStyle = '#8e7cc3'; ctx.fillRect(x0, y, w, domBoxH);
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.8; ctx.strokeRect(x0, y, w, domBoxH);
+            if (w > 16){ ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                const cap = Math.max(3, Math.floor(w / 6.5)); const lab = d.name.length > cap ? d.name.slice(0, cap - 1) + '\u2026' : d.name;
+                ctx.fillText(lab, (x0 + x1) / 2, y + domBoxH / 2 + 0.5); }
         }
     };
-    if (domsA.length) drawDomLane(domsA, xA, v.lenI, barY_A - 14);
-    if (domsB.length) drawDomLane(domsB, xB, v.lenJ, barY_B + barH + 15);
+    if (laA) drawDomLane(laA, xA, v.lenI, barY_A, -1);
+    if (laB) drawDomLane(laB, xB, v.lenJ, barY_B + barH + 15, +1);
 
     // Ticks
     ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
@@ -5814,7 +5818,7 @@ function buildContactMap(pairKey) {
 
     // Label
     ctx.fillStyle = '#888'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width / 2, barY_B + barH + (botLane ? 30 : 15));
+    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width / 2, barY_B + barH + 15 + botLane);
 
     ctx.restore();
 }
