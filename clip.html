@@ -88,7 +88,7 @@
       </div>
     </div>
     <div style="margin-top:.7rem; font-size:.85rem; color:#556;">
-      ▶ Try examples — kinase-transcription factor screen (Kim et al. 2025):<br>
+      ▶ Try examples — kinase-transcription factor screen (<a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank" style="color:#2471A3">Kim et al. 2025</a>):<br>
       <span style="color:#889; font-size:.8rem;">fly TF &rarr;</span>
       <a href="#" class="load-ex" data-file="ftz_kinase_screen.csv" data-gene="ftz" style="color:#2471A3; font-weight:600; text-decoration:none;">ftz</a> ·
       <a href="#" class="load-ex" data-file="eve_kinase_screen.csv" data-gene="eve" style="color:#2471A3; font-weight:600; text-decoration:none;">eve</a> ·
@@ -188,6 +188,13 @@
       <h2>Partners <button id="export" class="ghost" style="float:right">⬇ Download report HTML</button></h2>
       <div style="max-height:360px; overflow:auto"><table id="ptable"></table></div>
     </div>
+  </div>
+  <div class="footer">
+    <a href="https://github.com/flyark/LIVIA" target="_blank">LIVIA GitHub</a> &middot; <a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS GitHub</a>
+    <br>
+    <a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank">Kim &amp; Perrimon (2026)</a>
+    <br>
+    Ah-Ram Kim &middot; Harvard Medical School
   </div>
 </div>
 
@@ -722,6 +729,8 @@ $('export').onclick = async () => {
     // local JS become data: script URLs, the report data is atob+JSON.parse'd, and the page re-renders.
     const b64 = (s) => btoa(unescape(encodeURIComponent(s)));
     let out = await (await fetch(location.href)).text();
+    const navBase = location.origin + location.pathname.replace(/[^/]*$/, '');   // downloaded nav points back at the live site
+    out = out.replace(/href="(?!https?:|#|mailto:)([^"]+\.html[^"]*)"/g, 'href="' + navBase + '$1"');
     const locals = ['js/clip-clustering.js', 'js/clip-pipeline.js', 'js/clip-resolver.js', 'js/livia-viewer.js'];
     for (const f of locals){ const js = await (await fetch(f)).text(); out = out.replace('<script src="' + f + '"><\/script>', '<script src="data:text/javascript;base64,' + b64(js) + '"></scr' + 'ipt>'); }
     try { const css = await (await fetch('css/livia.css')).text(); out = out.replace('<link rel="stylesheet" href="css/livia.css">', '<style>\n' + css + '\n</style>'); } catch(e){}
@@ -751,6 +760,8 @@ function loadExportData(d){                           // reconstruct a bundled r
       $('viewer3d-frame').setAttribute('srcdoc', buildMolstarPage(LAST._structText, LAST._fmt || 'cif', clusterColorComponents(LAST), base));
     }
     // strip the upload/query controls — the export is a report, not the tool
+    const _ic = $('in-csv'); if (_ic){ const _c = _ic.closest('.card'); if (_c) _c.style.display = 'none'; }   // upload panel is dead in an export
+    const _eb = $('export'); if (_eb) _eb.style.display = 'none';                                             // no re-download from a downloaded report
     $('status').textContent = 'exported report';
   } catch(e){ console.error('loadExportData failed', e); }
 }
