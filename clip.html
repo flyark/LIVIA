@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LIVIA — cLIP</title>
 <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2/plotly.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <script src="js/clip-clustering.js"></script>
 <script src="js/clip-pipeline.js"></script>
 <script src="js/clip-resolver.js"></script>
@@ -69,15 +70,15 @@
     <div class="dropgrid">
       <div class="dz" id="dz-csv">
         <div class="dz-ic">📄</div><div class="dz-t">lis.py output CSV <b style="color:#c0392b">*</b></div>
-        <div class="dz-h">Drag lis.py output file(s) here or click to upload</div>
+        <div class="dz-h">Drag lis.py output (CSV or ZIP) here or click to upload</div>
         <div class="dz-l" id="ld-csv"></div>
-        <input id="in-csv" type="file" accept=".csv,.tsv,.txt" multiple class="hidden">
+        <input id="in-csv" type="file" accept=".csv,.tsv,.txt,.zip" multiple class="hidden">
       </div>
       <div class="dz" id="dz-fasta">
         <div class="dz-ic">🧬</div><div class="dz-t">FASTA <span class="opt">optional</span></div>
         <div class="dz-h">Drag or click to upload predicted sequences to color contact residues (cLIR) on the 3D structure</div>
         <div class="dz-l" id="ld-fasta"></div>
-        <input id="in-fasta" type="file" accept=".fasta,.fa,.faa,.fas,.fna,.mfa,.pep,.seq,.txt" multiple class="hidden">
+        <input id="in-fasta" type="file" accept=".fasta,.fa,.faa,.fas,.fna,.mfa,.pep,.seq,.txt,.zip" multiple class="hidden">
       </div>
       <div class="dz" id="dz-struct">
         <div class="dz-ic">🧊</div><div class="dz-t">Structure <span class="opt">optional</span></div>
@@ -257,15 +258,20 @@ async function routeFiles(list, kind){
   if (!list || !list.length) return;
   if (kind === 'struct'){ STRUCT_FILE = list[0]; updateLoaded(); return; }   // read later as object URL
   try {
+    const wantExt = kind === 'fasta' ? /\.(fasta|fa|faa|fas|fna|mfa|pep|seq|txt)$/i : /\.(csv|tsv|txt)$/i;
+    const items = [];   // {name,text} — a dropped .zip of lis.py CSVs / FASTA files is expanded here
     for (const f of list){
-      const text = await f.text();
-      if (kind === 'fasta'){ FASTA_PARSE = CLIPResolver.parseFastaToSeqMap(text); FASTA_WARN = FASTA_PARSE.warn || []; }
-      else {                                                                  // csv — parse+convert ONCE, reuse for gene list + every generate
-        $('status').textContent = `parsing ${f.name}…`;
-        await new Promise(r => setTimeout(r, 0));                             // let the status paint before the blocking parse
-        const rows = CLIPPipeline.convertRows(CLIPPipeline.parseCSV(text).rows);
-        FILES.push({ name: f.name, rows });
-      }
+      if (/\.zip$/i.test(f.name)){
+        if (typeof fflate === 'undefined') throw new Error('zip support failed to load (needs an internet connection)');
+        const entries = fflate.unzipSync(new Uint8Array(await f.arrayBuffer())), dec = new TextDecoder();
+        for (const nm in entries){ if (nm.startsWith('__MACOSX/') || nm.endsWith('/')) continue; const base = nm.split('/').pop(); if (wantExt.test(base)) items.push({ name: base, text: dec.decode(entries[nm]) }); }
+      } else items.push({ name: f.name, text: await f.text() });
+    }
+    if (kind === 'fasta'){ FASTA_PARSE = CLIPResolver.parseFastaToSeqMap(items.map(it => it.text).join('\n')); FASTA_WARN = FASTA_PARSE.warn || []; }
+    else for (const it of items){                                            // csv — parse+convert ONCE, reuse for gene list + every generate
+      $('status').textContent = `parsing ${it.name}…`;
+      await new Promise(r => setTimeout(r, 0));
+      FILES.push({ name: it.name, rows: CLIPPipeline.convertRows(CLIPPipeline.parseCSV(it.text).rows) });
     }
   } catch (e){ $('status').textContent = `⚠ error reading ${kind} file: ${e.message}`; console.error(e); return; }
   if (kind === 'fasta' && (!FASTA_PARSE || !FASTA_PARSE.seqs.length)){
