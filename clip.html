@@ -718,43 +718,42 @@ $('export').onclick = async () => {
   if (!LAST) return;
   const btn = $('export'), prev = btn.textContent; btn.textContent = 'preparing…';
   try {
-    const clone = $('report').cloneNode(true);
-    // heatmap + freq canvases → PNG (by id — a blanket canvas query also grabs Plotly's
-    // internal WebGL canvas and mis-indexes, which broke the old export)
-    for (const id of ['heatmap','freq']){
-      const src = document.getElementById(id), dst = clone.querySelector('#'+id);
-      if (src && dst){ const img=new Image(); img.src=src.toDataURL('image/png'); img.style.maxWidth='100%'; dst.replaceWith(img); }
-    }
-    // scatter (Plotly) → high-res static PNG (scale:2 fixes the blurry export)
-    let scatterJS = '';
-    try { const sd = $('scatter'), dst = clone.querySelector('#scatter');
-      if (dst && sd.data){ dst.id = 'exp-scatter'; dst.innerHTML=''; dst.removeAttribute('class'); dst.style.height='420px';
-        scatterJS = `Plotly.newPlot('exp-scatter', ${JSON.stringify(sd.data)}, ${JSON.stringify(sd.layout)}, {responsive:true});`; }
-    } catch(e){ console.warn('scatter export', e); }
-    // 3D → embed a live, self-contained Mol* viewer (same buildMolstarPage: structure + cluster
-    // colors baked in) via iframe srcdoc, so the exported report shows the colored structure too.
-    const fr = clone.querySelector('#viewer3d-frame');
-    if (fr && LAST._structText){
-      const base = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
-      const page = buildMolstarPage(LAST._structText, LAST._fmt, clusterColorComponents(LAST), base);
-      const nf = document.createElement('iframe');
-      nf.style.cssText = 'width:100%;height:600px;border:1px solid #e2e8f0;border-radius:8px;background:#fff';
-      nf.setAttribute('srcdoc', page);
-      const acc = (($('struct-badge').textContent||'').match(/AFDB (\w+)/)||[])[1];
-      const wrap = document.createElement('div'); wrap.appendChild(nf);
-      if (acc) wrap.insertAdjacentHTML('beforeend', `<div class="muted" style="margin-top:.3rem">AlphaFold DB <a href="https://alphafold.ebi.ac.uk/entry/${acc}">${acc}</a> · loads Mol* from CDN when opened online</div>`);
-      fr.replaceWith(wrap);
-    } else if (fr){ fr.replaceWith(document.createTextNode('')); }
-    const eb = clone.querySelector('#export'); if (eb) eb.remove();
-    const css = "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:1100px;margin:auto;padding:1rem;color:#222;background:#fff}.card{border:1px solid #e2e8f0;border-radius:10px;padding:1rem 1.2rem;margin-bottom:1rem}h2{color:#1a5276;font-size:1.05rem;margin:0 0 .5rem}table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{padding:.35rem .5rem;border-bottom:1px solid #eef1f5;text-align:right}th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}.chip{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;margin-right:5px}.cchip{display:inline-flex;align-items:center;gap:.35rem;padding:.22rem .6rem;border:1px solid #d0d8e0;border-radius:14px;font-size:.78rem;margin:2px}.cchip.off{opacity:.35}.cchip .dot{width:11px;height:11px;border-radius:50%}.muted{color:#889;font-size:.82rem}.stat{display:inline-flex;flex-direction:column;padding:.4rem .8rem;background:#f5f7fa;border-radius:8px;margin-right:.5rem}.stat b{font-size:1.2rem;color:#1a5276}.stat span{font-size:.7rem;color:#667;text-transform:uppercase}";
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>cLIP ${LAST.gene}</title>`+
-      `<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2/plotly.min.js"><\/script>`+
-      `<style>${css}</style></head><body>${clone.innerHTML}<script>${scatterJS}<\/script></body></html>`;
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], {type:'text/html'})); a.download = `clip_${LAST.gene}.html`;
-    document.body.appendChild(a); a.click(); setTimeout(()=>{ try{URL.revokeObjectURL(a.href);}catch(e){} a.remove(); }, 1500);
+    // Self-contained interactive report via base64 (no </scr''ipt> / comment escaping hazards):
+    // local JS become data: script URLs, the report data is atob+JSON.parse'd, and the page re-renders.
+    const b64 = (s) => btoa(unescape(encodeURIComponent(s)));
+    let out = await (await fetch(location.href)).text();
+    const locals = ['js/clip-clustering.js', 'js/clip-pipeline.js', 'js/clip-resolver.js', 'js/livia-viewer.js'];
+    for (const f of locals){ const js = await (await fetch(f)).text(); out = out.replace('<script src="' + f + '"><\/script>', '<script src="data:text/javascript;base64,' + b64(js) + '"></scr' + 'ipt>'); }
+    try { const css = await (await fetch('css/livia.css')).text(); out = out.replace('<link rel="stylesheet" href="css/livia.css">', '<style>\n' + css + '\n</style>'); } catch(e){}
+    const dataB64 = b64(JSON.stringify({ LAST, PALETTE, COMMONALITY, COLOR3D, AM_CUTOFF, ACTIVE: [...ACTIVE], badge: $('struct-badge').innerHTML, uniprot: $('query-uniprot').innerHTML }));
+    out = out.replace('</head>', '<script>window.__CLIP_DATA__ = JSON.parse(decodeURIComponent(escape(atob("' + dataB64 + '"))));</scr' + 'ipt>\n</head>');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out], { type: 'text/html' })); a.download = 'clip_' + LAST.gene + '.html';
+    document.body.appendChild(a); a.click(); setTimeout(() => { try { URL.revokeObjectURL(a.href); } catch(e){} a.remove(); }, 2000);
   } catch(e){ console.error('export failed', e); alert('Export failed: ' + e.message); }
   btn.textContent = prev;
 };
+function loadExportData(d){                           // reconstruct a bundled report — fully interactive, no upload/network (except Plotly/Mol* CDN)
+  try {
+    PALETTE = d.PALETTE || 'tab20'; COMMONALITY = d.COMMONALITY != null ? d.COMMONALITY : 0.5;
+    COLOR3D = d.COLOR3D || 'cluster'; AM_CUTOFF = d.AM_CUTOFF != null ? d.AM_CUTOFF : 0;
+    LAST = d.LAST;
+    const sv = (id, v) => { const el = $(id); if (el && v != null) el.value = String(v); };
+    sv('palette', PALETTE); sv('commonality', COMMONALITY); sv('am-cutoff', AM_CUTOFF);
+    render(LAST);                                     // builds every panel AND wires the interactive handlers
+    if (d.ACTIVE && d.ACTIVE.length){ ACTIVE = new Set(d.ACTIVE); redraw(LAST); }
+    if (LAST._am) document.querySelectorAll('.am-only').forEach(e => e.classList.remove('hidden'));
+    document.querySelectorAll('.cmode').forEach(x => x.classList.toggle('sel', x.dataset.mode === COLOR3D));
+    const w = $('am-cut-wrap'); if (w) w.classList.toggle('hidden', COLOR3D !== 'am');
+    if (d.badge) $('struct-badge').innerHTML = d.badge;
+    if (d.uniprot) $('query-uniprot').innerHTML = d.uniprot;
+    if (LAST._structText && typeof buildMolstarPage === 'function'){
+      const base = location.origin + location.pathname.replace(/[^/]*$/, '');
+      $('viewer3d-frame').setAttribute('srcdoc', buildMolstarPage(LAST._structText, LAST._fmt || 'cif', clusterColorComponents(LAST), base));
+    }
+    // strip the upload/query controls — the export is a report, not the tool
+    $('status').textContent = 'exported report';
+  } catch(e){ console.error('loadExportData failed', e); }
+}
 
 // ---- cluster selection chips (shared control: 3D viewer + frequency plot) ----
 function _allClusters(k){ return new Set(Array.from({length:k},(_,i)=>i+1)); }
@@ -871,6 +870,9 @@ async function resolve3D(A){
   badge.textContent = `· AFDB ${res.accession}${res.organism ? ' · ' + res.organism : ''} · via ${res.matchedBy} · ${note}`;
   load3D({ url: res.cifUrl, structLen: res.structureLength }, A);
 }
+if (typeof window !== 'undefined' && window.__CLIP_DATA__) loadExportData(window.__CLIP_DATA__);   // self-contained export bootstrap
 </script>
+<script data-goatcounter="https://livia.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
