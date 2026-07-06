@@ -4123,6 +4123,7 @@ function greensColor(value, vmin, vmax) {
 
 let EXPORT_FONT = 1, EXPORT_W = 0;   // figure-export options (SVG font multiplier / target width; 0 = native)
 function setExp(k, v){ if (k === 'font') EXPORT_FONT = +v; else EXPORT_W = +v; }
+function chainLabel(name){ const g = uniState.chainGenes && uniState.chainGenes[name]; return g ? name + ' \u00b7 ' + g : name; }   // 'A' -> 'A \u00b7 TP53' once resolved
 function applyExportOpts(svg){
     if (EXPORT_FONT && EXPORT_FONT !== 1) svg = svg.replace(/font-size="([\d.]+)px"/g, (m, s) => 'font-size="' + (parseFloat(s) * EXPORT_FONT).toFixed(2) + 'px"');
     const m = svg.match(/<svg\b[^>]*\bwidth="([\d.]+)"[^>]*\bheight="([\d.]+)"/);
@@ -4196,9 +4197,12 @@ async function identifyChains(){
         html += '<tr>' + td('<b>' + n + '</b>') + td(s.length) + td(acc) + td(r && r.gene ? r.gene : '') + td(r && r.organism ? '<i>' + r.organism + '</i>' : '') + td(doms) + '</tr>';
     }
     out.innerHTML = html + '</tbody></table>';
-    uniState.chainDomains = {};                                   // feed domains to the Linear Contact Map (aligned matches only)
-    for (const n of names){ const e = resolved.get(seqOf(n)); if (e && e.r && e.r.lengthOk && e.dom && e.dom.length) uniState.chainDomains[n] = e.dom; }
-    if (uniState.currentPairKey && Object.keys(uniState.chainDomains).length) buildContactMap(uniState.currentPairKey);
+    uniState.chainDomains = {}; uniState.chainGenes = {};         // feed identities (gene + domains) to every figure
+    for (const n of names){ const e = resolved.get(seqOf(n)); if (e && e.r){ if (e.r.gene) uniState.chainGenes[n] = e.r.gene; if (e.r.lengthOk && e.dom && e.dom.length) uniState.chainDomains[n] = e.dom; } }
+    const _pk = uniState.currentPairKey;                          // re-render so chain labels + domains reflect the resolved identities
+    if (_pk){ buildContactMap(_pk); if (typeof buildPerResidueCharts === 'function') buildPerResidueCharts(_pk); if (typeof buildSequenceViewer === 'function') buildSequenceViewer(_pk); }
+    if (typeof buildChordDiagram === 'function') buildChordDiagram();
+    if (typeof drawAllScoreMatrices === 'function') drawAllScoreMatrices();
     btn.disabled = false; btn.textContent = 'Identify chains via UniProt';
 }
 function drawAllScoreMatrices() {
@@ -4308,7 +4312,7 @@ function drawOneScoreMatrix(canvas, lowerG, upperG, nc, lowerMax, upperMax, lowe
     const lf = Math.max(7, Math.min(10, cellSize / 3)) * S;
     ctx.fillStyle = '#333';
     for (let k = 0; k < nc; k++) {
-        const name = uniState.chainNames[k];
+        const name = chainLabel(uniState.chainNames[k]);
         ctx.font = `bold ${lf}px sans-serif`;
         ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
         ctx.fillText(name, leftPx - 3 * S, k * cPx + cPx / 2);
@@ -5232,7 +5236,7 @@ function buildPerResidueCharts(pairKey) {
         // Chain header
         const header = document.createElement('div');
         header.style.cssText = 'font-size:0.9rem; font-weight:700; color:#1a5276; margin-top:1rem; margin-bottom:0.2rem; padding-bottom:0.3rem; border-bottom:2px solid #e0e0e0;';
-        header.textContent = 'Chain ' + cd.name + ' (' + cd.size + ' residues)';
+        header.textContent = 'Chain ' + chainLabel(cd.name) + ' (' + cd.size + ' residues)';
         container.appendChild(header);
 
         drawPerResLisChart(container, cd, selectedModelIdx, singleModel);
@@ -5773,8 +5777,8 @@ function buildContactMap(pairKey) {
 
     // Labels
     ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = colors.clir_a; ctx.fillText(`${v.ci}`, barLeft - 5, barY_A + barH / 2);
-    ctx.fillStyle = colors.clir_b; ctx.fillText(`${v.cj}`, barLeft - 5, barY_B + barH / 2);
+    ctx.fillStyle = colors.clir_a; ctx.fillText(chainLabel(v.ci), barLeft - 5, barY_A + barH / 2);
+    ctx.fillStyle = colors.clir_b; ctx.fillText(chainLabel(v.cj), barLeft - 5, barY_B + barH / 2);
 
     // UniProt domain lanes (populated by "Identify chains"): chain A above its bar, chain B below
     const drawDomLane = (la, xFn, len, baseY, dir) => {   // dir -1 = stack up (chain A), +1 = down (chain B)
@@ -5949,7 +5953,7 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
         if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
         ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+14), cyC + Math.sin(labelAngle) * (outerR+14));
         ctx.rotate(textAngle); ctx.fillStyle = hidden ? '#bbb' : '#333'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(arc.type === 'ion' ? arc.displayName : arc.name, 0, 0); ctx.restore();
+        ctx.fillText(arc.type === 'ion' ? arc.displayName : chainLabel(arc.name), 0, 0); ctx.restore();
         ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+24), cyC + Math.sin(labelAngle) * (outerR+24));
         ctx.rotate(textAngle); ctx.fillStyle = '#bbb'; ctx.font = '7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`, 0, 0); ctx.restore();
@@ -6012,7 +6016,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
         ctx.font = 'bold 9px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(arc.type === 'ion' ? arc.displayName : arc.name, 0, 0);
+        ctx.fillText(arc.type === 'ion' ? arc.displayName : chainLabel(arc.name), 0, 0);
         ctx.restore();
 
         // Secondary label (chain letter for ions, size for others)
