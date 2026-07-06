@@ -4197,30 +4197,6 @@ async function overrideChain(chainName){
     try { await applyChainIdentity(chainName, q, 'manual', inp.closest('tr')); }
     catch(e){ alert(e.message); inp.disabled = false; }
 }
-async function blastChain(chainName){                // opt-in: slow (~1-2 min) EBI BLAST for not-found chains
-    const btn = document.querySelector('.blast-btn[data-chain="' + chainName + '"]'); if (!btn || !uniState.modelData.length) return;
-    const md = uniState.modelData[0];
-    const seqs = uniState.structureFormat === 'pdb' ? parsePdbSequence(md.structText) : parseCifSequence(md.structText);
-    const chainSeq = (seqs.get(chainName) || []).filter(r => r.type === 'protein').map(r => r.aa).join('');
-    if (chainSeq.length < 20) return;
-    btn.disabled = true; const t0 = Date.now();
-    const tick = setInterval(() => { btn.textContent = 'BLAST\u2026 ' + Math.round((Date.now() - t0) / 1000) + 's'; }, 1000);
-    const B = 'https://www.ebi.ac.uk/Tools/services/rest/ncbiblast';
-    try {
-        const job = (await (await fetch(B + '/run', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ email: 'anonymous@example.org', program: 'blastp', stype: 'protein', database: 'uniprotkb', sequence: chainSeq }).toString() })).text()).trim();
-        if (!/^ncbiblast-/.test(job)) throw new Error('submit failed');
-        let done = false;
-        for (let i = 0; i < 100 && !done; i++){ await new Promise(r => setTimeout(r, 3000)); const st = (await (await fetch(B + '/status/' + job)).text()).trim(); if (st === 'FINISHED') done = true; else if (/ERROR|FAILURE|NOT_FOUND/.test(st)) throw new Error(st); }
-        if (!done) throw new Error('timed out');
-        const ids = (await (await fetch(B + '/result/' + job + '/ids')).text()).trim();
-        const top = ids.split('\n')[0] || '';
-        const m = top.match(/[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9][A-Z][A-Z0-9]{2}[0-9]/) || top.match(/[A-Z0-9]+_[A-Z0-9]+/);
-        if (!m) throw new Error('no usable hit');
-        clearInterval(tick);
-        await applyChainIdentity(chainName, m[0], 'BLAST', btn.closest('tr'));
-        btn.textContent = '\u2713';
-    } catch(e){ clearInterval(tick); btn.textContent = '\ud83d\udd0d BLAST'; btn.disabled = false; alert('BLAST failed: ' + e.message); }
-}
 async function identifyChains(){
     const btn = document.getElementById('identify-btn'), out = document.getElementById('chain-identity-out');
     if (typeof CLIPResolver === 'undefined'){ out.innerHTML = '<span style="color:#c0392b;">resolver failed to load (needs internet)</span>'; return; }
@@ -4251,12 +4227,12 @@ async function identifyChains(){
         const s = seqOf(n);
         if (!s){ html += '<tr>' + td('<b>' + n + '</b>') + '<td colspan="5" style="color:#888; padding:3px 0;">non-protein chain</td></tr>'; continue; }
         const e = resolved.get(s), r = e && e.r;
-        const acc = r ? '<a href="https://www.uniprot.org/uniprotkb/' + r.accession + '" target="_blank" style="color:#2471A3;">' + r.accession + '</a>' : '<span style="color:#888;">not found</span> <input class="ovr-in" data-chain="' + n + '" placeholder="gene / accession" style="width:116px; font-size:0.78rem; padding:1px 3px"><button type="button" class="ovr-btn" data-chain="' + n + '" style="font-size:0.78rem; margin-left:2px; cursor:pointer">set</button><button type="button" class="blast-btn" data-chain="' + n + '" style="font-size:0.78rem; margin-left:4px; cursor:pointer">\ud83d\udd0d BLAST</button>';
+        const acc = r ? '<a href="https://www.uniprot.org/uniprotkb/' + r.accession + '" target="_blank" style="color:#2471A3;">' + r.accession + '</a>' : '<span style="color:#888;">not found</span> <input class="ovr-in" data-chain="' + n + '" placeholder="gene / accession" style="width:116px; font-size:0.78rem; padding:1px 3px"><button type="button" class="ovr-btn" data-chain="' + n + '" style="font-size:0.78rem; margin-left:2px; cursor:pointer">set</button>';
         const doms = r ? (e.dom.length ? e.dom.map(d => d.name + ' (' + d.start + '\u2013' + d.end + ')').join('<br>') : '<span style="color:#aaa;">none</span>') : '';
         html += '<tr>' + td('<b>' + n + '</b>') + td(s.length) + td(acc) + td(r && r.gene ? r.gene : '') + td(r && r.organism ? '<i>' + r.organism + '</i>' : '') + td(doms) + '</tr>';
     }
     out.innerHTML = html + '</tbody></table>';
-    out.onclick = (e) => { const ob = e.target.closest('.ovr-btn'); if (ob) return overrideChain(ob.dataset.chain); const bb = e.target.closest('.blast-btn'); if (bb) return blastChain(bb.dataset.chain); };
+    out.onclick = (e) => { const btn = e.target.closest('.ovr-btn'); if (btn) overrideChain(btn.dataset.chain); };
     uniState.chainDomains = {}; uniState.chainGenes = {};         // feed identities (gene + domains) to every figure
     for (const n of names){ const e = resolved.get(seqOf(n)); if (e && e.r){ if (e.r.gene) uniState.chainGenes[n] = e.r.gene; if (e.r.lengthOk && e.dom && e.dom.length) uniState.chainDomains[n] = e.dom; } }
     const _pk = uniState.currentPairKey;                          // re-render so chain labels + domains reflect the resolved identities
