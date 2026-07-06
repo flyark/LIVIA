@@ -3272,7 +3272,7 @@ function displayResults(results, jobName) {
     document.getElementById('results').classList.add('active');
     setupMultiChainColors();
     renderChainToggleBar();
-    { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; } _cic.style.display = ''; } else { _cic.style.display = 'none'; } } }
+    { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; } _cic.style.display = ''; } else { _cic.style.display = 'none'; } } }
     drawAllScoreMatrices();
     drawAllMaps();
     document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
@@ -4161,6 +4161,9 @@ async function identifyChains(){
         html += '<tr>' + td('<b>' + n + '</b>') + td(s.length) + td(acc) + td(r && r.gene ? r.gene : '') + td(r && r.organism ? '<i>' + r.organism + '</i>' : '') + td(doms) + '</tr>';
     }
     out.innerHTML = html + '</tbody></table>';
+    uniState.chainDomains = {};                                   // feed domains to the Linear Contact Map (aligned matches only)
+    for (const n of names){ const e = resolved.get(seqOf(n)); if (e && e.r && e.r.lengthOk && e.dom && e.dom.length) uniState.chainDomains[n] = e.dom; }
+    if (uniState.currentPairKey && Object.keys(uniState.chainDomains).length) buildContactMap(uniState.currentPairKey);
     btn.disabled = false; btn.textContent = 'Identify chains via UniProt';
 }
 function drawAllScoreMatrices() {
@@ -5675,9 +5678,12 @@ function buildContactMap(pairKey) {
 
     // Draw
     const S = 2;
-    const width = Math.min(900, (card.clientWidth || 900) - 32), height = 280;
+    const domsA = (uniState.chainDomains && uniState.chainDomains[v.ci]) || [];
+    const domsB = (uniState.chainDomains && uniState.chainDomains[v.cj]) || [];
+    const topLane = domsA.length ? 22 : 0, botLane = domsB.length ? 22 : 0;
+    const width = Math.min(900, (card.clientWidth || 900) - 32), height = 280 + topLane + botLane;
     const barH = 14;
-    const barY_A = 45, barY_B = height - 55;
+    const barY_A = 45 + topLane, barY_B = height - 55 - botLane;
     const barLeft = 60, barRight = width - 20;
     const barW = barRight - barLeft;
 
@@ -5730,6 +5736,20 @@ function buildContactMap(pairKey) {
     ctx.fillStyle = colors.clir_a; ctx.fillText(`${v.ci}`, barLeft - 5, barY_A + barH / 2);
     ctx.fillStyle = colors.clir_b; ctx.fillText(`${v.cj}`, barLeft - 5, barY_B + barH / 2);
 
+    // UniProt domain lanes (populated by "Identify chains"): chain A above its bar, chain B below
+    const drawDomLane = (doms, xFn, len, y) => {
+        for (const d of doms){
+            const x0 = xFn(Math.max(1, d.start)), x1 = xFn(Math.min(len, d.end)), w = Math.max(2, x1 - x0);
+            ctx.fillStyle = '#8e7cc3'; ctx.fillRect(x0, y, w, 11);
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.6; ctx.strokeRect(x0, y, w, 11);
+            if (w > 22){ ctx.fillStyle = '#fff'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                const cap = Math.max(3, Math.floor(w / 6)); const lab = d.name.length > cap ? d.name.slice(0, cap - 1) + '\u2026' : d.name;
+                ctx.fillText(lab, (x0 + x1) / 2, y + 6); }
+        }
+    };
+    if (domsA.length) drawDomLane(domsA, xA, v.lenI, barY_A - 18);
+    if (domsB.length) drawDomLane(domsB, xB, v.lenJ, barY_B + barH + 7);
+
     // Ticks
     ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
@@ -5758,7 +5778,7 @@ function buildContactMap(pairKey) {
 
     // Label
     ctx.fillStyle = '#888'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width / 2, barY_B + barH + 18);
+    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width / 2, barY_B + barH + (botLane ? 32 : 18));
 
     ctx.restore();
 }
@@ -6119,6 +6139,7 @@ function buildChordDiagram() {
     canvas.style.width = size + 'px';
     canvas.style.height = size + 'px';
     drawChord(canvas.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors, selLIR, selCLIR, chainLightColors);
+    window.__chordDraw = (c) => { c.width = size * S; c.height = size * S; drawChord(c.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors, selLIR, selCLIR, chainLightColors); };
     if (canvas.parentElement && !document.getElementById('chord-png-btn')){ const _cb = document.createElement('button'); _cb.id = 'chord-png-btn'; _cb.type = 'button'; _cb.textContent = '\u2193 PNG'; _cb.style.cssText = 'display:block; margin:4px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;'; _cb.onclick = () => { const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = 'chord_diagram.png'; a.click(); }; canvas.parentElement.appendChild(_cb); }
 
     // --- Draw combined all-models chord ---
