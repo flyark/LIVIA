@@ -109,6 +109,7 @@
             .colorbar-labels { width: 100%; max-width: 300px; }
         }
     </style>
+<script src="https://cdn.jsdelivr.net/npm/canvas2svg@1.0.16/canvas2svg.js"></script>
 </head>
 <body>
 
@@ -4096,6 +4097,27 @@ function greensColor(value, vmin, vmax) {
     }
 }
 
+// ---- vector SVG export: re-run any canvas draw fn against a canvas2svg context ----
+function svgFromDraw(drawClosure){
+    const C = window.C2S; if (!C) throw new Error('SVG library not loaded (needs internet)');
+    let ctx = null;
+    const fake = { style:{}, _w:300, _h:150, set width(w){this._w=w;}, get width(){return this._w;}, set height(h){this._h=h;}, get height(){return this._h;}, getContext(){ ctx = new C(this._w, this._h); return ctx; } };
+    drawClosure(fake);
+    return ctx ? ctx.getSerializedSvg() : '';
+}
+function downloadSVGFile(name, svg){ const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([svg], {type:'image/svg+xml'})); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+function addPngBtn(container, name, canvas){
+    const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = '\u2193 PNG';
+    btn.style.cssText = 'display:block; margin:2px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;';
+    btn.onclick = () => { const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = name.replace(/[^\w.-]+/g,'_') + '.png'; a.click(); };
+    container.appendChild(btn);
+}
+function addSvgBtn(container, name, drawClosure){
+    const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = '\u2193 SVG';
+    btn.style.cssText = 'display:block; margin:2px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;';
+    btn.onclick = () => { try { downloadSVGFile(name.replace(/[^\w.-]+/g,'_') + '.svg', svgFromDraw(drawClosure)); } catch(e){ alert('SVG export failed: ' + e.message); } };
+    container.appendChild(btn);
+}
 function drawAllScoreMatrices() {
     const card = document.getElementById('score-matrix-card');
     const row = document.getElementById('score-matrix-row');
@@ -4133,6 +4155,7 @@ function drawAllScoreMatrices() {
         const canvas = document.createElement('canvas');
         drawOneScoreMatrix(canvas, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), displaySize);
         wrap.appendChild(canvas);
+        addSvgBtn(wrap, 'score_matrix_' + (md.label || mi), (c) => drawOneScoreMatrix(c, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), displaySize));
         row.appendChild(wrap);
     }
 }
@@ -4355,6 +4378,7 @@ function drawAllMaps() {
         item.appendChild(canvas);
         paeRow.appendChild(item);
         drawMapCanvas(canvas, model.pae, model.nTotal, chainSizes, chainNames, bwrColor, 0, 30);
+        addPngBtn(item, 'PAE_' + model.label, canvas);
     }
 
     // LIS Maps
@@ -4372,6 +4396,7 @@ function drawAllMaps() {
         item.appendChild(canvas);
         lisRow.appendChild(item);
         drawMapCanvas(canvas, model.lisMap, model.nTotal, chainSizes, chainNames, bluesColor, 0, 1);
+        addPngBtn(item, 'LIS_' + model.label, canvas);
     }
 
     // cLIS Maps (dilated)
@@ -4391,6 +4416,7 @@ function drawAllMaps() {
         clisRow.appendChild(item);
         const dilated = dilateMap(model.clisMap, clisDilateRadius);
         drawMapCanvas(canvas, dilated, model.nTotal, chainSizes, chainNames, greensColor, 0, 1);
+        addPngBtn(item, 'cLIS_' + model.label, canvas);
     }
 
     // Colorbars
