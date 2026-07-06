@@ -110,6 +110,7 @@
         }
     </style>
 <script src="https://cdn.jsdelivr.net/npm/canvas2svg@1.0.16/canvas2svg.js"></script>
+<script src="js/clip-resolver.js"></script>
 </head>
 <body>
 
@@ -217,6 +218,16 @@
                 </div>
                 <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details. Different platforms may require different thresholds.</div>
             </div>
+        </div>
+
+        <!-- Chain identity (UniProt via sequence) -->
+        <div class="card result-card" id="chain-identity-card" style="display:none;">
+            <h2>Chain identity</h2>
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+                Resolve each protein chain to its UniProt entry by exact sequence match (CRC64 checksum), then list its domains. Works for dimers and larger complexes; identical chains are resolved once.
+            </div>
+            <button class="btn" id="identify-btn" onclick="identifyChains()">Identify chains via UniProt</button>
+            <div id="chain-identity-out" style="margin-top:0.6rem; overflow-x:auto;"></div>
         </div>
 
         <!-- Score Matrix (iLIS / iLIA) -->
@@ -3261,6 +3272,7 @@ function displayResults(results, jobName) {
     document.getElementById('results').classList.add('active');
     setupMultiChainColors();
     renderChainToggleBar();
+    { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; } _cic.style.display = ''; } else { _cic.style.display = 'none'; } } }
     drawAllScoreMatrices();
     drawAllMaps();
     document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
@@ -4117,6 +4129,39 @@ function addSvgBtn(container, name, drawClosure){
     btn.style.cssText = 'display:block; margin:2px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;';
     btn.onclick = () => { try { downloadSVGFile(name.replace(/[^\w.-]+/g,'_') + '.svg', svgFromDraw(drawClosure)); } catch(e){ alert('SVG export failed: ' + e.message); } };
     container.appendChild(btn);
+}
+async function identifyChains(){
+    const btn = document.getElementById('identify-btn'), out = document.getElementById('chain-identity-out');
+    if (typeof CLIPResolver === 'undefined'){ out.innerHTML = '<span style="color:#c0392b;">resolver failed to load (needs internet)</span>'; return; }
+    if (!uniState.modelData.length) return;
+    const md = uniState.modelData[0];
+    const seqs = uniState.structureFormat === 'pdb' ? parsePdbSequence(md.structText) : parseCifSequence(md.structText);
+    const names = uniState.chainNames || [];
+    const seqOf = (name) => (seqs.get(name) || []).filter(r => r.type === 'protein').map(r => r.aa).join('');
+    const uniq = new Map();                                       // dedup identical chains (homo-oligomers resolve once)
+    for (const n of names){ const s = seqOf(n); if (s && s.length >= 10 && !uniq.has(s)) uniq.set(s, true); }
+    if (!uniq.size){ out.innerHTML = '<span style="color:#888;">no protein chains to identify</span>'; return; }
+    btn.disabled = true; btn.textContent = 'Identifying ' + uniq.size + ' sequence' + (uniq.size > 1 ? 's' : '') + '\u2026';
+    const resolved = new Map();
+    await Promise.all([...uniq.keys()].map(async (s) => {         // resolve unique sequences in parallel (fast for multimers)
+        try { const r = await CLIPResolver.resolveStructure({ seq: s, length: s.length });
+              const dom = r ? await CLIPResolver.fetchDomains(r.accession).catch(() => []) : [];
+              resolved.set(s, { r, dom }); }
+        catch(e){ resolved.set(s, { r: null, dom: [] }); }
+    }));
+    const th = (h) => '<th style="text-align:left; padding:3px 12px 4px 0; border-bottom:1px solid #ddd; white-space:nowrap;">' + h + '</th>';
+    const td = (h) => '<td style="padding:3px 12px 3px 0; vertical-align:top;">' + h + '</td>';
+    let html = '<table style="border-collapse:collapse; font-size:0.85rem;"><thead><tr>' + ['Chain','Len','UniProt','Gene','Organism','Domains'].map(th).join('') + '</tr></thead><tbody>';
+    for (const n of names){
+        const s = seqOf(n);
+        if (!s){ html += '<tr>' + td('<b>' + n + '</b>') + '<td colspan="5" style="color:#888; padding:3px 0;">non-protein chain</td></tr>'; continue; }
+        const e = resolved.get(s), r = e && e.r;
+        const acc = r ? '<a href="https://www.uniprot.org/uniprotkb/' + r.accession + '" target="_blank" style="color:#2471A3;">' + r.accession + '</a>' : '<span style="color:#888;">not found</span>';
+        const doms = r ? (e.dom.length ? e.dom.map(d => d.name + ' (' + d.start + '\u2013' + d.end + ')').join('<br>') : '<span style="color:#aaa;">none</span>') : '';
+        html += '<tr>' + td('<b>' + n + '</b>') + td(s.length) + td(acc) + td(r && r.gene ? r.gene : '') + td(r && r.organism ? '<i>' + r.organism + '</i>' : '') + td(doms) + '</tr>';
+    }
+    out.innerHTML = html + '</tbody></table>';
+    btn.disabled = false; btn.textContent = 'Identify chains via UniProt';
 }
 function drawAllScoreMatrices() {
     const card = document.getElementById('score-matrix-card');
