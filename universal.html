@@ -6074,6 +6074,7 @@ function buildChordDiagram() {
     canvas.style.width = size + 'px';
     canvas.style.height = size + 'px';
     drawChord(canvas.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors, selLIR, selCLIR, chainLightColors);
+    if (canvas.parentElement && !document.getElementById('chord-png-btn')){ const _cb = document.createElement('button'); _cb.id = 'chord-png-btn'; _cb.type = 'button'; _cb.textContent = '\u2193 PNG'; _cb.style.cssText = 'display:block; margin:4px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;'; _cb.onclick = () => { const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = 'chord_diagram.png'; a.click(); }; canvas.parentElement.appendChild(_cb); }
 
     // --- Draw combined all-models chord ---
     const hasMultipleModels = uniState.modelPairs && uniState.modelPairs.length > 1;
