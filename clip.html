@@ -161,9 +161,15 @@
     <div class="card">
       <h2>3D structure <span id="struct-badge" class="muted" style="font-weight:400; font-size:.8rem"></span></h2>
       <div class="muted">Query protein structure, residues colored by the cluster that consensus-contacts them · click clusters to isolate.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.</div>
-      <div class="muted" style="margin-top:.35rem">Color the structure by <select id="color3d" style="font-size:.82rem; padding:1px 4px"><option value="cluster" selected>cluster (consensus)</option><option value="plddt">AlphaFold pLDDT</option><option value="am">AlphaMissense (human)</option></select></div>
       <div class="muted" style="margin-top:.35rem">Highlight residues contacted by &ge; <select id="commonality" style="font-size:.82rem; padding:1px 4px"><option value="0.5" selected>50%</option><option value="0.6">60%</option><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option></select> of a cluster's members (consensus / core residues).</div>
       <div id="cluster-chips" class="chips" style="margin:.5rem 0 0"></div>
+      <div class="row" style="margin-top:.5rem; gap:.4rem; align-items:center; flex-wrap:wrap">
+        <span class="muted">Color 3D:</span>
+        <span class="cchip cmode sel" data-mode="cluster">cluster</span>
+        <span class="cchip cmode" data-mode="plddt">pLDDT</span>
+        <span class="cchip cmode" data-mode="am">AlphaMissense</span>
+        <span id="am-cut-wrap" class="muted hidden">&middot; AM path. &ge; <select id="am-cutoff" style="font-size:.82rem; padding:1px 4px"><option value="0.3">30%</option><option value="0.4">40%</option><option value="0.5" selected>50%</option><option value="0.6">60%</option><option value="0.7">70%</option></select></span>
+      </div>
       <iframe id="viewer3d-frame" style="width:100%; height:600px; border:1px solid var(--line); border-radius:8px; background:#fff; margin-top:.5rem" title="3D structure viewer"></iframe>
     </div>
 
@@ -204,7 +210,7 @@ function clusterColor(id, k){
 function amColor(v){ const t=Math.max(0,Math.min(1,v));   // AlphaMissense: benign(blue) -> ambiguous(grey) -> pathogenic(red)
   const lerp=(a,b,u)=>[0,1,2].map(i=>Math.round(a[i]+(b[i]-a[i])*u));
   const c = t<0.5 ? lerp([44,123,182],[224,224,224],t/0.5) : lerp([224,224,224],[215,25,28],(t-0.5)/0.5);
-  return `rgb(${c[0]},${c[1]},${c[2]})`;
+  return '#' + c.map(x => x.toString(16).padStart(2, '0')).join('');
 }
 const FPR_ILIS = [['10% FPR', 0.223], ['5% FPR', 0.339], ['1% FPR', 0.551]];
 // Shared residue x-axis layout so the frequency plot and the fingerprint heatmap align column-for-column.
@@ -328,7 +334,12 @@ function render(A){
   $('svg-freq').onclick = () => { if (LAST) downloadSVG(`clip_${LAST.gene}_frequency.svg`, svgFreq(LAST, svgOpts())); };
   $('svg-heatmap').onclick = () => { if (LAST) downloadSVG(`clip_${LAST.gene}_fingerprint.svg`, svgHeatmap(LAST, heatOpts())); };
   $('commonality').onchange = () => { COMMONALITY = +$('commonality').value; if (LAST) recolor3D(LAST); };
-  $('color3d').onchange = () => { if (LAST) recolor3D(LAST); };
+  document.querySelectorAll('.cmode').forEach(el => el.onclick = () => {
+    document.querySelectorAll('.cmode').forEach(x => x.classList.remove('sel')); el.classList.add('sel');
+    COLOR3D = el.dataset.mode; const w = $('am-cut-wrap'); if (w) w.classList.toggle('hidden', COLOR3D !== 'am');
+    if (LAST) recolor3D(LAST);
+  });
+  $('am-cutoff').onchange = () => { AM_CUTOFF = +$('am-cutoff').value; if (LAST) recolor3D(LAST); };
   $('palette').onchange = () => { PALETTE = $('palette').value; if (LAST) redraw(LAST); };
 }
 
@@ -646,8 +657,8 @@ function renderScatter(A){
   const layout = { margin:{t:10,r:10,b:45,l:62}, xaxis:{title:xKey, rangemode:'tozero'}, yaxis:{title:yKey, rangemode:'tozero'}, legend:{font:{size:10}} };
   // FPR iLIS reference lines when iLIS is on an axis (active cutoff = dashed+bold, others dotted)
   const fprShape = (ax, v) => ax==='y'
-    ? { type:'line', xref:'paper', x0:0, x1:1, y0:v, y1:v, line:{ color:'#e07a5f', width: v===cutoff?1.4:0.8, dash: v===cutoff?'dash':'dot' } }
-    : { type:'line', yref:'paper', y0:0, y1:1, x0:v, x1:v, line:{ color:'#e07a5f', width: v===cutoff?1.4:0.8, dash: v===cutoff?'dash':'dot' } };
+    ? { type:'line', xref:'paper', x0:0, x1:1, y0:v, y1:v, line:{ color:'#e07a5f', width: v===cutoff?1.5:0.8, dash: 'dash' } }
+    : { type:'line', yref:'paper', y0:0, y1:1, x0:v, x1:v, line:{ color:'#e07a5f', width: v===cutoff?1.5:0.8, dash: 'dash' } };
   const fprAnn = (ax, lbl, v) => ax==='y'
     ? { xref:'paper', x:1, xanchor:'right', y:v, yanchor:'bottom', text:`${lbl} (${v})`, showarrow:false, font:{size:9, color:'#e07a5f'} }
     : { yref:'paper', y:1, yanchor:'top', x:v, xanchor:'left', text:`${lbl} (${v})`, showarrow:false, font:{size:9, color:'#e07a5f'}, textangle:-90 };
@@ -782,13 +793,15 @@ function pickQueryChain(plddtMap, queryLen){
   return chains[0];
 }
 let COMMONALITY = 0.5;   // 3D: colour a residue with a cluster when >= this fraction of the cluster's members contact it
+let COLOR3D = 'cluster';   // 3D colour mode: cluster | plddt | am
+let AM_CUTOFF = 0.5;       // AM mode: only colour residues with mean pathogenicity >= this
 function clusterColorComponents(A){
   const { pipe, cl } = A, k = cl.optimalK, map = A.residueMap;
   const N = A._structLen || pipe.proteinLen, GRAY = '#e6e6e6', qc = A._queryChain || 'A';
   const colorAt = new Array(N+1).fill(GRAY);
-  const mode = ($('color3d') && $('color3d').value) || 'cluster';
+  const mode = COLOR3D;
   if (mode === 'plddt' && A._plddt){ for (let sr=1;sr<=N;sr++){ const v=A._plddt.get(qc+':'+sr); if(v!=null) colorAt[sr]=plddtColor(v); } }
-  else if (mode === 'am' && A._am){ for (let sr=1;sr<=N;sr++){ const v=A._am[sr]; if(v!=null) colorAt[sr]=amColor(v); } }
+  else if (mode === 'am' && A._am){ for (let sr=1;sr<=N;sr++){ const v=A._am[sr]; if(v!=null && v>=AM_CUTOFF) colorAt[sr]=amColor(v); } }
   else {   // cluster consensus: colour a residue with a cluster only when >= COMMONALITY fraction of its members contact it
     const active = ACTIVE || _allClusters(k), toStruct = (r) => map ? map[r-1] : r, thr = COMMONALITY;
     const byRes = {}, clusterSize = {};
