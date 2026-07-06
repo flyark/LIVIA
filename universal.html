@@ -220,6 +220,16 @@
             </div>
         </div>
 
+        <!-- Figure export options (SVG) -->
+        <div class="card result-card" id="export-controls" style="display:none; padding:0.55rem 0.9rem;">
+            <span style="font-size:0.82rem; color:#555; font-weight:600;">SVG export:</span>
+            <span style="font-size:0.82rem; color:#888; margin-left:0.6rem;">font &times;
+                <select id="exp-font" onchange="setExp('font', this.value)" style="font-size:0.82rem; padding:1px 3px;"><option value="0.8">0.8</option><option value="1" selected>1.0</option><option value="1.25">1.25</option><option value="1.5">1.5</option><option value="2">2.0</option></select></span>
+            <span style="font-size:0.82rem; color:#888; margin-left:0.9rem;">width
+                <select id="exp-w" onchange="setExp('w', this.value)" style="font-size:0.82rem; padding:1px 3px;"><option value="0" selected>auto</option><option value="600">600</option><option value="900">900</option><option value="1200">1200</option><option value="1600">1600</option></select></span>
+            <span style="font-size:0.76rem; color:#aaa; margin-left:0.6rem;">(applies to every &darr; SVG; per-residue maps export as 2&times; PNG)</span>
+        </div>
+
         <!-- Chain identity (UniProt via sequence) -->
         <div class="card result-card" id="chain-identity-card" style="display:none;">
             <h2>Chain identity</h2>
@@ -3274,6 +3284,7 @@ function displayResults(results, jobName) {
     setupMultiChainColors();
     renderChainToggleBar();
     { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; } _cic.style.display = ''; } else { _cic.style.display = 'none'; } } }
+    { const _ec = document.getElementById('export-controls'); if (_ec) _ec.style.display = (uniState.chainNames && uniState.chainNames.length >= 2) ? '' : 'none'; }
     drawAllScoreMatrices();
     drawAllMaps();
     document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
@@ -4110,6 +4121,19 @@ function greensColor(value, vmin, vmax) {
     }
 }
 
+let EXPORT_FONT = 1, EXPORT_W = 0;   // figure-export options (SVG font multiplier / target width; 0 = native)
+function setExp(k, v){ if (k === 'font') EXPORT_FONT = +v; else EXPORT_W = +v; }
+function applyExportOpts(svg){
+    if (EXPORT_FONT && EXPORT_FONT !== 1) svg = svg.replace(/font-size="([\d.]+)px"/g, (m, s) => 'font-size="' + (parseFloat(s) * EXPORT_FONT).toFixed(2) + 'px"');
+    const m = svg.match(/<svg\b[^>]*\bwidth="([\d.]+)"[^>]*\bheight="([\d.]+)"/);
+    if (m){
+        const ow = parseFloat(m[1]), oh = parseFloat(m[2]);
+        if (!/viewBox=/.test(svg)) svg = svg.replace(/<svg\b/, '<svg viewBox="0 0 ' + ow + ' ' + oh + '"');
+        if (EXPORT_W){ const th = Math.round(oh * EXPORT_W / ow);
+            svg = svg.replace(/(<svg\b[^>]*?)\bwidth="[\d.]+"/, '$1width="' + EXPORT_W + '"').replace(/(<svg\b[^>]*?)\bheight="[\d.]+"/, '$1height="' + th + '"'); }
+    }
+    return svg;
+}
 // ---- vector SVG export: re-run any canvas draw fn against a canvas2svg context ----
 function svgFromDraw(drawClosure){
     const C = window.C2S; if (!C) throw new Error('SVG library not loaded (needs internet)');
@@ -4128,7 +4152,7 @@ function svgFromFixedCanvas(canvasId, redraw){   // figures that draw to a fixed
     return svg;
 }
 function downloadContactMapSVG(){ if (!uniState.currentPairKey) return; try { downloadSVGFile('linear_contact_map.svg', svgFromFixedCanvas('contact-canvas', () => buildContactMap(uniState.currentPairKey))); } catch(e){ alert('SVG export failed: ' + e.message); } }
-function downloadSVGFile(name, svg){ const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([svg], {type:'image/svg+xml'})); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+function downloadSVGFile(name, svg){ const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([applyExportOpts(svg)], {type:'image/svg+xml'})); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
 function addPngBtn(container, name, canvas){
     const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = '\u2193 PNG';
     btn.style.cssText = 'display:block; margin:2px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;';
