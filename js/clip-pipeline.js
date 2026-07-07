@@ -53,14 +53,15 @@
     for (const s of seps) if (s && name.includes(s)) { const p = name.split(s); return [p[0].trim(), p.slice(1).join(s).trim()]; }
     return [name, name];
   }
+  const DROP_COLS = ['structure_file', 'pae_plot', 'deeploc_1', 'deeploc_2', 'iLIS_x_iLIA', 'LIR_indice_A', 'LIR_indice_B'];   // columns cLIP never renders — dropped on parse to cut memory on large multi-file loads
   function convertRows(rows, sep) {
     sep = sep || '_vs_';
     if (!rows.length) return rows;
     const isRaw = ('name' in rows[0]) && ('cLIR_indices_i' in rows[0] || 'cLIR_indices_j' in rows[0]);
-    if (!isRaw) return rows; // already converted
+    if (!isRaw) { for (const r of rows) for (const d of DROP_COLS) delete r[d]; return rows; } // already converted — just trim
     return rows.map((r) => {
       const o = {};
-      for (const k in r) o[COLUMN_MAP[k] || k] = r[k];
+      for (const k in r){ const nk = COLUMN_MAP[k] || k; if (DROP_COLS.indexOf(nk) >= 0) continue; const v = r[k]; o[nk] = (v !== '' && v != null && !isNaN(v)) ? +v : v; }   // numeric strings -> Numbers (~8 B vs ~40 B) — cLIR_indice '[...]' / names stay strings (isNaN)
       const [s1, s2] = parseProteinNames(String(r.name), sep);
       o.Symbol_1 = s1; o.Symbol_2 = s2;
       return o;
@@ -73,7 +74,7 @@
     return rows.filter((r) => String(r.Symbol_1) === g || String(r.Symbol_2) === g);
   }
   const SWAP = [['Symbol_1', 'Symbol_2'], ['cLIR_indice_A', 'cLIR_indice_B'],
-    ['LIR_indice_A', 'LIR_indice_B'], ['Protein_Len_A', 'Protein_Len_B']];
+    ['Protein_Len_A', 'Protein_Len_B']];
   function orient(rows, gene) {
     const g = String(gene);
     return rows.map((r) => {

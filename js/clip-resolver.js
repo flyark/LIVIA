@@ -104,14 +104,14 @@
     if (ACC_RE.test(gene)) queries.push(`accession:${gene}`);
     if (ACC_RE.test(acc0) && acc0 !== gene) queries.push(`accession:${acc0}`);
     queries.push(`gene:${gene}${org}`);
-    queries.push(`xref:${gene}${org}`);   // cross-reference IDs: FlyBase FBgn, WormBase WBGene, Ensembl, …
+    queries.push(`xref:${gene}${org}`); queries.push(`${gene}${org}`);   // cross-reference IDs: FlyBase FBgn, WormBase WBGene, Ensembl, …
     for (const q of queries) {
       let d;
       try { d = await _json(`https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent(q)}&fields=accession,length,reviewed,organism_name,gene_names&format=json&size=25`); } catch (e) { continue; }
       const cands = (d.results || []).map((x) => ({ acc: x.primaryAccession, length: x.sequence && x.sequence.length, reviewed: /Swiss-Prot/i.test(x.entryType || ''), organism: x.organism && x.organism.scientificName, gene: x.genes && x.genes[0] && x.genes[0].geneName && x.genes[0].geneName.value }));
       if (!cands.length) continue;
       const score = (c) => (expectLen && c.length === expectLen ? 8 : 0) + (c.reviewed ? 2 : 0) + (expectLen ? -Math.min(2, Math.abs((c.length || 0) - expectLen) / 50) : 0);
-      const via = q.startsWith('id:') ? 'entry name' : q.startsWith('accession:') ? 'accession' : q.startsWith('xref:') ? 'cross-ref (FlyBase/etc.)' : 'symbol + length';
+      const via = q.startsWith('id:') ? 'entry name' : q.startsWith('accession:') ? 'accession' : q.startsWith('xref:') ? 'cross-ref (FlyBase/etc.)' : q.startsWith('gene:') ? 'symbol + length' : 'text search';
       return { by: via, candidates: cands.slice().sort((a, b) => score(b) - score(a)) };
     }
     return null;

@@ -15,7 +15,7 @@
 <style>
   /* cLIP-specific — livia.css provides the shell (body, .header, .container, .card, .btn) */
   .card h2 { margin:0 0 .5rem; font-size:1.05rem; color:#1a5276; font-weight:600; }
-  .dropgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:.8rem; }
+  .dropgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:.8rem; }
   .dz { border:2px dashed #b7c6d6; border-radius:10px; padding:1rem .8rem; text-align:center; color:#557; cursor:pointer; transition:.15s; }
   .dz.hover { border-color:#2471A3; background:#eef5fb; }
   .dz-ic { font-size:1.4rem; }
@@ -23,7 +23,8 @@
   .dz-h { font-size:.72rem; color:#889; margin-top:.15rem; }
   .dz-l { font-size:.8rem; color:#2471A3; font-weight:600; margin-top:.4rem; min-height:1em; }
   .opt { font-weight:400; font-size:.72rem; color:#9aa; }
-  @media (max-width:640px){ .dropgrid { grid-template-columns:1fr; } }
+  @media (max-width:900px){ .dropgrid { grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:520px){ .dropgrid { grid-template-columns:1fr; } }
   .chips { display:flex; flex-wrap:wrap; gap:.4rem; }
   .cchip { display:inline-flex; align-items:center; gap:.35rem; padding:.22rem .6rem; border:1px solid #d0d8e0; border-radius:14px; font-size:.78rem; cursor:pointer; background:#fff; user-select:none; transition:.12s; }
   .cchip .dot { width:11px; height:11px; border-radius:50%; }
@@ -80,12 +81,24 @@
         <div class="dz-l" id="ld-fasta"></div>
         <input id="in-fasta" type="file" accept=".fasta,.fa,.faa,.fas,.fna,.mfa,.pep,.seq,.txt,.zip" multiple class="hidden">
       </div>
+      <div class="dz" id="dz-meta">
+        <div class="dz-ic">🏷️</div><div class="dz-t">Identity map <span class="opt">optional</span></div>
+        <div class="dz-h"><b>name, chain</b> + ID columns (uniprot / gene / label — any scheme) · resolves arbitrary prediction names</div>
+        <div class="dz-l" id="ld-meta"></div>
+        <input id="in-meta" type="file" accept=".csv,.tsv,.txt" class="hidden">
+      </div>
       <div class="dz" id="dz-struct">
         <div class="dz-ic">🧊</div><div class="dz-t">Structure <span class="opt">optional</span></div>
         <div class="dz-h">Drag or click to upload a structure (PDB/CIF) to use instead of AlphaFold DB</div>
         <div class="dz-l" id="ld-struct"></div>
         <input id="in-struct" type="file" accept=".pdb,.cif,.bcif,.ent,.mmcif" class="hidden">
       </div>
+    </div>
+    <div id="meta-label-wrap" class="hidden" style="margin-top:.6rem; font-size:.85rem; color:#556;">
+      🏷️ Identity map · <span id="meta-stat"></span> · Label by: <select id="meta-label" style="font-size:.85rem; padding:2px 6px"></select>
+    </div>
+    <div id="skel-wrap" class="hidden" style="margin-top:.4rem; font-size:.8rem; color:#889;">
+      Arbitrary prediction names? <a href="#" id="skel-link" style="color:#2471A3; font-weight:600">↓ download an identity-map template</a> for your CSV — fill in the IDs, re-upload.
     </div>
     <div style="margin-top:.7rem; font-size:.85rem; color:#556;">
       ▶ Try examples — kinase-transcription factor screen (<a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank" style="color:#2471A3">Kim et al. 2025</a>):<br>
@@ -104,7 +117,8 @@
       &nbsp; <span style="color:#889; font-size:.8rem;">human kinase &rarr;</span>
       <a href="#" class="load-ex" data-file="akt1_tf_screen.csv" data-gene="AKT1" style="color:#2471A3; font-weight:600; text-decoration:none;">AKT1</a> ·
       <a href="#" class="load-ex" data-file="p38a_tf_screen.csv" data-gene="MAPK14" style="color:#2471A3; font-weight:600; text-decoration:none;">p38&alpha;</a> ·
-      <a href="#" class="load-ex" data-file="chk1_tf_screen.csv" data-gene="CHEK1" style="color:#2471A3; font-weight:600; text-decoration:none;">CHK1</a>
+      <a href="#" class="load-ex" data-file="chk1_tf_screen.csv" data-gene="CHEK1" style="color:#2471A3; font-weight:600; text-decoration:none;">CHK1</a><br>
+      <span style="color:#889; font-size:.8rem;">or the</span> <a href="#" id="demo-id-link" style="color:#2471A3; font-weight:600; text-decoration:none;">identity-map demo</a> <span style="color:#889; font-size:.78rem;">(arbitrary run_NNN names + a mapping table)</span>
     </div>
     <div class="row" style="margin-top:1rem">
       <label>Query protein: <select id="gene"><option>—</option></select></label>
@@ -150,6 +164,7 @@
       <div class="muted">How often each query residue is a contact Local Interaction Residue (cLIR) across partners, colored by the dominant cluster · click clusters to filter.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.<br>Tracks below the bars: AlphaFold <b>pLDDT</b> (0&ndash;100) <span class="am-only hidden">&middot; <b style="color:#a33">AM path.</b> = AlphaMissense mean pathogenicity per residue (averaged over all ~19 substitutions at that position; blue = benign &rarr; red = pathogenic; human only, from AlphaFold DB).</span></div>
       <div id="freq-chips" class="chips" style="margin:.4rem 0"></div>
       <canvas id="freq"></canvas>
+      <div id="freq-domains" style="font-size:.8rem; color:#556; margin-top:.35rem; line-height:1.55"></div>
     </div>
 
     <div class="card">
@@ -240,6 +255,7 @@ let LAST = null;     // last analysis result (for export)
 let FASTA_PARSE = null;  // parsed FASTA {map, byLen, seqs} from optional FASTA
 let FASTA_WARN = [];
 let STRUCT_FILE = null; // optional user-uploaded structure
+let META = null, META_LABELCOL = null, LABEL_IDS = {}, LABEL_FRAG = {};   // identity map globals; LABEL_IDS: label -> resolvable ids; LABEL_FRAG: label -> {start,end} for partial proteins
 let ACTIVE = null;      // active cluster ids (shared: 3D viewer + frequency plot)
 let TABLE_SORT = null;  // {label, dir} for the partners table
 const CHIP_CONTAINERS = ['cluster-chips', 'freq-chips', 'fp-chips'];
@@ -254,8 +270,20 @@ function wireZone(zoneId, inputId, kind){
   z.addEventListener('drop', ev => routeFiles(ev.dataTransfer.files, kind));
   inp.addEventListener('change', ev => routeFiles(ev.target.files, kind));
 }
-wireZone('dz-csv', 'in-csv', 'csv'); wireZone('dz-fasta', 'in-fasta', 'fasta'); wireZone('dz-struct', 'in-struct', 'struct');
+wireZone('dz-csv', 'in-csv', 'csv'); wireZone('dz-fasta', 'in-fasta', 'fasta'); wireZone('dz-meta', 'in-meta', 'meta'); wireZone('dz-struct', 'in-struct', 'struct');
 // Examples: fly TF kinase screens (published, Kim et al. 2025) — load the CSV, pick the TF, generate.
+async function loadIdentityDemo(){
+  try {
+    $('status').textContent = 'loading identity-map demo…';
+    FILES = [{ name: 'demo_arbitrary_names.csv', rows: CLIPPipeline.convertRows(CLIPPipeline.parseCSV(await (await fetch('examples/demo_arbitrary_names.csv')).text()).rows) }];
+    META = parseMetadata(await (await fetch('examples/demo_identity_map.csv')).text());
+    const sel = $('meta-label'); sel.innerHTML = ''; for (const c of META.cols){ const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); }
+    META_LABELCOL = META.cols.indexOf('gene') >= 0 ? 'gene' : META.cols[0]; sel.value = META_LABELCOL;
+    $('meta-label-wrap').classList.remove('hidden');
+    applyMetadata(); updateLoaded();
+    $('status').textContent = 'demo loaded — run_NNN names recovered (id columns: gene / uniprot / flybase). Switch \'Label by\', then pick a query (e.g. ftz) and generate.';
+  } catch(e){ $('status').textContent = '⚠ demo load failed: ' + e.message; }
+}
 async function loadExample(file, gene) {
   $('status').textContent = `loading ${gene} kinase–TF screen…`;
   try {
@@ -267,6 +295,9 @@ async function loadExample(file, gene) {
   } catch (err) { $('status').textContent = '⚠ could not load example: ' + err.message; }
 }
 document.querySelectorAll('.load-ex').forEach(a => a.onclick = (e) => { e.preventDefault(); loadExample(a.dataset.file, a.dataset.gene); });
+{ const _ml = $('meta-label'); if (_ml) _ml.onchange = () => { META_LABELCOL = _ml.value; applyMetadata(); $('status').textContent = 'display labels updated — pick a query and generate'; }; }
+{ const _sk = $('skel-link'); if (_sk) _sk.onclick = (e) => { e.preventDefault(); downloadSkeleton(); }; }
+{ const _d = $('demo-id-link'); if (_d) _d.onclick = (e) => { e.preventDefault(); loadIdentityDemo(); }; }
 // FPR ⇄ iLIS cutoff sync
 $('fpr').onchange = () => { if ($('fpr').value) $('ilis').value = $('fpr').value; };
 $('ilis').oninput = () => { $('fpr').value = ['0.223','0.339','0.551'].includes($('ilis').value) ? $('ilis').value : ''; };
@@ -274,6 +305,13 @@ $('ilis').oninput = () => { $('fpr').value = ['0.223','0.339','0.551'].includes(
 async function routeFiles(list, kind){
   if (!list || !list.length) return;
   if (kind === 'struct'){ STRUCT_FILE = list[0]; updateLoaded(); return; }   // read later as object URL
+  if (kind === 'meta'){                                                        // identity map: prediction + chain -> protein IDs
+    try { META = parseMetadata(await list[0].text()); } catch(e){ $('status').textContent = '⚠ identity map parse failed: ' + e.message; return; }
+    if (!META || !META.cols.length){ META = null; $('ld-meta').textContent = '⚠ no id columns'; return; }
+    const sel = $('meta-label'); sel.innerHTML = ''; for (const c of META.cols){ const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); }
+    META_LABELCOL = META.cols[0]; $('meta-label-wrap').classList.remove('hidden');
+    applyMetadata(); updateLoaded(); return;
+  }
   try {
     const wantExt = kind === 'fasta' ? /\.(fasta|fa|faa|fas|fna|mfa|pep|seq|txt)$/i : /\.(csv|tsv|txt)$/i;
     const items = [];   // {name,text} — a dropped .zip of lis.py CSVs / FASTA files is expanded here
@@ -294,8 +332,52 @@ async function routeFiles(list, kind){
   if (kind === 'fasta' && (!FASTA_PARSE || !FASTA_PARSE.seqs.length)){
     $('ld-fasta').textContent = '⚠ 0 sequences parsed'; $('status').textContent = 'FASTA loaded but no sequences parsed — check the file format.'; return;
   }
-  if (kind === 'csv') rebuildGenes();
+  if (kind === 'csv'){ if (META) applyMetadata(); else rebuildGenes(); }
   updateLoaded();
+}
+function parseMetadata(text){
+  const rows = CLIPPipeline.parseCSV(text).rows;
+  if (!rows || !rows.length) return null;
+  const lc = (s) => String(s||'').toLowerCase(), ks = Object.keys(rows[0]);
+  const nameK = ks.find(k => lc(k) === 'name') || 'name', chainK = ks.find(k => lc(k) === 'chain') || 'chain';
+  const startK = ks.find(k => lc(k) === 'start') || null, endK = ks.find(k => lc(k) === 'end') || null;   // optional: partial-protein boundary on the full protein
+  const cols = ks.filter(k => k !== nameK && k !== chainK && k !== startK && k !== endK);
+  const byKey = {};
+  for (const r of rows){ const nm = String(r[nameK]||'').trim(), ch = String(r[chainK]||'').trim(); if (!nm) continue; byKey[nm + ':::' + ch] = r; }
+  return { byKey, cols, nameK, chainK, startK, endK };
+}
+function metaId(name, chain, col){   // identity for (name, chain): chosen column, else first non-empty id
+  if (!META) return null;
+  const m = META.byKey[String(name).trim() + ':::' + String(chain).trim()];
+  if (!m) return null;
+  const nz = (c) => { const v = m[c]; return v != null && String(v).trim() ? String(v).trim() : null; };
+  return (col && nz(col)) || META.cols.map(nz).find(Boolean) || null;
+}
+function applyMetadata(){             // override Symbol_1/2 from the identity map (chain_i -> Symbol_1, chain_j -> Symbol_2)
+  if (!META){ rebuildGenes(); return; }
+  const col = META_LABELCOL || META.cols[0], names = new Set(), matched = new Set();
+  for (const f of FILES){ for (const r of f.rows){ names.add(r.name);
+    const li = metaId(r.name, r.chain_i, col), lj = metaId(r.name, r.chain_j, col);
+    if (li) r.Symbol_1 = li; if (lj) r.Symbol_2 = lj; if (li && lj) matched.add(r.name); } }
+  LABEL_IDS = {}; LABEL_FRAG = {};   // label -> resolvable ids + optional partial-protein {start,end}
+  for (const k in META.byKey){ const m = META.byKey[k];
+    let label = (m[col] != null && String(m[col]).trim()) ? String(m[col]).trim() : (META.cols.map(c => m[c]).find(v => v != null && String(v).trim()) || null);
+    if (label == null) continue;
+    label = String(label).trim();
+    LABEL_IDS[label] = [...new Set(META.cols.map(c => m[c]).filter(v => v != null && String(v).trim()).map(v => String(v).trim()))];
+    if (META.startK && META.endK){ const s = +m[META.startK], e = +m[META.endK]; if (s >= 1 && e > s) LABEL_FRAG[label] = { start: s, end: e }; }
+  }
+  rebuildGenes();
+  const st = $('meta-stat'); if (st) st.textContent = matched.size + '/' + names.size + ' predictions mapped';
+}
+function downloadSkeleton(){       // emit a blank identity map (name, chain, id1) for every prediction+chain in the loaded CSV
+  if (!FILES.length) return;
+  const seen = new Set(), out = [['name','chain','uniprot','gene','label','start','end']];   // ID columns + start/end (fill start/end ONLY for a partial protein: its range on the full protein)
+  for (const f of FILES){ for (const r of f.rows){ for (const ch of [r.chain_i, r.chain_j]){ if (ch == null || ch === '') continue; const k = r.name + ':::' + ch; if (seen.has(k)) continue; seen.add(k); out.push([r.name, ch, '', '', '', '', '']); } } }
+  const esc = (x) => { x = String(x == null ? '' : x); return /[,"\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+  const blob = new Blob([out.map(row => row.map(esc).join(',')).join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'identity_map_template.csv';
+  document.body.appendChild(a); a.click(); setTimeout(() => { try { URL.revokeObjectURL(a.href); } catch(e){} a.remove(); }, 1000);
 }
 function rebuildGenes(){
   const partners = {}, lenOf = {};   // symbol → distinct partners (# predictions) + aa length
@@ -316,7 +398,10 @@ function updateLoaded(){
   const nf = FASTA_PARSE ? FASTA_PARSE.seqs.length : 0;
   $('ld-fasta').textContent = nf ? `✓ ${nf} seq${FASTA_WARN.length ? ` ⚠${FASTA_WARN.length}` : ''}` : '';
   $('ld-struct').textContent = STRUCT_FILE ? `✓ ${STRUCT_FILE.name}` : '';
+  $('ld-meta').textContent = META ? '✓ identity map' : '';
+  { const sw = $('skel-wrap'); if (sw) sw.classList.toggle('hidden', !FILES.length); }
   $('status').textContent = FILES.length ? `${$('gene').options.length} proteins — pick a query and generate.` : 'Drop a lis.py CSV to begin.';
+  { const tr = FILES.reduce((n,f)=>n+f.rows.length,0); if (tr > 500000) $('status').textContent += ` ⚠ ${Math.round(tr/1000)}K predictions (~${Math.round(tr*1030/1e6)} MB in memory) — very large loads can hit the browser memory limit; split by query if a tab crashes.`; }
 }
 
 $('run').onclick = () => {
@@ -427,7 +512,7 @@ function renderHeatmap(A){
   ctx.font = `${9 * S}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   const nT = 15, ticks = [];
   for (let i = 0; i < nT; i++){ const r = Math.round(1 + i * (plen - 1) / (nT - 1)); if (!ticks.includes(r)) ticks.push(r); }
-  for (const r of ticks){ const x = edge(r) + step * S / 2; ctx.beginPath(); ctx.moveTo(x, rowsHb); ctx.lineTo(x, rowsHb + 3 * S); ctx.stroke(); ctx.fillText(String(r), x, rowsHb + 5 * S); }
+  for (const r of ticks){ const x = edge(r) + step * S / 2; ctx.beginPath(); ctx.moveTo(x, rowsHb); ctx.lineTo(x, rowsHb + 3 * S); ctx.stroke(); ctx.fillText(String(r + (A._fragOffset||0)), x, rowsHb + 5 * S); }
 }
 
 function renderClusterInfo(A){
@@ -461,9 +546,9 @@ function renderFreq(A){
     const ps = inv ? (inv[d.start]||d.start) : d.start, pe = inv ? (inv[d.end]||d.end) : d.end;
     if (pe<1 || ps>plen) continue;
     const dx0=xOf(Math.max(1,ps)), dx1=Math.max(dx0+2, xOf(Math.min(plen,pe)+1));
-    doms.push({ x0:dx0, x1:dx1, name:d.name });
+    doms.push({ x0:dx0, x1:dx1, name:d.name, start:d.start, end:d.end });
   }
-  doms.sort((a,b)=>a.x0-b.x0);
+  doms.sort((a,b)=>a.x0-b.x0); doms.forEach((d,i)=>d.idx=i+1);
   const laneEnd=[];
   for (const d of doms){ let l=0; while(l<laneEnd.length && laneEnd[l] > d.x0+0.5) l++; d.lane=l; laneEnd[l]=d.x1; }
   const nL=laneEnd.length, DRH=13, domBoxH=11, domTop=2, domTotal=nL*DRH;
@@ -508,12 +593,18 @@ function renderFreq(A){
   // shared residue x-axis ticks (bottom)
   ctx.fillStyle='#889'; ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.font='9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
   { const nT=15, ticks=[]; for (let i=0;i<nT;i++){ const r=Math.round(1+i*(plen-1)/(nT-1)); if(!ticks.includes(r)) ticks.push(r); }
-    for (const r of ticks){ const x=xOf(r)+bw/2; ctx.beginPath(); ctx.moveTo(x,xtickBase); ctx.lineTo(x,xtickBase+3); ctx.stroke(); ctx.fillText(String(r), x, xtickBase+5); } }
+    for (const r of ticks){ const x=xOf(r)+bw/2; ctx.beginPath(); ctx.moveTo(x,xtickBase); ctx.lineTo(x,xtickBase+3); ctx.stroke(); ctx.fillText(String(r + (A._fragOffset||0)), x, xtickBase+5); } }
   // domain track (stacked lanes, top)
   ctx.font='9px sans-serif'; ctx.textBaseline='middle';
   for (const d of doms){ const y=domTop + d.lane*DRH, w=d.x1-d.x0;
     ctx.fillStyle='#e3e9f1'; ctx.fillRect(d.x0, y, w, domBoxH); ctx.strokeStyle='#9fb0c4'; ctx.lineWidth=.5; ctx.strokeRect(d.x0, y, w, domBoxH);
-    ctx.fillStyle='#456'; ctx.textAlign='center'; if (ctx.measureText(d.name).width < w-3) ctx.fillText(d.name, d.x0+w/2, y+domBoxH/2); }
+    ctx.fillStyle='#456'; ctx.textAlign='center'; const _lbl='D'+d.idx; if (ctx.measureText(_lbl).width < w-2) ctx.fillText(_lbl, d.x0+w/2, y+domBoxH/2); }   // short D1/D2/... labels (always fit); full names in the legend below
+  { const dl = $('freq-domains');
+    if (dl){ if (doms.length){
+      const items = doms.map(d => `<b style="color:#456">D${d.idx}</b> = ${_esc(d.name)} <span style="color:#8a97a8">(${d.start}\u2013${d.end})</span>`).join(' &nbsp;\u00b7&nbsp; ');
+      const acc = A._accession, link = acc ? ` &nbsp;\u2014&nbsp; <a href="https://www.uniprot.org/uniprotkb/${acc}/entry#family_and_domains" target="_blank" style="color:#2471A3">on UniProt ${acc} \u2197</a>` : '';
+      dl.innerHTML = `<b style="color:#456">Domains:</b> ${items}${link}`;
+    } else dl.innerHTML = ''; } }
 }
 
 // ---- publication SVG export (vector; same layout math as the canvas renderers) ----
@@ -558,7 +649,7 @@ function svgHeatmap(A, opts){
   for (let i = 0; i < nT; i++){ const r = Math.round(1 + i * (plen - 1) / (nT - 1)); if (!ticks.includes(r)) ticks.push(r); }
   for (const r of ticks){ const x = edge(r) + step / 2;
     s += `<line x1="${_f(x)}" y1="${_f(rowsH)}" x2="${_f(x)}" y2="${_f(rowsH + 3)}" stroke="#ccc" stroke-width="1"/>`
-      + `<text x="${_f(x)}" y="${_f(rowsH + 4 + fs)}" font-size="${fs}" fill="#889" text-anchor="middle">${r}</text>`; }
+      + `<text x="${_f(x)}" y="${_f(rowsH + 4 + fs)}" font-size="${fs}" fill="#889" text-anchor="middle">${r + (A._fragOffset||0)}</text>`; }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${_f(W)}" height="${_f(H)}" viewBox="0 0 ${_f(W)} ${_f(H)}" font-family="${SVG_FONT}">${s}</svg>`;
 }
 
@@ -605,7 +696,7 @@ function svgFreq(A, opts){
     const yamL=_f((amTop+amBase)/2); s += `<text x="11" y="${yamL}" font-size="${fs}" fill="#a33" text-anchor="middle" transform="rotate(-90 11 ${yamL})">AM path.</text>`;
   }
   const nT=15,ticks=[]; for(let i=0;i<nT;i++){const r=Math.round(1+i*(plen-1)/(nT-1)); if(!ticks.includes(r))ticks.push(r);}
-  for(const r of ticks){ const x=xOf(r)+bw/2; s += `<line x1="${_f(x)}" y1="${_f(xtickBase)}" x2="${_f(x)}" y2="${_f(xtickBase+3)}" stroke="#ccc" stroke-width="1"/><text x="${_f(x)}" y="${_f(xtickBase+4+fs)}" font-size="${fs}" fill="#889" text-anchor="middle">${r}</text>`; }
+  for(const r of ticks){ const x=xOf(r)+bw/2; s += `<line x1="${_f(x)}" y1="${_f(xtickBase)}" x2="${_f(x)}" y2="${_f(xtickBase+3)}" stroke="#ccc" stroke-width="1"/><text x="${_f(x)}" y="${_f(xtickBase+4+fs)}" font-size="${fs}" fill="#889" text-anchor="middle">${r + (A._fragOffset||0)}</text>`; }
   for(const d of doms){ const y=domTop+d.lane*DRH, w=d.x1-d.x0; s += `<rect x="${_f(d.x0)}" y="${y}" width="${_f(w)}" height="${domBoxH}" fill="#e3e9f1" stroke="#9fb0c4" stroke-width="0.5"/>`; if(String(d.name).length*fs*0.55 < w-3) s += `<text x="${_f(d.x0+w/2)}" y="${y+domBoxH/2}" font-size="${fs}" fill="#456" text-anchor="middle" dominant-baseline="central">${_esc(d.name)}</text>`; }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${_f(W)}" height="${_f(H)}" viewBox="0 0 ${_f(W)} ${_f(H)}" font-family="${SVG_FONT}">${s}</svg>`;
 }
@@ -836,7 +927,7 @@ let COLOR3D = 'cluster';   // 3D colour mode: cluster | plddt | am
 let AM_CUTOFF = 0;         // AM mode: only colour residues with mean pathogenicity >= this (0 = show all)
 function clusterColorComponents(A){
   const { pipe, cl } = A, k = cl.optimalK, map = A.residueMap;
-  const N = A._structLen || pipe.proteinLen, GRAY = '#e6e6e6', qc = A._queryChain || 'A';
+  let N = A._structLen || pipe.proteinLen; const GRAY = '#e6e6e6', qc = A._queryChain || 'A'; if (A.residueMap){ for (const sr of A.residueMap) if (sr && sr > N) N = sr; }   // fragment cLIR coords map onto the full structure (e.g. 410-764) — cover them
   const colorAt = new Array(N+1).fill(GRAY);
   const mode = COLOR3D;
   if (mode === 'plddt' && A._plddt){ for (let sr=1;sr<=N;sr++){ const v=A._plddt.get(qc+':'+sr); if(v!=null) colorAt[sr]=plddtColor(v); } }
@@ -866,7 +957,7 @@ async function load3D(source, A){
   A._queryChain = pickQueryChain(A._plddt, A.pipe.proteinLen);   // dimer: pick the chain matching the query length, not always A
   { const chs = A._plddt ? new Set([...A._plddt.keys()].map(k => k.split(':')[0])) : new Set();
     if (chs.size > 1) $('struct-badge').textContent += ` · query = chain ${A._queryChain}`; }
-  renderFreq(A);   // re-render frequency with the AFDB pLDDT overlay now available
+  renderFreq(A); if (A._fragOffset) renderHeatmap(A);   // re-render with the AFDB pLDDT overlay + fragment full-protein axis now available
   const base = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
   const page = buildMolstarPage(text, fmt, clusterColorComponents(A), base);
   const blob = new Blob([page], { type:'text/html' });
@@ -875,7 +966,7 @@ async function load3D(source, A){
 }
 async function resolve3D(A){
   const badge = $('struct-badge'), gene = A.gene, plen = A.pipe.proteinLen, species = '';
-  A.residueMap = null; A._structText = null; A._domains = null; $('query-uniprot').innerHTML = '';
+  A.residueMap = null; A._structText = null; A._domains = null; A._accession = null; A._fragOffset = 0; $('query-uniprot').innerHTML = '';
   // bait sequence from FASTA — by symbol/pair-name, else by unique length (arbitrary headers)
   const predSeq = CLIPResolver.baitSequence(FASTA_PARSE, gene, plen);
   if (STRUCT_FILE){                                   // uploaded structure wins (offline / confidential)
@@ -884,7 +975,8 @@ async function resolve3D(A){
   }
   badge.textContent = '· resolving…';
   let res = null;
-  try { res = await CLIPResolver.resolveStructure({ gene, length: plen, seq: predSeq, species }); } catch(e){ console.warn(e); }
+  const _cands = [...new Set([gene].concat((META && LABEL_IDS[gene]) || []))];   // try the display label, then the identity-map id columns (UniProt/symbol/etc.)
+  for (const _c of _cands){ let _r = null; try { _r = await CLIPResolver.resolveStructure({ gene: _c, length: plen, seq: predSeq, species }); } catch(e){ console.warn(e); } if (_r && _r.cifUrl){ res = _r; break; } if (_r && !res) res = _r; }
   if (!res){ badge.textContent = `· no UniProt match (${gene}${species ? ', ' + species : ''}) — drop a structure or set species`; $('viewer3d-frame').src = 'about:blank'; return; }
   // UniProt identity — shown whether or not an AFDB structure is available.
   $('query-uniprot').innerHTML = `UniProt <a href="https://www.uniprot.org/uniprotkb/${res.accession}" target="_blank">${res.accession}</a>`
@@ -893,12 +985,14 @@ async function resolve3D(A){
   // Align predicted → structure (canonical) sequence and remap cLIR coordinates (isoform/len diffs).
   let note;
   if (res.fragment){                                   // partial protein: shift cLIR coords onto the full structure
-    A.residueMap = []; for (let i = 1; i <= plen; i++) A.residueMap[i-1] = res.fragment.offset + i;
+    A.residueMap = []; for (let i = 1; i <= plen; i++) A.residueMap[i-1] = res.fragment.offset + i; A._fragOffset = res.fragment.offset;
     note = `fragment ${res.fragment.start}–${res.fragment.end} on full ${res.accession}` + (res.fragment.mutations.length ? ` · ${res.fragment.mutations.join('/')}` : '');
-  } else if (predSeq && res.structureSequence){ const mi = CLIPResolver.alignMap(predSeq, res.structureSequence); A.residueMap = mi.map; note = mi.method === 'identical' ? 'seq 1:1 ✓' : `remapped (${mi.method}, ${Math.round(100 * mi.covered / predSeq.length)}% matched)`; }
+  } else if (typeof LABEL_FRAG !== 'undefined' && LABEL_FRAG[gene]){ const mf = LABEL_FRAG[gene]; A.residueMap = []; for (let i = 1; i <= plen; i++) A.residueMap[i-1] = (mf.start - 1) + i; A._fragOffset = mf.start - 1; note = `fragment ${mf.start}\u2013${mf.end} on full ${res.accession}` + ((mf.end - mf.start + 1) !== plen ? ` \u26a0 range ${mf.end-mf.start+1}\u2260query ${plen}` : ''); }   // partial protein from the identity map's start/end columns
+  else if (predSeq && res.structureSequence){ const mi = CLIPResolver.alignMap(predSeq, res.structureSequence); A.residueMap = mi.map; note = mi.method === 'identical' ? 'seq 1:1 ✓' : `remapped (${mi.method}, ${Math.round(100 * mi.covered / predSeq.length)}% matched)`; }
   else if (res.structureLength && plen && res.structureLength !== plen){ note = `⚠ len ${res.structureLength}≠${plen}, no FASTA to align`; }
   else note = res.lengthOk ? 'len ✓' : `⚠ len ${res.structureLength}≠${plen}`;
   document.querySelectorAll('.am-only').forEach(e => e.classList.add('hidden'));   // AM is human-only; revealed only if AlphaMissense loads
+  A._accession = res.accession;
   CLIPResolver.fetchDomains(res.accession).then(d => { if (d && d.length){ A._domains = d; renderFreq(A); } });   // UniProt domain track (needs only accession)
   CLIPResolver.fetchAlphaMissense(res.accession).then(am => { if (am && am.length){ A._am = am; renderFreq(A); document.querySelectorAll('.am-only').forEach(e => e.classList.remove('hidden')); } });   // AlphaMissense per-residue pathogenicity (human only)
   if (!res.cifUrl){ badge.textContent = `· ${res.accession}${res.gene ? ' (' + res.gene + ')' : ''} · via ${res.matchedBy} · ⚠ no AFDB structure`; $('viewer3d-frame').src = 'about:blank'; return; }
