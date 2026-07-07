@@ -93,6 +93,14 @@
       <a href="#" class="load-ex" data-file="ftz_kinase_screen.csv" data-gene="ftz" style="color:#2471A3; font-weight:600; text-decoration:none;">ftz</a> ·
       <a href="#" class="load-ex" data-file="eve_kinase_screen.csv" data-gene="eve" style="color:#2471A3; font-weight:600; text-decoration:none;">eve</a> ·
       <a href="#" class="load-ex" data-file="antp_kinase_screen.csv" data-gene="Antp" style="color:#2471A3; font-weight:600; text-decoration:none;">Antp</a>
+      &nbsp; <span style="color:#889; font-size:.8rem;">fly kinase &rarr;</span>
+      <a href="#" class="load-ex" data-file="apkc_tf_screen.csv" data-gene="aPKC" style="color:#2471A3; font-weight:600; text-decoration:none;">aPKC</a> ·
+      <a href="#" class="load-ex" data-file="pdk1_tf_screen.csv" data-gene="Pdk1" style="color:#2471A3; font-weight:600; text-decoration:none;">Pdk1</a> ·
+      <a href="#" class="load-ex" data-file="s6k_tf_screen.csv" data-gene="S6k" style="color:#2471A3; font-weight:600; text-decoration:none;">S6k</a><br>
+      <span style="color:#889; font-size:.8rem;">human TF &rarr;</span>
+      <a href="#" class="load-ex" data-file="jun_kinase_screen.csv" data-gene="JUN" style="color:#2471A3; font-weight:600; text-decoration:none;">JUN</a> ·
+      <a href="#" class="load-ex" data-file="tp53_kinase_screen.csv" data-gene="TP53" style="color:#2471A3; font-weight:600; text-decoration:none;">TP53</a> ·
+      <a href="#" class="load-ex" data-file="myc_kinase_screen.csv" data-gene="MYC" style="color:#2471A3; font-weight:600; text-decoration:none;">MYC</a>
       &nbsp; <span style="color:#889; font-size:.8rem;">human kinase &rarr;</span>
       <a href="#" class="load-ex" data-file="akt1_tf_screen.csv" data-gene="AKT1" style="color:#2471A3; font-weight:600; text-decoration:none;">AKT1</a> ·
       <a href="#" class="load-ex" data-file="p38a_tf_screen.csv" data-gene="MAPK14" style="color:#2471A3; font-weight:600; text-decoration:none;">p38&alpha;</a> ·
@@ -131,7 +139,7 @@
 
     <div class="card" style="padding:.5rem 1rem; display:flex; align-items:center; gap:.7rem; flex-wrap:wrap">
       <span style="font-weight:600; color:#1a5276">Cluster colors</span>
-      <select id="palette" style="font-size:.9rem; padding:2px 6px"><option value="auto">auto (scales with cluster count)</option><option value="tab10">tab10</option><option value="tab20" selected>tab20</option><option value="tab20b">tab20b</option><option value="tab20c">tab20c</option><option value="distinct">distinct (60+, no repeats)</option></select>
+      <select id="palette" style="font-size:.9rem; padding:2px 6px"><option value="auto" selected>auto (scales with cluster count)</option><option value="tab10">tab10</option><option value="tab20">tab20</option><option value="tab20b">tab20b</option><option value="tab20c">tab20c</option><option value="distinct">distinct (60+, no repeats)</option></select>
       <span class="muted">&mdash; applies to all panels (heatmap, frequency, 3D, scatter)</span>
     </div>
 
@@ -163,6 +171,8 @@
       <h2>3D structure <span id="struct-badge" class="muted" style="font-weight:400; font-size:.8rem"></span></h2>
       <div class="muted">Query protein structure, residues colored by the cluster that consensus-contacts them · click clusters to isolate.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.</div>
       <div class="muted" style="margin-top:.35rem">Highlight residues contacted by &ge; <select id="commonality" style="font-size:.82rem; padding:1px 4px"><option value="0.5">50%</option><option value="0.6">60%</option><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option></select> of a cluster's members (consensus / core residues).</div>
+      <div class="muted" style="margin-top:.25rem">Colour only clusters with &ge; <input id="min-cluster" type="number" min="1" value="5" style="width:46px; font-size:.82rem; padding:1px 4px"> predictions (hides tiny clusters).</div>
+      <div class="muted" style="font-size:.78rem; color:#99a">&nbsp;&nbsp;(the <b>(N)</b> on each cluster chip — AlphaFold ranks, not unique partners).</div>
       <div id="cluster-chips" class="chips" style="margin:.5rem 0 0"></div>
       <div class="row" style="margin-top:.5rem; gap:.4rem; align-items:center; flex-wrap:wrap">
         <span class="muted">Color selection:</span>
@@ -205,9 +215,9 @@ const TAB20B = ['#393b79','#5254a3','#6b6ecf','#9c9ede','#637939','#8ca252','#b5
 const TAB20C = ['#3182bd','#6baed6','#9ecae1','#c6dbef','#e6550d','#fd8d3c','#fdae6b','#fdd0a2','#31a354','#74c476','#a1d99b','#c7e9c0','#756bb1','#9e9ac8','#bcbddc','#dadaeb','#636363','#969696','#bdbdbd','#d9d9d9'];
 const TAB60 = TAB20.concat(TAB20B, TAB20C);   // 60 distinct — 'auto' uses this beyond k=20
 const PALETTES = { tab10: TAB10, tab20: TAB20, tab20b: TAB20B, tab20c: TAB20C, distinct: TAB60 };
-let PALETTE = 'tab20';   // default; 'auto' scales with k (tab10->tab20->tab60->HSL); fixed palettes extend with generated colours past their length
+let PALETTE = 'auto';   // default; 'auto' scales with k (tab10->tab20->tab60->HSL); fixed palettes extend with generated colours past their length
 // golden-angle HSL so colours never collide when clusters exceed the curated palettes
-function hslDistinct(i){ const h = (i * 137.508) % 360, s = 62 + (i % 2) * 16, l = 42 + (i % 3) * 13; return `hsl(${h.toFixed(1)},${s}%,${l}%)`; }
+function hslDistinct(i){ const h = (i * 137.508) % 360, s = (62 + (i % 2) * 16)/100, l = (42 + (i % 3) * 13)/100, a = s * Math.min(l, 1-l); const f = (n) => { const k = (n + h/30) % 12, c = l - a * Math.max(-1, Math.min(k-3, 9-k, 1)); return Math.round(255*c).toString(16).padStart(2,'0'); }; return `#${f(0)}${f(8)}${f(4)}`; }
 function clusterColor(id, k){
   if (PALETTE === 'distinct') return id <= 60 ? TAB60[id - 1] : hslDistinct(id - 1);        // never cycles, any N
   if (PALETTE !== 'auto' && PALETTES[PALETTE]){ const p = PALETTES[PALETTE]; return id <= p.length ? p[id - 1] : hslDistinct(id - 1); }   // fixed palette, extends with generated colours past its length
@@ -347,6 +357,7 @@ function render(A){
   $('svg-freq').onclick = () => { if (LAST) downloadSVG(`clip_${LAST.gene}_frequency.svg`, svgFreq(LAST, svgOpts())); };
   $('svg-heatmap').onclick = () => { if (LAST) downloadSVG(`clip_${LAST.gene}_fingerprint.svg`, svgHeatmap(LAST, heatOpts())); };
   $('commonality').onchange = () => { COMMONALITY = +$('commonality').value; if (LAST) recolor3D(LAST); };
+  { const _mc = $('min-cluster'); if (_mc) _mc.onchange = () => { MIN_CLUSTER = Math.max(1, +$('min-cluster').value || 1); if (LAST) recolor3D(LAST); }; }
   document.querySelectorAll('.cmode').forEach(el => el.onclick = () => {
     document.querySelectorAll('.cmode').forEach(x => x.classList.remove('sel')); el.classList.add('sel');
     COLOR3D = el.dataset.mode; const w = $('am-cut-wrap'); if (w) w.classList.toggle('hidden', COLOR3D !== 'am');
@@ -655,16 +666,19 @@ function renderScatter(A){
   const xKey = ($('scatter-x') && $('scatter-x').value) || 'iLIA';
   const yKey = ($('scatter-y') && $('scatter-y').value) || 'iLIS';
   const rl = (p) => `${p.Symbol_2} (R${p.Rank != null && p.Rank !== '' ? p.Rank : '?'})`;   // rank label, e.g. "sqa (R1)"
-  const HT = `%{text}<br>iLIS %{customdata[0]:.4g}<br>iLIA %{customdata[1]:.4g}<br>iLISA %{customdata[2]:.1f}<br>ipTM %{customdata[3]:.3g}<extra></extra>`;
+  const HM_BASE = ['iLIS','iLIA','iLISA','ipTM'], HM_FMT = {iLIS:'.4g', iLIA:'.4g', iLISA:'.1f', ipTM:'.3g'};
+  const hoverM = HM_BASE.concat([...new Set([yKey, xKey])].filter(m => !HM_BASE.includes(m)));   // append the selected Y/X metric when it isn't one of the four already shown (e.g. ipSAE, actifpTM)
+  const cd = (p) => hoverM.map(m => scVal(p, m));
+  const HT = '%{text}' + hoverM.map((m,i) => `<br>${m} %{customdata[${i}]:${HM_FMT[m]||'.4g'}}`).join('') + '<extra></extra>';
   const pk = (p) => p.Symbol_2 + '\u0001' + p.Rank;
   const passing = new Set(pipe.rows.map(pk));
   const bg = (pipe.allPredictions || pipe.allPoints || []).filter(p => !passing.has(pk(p)));   // every rank, minus the clustered ones
-  const bgTrace = { x: bg.map(p=>scVal(p,xKey)), y: bg.map(p=>scVal(p,yKey)), text: bg.map(rl), customdata: bg.map(p=>[scVal(p,'iLIS'),scVal(p,'iLIA'),scVal(p,'iLISA'),scVal(p,'ipTM')]),
+  const bgTrace = { x: bg.map(p=>scVal(p,xKey)), y: bg.map(p=>scVal(p,yKey)), text: bg.map(rl), customdata: bg.map(cd),
     mode:'markers', type:'scatter', legendrank:9999, name:`other predictions (${bg.length})`, marker:{ size:5, color:'#cdd3db', line:{width:0} }, hovertemplate: HT };
   const traces = {};
   for (let i=0;i<pipe.rows.length;i++){ const lab=cl.labels[i], r=pipe.rows[i];
     (traces[lab]=traces[lab]||{x:[],y:[],text:[],cd:[]});
-    traces[lab].x.push(scVal(r,xKey)); traces[lab].y.push(scVal(r,yKey)); traces[lab].text.push(rl(r)); traces[lab].cd.push([scVal(r,'iLIS'),scVal(r,'iLIA'),scVal(r,'iLISA'),scVal(r,'ipTM')]); }
+    traces[lab].x.push(scVal(r,xKey)); traces[lab].y.push(scVal(r,yKey)); traces[lab].text.push(rl(r)); traces[lab].cd.push(cd(r)); }
   const clTraces = Object.keys(traces).sort((a,b)=>a-b).map(lab=>({ x:traces[lab].x, y:traces[lab].y, text:traces[lab].text, customdata:traces[lab].cd,
     mode:'markers', type:'scatter', legendrank:+lab, name:'cluster '+lab+' ('+traces[lab].x.length+')', marker:{ size:9, color:clusterColor(+lab,k), line:{width:.5,color:'#fff'} }, hovertemplate: HT }));
   const layout = { margin:{t:10,r:10,b:45,l:62}, xaxis:{title:xKey, rangemode:'tozero'}, yaxis:{title:yKey, rangemode:'tozero'}, legend:{font:{size:10}} };
@@ -741,7 +755,7 @@ $('export').onclick = async () => {
     const trimRow = (r) => { const o = {}; for (const k in r) if (DROP.indexOf(k) < 0) o[k] = r[k]; return o; };
     const P = LAST.pipe, slimP = { ...P, rows: (P.rows||[]).map(trimRow), allPredictions: (P.allPredictions||[]).map(trimRow), allPoints: (P.allPoints||[]).map(trimRow) };
     const slimLAST = { ...LAST, pipe: slimP };
-    const gz = fflate.gzipSync(fflate.strToU8(JSON.stringify({ LAST: slimLAST, PALETTE, COMMONALITY, COLOR3D, AM_CUTOFF, ACTIVE: [...ACTIVE], badge: $('struct-badge').innerHTML, uniprot: $('query-uniprot').innerHTML })));
+    const gz = fflate.gzipSync(fflate.strToU8(JSON.stringify({ LAST: slimLAST, PALETTE, COMMONALITY, MIN_CLUSTER, COLOR3D, AM_CUTOFF, ACTIVE: [...ACTIVE], badge: $('struct-badge').innerHTML, uniprot: $('query-uniprot').innerHTML })));
     let dataB64 = ''; for (let i = 0; i < gz.length; i += 0x8000) dataB64 += String.fromCharCode.apply(null, gz.subarray(i, i + 0x8000)); dataB64 = btoa(dataB64);
     out = out.replace('</head>', '<script>window.__CLIP_DATA__ = JSON.parse(fflate.strFromU8(fflate.gunzipSync(Uint8Array.from(atob("' + dataB64 + '"), c => c.charCodeAt(0)))));</scr' + 'ipt>\n</head>');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out], { type: 'text/html' })); a.download = 'clip_' + LAST.gene + '.html';
@@ -752,10 +766,10 @@ $('export').onclick = async () => {
 function loadExportData(d){                           // reconstruct a bundled report — fully interactive, no upload/network (except Plotly/Mol* CDN)
   try {
     PALETTE = d.PALETTE || 'tab20'; COMMONALITY = d.COMMONALITY != null ? d.COMMONALITY : 0.5;
-    COLOR3D = d.COLOR3D || 'cluster'; AM_CUTOFF = d.AM_CUTOFF != null ? d.AM_CUTOFF : 0;
+    COLOR3D = d.COLOR3D || 'cluster'; AM_CUTOFF = d.AM_CUTOFF != null ? d.AM_CUTOFF : 0; MIN_CLUSTER = d.MIN_CLUSTER != null ? d.MIN_CLUSTER : 5;
     LAST = d.LAST;
     const sv = (id, v) => { const el = $(id); if (el && v != null) el.value = String(v); };
-    sv('palette', PALETTE); sv('commonality', COMMONALITY); sv('am-cutoff', AM_CUTOFF);
+    sv('palette', PALETTE); sv('commonality', COMMONALITY); sv('am-cutoff', AM_CUTOFF); sv('min-cluster', MIN_CLUSTER);
     render(LAST);                                     // builds every panel AND wires the interactive handlers
     if (d.ACTIVE && d.ACTIVE.length){ ACTIVE = new Set(d.ACTIVE); redraw(LAST); }
     if (LAST._am) document.querySelectorAll('.am-only').forEach(e => e.classList.remove('hidden'));
@@ -817,6 +831,7 @@ function pickQueryChain(plddtMap, queryLen){
   return chains[0];
 }
 let COMMONALITY = 0.5;   // 3D: colour a residue with a cluster when >= this fraction of the cluster's members contact it
+let MIN_CLUSTER = 5;   // 3D: skip clusters with fewer than this many predictions/members (matches the "Cn (N)" chip count); ignored when a single cluster is isolated
 let COLOR3D = 'cluster';   // 3D colour mode: cluster | plddt | am
 let AM_CUTOFF = 0;         // AM mode: only colour residues with mean pathogenicity >= this (0 = show all)
 function clusterColorComponents(A){
@@ -831,8 +846,9 @@ function clusterColorComponents(A){
     const byRes = {}, clusterSize = {};
     for (let i=0;i<pipe.fingerprints.length;i++){ const lab=cl.labels[i]; clusterSize[lab]=(clusterSize[lab]||0)+1;
       for (const res of pipe.fingerprints[i]){ const sr=toStruct(res); if(!sr||sr<1)continue; (byRes[sr]=byRes[sr]||{})[lab]=(byRes[sr][lab]||0)+1; } }
-    for (const res in byRes){ const r=+res; if(r<1||r>N)continue; let bestFrac=-1, dom=null; const cc=byRes[res];
-      for (const c in cc){ if(!active.has(+c)) continue; const frac=cc[c]/(clusterSize[c]||1); if(frac>=thr && frac>bestFrac){ bestFrac=frac; dom=+c; } }
+    for (const res in byRes){ const r=+res; if(r<1||r>N)continue; let dom=null, domHits=-1, domSize=-1; const cc=byRes[res];
+      for (const c in cc){ if(!active.has(+c)) continue; if(active.size !== 1 && (clusterSize[c]||0) < MIN_CLUSTER) continue; const hits=cc[c]; if(hits/(clusterSize[c]||1) < thr) continue; const sz=clusterSize[c]||0;
+        if(hits>domHits || (hits===domHits && sz>domSize) || (hits===domHits && sz===domSize && dom!=null && +c<dom)){ domHits=hits; domSize=sz; dom=+c; } }   // shared residue → the passing cluster contacting it most (raw count = size × consensus): big, strongly-contacting cluster wins, so a small cluster can't steal C1's territory
       if (dom!=null) colorAt[r]=clusterColor(dom,k); }
   }
   const byColor = {}; let r=1;
