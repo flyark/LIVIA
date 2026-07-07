@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIVIA — PPI Network</title>
+<script src="js/clip-pipeline.js"></script>
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="css/livia.css">
+<style>
+  /* network-specific — livia.css provides the shell (body, .header, .container, .card, .btn, .input-tabs, .footer) */
+  :root{ --accent:#2471A3; --ink:#1b2733; --mut:#6b7a88; --line:#e2e8ee; }
+  body > .container{ max-width:1500px; }   /* wider content for the network view; header keeps livia's 1100px (.header > .container) */
+  .dz{ border:2px dashed #b7c6d6; border-radius:10px; padding:14px; text-align:center; color:#557; cursor:pointer; transition:.15s; background:#fff; min-height:96px; display:flex; flex-direction:column; justify-content:center; }
+  .dz:hover,.dz.drag{ border-color:var(--accent); background:#eef5fb; color:var(--accent); }
+  .dz b{ color:var(--accent); }
+  .zones3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; align-items:start; }
+  .zonehdr{ font-weight:600; font-size:.85rem; color:#556; margin-bottom:6px; }
+  .zonehdr .opt{ font-weight:400; font-size:.76rem; color:#9aa; }
+  .ctrlbar{ background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.08); padding:.8rem 1.2rem; margin-bottom:1rem; display:flex; flex-wrap:wrap; align-items:center; gap:16px; }
+  .ctrlbar.tight{ gap:12px; }
+  label.lb{ font-weight:600; font-size:.85rem; color:#555; }
+  .val{ font-variant-numeric:tabular-nums; color:var(--accent); min-width:30px; display:inline-block; }
+  .sep{ width:1px; align-self:stretch; background:var(--line); min-height:22px; }
+  input[type=range]{ vertical-align:middle; width:108px; }
+  input[type=color]{ width:26px; height:22px; padding:0; border:1px solid var(--line); border-radius:4px; background:none; cursor:pointer; vertical-align:middle; }
+  .ctrlbar select, .ctrlbar input[type=number]{ height:32px; box-sizing:border-box; padding:3px 8px; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:14px; background:#fff; color:var(--ink); vertical-align:middle; }
+  .ctrlbar input[type=number]{ -moz-appearance:textfield; }
+  .ctrlbar input[type=number]::-webkit-outer-spin-button, .ctrlbar input[type=number]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  .ctrlbar button{ background:var(--accent); color:#fff; border:0; border-radius:7px; padding:8px 16px; font-weight:600; font-size:14px; cursor:pointer; }
+  .ctrlbar button:disabled{ opacity:.45; cursor:default; }
+  .ctrlbar button.ghost{ background:#eef3f8; color:var(--accent); }
+  #status{ color:var(--mut); font-size:.85rem; }
+  .statbar{ display:flex; gap:24px; flex-wrap:wrap; margin:0 2px 14px; }
+  .statbar .s{ font-size:13px; color:var(--mut); } .statbar .s b{ color:var(--ink); font-size:16px; }
+  .main{ display:grid; grid-template-columns:1fr 340px; gap:14px; align-items:start; }
+  .netwrap{ position:relative; }
+  #net{ height:720px; background:#fff; border:1px solid var(--line); border-radius:10px; }
+  #nodeinfo{ position:absolute; top:12px; right:12px; width:210px; background:#fff; border:1px solid var(--line); border-radius:9px; box-shadow:0 4px 14px rgba(20,40,60,.12); padding:11px 13px; font-size:13px; }
+  #nodeinfo .nm{ font-weight:700; font-size:14px; word-break:break-word; }
+  #nodeinfo .meta{ color:var(--mut); margin:3px 0 9px; }
+  #nodeinfo button{ width:100%; padding:7px; font-size:13px; background:var(--accent); color:#fff; border:0; border-radius:7px; font-weight:600; cursor:pointer; }
+  #nodeinfo .x{ position:absolute; top:6px; right:9px; color:var(--mut); cursor:pointer; font-size:15px; }
+  #modules{ max-height:720px; overflow:auto; }
+  #modules h3{ margin:0 0 10px; font-size:15px; }
+  .mod{ border:1px solid var(--line); border-radius:8px; padding:9px 11px; margin-bottom:8px; }
+  .mod .hd{ display:flex; align-items:center; gap:8px; font-weight:600; }
+  .mod .hd input[type=color]{ flex:none; }
+  .mod .clipbtn{ margin-left:auto; font-size:11.5px; background:#eef3f8; color:var(--accent); border-radius:5px; padding:3px 7px; cursor:pointer; font-weight:600; }
+  .mod .st{ font-size:12px; color:var(--mut); margin:3px 0 4px; }
+  .mod .mem{ font-size:12px; color:#556; word-break:break-word; }
+  .hint{ color:var(--mut); font-size:13px; }
+  .hint code{ background:#f0f0f0; padding:.1rem .3rem; border-radius:4px; }
+  .hidden{ display:none!important; }
+  @media(max-width:1000px){ .main{ grid-template-columns:1fr; } #modules{ max-height:none; } }
+  @media(max-width:760px){ .zones3{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="container">
+    <h1><span style="color:#2471A3;">LIVIA</span> &mdash; PPI Network <sup style="color:#e67e22; font-weight:700; font-size:.42em; letter-spacing:.02em;">beta</sup> <span style="font-weight:400;">(interaction network builder)</span></h1>
+    <p>Build an interaction network from lis.py output &mdash; Leiden communities run in your browser (Pyodide + python-igraph)</p>
+    <div class="header-links">
+      <a href="index.html">Home</a>
+      <a href="universal.html">Prediction Analysis</a>
+      <a href="flypredictome.html">FlyPredictome</a>
+      <a href="ortholog_predictome.html">Ortholog Interactome</a>
+      <a href="dimer.html">AFDB Dimer</a>
+      <a href="monomer.html">AFDB Monomer Subdomain</a>
+      <a href="clip.html">cLIP</a>
+      <a href="network.html" class="active">PPI Network</a>
+      <a href="tutorials.html">Tutorials</a>
+      <a href="about.html">About</a>
+      <a href="https://github.com/flyark/LIVIA" target="_blank">GitHub</a>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="card">
+    <div class="zones3">
+      <div class="zonecol">
+        <div class="zonehdr">① lis.py CSV output <b style="color:#c0392b">*</b></div>
+        <div class="dz" id="dz">
+          <div style="font-size:14.5px"><b>Drop CSV files</b> (or click)</div>
+          <div class="hint" style="margin-top:3px">iLIS read directly · one or many · all-by-all → rich network</div>
+          <input id="in" type="file" accept=".csv" multiple class="hidden">
+        </div>
+      </div>
+      <div class="zonecol">
+        <div class="zonehdr">② Identity map <span class="opt">optional</span></div>
+        <div class="dz" id="dzmeta">
+          <div style="font-size:14.5px"><b>Relabel nodes</b> to your names</div>
+          <div class="hint" style="margin-top:3px"><code>name,chain,&lt;id cols&gt;</code> · e.g. uniprot, gene</div>
+          <input id="inmeta" type="file" accept=".csv" multiple class="hidden">
+        </div>
+        <div id="tmpl-wrap" class="hint hidden" style="margin-top:6px"><a id="tmpl" href="#" style="font-weight:600">↓ template</a> pre-filled with your predictions — fill in the IDs, drop it here.</div>
+        <div class="hint" style="margin-top:6px">or <a id="mg-convert" href="#" style="font-weight:600">✨ auto-convert names → symbols</a> (mygene.info + UniProt) <select id="mg-species" style="font-size:11.5px; padding:2px 5px; border:1px solid var(--line); border-radius:5px"><option value="">all species</option><option value="7227">fly</option><option value="9606">human</option><option value="10090">mouse</option><option value="559292">yeast</option></select> <label style="margin-left:4px"><input type="checkbox" id="mg-auto" checked> on load</label></div>
+      </div>
+      <div class="zonecol">
+        <div class="zonehdr">③ Node subset <span class="opt">optional</span></div>
+        <div class="dz" id="dzsub">
+          <div style="font-size:14.5px"><b>Rebuild with only these</b></div>
+          <div class="hint" style="margin-top:3px">one <code>node</code> per row · re-runs Leiden</div>
+          <input id="insub" type="file" accept=".csv,.txt,.tsv" multiple class="hidden">
+        </div>
+        <div class="hint" style="margin-top:6px"><a id="subtmpl" href="#" style="font-weight:600">↓ current nodes</a> template · <a id="subclear" href="#" class="hidden" style="color:#c0392b; font-weight:600">✕ clear</a></div>
+      </div>
+    <div id="loaded" class="hint" style="margin-top:12px">No files loaded.</div>
+  </div>
+
+  <div class="ctrlbar">
+    <span><label class="lb">iLIS &ge;</label> <input id="cut" type="range" min="0" max="0.9" step="0.001" value="0.223"> <input id="cutv" type="number" min="0" max="1" step="0.001" value="0.223" style="width:78px"></span>
+    <span><label class="lb">resolution</label> <input id="res" type="range" min="0.1" max="5" step="0.05" value="1.0"> <input id="resv" type="number" min="0" max="50" step="0.05" value="1.0" style="width:62px"></span>
+    <span><label class="lb">objective</label> <select id="objfn" title="modularity: standard (resolution ~0.5–3). CPM: resolution-limit-free — finds small communities; use a lower resolution near the iLIS scale (~0.2–0.5)."><option value="modularity">modularity</option><option value="CPM">CPM</option></select></span>
+    <span><label class="lb">seed</label> <input id="seed" type="number" min="0" step="1" value="1" style="width:56px"></span>
+    <span id="labelby-wrap" class="hidden"><label class="lb">Label by</label> <select id="labelby"></select></span>
+    <button id="build" disabled>Build network</button>
+    <button id="expsvg" class="ghost hidden" title="download the region currently visible (respects zoom)">↓ SVG (view)</button>
+    <button id="expsvgall" class="ghost hidden" title="download the whole network">↓ SVG (all)</button>
+    <button id="expcsv" class="ghost hidden">↓ CSVs</button>
+    <button id="expcyto" class="ghost hidden" title="GraphML — open in Cytoscape (File → Import → Network)">↓ Cytoscape</button>
+    <button id="expset" class="ghost" title="download current settings as JSON (reproducibility)">↓ settings</button>
+    <button id="impset-btn" class="ghost" title="load a settings JSON">↑ settings</button>
+    <input id="impset" type="file" accept=".json" class="hidden">
+    <span id="status"></span>
+  </div>
+
+  <div class="ctrlbar tight hidden" id="display">
+    <b>Display</b>
+    <span class="sep"></span>
+    <span><label class="lb">color by</label> <select id="colorby"><option value="community">community</option><option value="degree">degree</option><option value="strength">strength (Σ iLIS)</option><option value="uniform">uniform</option></select> <input id="unicolor" type="color" value="#2471A3" class="hidden"></span>
+    <span id="colorlegend" class="hint hidden"></span>
+    <span><label class="lb">layout</label> <select id="layout"><option value="force">force (live)</option><option value="fr">spring (FR)</option><option value="kk">Kamada-Kawai</option><option value="drl">DrL</option><option value="community">community</option><option value="circle">circle</option><option value="grid">grid</option></select></span>
+    <span><label class="lb">iterations</label> <input id="layiter" type="number" min="10" max="5000" step="50" value="500" style="width:64px"></span>
+    <span class="sep"></span>
+    <span><label class="lb">node size</label> <input id="nsize" type="range" min="0.3" max="2.5" step="0.1" value="1"> <input id="nsizev" type="number" min="0.1" max="8" step="0.1" value="1" style="width:52px"></span>
+    <span><label class="lb">min edges/node</label> <input id="mindeg" type="range" min="1" max="20" step="1" value="1"> <input id="mindegv" type="number" min="1" max="9999" step="1" value="1" style="width:56px"></span>
+    <span><label class="lb">edge width (∝iLIS)</label> <input id="emin" type="range" min="0.5" max="10" step="0.5" value="4"> <input id="eminv" type="number" min="0" max="50" step="0.5" value="4" style="width:52px"></span>
+    <span><label class="lb">labels ≥ deg</label> <input id="lbldeg" type="range" min="1" max="40" step="1" value="1"> <input id="lbldegv" type="number" min="1" max="9999" step="1" value="1" style="width:56px"></span>
+    <span><label class="lb">label size</label> <input id="lblsize" type="range" min="6" max="30" step="1" value="12"> <input id="lblsizev" type="number" min="4" max="60" step="1" value="12" style="width:52px"></span>
+    <span><label class="lb"><input type="checkbox" id="lbloutline" checked> label outline</label> <input id="lblstroke" type="color" value="#ffffff" title="outline color"></span>
+    <span><label class="lb">label color</label> <input id="lblcolor" type="color" value="#000000"></span>
+    <span class="sep"></span>
+    <span><label class="lb"><input type="checkbox" id="nborder" checked> node border</label> <input id="bcolor" type="color" value="#000000"></span>
+    <span class="hint">· community colors: click a swatch in the module list →</span>
+  </div>
+
+  <div id="layerbar" class="hint hidden" style="margin:0 2px 10px; padding:7px 11px; background:#f0f6fb; border-radius:8px">Layer view from <b id="layer-root"></b> (Leiden colors kept) · layout <select id="layer-mode" style="font-size:12px; padding:1px 4px; border:1px solid var(--line); border-radius:5px"><option value="concentric">concentric shells</option><option value="tree">tree</option></select> · <a id="layer-reset" href="#" style="font-weight:600">⟳ back to force layout</a></div>
+  <div class="statbar" id="stats"></div>
+
+  <div class="main">
+    <div class="netwrap">
+      <div id="net"></div>
+      <div id="nodeinfo" class="hidden"><span class="x" id="ni-x">×</span><div class="nm" id="ni-name"></div><div class="meta" id="ni-meta"></div><button id="ni-clip">Open in cLIP →</button><button id="ni-layer" style="margin-top:6px; background:#eef3f8; color:var(--accent)">⊕ Layers from here</button></div>
+    </div>
+    <div id="modules"><h3>Modules</h3><div class="hint">Build a network to see communities.</div></div>
+  </div>
+</div>
+
+<div class="footer">
+  <a href="https://github.com/flyark/LIVIA" target="_blank">LIVIA GitHub</a> &middot; <a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS GitHub</a>
+  <br>
+  <a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank">Kim &amp; Perrimon (2026)</a>
+  <br>
+  Ah-Ram Kim &middot; Harvard Medical School
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const RAWPAIRS = new Map();         // prediction name -> {name, ci, cj, s1, s2, iLIS, ipTM}  (best iLIS per prediction)
+const FILES_RAW = [];              // [{name,text}] kept for the cLIP hand-off
+let NAME_OF = {};                  // resolved node id -> Set(original prediction names)  (for the hand-off filter)
+let FILECOUNT = 0, PYODIDE = null, NETWORK = null, NODES = null, EDGES = null, LAST = null;
+let META = null, META_COL = null, COMMCOLORS = {}, SUBSET = null, LAYER_ROOT = null;   // SUBSET: node ids to keep (tab 3); LAYER_ROOT: BFS-shell root or null
+
+// ---------- helpers ----------
+function commColor(i){
+  const h=(i*137.508)%360, s=(62+(i%2)*14)/100, l=(50+(i%3)*10)/100, a=s*Math.min(l,1-l);
+  const f=n=>{ const k=(n+h/30)%12, c=l-a*Math.max(-1,Math.min(k-3,9-k,1)); return Math.round(255*c).toString(16).padStart(2,'0'); };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+const commHex = c => COMMCOLORS[c] || commColor(c);
+function gradient(x){   // 0..1 -> hex (light gray-blue -> LIVIA blue -> dark)
+  x=Math.max(0,Math.min(1,x)); const S=[[237,242,247],[93,156,214],[26,58,92]];
+  const j=x<0.5?0:1, u=x<0.5?x*2:(x-0.5)*2, a=S[j], c=S[j+1], h=k=>Math.round(a[k]+(c[k]-a[k])*u).toString(16).padStart(2,'0');
+  return `#${h(0)}${h(1)}${h(2)}`;
+}
+function nodeColors(disp){   // per-displayed-node fill based on the 'color by' mode
+  const mode=$('colorby').value, { nodes, membership, degree }=disp;
+  if (mode==='uniform'){ const c=$('unicolor').value; return nodes.map(()=>c); }
+  if (mode==='community') return nodes.map((s,i)=>commHex(membership[i]));
+  const vals = mode==='strength' ? nodes.map(s=>(LAST.strengthMap.get(s)||0)) : degree.slice();
+  const lo=Math.min(...vals), hi=Math.max(...vals);
+  return vals.map(v=>gradient(hi>lo?(v-lo)/(hi-lo):0.5));
+}
+function updateColorLegend(){
+  const mode=$('colorby').value, el=$('colorlegend'); $('unicolor').classList.toggle('hidden', mode!=='uniform');
+  if ((mode!=='degree'&&mode!=='strength')||!LAST){ el.classList.add('hidden'); return; }
+  const disp=getDisplay(), vals = mode==='strength' ? disp.nodes.map(s=>LAST.strengthMap.get(s)||0) : disp.degree;
+  const lo=Math.min(...vals), hi=Math.max(...vals), f=mode==='strength'?1:0;
+  el.innerHTML = `${mode==='strength'?'Σ iLIS':'degree'} ${lo.toFixed(f)} <span style="display:inline-block;width:70px;height:10px;border-radius:3px;vertical-align:middle;margin:0 4px;background:linear-gradient(90deg,${gradient(0)},${gradient(.5)},${gradient(1)})"></span> ${hi.toFixed(f)}`;
+  el.classList.remove('hidden');
+}
+const nodeRadius = (deg, dmax, scale) => (6 + 30*Math.sqrt(deg/(dmax||1))) * (scale||1);
+const edgeWidth  = (il, imin, imax, scale) => 0.3 + (+scale) * Math.max(0, Math.min(1, (il - imin) / ((imax - imin) || 1)));   // width ∝ iLIS
+const esc = s => String(s).replace(/[<&>]/g, c=>({'<':'&lt;','&':'&amp;','>':'&gt;'}[c]));
+const nodeLabel = s => s;   // node id is already the resolved identity (see resolveId)
+function setStatus(t){ $('status').textContent = t || ''; }
+
+// ---------- identity map ----------
+function parseIdentityMap(text){
+  const rows = CLIPPipeline.parseCSV(text).rows;
+  if (!rows || !rows.length) return null;
+  const lc = s => String(s||'').toLowerCase(), ks = Object.keys(rows[0]);
+  const nameK = ks.find(k=>lc(k)==='name'), chainK = ks.find(k=>lc(k)==='chain');
+  if (nameK && chainK){                                 // mode 1: per-prediction (name, chain) -> ids (cLIP-style)
+    const skip = new Set([nameK, chainK, ks.find(k=>lc(k)==='start'), ks.find(k=>lc(k)==='end')]);
+    const cols = ks.filter(k=>!skip.has(k)), byKey = {};
+    for (const r of rows){ const nm=String(r[nameK]||'').trim(), ch=String(r[chainK]||'').trim(); if(!nm) continue; byKey[nm+'\x00'+ch]=r; }
+    return { mode:'namechain', byKey, cols, _raw:text };
+  }
+  const cols = ks.slice(), lookup = new Map();           // mode 2: lookup table (e.g. PANGEA) — any column value -> its row
+  for (const r of rows){ for (const k of cols){ const v=String(r[k]||'').trim(); if(v && !lookup.has(v)) lookup.set(v, r); } }
+  return { mode:'lookup', lookup, cols, _raw:text };
+}
+function identityLabel(name, chain, col){
+  if (!META || !META.byKey) return null;
+  const m = META.byKey[String(name).trim()+'\x00'+String(chain||'').trim()] || META.byKey[String(name).trim()+'\x00'];
+  if (!m) return null;
+  if (col && m[col] != null && String(m[col]).trim()) return String(m[col]).trim();
+  for (const c of META.cols){ if (m[c]!=null && String(m[c]).trim()) return String(m[c]).trim(); }
+  return null;
+}
+function resolveId(name, chain, sym){   // identity-map label if given, else the split Symbol
+  if (!META) return sym;
+  if (META.mode === 'lookup'){ const r = META.lookup.get(String(sym).trim()); return (r && META_COL && String(r[META_COL]||'').trim()) || sym; }
+  return identityLabel(name, chain, META_COL) || sym;
+}
+function rebuildIfBuilt(){ if (LAST) build(); }   // re-resolve identities / re-apply subset + re-run Leiden
+
+// ---------- load ----------
+async function routeFiles(list){
+  const files = [...list].filter(f=>/\.csv$/i.test(f.name)); if(!files.length) return;
+  setStatus(`Parsing ${files.length} file(s)…`);
+  for (const f of files){
+    let text, rows;
+    try { text = await f.text(); rows = CLIPPipeline.convertRows(CLIPPipeline.parseCSV(text).rows); } catch(e){ continue; }
+    FILES_RAW.push({ name:f.name, text });
+    for (const r of rows){                              // one record per prediction, best-iLIS row (identities resolved at build)
+      const nm=r.name; if(!nm) continue;
+      const il=+r.iLIS||0, prev=RAWPAIRS.get(nm);
+      if(!prev||il>prev.iLIS) RAWPAIRS.set(nm,{ name:nm, ci:r.chain_i||'', cj:r.chain_j||'', s1:r.Symbol_1, s2:r.Symbol_2, iLIS:il, ipTM:+r.ipTM||0 });
+    }
+    FILECOUNT++;
+  }
+  updateLoaded();
+  if (RAWPAIRS.size && $('mg-auto') && $('mg-auto').checked && !META) maybeAutoConvert();
+}
+async function routeMeta(list){
+  const f=[...list].filter(x=>/\.csv$/i.test(x.name))[0]; if(!f) return;
+  try { META = parseIdentityMap(await f.text()); } catch(e){ META=null; }
+  if (META){
+    META_COL = (META.mode==='lookup' ? META.cols.find(c=>/symbol/i.test(c)) : null) || META.cols[0] || null;
+    $('labelby').innerHTML = META.cols.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    $('labelby').value = META_COL || '';
+    $('labelby-wrap').classList.remove('hidden');
+  }
+  updateLoaded(); rebuildIfBuilt();
+}
+async function routeSubset(list){                       // tab 3: a plain list of node names to keep
+  const f=[...list].filter(x=>/\.(csv|txt|tsv)$/i.test(x.name))[0]; if(!f) return;
+  const lines=(await f.text()).split(/\r?\n/).map(l=>l.split(/[,\t]/)[0].trim()).filter(Boolean);
+  if(lines[0] && /^(node|name|symbol|id|protein)$/i.test(lines[0])) lines.shift();
+  SUBSET = lines.length ? new Set(lines) : null;
+  $('subclear').classList.toggle('hidden', !SUBSET);
+  updateLoaded(); rebuildIfBuilt();
+}
+function clearSubset(){ SUBSET=null; $('subclear').classList.add('hidden'); updateLoaded(); rebuildIfBuilt(); }
+async function convertViaMyGene(){   // node names/IDs -> official symbols: mygene.info (symbol/alias/entrez/FBgn/accession) + UniProt fallback (GENE_SPECIES entry names)
+  if (!RAWPAIRS.size){ setStatus('Load lis.py CSVs first.'); return; }
+  const ids = [...new Set([...RAWPAIRS.values()].flatMap(r=>[r.s1, r.s2]).filter(Boolean))];
+  const baseOf = new Map(ids.map(id=>[id, id.replace(/_\d+_\d+$/,'')]));   // drop fragment suffix (BASE_start_end)
+  const bases = [...new Set(baseOf.values())], species = $('mg-species').value, sym = new Map();
+  try {
+    for (let i=0;i<bases.length;i+=800){                                     // 1) mygene.info
+      const chunk = bases.slice(i, i+800); setStatus(`Converting (mygene.info)… ${Math.min(i+800,bases.length)}/${bases.length}`);
+      const body = new URLSearchParams(); body.set('q', chunk.join(',')); body.set('scopes','symbol,alias,retired,entrezgene,flybase,uniprot,ensembl.protein,refseq,accession'); body.set('fields','symbol'); if(species) body.set('species', species);
+      const res = await (await fetch('https://mygene.info/v3/query', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body })).json();
+      for (const h of res){ if(!h.notfound && h.symbol && !sym.has(h.query)) sym.set(h.query, h.symbol); }
+    }
+    const missing = bases.filter(b=>!sym.has(b));                            // 2) UniProt: entry names (GENE_YEAST/GENE_HUMAN) + accessions
+    for (let i=0;i<missing.length;i+=80){
+      const chunk = missing.slice(i, i+80); setStatus(`Converting (UniProt)… ${Math.min(i+80,missing.length)}/${missing.length}`);
+      const accRE = /^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})$/;   // UniProt accession vs entry name
+      const q = chunk.map(x=>accRE.test(x) ? `accession:${x}` : `id:${x}`).join(' OR ');
+      const res = await (await fetch(`https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent('('+q+')')}&fields=id,accession,gene_primary&format=json&size=500`)).json();
+      const m = {}; for (const r of (res.results||[])){ const g=r.genes&&r.genes[0]&&r.genes[0].geneName&&r.genes[0].geneName.value; if(g){ m[r.uniProtkbId]=g; m[r.primaryAccession]=g; } }
+      for (const b of chunk){ if(m[b]) sym.set(b, m[b]); }
+    }
+  } catch(e){ setStatus('Conversion error: '+(e.message||e)); return; }
+  const lookup = new Map();
+  for (const id of ids){ const s = sym.get(baseOf.get(id)); if(s) lookup.set(id, { input:id, symbol:s }); }
+  if (!lookup.size){ setStatus('No names could be converted — check the species / ID format.'); return; }
+  META = { mode:'lookup', lookup, cols:['input','symbol'], _raw:null }; META_COL='symbol';
+  $('labelby').innerHTML = META.cols.map(c=>`<option value="${c}">${c}</option>`).join(''); $('labelby').value='symbol'; $('labelby-wrap').classList.remove('hidden');
+  setStatus(`Converted ${lookup.size}/${ids.length} names → symbols.`);
+  updateLoaded(); rebuildIfBuilt();
+}
+function maybeAutoConvert(){   // auto-run name→symbol conversion when loaded names look like IDs (FBpp/FBgn/entry name/accession/entrez)
+  const syms=new Set(); for (const r of RAWPAIRS.values()){ if(r.s1) syms.add(r.s1); if(r.s2) syms.add(r.s2); }
+  const ids=[...syms], idLike=ids.filter(n=>/^FB(pp|gn|tr)\d+$/i.test(n)||/_(HUMAN|MOUSE|RAT|YEAST|DROME|CAEEL|DANRE|ARATH|SCHPO|BOVIN|CHICK|XENLA|PIG|HORSE|RABIT)(_\d+_\d+)?$/i.test(n)||/^[A-NR-Z][0-9][A-Z0-9]{3}[0-9]/.test(n)||/^\d+$/.test(n)).length;
+  if (ids.length && idLike/ids.length >= 0.3) convertViaMyGene();
+}
+function rawIdFor(resolvedId){   // a raw split-symbol that resolves to this node (for the cLIP hand-off after a lookup relabel)
+  for (const r of RAWPAIRS.values()){ if(resolveId(r.name,r.ci,r.s1)===resolvedId) return r.s1; if(resolveId(r.name,r.cj,r.s2)===resolvedId) return r.s2; }
+  return resolvedId;
+}
+function updateLoaded(){
+  const nP = new Set(); for (const r of RAWPAIRS.values()){ nP.add(resolveId(r.name,r.ci,r.s1)); nP.add(resolveId(r.name,r.cj,r.s2)); }
+  $('loaded').innerHTML = FILECOUNT
+    ? `✓ ${FILECOUNT} file(s) · <b>${RAWPAIRS.size.toLocaleString()}</b> predictions · <b>${nP.size.toLocaleString()}</b> proteins${META?` · identity map ✓ (${META.mode==='lookup'?'lookup':'name+chain'}, ${META.cols.length} cols)`:''}${SUBSET?` · <b>subset ${SUBSET.size.toLocaleString()} nodes</b>`:''}`
+    : 'No files loaded.';
+  $('build').disabled = !RAWPAIRS.size;
+  $('tmpl-wrap').classList.toggle('hidden', !RAWPAIRS.size);
+}
+
+// ---------- Pyodide + Leiden ----------
+async function ensurePyodide(){
+  if (PYODIDE) return PYODIDE;
+  setStatus('Loading Python runtime (first time only, ~3 s)…');
+  if (!window.loadPyodide) await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+  PYODIDE = await loadPyodide({ indexURL:'https://cdn.jsdelivr.net/pyodide/v0.27.2/full/' });
+  await PYODIDE.loadPackage('micropip'); setStatus('Installing igraph…');
+  await PYODIDE.pyimport('micropip').install('igraph');
+  return PYODIDE;
+}
+async function leiden(nodes, edges, res, obj, seed){
+  const idx = new Map(nodes.map((s,i)=>[s,i]));
+  PYODIDE.globals.set('_net_json', JSON.stringify({ n:nodes.length, edges:edges.map(e=>[idx.get(e.a),idx.get(e.b)]), weights:edges.map(e=>e.iLIS), res, obj, seed }));
+  const out = PYODIDE.runPython(`
+import igraph as ig, json, random
+from collections import Counter
+d = json.loads(_net_json)
+random.seed(int(d.get('seed',1)))
+try: ig.set_random_number_generator(random)
+except Exception: pass
+g = ig.Graph(n=d['n'], edges=d['edges'], directed=False)
+g.es['weight'] = d['weights']
+part = g.community_leiden(objective_function=d['obj'], weights='weight', resolution=d['res'], n_iterations=10)
+order = [c for c,_ in Counter(part.membership).most_common()]
+remap = {c:i for i,c in enumerate(order)}
+json.dumps({'membership':[remap[m] for m in part.membership], 'degree':g.degree()})
+`);
+  return JSON.parse(out);
+}
+
+// ---------- build ----------
+function buildEdges(cut){                               // resolve identities, best iLIS per resolved pair, index original names for the hand-off
+  const best=new Map(); NAME_OF={}; let dup=0;
+  for (const r of RAWPAIRS.values()){
+    const a=resolveId(r.name,r.ci,r.s1), b=resolveId(r.name,r.cj,r.s2);
+    if(a){ (NAME_OF[a]=NAME_OF[a]||new Set()).add(r.name); } if(b){ (NAME_OF[b]=NAME_OF[b]||new Set()).add(r.name); }
+    if(!a||!b||a===b||!(r.iLIS>=cut)) continue;
+    if(SUBSET && (!SUBSET.has(a) || !SUBSET.has(b))) continue;   // node-subset filter (tab 3)
+    const key=a<b?a+'\x01'+b:b+'\x01'+a, prev=best.get(key);
+    if(prev) dup++;                                     // same protein pair seen again -> keep the higher iLIS
+    if(!prev||r.iLIS>prev.iLIS) best.set(key,{a,b,iLIS:r.iLIS,ipTM:r.ipTM});
+  }
+  return { edges:[...best.values()], dup };
+}
+async function build(){
+  if (!RAWPAIRS.size) return;
+  $('build').disabled = true;
+  try {
+    await ensurePyodide();
+    const cut=+$('cutv').value, res=+$('resv').value, obj=$('objfn').value, seed=+$('seed').value||1;
+    const { edges, dup } = buildEdges(cut);
+    if(!edges.length){ setStatus(SUBSET?'No edges among the subset at this cutoff.':'No edges above this iLIS cutoff — lower the slider.'); $('build').disabled=false; return; }
+    const nodeSet=new Set(); edges.forEach(e=>{nodeSet.add(e.a);nodeSet.add(e.b);});
+    const nodes=[...nodeSet];
+    setStatus(`Running Leiden on ${nodes.length} nodes / ${edges.length} edges…`);
+    const t0=performance.now();
+    const { membership, degree } = await leiden(nodes, edges, res, obj, seed);
+    const strengthMap=new Map(nodes.map(s=>[s,0])); edges.forEach(e=>{ strengthMap.set(e.a,strengthMap.get(e.a)+e.iLIS); strengthMap.set(e.b,strengthMap.get(e.b)+e.iLIS); });
+    LAST = { nodes, edges, membership, degree, strengthMap };
+    render(getDisplay());
+    renderModules(LAST); updateColorLegend();
+    const nComm = Math.max(...membership)+1;
+    $('stats').innerHTML = [['proteins',nodes.length],['edges',edges.length],['communities',nComm],['iLIS &ge;',cut.toFixed(3)],['Leiden',Math.round(performance.now()-t0)+' ms'], dup?['duplicate pairs',dup+' → max iLIS']:null, SUBSET?['subset','on']:null]
+      .filter(Boolean).map(([k,v])=>`<span class="s">${k}<br><b>${v}</b></span>`).join('');
+    $('display').classList.remove('hidden'); $('expsvg').classList.remove('hidden'); $('expsvgall').classList.remove('hidden'); $('expcsv').classList.remove('hidden'); $('expcyto').classList.remove('hidden');
+    setStatus('');
+  } catch(e){ setStatus('Error: '+(e.message||e)); }
+  $('build').disabled = false;
+}
+
+// ---------- render (vis-network) ----------
+function getDisplay(){                                  // min-edges/node filter: hide nodes whose degree < mindeg (keeps the Leiden result)
+  const minDeg = +$('mindegv').value;
+  if (minDeg <= 1) return LAST;
+  const { nodes, edges, membership, degree } = LAST;
+  const keep=new Set(), dn=[], dm=[], dd=[];
+  nodes.forEach((s,i)=>{ if(degree[i]>=minDeg){ keep.add(s); dn.push(s); dm.push(membership[i]); dd.push(degree[i]); } });
+  return { nodes:dn, membership:dm, degree:dd, edges: edges.filter(e=>keep.has(e.a)&&keep.has(e.b)) };
+}
+function render({ nodes, edges, membership, degree }){
+  const dmax=Math.max(1,...degree), iv=edges.map(e=>e.iLIS), imax=(iv.length?Math.max(...iv):1)||1, imin=iv.length?Math.min(...iv):0;
+  const nsize=+$('nsizev').value, emin=+$('eminv').value, lbldeg=+$('lbldegv').value, border=$('nborder').checked, bcolor=$('bcolor').value, lblsize=+$('lblsizev').value, outline=$('lbloutline').checked, lblcolor=$('lblcolor').value, lblstroke=$('lblstroke').value;
+  const cIdx=new Map(nodes.map((s,i)=>[s,membership[i]])), fills=nodeColors({nodes, membership, degree});
+  NODES = new vis.DataSet(nodes.map((s,i)=>({
+    id:s, label: degree[i]>=lbldeg ? nodeLabel(s) : '',
+    size: nodeRadius(degree[i],dmax,nsize),
+    color:{ background: fills[i], border: bcolor },
+    borderWidth: border?1.5:0, font:{ size:lblsize, color:lblcolor, strokeWidth:outline?2.5:0, strokeColor:lblstroke },
+    title:`${nodeLabel(s)} · community ${membership[i]} · ${degree[i]} partners`
+  })));
+  EDGES = new vis.DataSet(edges.map((e,i)=>{ const intra=cIdx.get(e.a)===cIdx.get(e.b);
+    return { id:i, from:e.a, to:e.b, width:edgeWidth(e.iLIS,imin,imax,emin),
+      color:{ color: intra?commHex(cIdx.get(e.a)):'#c7ced6', opacity: intra?0.75:0.3 },
+      title:`${nodeLabel(e.a)}–${nodeLabel(e.b)} · iLIS ${e.iLIS.toFixed(3)}` }; }));
+  const opts={ nodes:{ shape:'dot', font:{ size:12, color:'#33414f' } }, edges:{ smooth:false },
+    physics:{ stabilization:{ iterations: +$('layiter').value||250 }, barnesHut:{ gravitationalConstant:-9000, springLength:130, springConstant:0.03, damping:0.25 } },
+    interaction:{ hover:true, tooltipDelay:120 } };
+  NETWORK = new vis.Network($('net'), { nodes:NODES, edges:EDGES }, opts);
+  NETWORK.on('click', p=>{ if(p.nodes && p.nodes.length) showNodeInfo(p.nodes[0]); else hideNodeInfo(); });
+  LAYER_ROOT=null; { const lb=$('layerbar'); if(lb) lb.classList.add('hidden'); }
+}
+function restyle(){
+  if (!LAST || !NODES) return;
+  const _d = getDisplay(); if (_d.nodes.length !== NODES.length){ applyLayout($('layout').value); return; }   // node set changed (mindeg) -> full re-layout, not a stale update
+  const { nodes, edges, membership, degree } = _d;
+  const dmax=Math.max(1,...degree), iv=edges.map(e=>e.iLIS), imax=(iv.length?Math.max(...iv):1)||1, imin=iv.length?Math.min(...iv):0;
+  const nsize=+$('nsizev').value, emin=+$('eminv').value, lbldeg=+$('lbldegv').value, border=$('nborder').checked, bcolor=$('bcolor').value, lblsize=+$('lblsizev').value, outline=$('lbloutline').checked, lblcolor=$('lblcolor').value, lblstroke=$('lblstroke').value;
+  const cIdx=new Map(nodes.map((s,i)=>[s,membership[i]])), fills=nodeColors({nodes, membership, degree});
+  NODES.update(nodes.map((s,i)=>({ id:s, label: degree[i]>=lbldeg?nodeLabel(s):'', size:nodeRadius(degree[i],dmax,nsize),
+    color:{ background:fills[i], border:bcolor }, borderWidth:border?1.5:0, font:{ size:lblsize, color:lblcolor, strokeWidth:outline?2.5:0, strokeColor:lblstroke }, title:`${nodeLabel(s)} · community ${membership[i]} · ${degree[i]} partners` })));
+  EDGES.update(edges.map((e,i)=>{ const intra=cIdx.get(e.a)===cIdx.get(e.b);
+    return { id:i, width:edgeWidth(e.iLIS,imin,imax,emin), color:{ color:intra?commHex(cIdx.get(e.a)):'#c7ced6', opacity:intra?0.75:0.3 } }; }));
+}
+
+// ---------- modules ----------
+function renderModules({ nodes, edges, membership, degree }){
+  const cIdx=new Map(nodes.map((s,i)=>[s,membership[i]]));
+  const degMap=new Map(nodes.map((s,i)=>[s,degree[i]]));
+  const comm={};
+  nodes.forEach((s,i)=>{ const c=membership[i]; (comm[c]=comm[c]||{members:[],e:0,sum:0}).members.push(s); });
+  edges.forEach(e=>{ if(cIdx.get(e.a)===cIdx.get(e.b)){ const c=cIdx.get(e.a); comm[c].e++; comm[c].sum+=e.iLIS; } });
+  const mods=Object.entries(comm).map(([c,m])=>({ c:+c, n:m.members.length, e:m.e, mean:m.e?m.sum/m.e:0,
+      members:m.members.slice().sort((a,b)=>degMap.get(b)-degMap.get(a)) }))
+    .filter(m=>m.n>=3).sort((a,b)=>b.e-a.e||b.mean-a.mean);
+  $('modules').innerHTML = `<h3>Modules <span class="hint">(${mods.length}, ≥3 proteins)</span></h3>` +
+    (mods.length?'':'<div class="hint">No module with ≥3 proteins at this cutoff.</div>') +
+    mods.map(m=>{
+      const top=m.members[0], mem=m.members.slice(0,24).map(nodeLabel).join(', ')+(m.members.length>24?` … +${m.members.length-24}`:'');
+      return `<div class="mod">
+        <div class="hd"><input type="color" value="${commHex(m.c)}" data-c="${m.c}" title="community color">Community ${m.c}
+          <span class="clipbtn" data-sym="${esc(top)}" title="open the hub in cLIP">${esc(nodeLabel(top))} → cLIP</span></div>
+        <div class="st">${m.n} proteins · ${m.e} edges · mean iLIS ${m.mean.toFixed(3)}</div>
+        <div class="mem">${esc(mem)}</div></div>`;
+    }).join('');
+  $('modules').querySelectorAll('input[type=color]').forEach(inp=>inp.addEventListener('input',e=>{ COMMCOLORS[+e.target.dataset.c]=e.target.value; restyle(); }));
+  $('modules').querySelectorAll('.clipbtn').forEach(el=>el.addEventListener('click',()=>openInClip(el.dataset.sym)));
+}
+
+// ---------- node info + cLIP hand-off ----------
+function showNodeInfo(sym){
+  const i = LAST.nodes.indexOf(sym); if(i<0) return;
+  $('ni-name').textContent = nodeLabel(sym);
+  $('ni-meta').textContent = `community ${LAST.membership[i]} · ${LAST.degree[i]} partners`;
+  $('ni-clip').onclick = ()=>openInClip(sym);
+  $('ni-layer').onclick = ()=>layerLayout(sym);
+  $('nodeinfo').classList.remove('hidden');
+}
+function hideNodeInfo(){ $('nodeinfo').classList.add('hidden'); }
+function openInClip(nodeId){
+  const names = NAME_OF[nodeId] || new Set([nodeId]);   // original prediction names contributing this node
+  let header=null; const keep=[];
+  for (const f of FILES_RAW){ const lines=f.text.split(/\r?\n/); if(!header) header=lines[0];
+    for(let i=1;i<lines.length;i++){ const nf=(lines[i].split(',',1)[0]||'').trim(); if(names.has(nf)) keep.push(lines[i]); } }
+  const isLookup = META && META.mode==='lookup';
+  const payload = { csv:[header,...keep].join('\n'), meta: isLookup ? null : (META?META._raw:null), query: isLookup ? rawIdFor(nodeId) : nodeId };
+  try { localStorage.setItem('livia_net2clip', JSON.stringify(payload)); window.open('clip.html','_blank'); }
+  catch(e){ alert('This hub is too large to hand off automatically — open cLIP and drop the CSV, query = '+nodeId); }
+}
+
+// ---------- layer (BFS-shell) view around a chosen vertex; Leiden colors kept ----------
+function layerLayout(root){
+  if (!LAST || !NODES) return;
+  const disp = getDisplay(); if (!disp.nodes.includes(root)) return;
+  const adj = new Map(disp.nodes.map(n=>[n,[]]));
+  disp.edges.forEach(e=>{ if(adj.has(e.a)&&adj.has(e.b)){ adj.get(e.a).push(e.b); adj.get(e.b).push(e.a); } });
+  const layer=new Map([[root,0]]), parent=new Map(), q=[root];   // BFS distances from the root
+  while(q.length){ const u=q.shift(); for(const v of adj.get(u)){ if(!layer.has(v)){ layer.set(v,layer.get(u)+1); parent.set(v,u); q.push(v); } } }
+  const reach=Math.max(0,...layer.values());
+  disp.nodes.forEach(n=>{ if(!layer.has(n)) layer.set(n, reach+1); });   // unreachable -> outer ring
+  const maxL=Math.max(...layer.values()), byLayer={};
+  disp.nodes.forEach(n=>{ (byLayer[layer.get(n)]=byLayer[layer.get(n)]||[]).push(n); });
+  const mode = $('layer-mode') ? $('layer-mode').value : 'concentric';
+  const key=new Map([[root,0]]), pos={ [root]:{x:0,y:0} };
+  for(let L=1;L<=maxL;L++){
+    const arr=(byLayer[L]||[]).slice().sort((a,b)=>(key.get(parent.get(a))||0)-(key.get(parent.get(b))||0));   // keep children near their parent
+    if (mode==='tree'){ const y=180*L, w=(arr.length-1)*84;                       // hierarchical: each layer a row going down
+      arr.forEach((node,i)=>{ const x=Math.round(i*84 - w/2); pos[node]={x,y}; key.set(node,x); }); }
+    else { const r=180*L;                                                          // concentric: BFS shells
+      arr.forEach((node,i)=>{ const a=(2*Math.PI*i)/arr.length - Math.PI/2; pos[node]={x:Math.round(r*Math.cos(a)),y:Math.round(r*Math.sin(a))}; key.set(node,a); }); }
+  }
+  const cIdx=new Map(disp.nodes.map((s,i)=>[s,disp.membership[i]])), degMap=new Map(disp.nodes.map((s,i)=>[s,disp.degree[i]]));
+  NODES.update(disp.nodes.map(n=>({ id:n, x:pos[n].x, y:pos[n].y, fixed:{x:true,y:true},
+    title:`${nodeLabel(n)} · community ${cIdx.get(n)} · ${degMap.get(n)} partners · layer ${layer.get(n)>reach?'\u221e':layer.get(n)}` })));
+  NETWORK.setOptions({ physics:false });
+  NETWORK.fit({ animation:{ duration:600 } });
+  LAYER_ROOT=root; $('layer-root').textContent=nodeLabel(root); $('layerbar').classList.remove('hidden'); hideNodeInfo();
+}
+function resetLayout(){ if(LAST) render(getDisplay()); }   // render() restores force physics + clears the layer state
+function computeLayout(mode, disp){   // fixed positions for the overall network layouts
+  const { nodes, membership }=disp, pos={}, memb=new Map(nodes.map((n,i)=>[n,membership[i]]));
+  if (mode==='circle'){ const ord=nodes.slice().sort((a,b)=>memb.get(a)-memb.get(b)), R=80+nodes.length*3.5;
+    ord.forEach((n,i)=>{ const a=2*Math.PI*i/ord.length; pos[n]={x:Math.round(R*Math.cos(a)),y:Math.round(R*Math.sin(a))}; }); }
+  else if (mode==='grid'){ const ord=nodes.slice().sort((a,b)=>memb.get(a)-memb.get(b)), cols=Math.ceil(Math.sqrt(nodes.length)), G=68;
+    ord.forEach((n,i)=>{ pos[n]={x:(i%cols)*G, y:Math.floor(i/cols)*G}; }); }
+  else if (mode==='community'){                                              // each Leiden community clustered on its own island
+    const byC={}; nodes.forEach((n,i)=>{ (byC[membership[i]]=byC[membership[i]]||[]).push(n); });
+    const comms=Object.keys(byC).sort((a,b)=>byC[b].length-byC[a].length), CR=140+comms.length*55;
+    comms.forEach((c,ci)=>{ const ca=2*Math.PI*ci/comms.length, cx=CR*Math.cos(ca), cy=CR*Math.sin(ca), arr=byC[c], r=25+arr.length*3.5;
+      arr.forEach((n,i)=>{ const a=2*Math.PI*i/arr.length; pos[n]={x:Math.round(cx+r*Math.cos(a)),y:Math.round(cy+r*Math.sin(a))}; }); }); }
+  return pos;
+}
+async function igraphLayout(nodes, edges, method, niter){   // force-directed coordinates from igraph (FR / Kamada-Kawai)
+  const idx=new Map(nodes.map((s,i)=>[s,i]));
+  PYODIDE.globals.set('_lay', JSON.stringify({ n:nodes.length, edges:edges.map(e=>[idx.get(e.a),idx.get(e.b)]), weights:edges.map(e=>e.iLIS), m:method, niter:niter||500 }));
+  const out = PYODIDE.runPython(`
+import igraph as ig, json
+d=json.loads(_lay); g=ig.Graph(n=d['n'], edges=d['edges'], directed=False); g.es['weight']=d['weights']; m=d['m']
+if m=='kk': lay=g.layout_kamada_kawai()
+elif m=='drl': lay=g.layout_drl(weights='weight')
+else: lay=g.layout_fruchterman_reingold(weights='weight', niter=int(d.get('niter',500)))
+json.dumps([[c[0],c[1]] for c in lay])
+`);
+  const c=JSON.parse(out), xs=c.map(p=>p[0]), ys=c.map(p=>p[1]);
+  const minX=Math.min(...xs), minY=Math.min(...ys), span=Math.max(Math.max(...xs)-minX, Math.max(...ys)-minY)||1;
+  const S=Math.min(1500, 80+nodes.length*13)/span, pos={};
+  nodes.forEach((s,i)=>{ pos[s]={ x:Math.round((c[i][0]-minX)*S), y:Math.round((c[i][1]-minY)*S) }; });
+  return pos;
+}
+let _layBusy=false;
+async function applyLayout(mode){
+  if (!LAST || !NODES) return;
+  LAYER_ROOT=null; { const lb=$('layerbar'); if(lb) lb.classList.add('hidden'); }
+  if (!mode || mode==='force'){ render(getDisplay()); return; }               // vis-network physics (live)
+  const disp=getDisplay(); let pos;
+  if (mode==='fr'||mode==='kk'||mode==='drl'){ if(_layBusy) return; _layBusy=true; setStatus('Computing '+mode.toUpperCase()+' layout…'); try{ pos=await igraphLayout(disp.nodes, disp.edges, mode, +$('layiter').value||500); }catch(e){ setStatus('Layout error: '+(e.message||e)); _layBusy=false; return; } _layBusy=false; setStatus(''); }
+  else pos=computeLayout(mode, disp);
+  NODES.update(disp.nodes.map(n=>({ id:n, x:pos[n].x, y:pos[n].y, fixed:{x:true,y:true} })));
+  NETWORK.setOptions({ physics:false }); NETWORK.fit({ animation:{duration:500} });
+}
+
+// ---------- exports ----------
+function buildSVG(mode){   // mode='view' = the region currently visible (respects zoom/pan); else the whole network
+  const pos = NETWORK.getPositions();
+  const { nodes, edges, membership, degree } = getDisplay();
+  const cIdx=new Map(nodes.map((s,i)=>[s,membership[i]])), degMap=new Map(nodes.map((s,i)=>[s,degree[i]]));
+  const _f=nodeColors({nodes,membership,degree}), fillMap=new Map(nodes.map((s,i)=>[s,_f[i]]));
+  const dmax=Math.max(1,...degree), iv=edges.map(e=>e.iLIS), imax=(iv.length?Math.max(...iv):1)||1, imin=iv.length?Math.min(...iv):0;
+  const nsize=+$('nsizev').value, emin=+$('eminv').value, lbldeg=+$('lbldegv').value, border=$('nborder').checked, bcolor=$('bcolor').value, lblsize=+$('lblsizev').value, outline=$('lbloutline').checked, lblcolor=$('lblcolor').value, lblstroke=$('lblstroke').value;
+  let minX, minY, W, H;
+  if (mode === 'view'){                                 // current zoom/pan: exactly what the canvas shows
+    const c=NETWORK.getViewPosition(), scale=NETWORK.getScale(), net=$('net');
+    const hw=(net.offsetWidth/2)/scale, hh=(net.offsetHeight/2)/scale;
+    minX=c.x-hw; minY=c.y-hh; W=hw*2; H=hh*2;
+  } else {                                              // full network: bounding box of all nodes
+    const ids=nodes.filter(s=>pos[s]); if(!ids.length) return ''; const xs=ids.map(s=>pos[s].x), ys=ids.map(s=>pos[s].y), pad=70;
+    minX=Math.min(...xs)-pad; minY=Math.min(...ys)-pad; W=Math.max(...xs)-minX+pad; H=Math.max(...ys)-minY+pad;
+  }
+  let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX.toFixed(1)} ${minY.toFixed(1)} ${W.toFixed(1)} ${H.toFixed(1)}" font-family="-apple-system,sans-serif"><rect x="${minX}" y="${minY}" width="${W}" height="${H}" fill="#ffffff"/>`;
+  for (const e of edges){ const a=pos[e.a], b=pos[e.b]; if(!a||!b) continue; const intra=cIdx.get(e.a)===cIdx.get(e.b);
+    s+=`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${intra?commHex(cIdx.get(e.a)):'#c7ced6'}" stroke-width="${edgeWidth(e.iLIS,imin,imax,emin).toFixed(2)}" stroke-opacity="${intra?0.7:0.3}"/>`; }
+  for (const n of nodes){ const p=pos[n]; if(!p) continue; const r=nodeRadius(degMap.get(n),dmax,nsize);
+    s+=`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r.toFixed(1)}" fill="${fillMap.get(n)}"${border?` stroke="${bcolor}" stroke-width="1.5"`:''}/>`; }
+  for (const n of nodes){ const p=pos[n]; if(!p||degMap.get(n)<lbldeg) continue; const r=nodeRadius(degMap.get(n),dmax,nsize);
+    s+=`<text x="${p.x.toFixed(1)}" y="${(p.y-r-3).toFixed(1)}" font-size="${lblsize}" ${outline?`stroke="${lblstroke}" stroke-width="2.8" paint-order="stroke" `:''}text-anchor="middle" fill="${lblcolor}">${esc(nodeLabel(n))}</text>`; }
+  s+='</svg>';
+  return s;
+}
+function exportSVG(mode){ if(!LAST||!NETWORK) return; const s=buildSVG(mode); if(!s){ setStatus('Nothing to export yet.'); return; } download(mode==='view'?'network_view.svg':'network.svg', s, 'image/svg+xml'); }
+function download(name, text, type){ const b=new Blob([text],{type:type||'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+const csvq = s => /[,"]/.test(s) ? '"'+String(s).replace(/"/g,'""')+'"' : s;
+function buildTemplate(){   // identity-map skeleton: name+chain (+ id auto-filled from the name split when it contains ___)
+  const seen=new Set(), rows=[['name','chain','id','uniprot','gene','label','start','end']];
+  for (const r of RAWPAIRS.values()){
+    const paired = String(r.name).includes('___');
+    for (const [ch, sym] of [[r.ci, r.s1], [r.cj, r.s2]]){ const k=r.name+'\x00'+ch; if(!seen.has(k)){ seen.add(k); rows.push([r.name, ch, paired?(sym||''):'', '','','','','']); } }
+  }
+  return rows.map(r=>r.map(csvq).join(',')).join('\n');
+}
+function downloadTemplate(){ download('identity_map_template.csv', buildTemplate()); }
+function buildSubsetTemplate(){   // node-subset skeleton: the current network's nodes (or all resolved proteins), one per row
+  const nodes = LAST ? LAST.nodes.slice() : [...new Set([...RAWPAIRS.values()].flatMap(r=>[resolveId(r.name,r.ci,r.s1),resolveId(r.name,r.cj,r.s2)]).filter(Boolean))];
+  return 'node\n'+nodes.map(csvq).join('\n');
+}
+function downloadSubset(){ download('node_subset_template.csv', buildSubsetTemplate()); }
+function exportCSVs(){
+  if (!LAST) return; const { nodes, edges, membership, degree } = LAST;
+  const cIdx=new Map(nodes.map((s,i)=>[s,membership[i]])), fills=nodeColors({nodes, membership, degree});
+  download('network_edges.csv','Symbol_1,Symbol_2,iLIS,ipTM,intra_community\n'+edges.map(e=>[csvq(nodeLabel(e.a)),csvq(nodeLabel(e.b)),e.iLIS.toFixed(4),e.ipTM.toFixed(3),cIdx.get(e.a)===cIdx.get(e.b)?cIdx.get(e.a):''].join(',')).join('\n'));
+  download('network_communities.csv','Symbol,community,degree\n'+nodes.map((s,i)=>[csvq(nodeLabel(s)),membership[i],degree[i]].join(',')).join('\n'));
+}
+function buildGraphML(){   // Cytoscape-importable GraphML: node name/community/degree/x/y + edge iLIS/ipTM/intra_community
+  if (!LAST) return '';
+  const { nodes, edges, membership, degree } = LAST;
+  const cIdx=new Map(nodes.map((s,i)=>[s,membership[i]])), rid=new Map(nodes.map((s,i)=>[s,'n'+i]));
+  const pos = NETWORK ? NETWORK.getPositions() : {};
+  const xe=s=>String(s).replace(/[<&>"]/g,c=>({'<':'&lt;','&':'&amp;','>':'&gt;','"':'&quot;'}[c]));
+  let g='<?xml version="1.0" encoding="UTF-8"?>\n<graphml xmlns="http://graphml.graphdrawing.org/xmlns">\n'
+    +'<key id="label" for="node" attr.name="name" attr.type="string"/><key id="comm" for="node" attr.name="community" attr.type="int"/><key id="deg" for="node" attr.name="degree" attr.type="int"/><key id="x" for="node" attr.name="x" attr.type="double"/><key id="y" for="node" attr.name="y" attr.type="double"/>\n'
+    +'<key id="ilis" for="edge" attr.name="iLIS" attr.type="double"/><key id="iptm" for="edge" attr.name="ipTM" attr.type="double"/><key id="intra" for="edge" attr.name="intra_community" attr.type="int"/>\n'
+    +'<graph edgedefault="undirected">\n';
+  nodes.forEach((s,i)=>{ const p=pos[s]||{x:0,y:0}; g+=`<node id="n${i}"><data key="label">${xe(nodeLabel(s))}</data><data key="comm">${membership[i]}</data><data key="deg">${degree[i]}</data><data key="x">${p.x.toFixed(1)}</data><data key="y">${p.y.toFixed(1)}</data></node>\n`; });
+  edges.forEach(e=>{ const intra=cIdx.get(e.a)===cIdx.get(e.b); g+=`<edge source="${rid.get(e.a)}" target="${rid.get(e.b)}"><data key="ilis">${e.iLIS.toFixed(4)}</data><data key="iptm">${e.ipTM.toFixed(3)}</data><data key="intra">${intra?cIdx.get(e.a):-1}</data></edge>\n`; });
+  return g+'</graph>\n</graphml>\n';
+}
+function exportGraphML(){ if(LAST) download('network.graphml', buildGraphML(), 'application/xml'); }
+const SETTING_IDS=['cutv','resv','objfn','seed','nsizev','mindegv','eminv','lbldegv','lblsizev','lblcolor','lblstroke','bcolor','colorby','unicolor','layout','layiter'];
+function collectSettings(){
+  const s={}; SETTING_IDS.forEach(id=>{ const el=$(id); if(el) s[id]=el.value; });
+  s.nborder=$('nborder').checked; s.lbloutline=$('lbloutline').checked; s.commColors={...COMMCOLORS}; if(SUBSET) s.subset=[...SUBSET];
+  if (META && META_COL) s.labelby=META_COL;
+  return s;
+}
+function exportSettings(){ download('network_settings.json', JSON.stringify(collectSettings(),null,2), 'application/json'); }
+async function importSettings(file){
+  let s; try{ s=JSON.parse(await file.text()); }catch(e){ setStatus('Invalid settings JSON.'); return; }
+  const pair={cutv:'cut',resv:'res',nsizev:'nsize',mindegv:'mindeg',eminv:'emin',lbldegv:'lbldeg'};
+  SETTING_IDS.forEach(id=>{ if(s[id]!=null && $(id)){ $(id).value=s[id]; const sl=pair[id]; if(sl&&$(sl)) $(sl).value=Math.max(+$(sl).min, Math.min(+$(sl).max, +s[id])); } });
+  if (s.nborder!=null) $('nborder').checked=s.nborder;
+  if (s.lbloutline!=null) $('lbloutline').checked=s.lbloutline;
+  if (s.commColors) COMMCOLORS={...s.commColors};
+  SUBSET = (s.subset&&s.subset.length) ? new Set(s.subset) : null; $('subclear').classList.toggle('hidden', !SUBSET);
+  if (s.labelby){ META_COL=s.labelby; if($('labelby')) $('labelby').value=s.labelby; }
+  $('unicolor').classList.toggle('hidden', $('colorby').value!=='uniform');
+  if (RAWPAIRS.size){ await build(); await applyLayout($('layout').value); }
+  setStatus('Settings loaded.');
+}
+
+// ---------- wiring ----------
+function wireZone(dzId, inId, handler){
+  const dz=$(dzId), inp=$(inId);
+  dz.addEventListener('click', ()=>inp.click());
+  dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('drag'); });
+  dz.addEventListener('dragleave', ()=>dz.classList.remove('drag'));
+  dz.addEventListener('drop', e=>{ e.preventDefault(); dz.classList.remove('drag'); handler(e.dataTransfer.files); });
+  inp.addEventListener('change', e=>handler(e.target.files));
+}
+wireZone('dz','in',routeFiles); wireZone('dzmeta','inmeta',routeMeta); wireZone('dzsub','insub',routeSubset);
+function linkSlider(sId, nId, effect){ const s=$(sId), n=$(nId);   // slider + typed number stay in sync; the number is authoritative (allows custom values)
+  s.addEventListener('input', ()=>{ n.value=s.value; if(effect) effect(); });
+  n.addEventListener('input', ()=>{ if(n.value==='') return; s.value=Math.max(+s.min, Math.min(+s.max, +n.value)); if(effect) effect(); });
+}
+linkSlider('cut','cutv'); linkSlider('res','resv');                          // iLIS + resolution apply on the next Build
+linkSlider('nsize','nsizev', restyle); linkSlider('emin','eminv', restyle); linkSlider('lbldeg','lbldegv', restyle);
+$('mindeg').addEventListener('input', ()=>{ $('mindegv').value=$('mindeg').value; });     // min edges/node: re-layout is heavy -> apply on release / Enter
+$('mindegv').addEventListener('input', ()=>{ if($('mindegv').value!=='') $('mindeg').value=Math.max(1, Math.min(+$('mindeg').max, +$('mindegv').value)); });
+['mindeg','mindegv'].forEach(id=>$(id).addEventListener('change', ()=>{ if(LAST){ if(LAYER_ROOT) layerLayout(LAYER_ROOT); else applyLayout($('layout').value); hideNodeInfo(); } }));
+$('nborder').addEventListener('change', restyle);
+$('lbloutline').addEventListener('change', restyle);
+linkSlider('lblsize','lblsizev', restyle);
+$('colorby').addEventListener('change', ()=>{ restyle(); updateColorLegend(); });
+$('unicolor').addEventListener('input', restyle);
+['bcolor','lblcolor','lblstroke'].forEach(id=>$(id).addEventListener('input', restyle));
+$('labelby').addEventListener('change', e=>{ META_COL=e.target.value; updateLoaded(); rebuildIfBuilt(); });
+$('objfn').addEventListener('change', ()=>{ const cpm=$('objfn').value==='CPM'; $('resv').value=cpm?'0.01':'1.0'; $('res').value=cpm?0.01:1.0; });
+$('build').addEventListener('click', build);
+$('expsvg').addEventListener('click', ()=>exportSVG('view'));
+$('expsvgall').addEventListener('click', ()=>exportSVG('full'));
+$('expcsv').addEventListener('click', exportCSVs);
+$('expcyto').addEventListener('click', exportGraphML);
+$('expset').addEventListener('click', exportSettings);
+$('impset-btn').addEventListener('click', ()=>$('impset').click());
+$('impset').addEventListener('change', e=>{ if(e.target.files[0]) importSettings(e.target.files[0]); });
+$('ni-x').addEventListener('click', hideNodeInfo);
+$('tmpl').addEventListener('click', e=>{ e.preventDefault(); downloadTemplate(); });
+$('subtmpl').addEventListener('click', e=>{ e.preventDefault(); downloadSubset(); });
+$('subclear').addEventListener('click', e=>{ e.preventDefault(); clearSubset(); });
+$('mg-convert').addEventListener('click', e=>{ e.preventDefault(); convertViaMyGene(); });
+$('layer-reset').addEventListener('click', e=>{ e.preventDefault(); resetLayout(); });
+$('layer-mode').addEventListener('change', ()=>{ if(LAYER_ROOT) layerLayout(LAYER_ROOT); });
+$('layout').addEventListener('change', ()=>applyLayout($('layout').value));
+$('layiter').addEventListener('change', ()=>{ const L=$('layout').value; if(['fr','kk','drl','force'].includes(L)) applyLayout(L); });
+</script>
+<script data-goatcounter="https://livia.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>
