@@ -94,6 +94,7 @@
   }
 
   async function _bySymbol(gene, orgId, expectLen) {
+    if (!gene || gene === 'undefined' || gene === 'null') return null;   // seq-only resolves pass no gene; text search on "undefined" returns spurious hits
     // Try, in order: UniProt entry name (e.g. NAME_SPECIES) → accession →
     // accession embedded in entry name → gene name. Many datasets label proteins by entry
     // name, which gene: search misses.
@@ -142,7 +143,8 @@
     let found = null;
     // A fragment's sequence isn't a full UniParc entry → checksum won't match; resolve BASE by name.
     if (seq && seq.length && !frag) { try { found = await _bySequence(seq, orgId, length); } catch (e) {} }
-    if (!found || !found.candidates.length) { try { found = await _bySymbol(frag ? frag.base : gene, orgId, frag ? null : length); } catch (e) {} }
+    const _symName = frag ? frag.base : gene;
+    if ((!found || !found.candidates.length) && _symName) { try { found = await _bySymbol(_symName, orgId, frag ? null : length); } catch (e) {} }
     if ((!found || !found.candidates.length) && seq && seq.length) { try { found = await _bySequence(seq, orgId, length); } catch (e) {} }
     if (!found || !found.candidates.length) return null;
     // Among tied candidates, prefer one that actually has an AFDB structure (e.g. two 112-aa
