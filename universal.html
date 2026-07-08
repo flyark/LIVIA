@@ -4209,9 +4209,9 @@ async function identifyChains(){
     const uniq = new Map();                                       // dedup identical chains (homo-oligomers resolve once)
     for (const n of names){ const s = seqOf(n); if (s && s.length >= 10 && !uniq.has(s)) uniq.set(s, true); }
     if (!uniq.size){ out.innerHTML = '<span style="color:#888;">no protein chains to identify</span>'; return; }
-    btn.disabled = true; btn.textContent = 'Identifying ' + uniq.size + ' sequence' + (uniq.size > 1 ? 's' : '') + '\u2026';
+    btn.disabled = true; btn.textContent = 'Identifying ' + uniq.size + ' sequence' + (uniq.size > 1 ? 's' : '') + '\u2026 (BLAST fallback may take ~20s)';
     const resolveOne = async (s) => {
-        try { const r = await CLIPResolver.resolveStructure({ seq: s, length: s.length });
+        try { const r = await CLIPResolver.resolveStructure({ seq: s, length: s.length, blast: true });
               const dom = r ? await CLIPResolver.fetchDomains(r.accession).catch(() => []) : [];
               resolved.set(s, { r, dom }); }
         catch(e){ resolved.set(s, resolved.get(s) || { r: null, dom: [] }); }

@@ -93,6 +93,24 @@
     return { by: 'sequence (exact)', candidates: sorted.map((x) => ({ acc: x.id.split('-')[0], length: seq.length, organism: x.organism && x.organism.scientificName, gene: null })) };
   }
 
+  // Tier 2 (fast, ~1s): FlyBase / construct translations are usually the UniProt canonical
+  // +/- a few terminal residues, so the full-length checksum misses. Checksum trimmed
+  // prefixes/suffixes and match them all in ONE batched UniParc OR-query.
+  async function _byTrimmedSequence(seq, orgId) {
+    const crcs = new Set();
+    for (let k = 0; k <= 25; k++) { const c = seq.slice(0, seq.length - k); if (c.length >= 50) crcs.add(crc64(c)); }
+    for (let k = 1; k <= 8; k++) { const n = seq.slice(k); if (n.length >= 50) crcs.add(crc64(n)); }
+    const q = '(' + [...crcs].map((c) => 'checksum:' + c).join(' OR ') + ')';
+    let d; try { d = await _json('https://rest.uniprot.org/uniparc/search?query=' + encodeURIComponent(q) + '&fields=upi&format=json'); } catch (e) { return null; }
+    if (!d.results || !d.results.length) return null;
+    const e = await _json('https://rest.uniprot.org/uniparc/' + d.results[0].uniParcId + '?format=json');
+    const xrefs = (e.uniParcCrossReferences || []).filter((x) => String(x.database).includes('UniProtKB'));
+    if (!xrefs.length) return null;
+    const score = (x) => (x.active ? 8 : 0) + (!/-\d+$/.test(x.id) ? 4 : 0) + (orgId && String(x.organism && x.organism.taxonId) === String(orgId) ? 2 : 0) + (/Swiss-Prot/i.test(x.database) ? 1 : 0);
+    const sorted = xrefs.slice().sort((a, b) => score(b) - score(a));
+    return { by: 'sequence (trimmed ends)', candidates: sorted.map((x) => ({ acc: x.id.split('-')[0], length: seq.length, organism: x.organism && x.organism.scientificName, gene: null })) };
+  }
+
   async function _bySymbol(gene, orgId, expectLen) {
     if (!gene || gene === 'undefined' || gene === 'null') return null;   // seq-only resolves pass no gene; text search on "undefined" returns spurious hits
     // Try, in order: UniProt entry name (e.g. NAME_SPECIES) → accession →
@@ -118,6 +136,31 @@
     return null;
   }
 
+  // Tier 2/3 fallback: EBI BLAST when the exact checksum + name lookups miss (isoform /
+  // construct sequences that differ from the UniProt canonical). Submit -> poll -> result;
+  // accept only a confident, well-covered top hit.
+  async function _byBlast(seq, db) {
+    const base = 'https://www.ebi.ac.uk/Tools/services/rest/ncbiblast';
+    let jid;
+    try {
+      const run = await _fetch(base + '/run', { method: 'POST', body: new URLSearchParams({ email: 'livia@example.com', program: 'blastp', stype: 'protein', database: db, sequence: seq, scores: '5', alignments: '5' }) });
+      if (!run.ok) return null;
+      jid = (await run.text()).trim();
+    } catch (e) { return null; }
+    for (let i = 0; i < 45; i++) {                       // ~4s x 45 ceiling; typically 15-25s
+      await new Promise((r) => setTimeout(r, 4000));
+      let st; try { st = (await (await _fetch(base + '/status/' + jid)).text()).trim(); } catch (e) { continue; }
+      if (st === 'FINISHED') break;
+      if (st === 'ERROR' || st === 'FAILURE' || st === 'NOT_FOUND' || i === 44) return null;
+    }
+    let res; try { res = await (await _fetch(base + '/result/' + jid + '/json')).json(); } catch (e) { return null; }
+    const h = (res.hits || [])[0], hsp = h && h.hit_hsps && h.hit_hsps[0];
+    if (!h || !hsp) return null;
+    const idPct = +hsp.hsp_identity, aln = +hsp.hsp_align_len;
+    if (!(idPct >= 90) || !(aln >= 0.7 * seq.length)) return null;   // confident + well-covered only
+    return { by: 'BLAST (' + (/swissprot/i.test(db) ? 'Swiss-Prot' : 'UniProtKB') + ', ' + idPct.toFixed(0) + '% id)', candidates: [{ acc: h.hit_acc, length: null, organism: h.hit_os, gene: null }] };
+  }
+
   async function _afdbCif(acc) {
     try { const d = await _json(`https://alphafold.ebi.ac.uk/api/prediction/${acc}`); if (Array.isArray(d) && d.length) return d[0].cifUrl || null; } catch (e) {}
     return null;
@@ -136,7 +179,7 @@
   }
 
   // Resolve one bait → {accession, cifUrl, matchedBy, …, lengthOk, fragment} | null
-  async function resolveStructure({ gene, length, seq, species }) {
+  async function resolveStructure({ gene, length, seq, species, blast }) {
     if (!_fetch) throw new Error('fetch unavailable');
     const orgId = SPECIES[species] || species || '';
     const frag = parseFragmentRange(gene, length);      // partial protein? resolve the BASE, offset coords
@@ -146,6 +189,11 @@
     const _symName = frag ? frag.base : gene;
     if ((!found || !found.candidates.length) && _symName) { try { found = await _bySymbol(_symName, orgId, frag ? null : length); } catch (e) {} }
     if ((!found || !found.candidates.length) && seq && seq.length) { try { found = await _bySequence(seq, orgId, length); } catch (e) {} }
+    if ((!found || !found.candidates.length) && seq && seq.length >= 60) { try { found = await _byTrimmedSequence(seq, orgId); } catch (e) {} }   // Tier 2: canonical +/- terminal residues
+    if ((!found || !found.candidates.length) && blast && seq && seq.length >= 25) {   // Tier 2 (Swiss-Prot) -> Tier 3 (full UniProtKB) similarity BLAST
+      try { found = await _byBlast(seq, 'uniprotkb_swissprot'); } catch (e) {}
+      if (!found || !found.candidates.length) { try { found = await _byBlast(seq, 'uniprotkb'); } catch (e) {} }
+    }
     if (!found || !found.candidates.length) return null;
     // Among tied candidates, prefer one that actually has an AFDB structure (e.g. two 112-aa
     // TrEMBL entries where only one is in AlphaFold DB).
