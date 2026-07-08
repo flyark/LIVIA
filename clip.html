@@ -99,7 +99,7 @@
       🏷️ Identity map · <span id="meta-stat"></span> · Label by: <select id="meta-label" style="font-size:.85rem; padding:2px 6px"></select>
     </div>
     <div id="skel-wrap" class="hidden" style="margin-top:.4rem; font-size:.8rem; color:#889;">
-      Arbitrary prediction names? <a href="#" id="skel-link" style="color:#2471A3; font-weight:600">↓ download an identity-map template</a> for your CSV — fill in the IDs, re-upload.<br>or <a href="#" id="mg-convert" style="color:#2471A3; font-weight:600">✨ auto-convert names → symbols</a> (mygene.info + UniProt) <select id="mg-species" style="font-size:.8rem; padding:1px 4px"><option value="">all species</option><option value="7227">fly</option><option value="9606">human</option><option value="10090">mouse</option><option value="559292">yeast</option></select> <label style="margin-left:4px"><input type="checkbox" id="mg-auto" checked> on load</label>
+      Arbitrary prediction names? <a href="#" id="skel-link" style="color:#2471A3; font-weight:600">↓ download an identity-map template</a> for your CSV — fill in the IDs, re-upload.<br>or <a href="#" id="mg-convert" style="color:#2471A3; font-weight:600">✨ auto-convert names → symbols</a> (mygene.info + UniProt) <select id="mg-species" style="font-size:.8rem; padding:1px 4px"><option value="">all species</option><option value="7227">fly</option><option value="9606">human</option><option value="10090">mouse</option><option value="559292">yeast</option></select> <label style="margin-left:4px"><input type="checkbox" id="mg-auto" checked style="accent-color:#1a5276"> on load</label>
     </div>
     <div style="margin-top:.7rem; font-size:.85rem; color:#556;">
       ▶ Try examples — kinase-transcription factor screen (<a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank" style="color:#2471A3">Kim et al. 2025</a>):<br>
@@ -132,6 +132,15 @@
       <label>top N <input id="topn" type="number" placeholder="all" step="5" style="width:64px"></label>
       <button id="run" class="btn btn-primary" disabled>Generate report</button>
       <span id="status"></span>
+    </div>
+    <div id="subset-wrap" class="hidden" style="margin-top:.7rem; font-size:.85rem; color:#556;">
+      🔎 Include partners: <span id="subset-stat"></span>
+      &nbsp;<a href="#" id="subset-all" style="color:#2471A3; font-weight:600">all</a> ·
+      <a href="#" id="subset-none" style="color:#2471A3; font-weight:600">none</a>
+      &nbsp;·&nbsp;<a href="#" id="subset-dl" style="color:#2471A3; font-weight:600">↓ review list</a> ·
+      <label style="color:#2471A3; font-weight:600; cursor:pointer">↑ upload<input type="file" id="subset-ul" accept=".csv,.tsv,.txt" class="hidden"></label> ·
+      <a href="#" id="subset-dl-lis" style="color:#2471A3; font-weight:600">↓ lis.py (selected)</a>
+      <div id="subset-list" style="margin-top:.4rem; max-height:150px; overflow:auto; display:flex; flex-wrap:wrap; gap:.3rem .8rem;"></div>
     </div>
     <div class="row" style="margin-top:.6rem; font-size:.85rem; color:#556">
       <span class="muted">3D structure via AlphaFold DB — resolved from FASTA sequence (exact) or protein name + length.</span>
@@ -280,7 +289,7 @@ wireZone('dz-csv', 'in-csv', 'csv'); wireZone('dz-fasta', 'in-fasta', 'fasta'); 
     await routeFiles([new File([h.csv], 'network_query.csv', { type:'text/csv' })], 'csv');
     if (h.meta) await routeFiles([new File([h.meta], 'identity_map.csv', { type:'text/csv' })], 'meta');
     const sel = $('gene');
-    if (sel && (h.querySym||h.query)){ const o=[...sel.options].find(o=>o.value===h.querySym) || [...sel.options].find(o=>o.value===h.query); if(o){ sel.value=o.value; if ($('run') && !$('run').disabled) $('run').click(); } }
+    if (sel && (h.querySym||h.query)){ const o=[...sel.options].find(o=>o.value===h.querySym) || [...sel.options].find(o=>o.value===h.query); if(o){ sel.value=o.value; PARTNER_EXCLUDE = new Set(); rebuildSubsetPicker(); if ($('run') && !$('run').disabled) $('run').click(); } }
   } catch(e){ console.warn('net2clip', e); }
 })();
 // Examples: fly TF kinase screens (published, Kim et al. 2025) — load the CSV, pick the TF, generate.
@@ -301,6 +310,12 @@ document.querySelectorAll('.load-ex').forEach(a => a.onclick = (e) => { e.preven
 // FPR ⇄ iLIS cutoff sync
 $('fpr').onchange = () => { if ($('fpr').value) $('ilis').value = $('fpr').value; };
 $('ilis').oninput = () => { $('fpr').value = ['0.223','0.339','0.551'].includes($('ilis').value) ? $('ilis').value : ''; };
+$('gene').addEventListener('change', () => { PARTNER_EXCLUDE = new Set(); rebuildSubsetPicker(); });
+{ const _sa = $('subset-all'); if (_sa) _sa.onclick = (e) => { e.preventDefault(); PARTNER_EXCLUDE = new Set(); rebuildSubsetPicker(); };
+  const _sn = $('subset-none'); if (_sn) _sn.onclick = (e) => { e.preventDefault(); PARTNER_EXCLUDE = new Set(queryPartners($('gene').value)); rebuildSubsetPicker(); }; }
+{ const _sd = $('subset-dl'); if (_sd) _sd.onclick = (e) => { e.preventDefault(); downloadSubsetList(); };
+  const _sl = $('subset-dl-lis'); if (_sl) _sl.onclick = (e) => { e.preventDefault(); downloadFilteredLis(); };
+  const _su = $('subset-ul'); if (_su) _su.onchange = async (ev) => { const f = ev.target.files && ev.target.files[0]; if (!f) return; try { uploadSubsetList(await f.text()); } catch(err){ $('status').textContent = '⚠ subset list parse failed: ' + err.message; } finally { ev.target.value = ''; } }; }
 
 async function routeFiles(list, kind){
   if (!list || !list.length) return;
@@ -435,6 +450,100 @@ function rebuildGenes(){
   const sel = $('gene'); sel.innerHTML='';
   for (const g of genes.slice(0,500)) { const o=document.createElement('option'); o.value=g; o.textContent=`${g} (${partners[g].size} predictions${lenOf[g]?', '+lenOf[g]+' aa':''})`; sel.appendChild(o); }
   $('run').disabled = genes.length===0;
+  rebuildSubsetPicker();
+}
+
+// ── Subset picker (5th loader): choose which of the query's partners to cluster ──
+let PARTNER_EXCLUDE = new Set();   // partner symbols to drop before clustering
+function queryPartners(gene){
+  const set = new Set();
+  for (const f of FILES) for (const r of f.rows){
+    if (r.Symbol_1 === gene) set.add(r.Symbol_2);
+    else if (r.Symbol_2 === gene) set.add(r.Symbol_1);
+  }
+  return [...set].filter(Boolean).sort();
+}
+function updateSubsetStat(total){
+  const checked = [...document.querySelectorAll('.subset-cb')].filter(c => c.checked).length;
+  $('subset-stat').textContent = `${checked} / ${total} partners`;
+}
+function rebuildSubsetPicker(){
+  const gene = $('gene').value, wrap = $('subset-wrap'), box = $('subset-list');
+  if (!wrap || !box) return;
+  const partners = (gene && gene !== '\u2014' && FILES.length) ? queryPartners(gene) : [];
+  if (partners.length < 2){ wrap.classList.add('hidden'); return; }
+  box.innerHTML = '';
+  for (const pt of partners){
+    const lab = document.createElement('label'); lab.style.cssText = 'white-space:nowrap;';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'subset-cb'; cb.value = pt; cb.checked = !PARTNER_EXCLUDE.has(pt); cb.style.accentColor = '#1a5276';
+    cb.onchange = () => { if (cb.checked) PARTNER_EXCLUDE.delete(pt); else PARTNER_EXCLUDE.add(pt); updateSubsetStat(partners.length); };
+    lab.appendChild(cb); lab.appendChild(document.createTextNode(' ' + pt)); box.appendChild(lab);
+  }
+  wrap.classList.remove('hidden');
+  updateSubsetStat(partners.length);
+}
+// ── Subset review list: download (converted + ORIGINAL names, partial/full, dup counts) / re-upload ──
+function partnerReviewInfo(gene){
+  const info = {};
+  for (const f of FILES) for (const r of f.rows){
+    let pt, oOrig, pLen;
+    if (r.Symbol_1 === gene){ pt = r.Symbol_2; oOrig = r._oSym2 != null ? r._oSym2 : r.Symbol_2; pLen = +r.Protein_Len_B || 0; }
+    else if (r.Symbol_2 === gene){ pt = r.Symbol_1; oOrig = r._oSym1 != null ? r._oSym1 : r.Symbol_1; pLen = +r.Protein_Len_A || 0; }
+    else continue;
+    if (!pt) continue;
+    const e = info[pt] || (info[pt] = { names:new Set(), origSyms:new Set(), ranks:new Set(), nRows:0, frags:new Set() });
+    e.nRows++;
+    if (r.name != null) e.names.add(r.name);
+    if (oOrig != null) e.origSyms.add(oOrig);
+    if (r.Rank != null && r.Rank !== '') e.ranks.add(Math.trunc(+r.Rank));
+    let fr = null; try { fr = CLIPResolver.parseFragmentRange(pt, pLen); } catch(_){}
+    if (!fr && typeof LABEL_FRAG !== 'undefined' && LABEL_FRAG[pt]) fr = LABEL_FRAG[pt];
+    if (fr) e.frags.add(fr.start + '-' + fr.end);
+  }
+  return info;
+}
+function _csvEsc(x){ x = String(x == null ? '' : x); return /[,"\n]/.test(x) ? '"' + x.replace(/"/g,'""') + '"' : x; }
+function _saveCsv(text, fname){
+  const blob = new Blob([text], { type:'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { try { URL.revokeObjectURL(a.href); } catch(_){} a.remove(); }, 1000);
+}
+function downloadSubsetList(){
+  const gene = $('gene').value;
+  if (!gene || gene === '—' || !FILES.length) return;
+  const partners = queryPartners(gene); if (!partners.length) return;
+  const info = partnerReviewInfo(gene);
+  const out = [['partner','original_name(s)','original_symbol(s)','type','n_rows','n_ranks','include']];
+  for (const pt of partners){
+    const e = info[pt] || { names:new Set(), origSyms:new Set(), ranks:new Set(), nRows:0, frags:new Set() };
+    const type = e.frags.size ? 'partial:' + [...e.frags].join(';') : 'full';
+    out.push([pt, [...e.names].join(';'), [...e.origSyms].join(';'), type, e.nRows, e.ranks.size, PARTNER_EXCLUDE.has(pt) ? 0 : 1]);
+  }
+  _saveCsv(out.map(row => row.map(_csvEsc).join(',')).join('\n'), 'clip_' + gene + '_partners.csv');
+}
+function uploadSubsetList(text){
+  const gene = $('gene').value;
+  const present = new Set(queryPartners(gene));
+  const parsed = CLIPPipeline.parseCSV(text), rows = parsed.rows || [];
+  const excl = new Set(); let unknown = 0;
+  const truthy = (v) => { const s = String(v == null ? '' : v).trim().toLowerCase(); return !(s==='0'||s==='false'||s==='no'||s==='exclude'||s==='n'||s===''); };
+  for (const r of rows){
+    const pt = String(r.partner != null ? r.partner : (r.Partner || '')).trim(); if (!pt) continue;
+    if (!present.has(pt)) { unknown++; continue; }
+    if (!truthy(r.include != null ? r.include : r.Include)) excl.add(pt);
+  }
+  PARTNER_EXCLUDE = excl; rebuildSubsetPicker();
+  $('status').textContent = 'subset applied — ' + (present.size - excl.size) + '/' + present.size + ' partners included' + (unknown ? ' · ' + unknown + ' not found for ' + gene + ' (ignored)' : '');
+}
+function downloadFilteredLis(){
+  const gene = $('gene').value;
+  if (!gene || gene === '—' || !FILES.length) return;
+  const rows = FILES.flatMap(f=>f.rows).filter(r => { const pt = r.Symbol_1===gene ? r.Symbol_2 : (r.Symbol_2===gene ? r.Symbol_1 : null); return pt && !PARTNER_EXCLUDE.has(pt); });
+  if (!rows.length) return;
+  const cols = [...new Set(rows.flatMap(r => Object.keys(r)))].filter(k => k[0] !== '_'); cols.push('original_name');
+  const body = rows.map(r => cols.map(c => _csvEsc(c==='original_name' ? r.name : r[c])).join(','));
+  _saveCsv([cols.join(','), ...body].join('\n'), 'clip_' + gene + '_filtered.csv');
 }
 function updateLoaded(){
   $('ld-csv').textContent = FILES.length ? `✓ ${FILES.length} file${FILES.length>1?'s':''}` : '';
@@ -454,7 +563,9 @@ $('run').onclick = () => {
   $('status').textContent = 'clustering…';
   setTimeout(() => {
     const t0 = performance.now();
-    const pipe = CLIPPipeline.runPipelineRows(FILES.flatMap(f=>f.rows), gene, opts);
+    const allRows = FILES.flatMap(f=>f.rows);
+    const rows = PARTNER_EXCLUDE.size ? allRows.filter(r => { const pt = r.Symbol_1===gene ? r.Symbol_2 : (r.Symbol_2===gene ? r.Symbol_1 : null); return !(pt && PARTNER_EXCLUDE.has(pt)); }) : allRows;
+    const pipe = CLIPPipeline.runPipelineRows(rows, gene, opts);
     if (pipe.fingerprints.length < 2){ $('status').textContent = `Only ${pipe.fingerprints.length} partner(s) passed filtering — need ≥2.`; return; }
     const cl = CLIPCluster.clusterInteractions(pipe.fingerprints, { maxK:30, dropThreshold:0.05 });
     { const cnt = {}; for (const l of cl.labels) cnt[l] = (cnt[l]||0)+1;                     // renumber clusters by size: largest = cluster 1

@@ -118,9 +118,9 @@
         <div style="font-size:0.8rem; color:#888; margin-bottom:0.6rem;">Precomputed PPI predictions for <em>Drosophila</em> from <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3;">FlyPredictome</a>. Search by gene name or paste a prediction page URL.</div>
 
         <div class="input-tabs">
-            <button class="input-tab" data-tab="search" onclick="switchTab('search')">Search by Gene</button>
+            <button class="input-tab active" data-tab="search" onclick="switchTab('search')">Search by Gene</button>
             <button class="input-tab" data-tab="pair" onclick="switchTab('pair')">Gene Pair</button>
-            <button class="input-tab active" data-tab="url" onclick="switchTab('url')">Paste URL</button>
+            <button class="input-tab" data-tab="url" onclick="switchTab('url')">Paste URL</button>
         </div>
 
         <!-- Search by Gene panel -->
@@ -542,6 +542,8 @@ document.addEventListener('DOMContentLoaded', () => {
         switchTab('url');
         document.getElementById('url-input').value = params.get('url');
         setTimeout(() => generate(), 500);
+    } else {
+        switchTab('search');
     }
 });
 
@@ -1150,6 +1152,28 @@ function displayPartnerTable(partners, querySymbol) {
         '</label>' +
         '<span style="font-size:0.78rem; color:#999;" id="filter-count"></span>';
     container.appendChild(filterDiv);
+
+    // → cLIP handoff: gather this gene's interactome and cluster by shared contact residues
+    const clipDiv = document.createElement('div');
+    clipDiv.style.cssText = 'display:flex; gap:0.5rem; align-items:center; margin-bottom:0.6rem; flex-wrap:wrap;';
+    const clipBtn = document.createElement('button');
+    clipBtn.textContent = '🧬 Analyze interactome in cLIP →';
+    clipBtn.style.cssText = 'padding:0.45rem 0.9rem; border:none; border-radius:8px; background:#2471A3; color:#fff; cursor:pointer; font-size:0.85rem; font-weight:600;';
+    const capSel = document.createElement('select');
+    capSel.style.cssText = 'padding:0.4rem; border:1px solid #ccc; border-radius:6px; font-size:0.82rem;';
+    capSel.innerHTML = '<option value="100">Top 100 by iLIS</option><option value="200">Top 200</option><option value="300">Top 300</option><option value="99999">All</option>';
+    clipBtn.onclick = () => handoffToClip(parseInt(capSel.value, 10));
+    clipDiv.appendChild(clipBtn);
+    clipDiv.appendChild(capSel);
+    const uniqLabel = document.createElement('label');
+    uniqLabel.style.cssText = 'font-size:0.8rem; color:#555; display:flex; align-items:center; gap:3px; cursor:pointer;';
+    uniqLabel.innerHTML = '<input type="checkbox" id="clip-unique" checked style="accent-color:#1a5276"> unique partners';
+    clipDiv.appendChild(uniqLabel);
+    const clipHint = document.createElement('span');
+    clipHint.style.cssText = 'font-size:0.76rem; color:#999;';
+    clipHint.textContent = 'clusters partners by shared contact residues (cLIR)';
+    clipDiv.appendChild(clipHint);
+    container.appendChild(clipDiv);
 
     // Table
     const tableWrap = document.createElement('div');
@@ -3412,33 +3436,37 @@ function buildFlySeqViewer(row, sym1, sym2, colors, chainSeqs) {
     }
 }
 
+const FLY_CSV_HEADER = 'name,rank,model,chain_i,chain_j,iLIS,iLIA,iLISA,LIS,cLIS,LIA,cLIA,ipTM,pLDDT,pTM,LIR_i,LIR_j,cLIR_i,cLIR_j,len_i,len_j,LIR_indices_i,LIR_indices_j,cLIR_indices_i,cLIR_indices_j';
+
+// One lis.py-style CSV line from a parsed rank row. name uses `_vs_` so cLIP's parseProteinNames splits it correctly.
+function flyRowToCsvLine(r) {
+    const sym1 = r['Symbol 1'] || '';
+    const sym2 = r['Symbol 2'] || '';
+    return [
+        `${sym1}_vs_${sym2}`, r['Rank'] || '', r['Rank'] || '', sym1, sym2,
+        r['iLIS'] != null ? parseFloat(r['iLIS']).toFixed(6) : '',
+        (() => { const la=parseFloat(r['LIA']||0)||(parseFloat(r['LIA (AB)']||0)+parseFloat(r['LIA (BA)']||0)),cl=parseFloat(r['cLIA']||0)||(parseFloat(r['cLIA (AB)']||0)+parseFloat(r['cLIA (BA)']||0)); return la>0&&cl>0?Math.sqrt(la*cl).toFixed(1):''; })(),
+        (() => { const la=parseFloat(r['LIA']||0)||(parseFloat(r['LIA (AB)']||0)+parseFloat(r['LIA (BA)']||0)),cl=parseFloat(r['cLIA']||0)||(parseFloat(r['cLIA (AB)']||0)+parseFloat(r['cLIA (BA)']||0)),il=parseFloat(r['iLIS']||0); const ilia=Math.sqrt(la*cl); return il>0&&ilia>0?(il*ilia).toFixed(1):''; })(),
+        r['LIS'] != null ? parseFloat(r['LIS']).toFixed(6) : '',
+        r['cLIS'] != null ? parseFloat(r['cLIS']).toFixed(6) : '',
+        (parseFloat(r['LIA']||0)||(parseFloat(r['LIA (AB)']||0)+parseFloat(r['LIA (BA)']||0))).toFixed(1),
+        (parseFloat(r['cLIA']||0)||(parseFloat(r['cLIA (AB)']||0)+parseFloat(r['cLIA (BA)']||0))).toFixed(1),
+        r['ipTM'] != null ? parseFloat(r['ipTM']).toFixed(6) : '',
+        r['pLDDT'] != null ? parseFloat(r['pLDDT']).toFixed(1) : '',
+        r['pTM'] != null ? parseFloat(r['pTM']).toFixed(6) : '',
+        r._LIR_A.size, r._LIR_B.size, r._cLIR_A.size, r._cLIR_B.size,
+        r['Len A'] || '', r['Len B'] || '',
+        `"[${[...r._LIR_A].sort((a,b)=>a-b).join(', ')}]"`,
+        `"[${[...r._LIR_B].sort((a,b)=>a-b).join(', ')}]"`,
+        `"[${[...r._cLIR_A].sort((a,b)=>a-b).join(', ')}]"`,
+        `"[${[...r._cLIR_B].sort((a,b)=>a-b).join(', ')}]"`,
+    ].join(',');
+}
+
 function downloadFlyCSV() {
     if (!flyParsed || flyParsed.rows.length === 0) return;
-    const header = 'name,model,chain_A,chain_B,iLIS,iLIA,iLISA,LIS,cLIS,LIA,cLIA,ipTM,pLDDT,pTM,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
-    const rows = [header];
-    for (const r of flyParsed.rows) {
-        const sym1 = r['Symbol 1'] || '';
-        const sym2 = r['Symbol 2'] || '';
-        rows.push([
-            `${sym1}_${sym2}`, r['Rank'] || '', sym1, sym2,
-            r['iLIS'] != null ? parseFloat(r['iLIS']).toFixed(6) : '',
-            (() => { const la=parseFloat(r['LIA']||0)||(parseFloat(r['LIA (AB)']||0)+parseFloat(r['LIA (BA)']||0)),cl=parseFloat(r['cLIA']||0)||(parseFloat(r['cLIA (AB)']||0)+parseFloat(r['cLIA (BA)']||0)); return la>0&&cl>0?Math.sqrt(la*cl).toFixed(1):''; })(),
-            (() => { const la=parseFloat(r['LIA']||0)||(parseFloat(r['LIA (AB)']||0)+parseFloat(r['LIA (BA)']||0)),cl=parseFloat(r['cLIA']||0)||(parseFloat(r['cLIA (AB)']||0)+parseFloat(r['cLIA (BA)']||0)),il=parseFloat(r['iLIS']||0); const ilia=Math.sqrt(la*cl); return il>0&&ilia>0?(il*ilia).toFixed(1):''; })(),
-            r['LIS'] != null ? parseFloat(r['LIS']).toFixed(6) : '',
-            r['cLIS'] != null ? parseFloat(r['cLIS']).toFixed(6) : '',
-            (parseFloat(r['LIA']||0)||(parseFloat(r['LIA (AB)']||0)+parseFloat(r['LIA (BA)']||0))).toFixed(1),
-            (parseFloat(r['cLIA']||0)||(parseFloat(r['cLIA (AB)']||0)+parseFloat(r['cLIA (BA)']||0))).toFixed(1),
-            r['ipTM'] != null ? parseFloat(r['ipTM']).toFixed(6) : '',
-            r['pLDDT'] != null ? parseFloat(r['pLDDT']).toFixed(1) : '',
-            r['pTM'] != null ? parseFloat(r['pTM']).toFixed(6) : '',
-            r._LIR_A.size, r._LIR_B.size, r._cLIR_A.size, r._cLIR_B.size,
-            r['Len A'] || '', r['Len B'] || '',
-            `"[${[...r._LIR_A].sort((a,b)=>a-b).join(', ')}]"`,
-            `"[${[...r._LIR_B].sort((a,b)=>a-b).join(', ')}]"`,
-            `"[${[...r._cLIR_A].sort((a,b)=>a-b).join(', ')}]"`,
-            `"[${[...r._cLIR_B].sort((a,b)=>a-b).join(', ')}]"`,
-        ].join(','));
-    }
+    const rows = [FLY_CSV_HEADER];
+    for (const r of flyParsed.rows) rows.push(flyRowToCsvLine(r));
     const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -3446,6 +3474,80 @@ function downloadFlyCSV() {
     const sym2 = flyParsed.rows[0]?.['Symbol 2'] || 'protein2';
     a.download = `${sym1}_${sym2}_all_ranks.csv`;
     a.click();
+}
+
+// ── Gather the searched gene's interactome (each partner's cLIR indices) and hand off to cLIP ──
+function partnerPassesFilters(p) {   // mirror the partner-table checkbox filters
+    if (document.getElementById('filter-positive')?.checked && p.ilisBest <= 0) return false;
+    if (document.getElementById('filter-threshold')?.checked && p.ilisBest < 0.223) return false;
+    if (document.getElementById('filter-fulllength')?.checked && (p.isPartnerPartial || p.isQueryPartial)) return false;
+    if (document.getElementById('filter-mist')?.checked && p.mistPPI === 0 && p.mistGI === 0 && p.mistInterologPPI === 0 && p.mistInterologGI === 0) return false;
+    return true;
+}
+
+async function handoffToClip(cap) {
+    const query = window._searchQuery;
+    let partners = (window._searchPartners || []).filter(partnerPassesFilters);
+    const uEl = document.getElementById('clip-unique');
+    if (!uEl || uEl.checked) {   // dedup to unique partner: keep highest iLIS(best); tie -> highest iLIS(avg)
+        const best = {};
+        for (const p of partners) { const k = p.partnerSymbol, c = best[k]; if (!c || p.ilisBest > c.ilisBest || (p.ilisBest === c.ilisBest && p.ilisAvg > c.ilisAvg)) best[k] = p; }
+        partners = Object.values(best);
+    }
+    partners.sort((a,b) => (b.ilisBest - a.ilisBest) || (b.ilisAvg - a.ilisAvg));   // best iLIS first
+    if (partners.length < 2) { alert('Need at least 2 unique partners passing the current filters to cluster in cLIP.'); return; }
+    partners = partners.slice(0, cap || 100);
+
+    const ov = buildGatherOverlay(partners.length);
+    const CONC = 10;                              // concurrent Worker fetches
+    const cache = window._detailCache = window._detailCache || {};   // avoid re-fetching within a session
+    const lines = [FLY_CSV_HEADER];
+    let done = 0, ok = 0, idx = 0;
+    const worker = async () => {
+        while (idx < partners.length && !ov.stopped) {
+            const p = partners[idx++];
+            if (p.detailUrl) {
+                try {
+                    let html = cache[p.detailUrl];
+                    if (!html) { html = await fetchViaProxy(p.detailUrl); if (html) cache[p.detailUrl] = html; }
+                    if (html) { const parsed = parseTable(html); if (parsed && parsed.rows && parsed.rows.length) { parsed.rows.forEach(r => lines.push(flyRowToCsvLine(r))); ok++; } }
+                } catch (e) { /* skip this partner */ }
+            }
+            ov.update(++done, ok);
+        }
+    };
+    await Promise.all(Array.from({ length: CONC }, worker));
+    ov.close();
+    if (ok < 2) { alert('cLIP needs at least 2 partners with contact data — only ' + ok + ' gathered. Try another gene or a larger cap.'); return; }
+    // Derive the query's symbol AS IT APPEARS in the gathered CSV — flypredictome may label e.g. Akt1 as "Akt",
+    // so the searched name won't match cLIP's #gene option. The query is the symbol common to (almost) every pair.
+    const symCount = {};
+    for (let i = 1; i < lines.length; i++) { const c = lines[i].split(','); symCount[c[2]] = (symCount[c[2]]||0)+1; symCount[c[3]] = (symCount[c[3]]||0)+1; }
+    const querySym = Object.keys(symCount).sort((a,b)=>symCount[b]-symCount[a])[0] || query;
+    localStorage.setItem('livia_net2clip', JSON.stringify({ csv: lines.join('\n'), query, querySym }));
+    window.open('clip.html', '_blank');
+}
+
+function buildGatherOverlay(total) {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; z-index:99999;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff; border-radius:12px; padding:1.6rem 2rem; min-width:330px; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,0.3); font-family:inherit;';
+    box.innerHTML =
+        '<div style="font-weight:600; font-size:1rem; margin-bottom:0.3rem;">Gathering interactome for cLIP…</div>' +
+        '<div style="font-size:0.8rem; color:#888; margin-bottom:0.9rem;">Fetching contact residues (cLIR) from each partner prediction page</div>' +
+        '<div style="height:8px; background:#eee; border-radius:4px; overflow:hidden; margin-bottom:0.5rem;"><div id="gather-bar" style="height:100%; width:0%; background:#2471A3; transition:width 0.25s;"></div></div>' +
+        '<div id="gather-stat" style="font-size:0.85rem; color:#555; margin-bottom:1rem;">0 / ' + total + '</div>' +
+        '<button id="gather-stop" style="padding:0.4rem 1rem; border:1px solid #ccc; border-radius:8px; background:#fff; cursor:pointer; font-size:0.85rem;">Stop &amp; send gathered so far</button>';
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+    const api = {
+        stopped: false, total,
+        update(d, okc) { const b=document.getElementById('gather-bar'); if(b) b.style.width = Math.round(d/total*100)+'%'; const s=document.getElementById('gather-stat'); if(s) s.textContent = d+' / '+total+'  ('+okc+' with data)'; },
+        close() { ov.remove(); }
+    };
+    box.querySelector('#gather-stop').onclick = () => { api.stopped = true; box.querySelector('#gather-stop').textContent = 'Stopping…'; };
+    return api;
 }
 
 function showError(msg) {
