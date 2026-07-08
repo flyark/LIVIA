@@ -49,7 +49,7 @@
 <body>
 <div class="header">
   <div class="container">
-    <h1><span style="color:#2471A3;">LIVIA</span> &mdash; cLIP <sup style="color:#e67e22; font-weight:700; font-size:.42em; letter-spacing:.02em;">beta</sup> <span style="font-weight:400;">(<b style="color:#2471A3">c</b>lustered <b style="color:#2471A3">L</b>ocal <b style="color:#2471A3">I</b>nteraction <b style="color:#2471A3">P</b>rofiler)</span></h1>
+    <h1><span style="color:#2471A3;">LIVIA</span> &mdash; cLIP <span style="font-weight:400;">(<b style="color:#2471A3">c</b>lustered <b style="color:#2471A3">L</b>ocal <b style="color:#2471A3">I</b>nteraction <b style="color:#2471A3">P</b>rofiler)</span> <sup style="color:#e67e22; font-weight:700; font-size:.42em; letter-spacing:.02em;">beta</sup></h1>
     <p>Cluster a protein's interactome by shared contact Local Interaction Residues (cLIR) &mdash; drop lis.py output, all in your browser</p>
     <div class="header-links">
       <a href="index.html">Home</a>
@@ -118,8 +118,7 @@
       &nbsp; <span style="color:#889; font-size:.8rem;">human kinase &rarr;</span>
       <a href="#" class="load-ex" data-file="akt1_tf_screen.csv" data-gene="AKT1" style="color:#2471A3; font-weight:600; text-decoration:none;">AKT1</a> ·
       <a href="#" class="load-ex" data-file="p38a_tf_screen.csv" data-gene="MAPK14" style="color:#2471A3; font-weight:600; text-decoration:none;">p38&alpha;</a> ·
-      <a href="#" class="load-ex" data-file="chk1_tf_screen.csv" data-gene="CHEK1" style="color:#2471A3; font-weight:600; text-decoration:none;">CHK1</a><br>
-      <span style="color:#889; font-size:.8rem;">or the</span> <a href="#" id="demo-id-link" style="color:#2471A3; font-weight:600; text-decoration:none;">identity-map demo</a> <span style="color:#889; font-size:.78rem;">(arbitrary run_NNN names + a mapping table)</span>
+      <a href="#" class="load-ex" data-file="chk1_tf_screen.csv" data-gene="CHEK1" style="color:#2471A3; font-weight:600; text-decoration:none;">CHK1</a>
     </div>
     <div class="row" style="margin-top:1rem">
       <label>Query protein: <select id="gene"><option>—</option></select></label>
@@ -281,22 +280,10 @@ wireZone('dz-csv', 'in-csv', 'csv'); wireZone('dz-fasta', 'in-fasta', 'fasta'); 
     await routeFiles([new File([h.csv], 'network_query.csv', { type:'text/csv' })], 'csv');
     if (h.meta) await routeFiles([new File([h.meta], 'identity_map.csv', { type:'text/csv' })], 'meta');
     const sel = $('gene');
-    if (sel && h.query){ const o=[...sel.options].find(o=>o.value===h.query); if(o){ sel.value=o.value; if ($('run') && !$('run').disabled) $('run').click(); } }
+    if (sel && (h.querySym||h.query)){ const o=[...sel.options].find(o=>o.value===h.querySym) || [...sel.options].find(o=>o.value===h.query); if(o){ sel.value=o.value; if ($('run') && !$('run').disabled) $('run').click(); } }
   } catch(e){ console.warn('net2clip', e); }
 })();
 // Examples: fly TF kinase screens (published, Kim et al. 2025) — load the CSV, pick the TF, generate.
-async function loadIdentityDemo(){
-  try {
-    $('status').textContent = 'loading identity-map demo…';
-    FILES = [{ name: 'demo_arbitrary_names.csv', rows: CLIPPipeline.convertRows(CLIPPipeline.parseCSV(await (await fetch('examples/demo_arbitrary_names.csv')).text()).rows) }];
-    META = parseMetadata(await (await fetch('examples/demo_identity_map.csv')).text());
-    const sel = $('meta-label'); sel.innerHTML = ''; for (const c of META.cols){ const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); }
-    META_LABELCOL = META.cols.indexOf('gene') >= 0 ? 'gene' : META.cols[0]; sel.value = META_LABELCOL;
-    $('meta-label-wrap').classList.remove('hidden');
-    applyMetadata(); updateLoaded();
-    $('status').textContent = 'demo loaded — run_NNN names recovered (id columns: gene / uniprot / flybase). Switch \'Label by\', then pick a query (e.g. ftz) and generate.';
-  } catch(e){ $('status').textContent = '⚠ demo load failed: ' + e.message; }
-}
 async function loadExample(file, gene) {
   $('status').textContent = `loading ${gene} kinase–TF screen…`;
   try {
@@ -311,7 +298,6 @@ document.querySelectorAll('.load-ex').forEach(a => a.onclick = (e) => { e.preven
 { const _ml = $('meta-label'); if (_ml) _ml.onchange = () => { META_LABELCOL = _ml.value; applyMetadata(); $('status').textContent = 'display labels updated — pick a query and generate'; }; }
 { const _sk = $('skel-link'); if (_sk) _sk.onclick = (e) => { e.preventDefault(); downloadSkeleton(); }; }
 { const _mc = $('mg-convert'); if (_mc) _mc.onclick = (e) => { e.preventDefault(); autoConvertClip(); }; }
-{ const _d = $('demo-id-link'); if (_d) _d.onclick = (e) => { e.preventDefault(); loadIdentityDemo(); }; }
 // FPR ⇄ iLIS cutoff sync
 $('fpr').onchange = () => { if ($('fpr').value) $('ilis').value = $('fpr').value; };
 $('ilis').oninput = () => { $('fpr').value = ['0.223','0.339','0.551'].includes($('ilis').value) ? $('ilis').value : ''; };
@@ -348,7 +334,7 @@ async function routeFiles(list, kind){
   }
   if (kind === 'csv'){ if (META) applyMetadata(); else rebuildGenes(); }
   updateLoaded();
-  if (kind === 'csv' && $('mg-auto') && $('mg-auto').checked && !META) maybeAutoConvertClip();
+  if (kind === 'csv' && $('mg-auto') && $('mg-auto').checked && !META) await maybeAutoConvertClip();
 }
 function parseMetadata(text){
   const rows = CLIPPipeline.parseCSV(text).rows;
@@ -416,7 +402,7 @@ function maybeAutoConvertClip(){   // auto-run name→symbol conversion when loa
   if (!FILES.length || META) return;
   const syms=new Set(); for (const f of FILES) for (const r of f.rows){ if(r.Symbol_1) syms.add(r.Symbol_1); if(r.Symbol_2) syms.add(r.Symbol_2); }
   const ids=[...syms], idLike=ids.filter(n=>/^FB(pp|gn|tr)\d+$/i.test(n)||/_(HUMAN|MOUSE|RAT|YEAST|DROME|CAEEL|DANRE|ARATH|SCHPO|BOVIN|CHICK|XENLA|PIG|HORSE|RABIT)(_\d+_\d+)?$/i.test(n)||/^[A-NR-Z][0-9][A-Z0-9]{3}[0-9]/.test(n)||/^\d+$/.test(n)).length;
-  if (ids.length && idLike/ids.length >= 0.3) autoConvertClip();
+  if (ids.length && idLike/ids.length >= 0.3) return autoConvertClip();
 }
 async function autoConvertClip(){   // convert loaded query/partner names to symbols -> build a name+chain identity map -> applyMetadata
   if (!FILES.length){ $('status').textContent='Load a lis.py CSV first.'; return; }

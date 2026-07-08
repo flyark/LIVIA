@@ -40,6 +40,8 @@
         .hero-cta { display: inline-block; margin-top: 1rem; padding: 0.5rem 1.2rem; background: #2471A3; color: white; border-radius: 8px; font-weight: 600; font-size: 0.9rem; text-decoration: none; transition: background 0.2s; }
         .hero-cta:hover { background: #1a5276; }
         .hero-hint { font-size: 0.8rem; color: #888; margin-top: 0.6rem; }
+        .hero-pair { display: grid; grid-template-columns: 3fr 2fr; gap: 1.5rem; margin-bottom: 2rem; }
+        .hero-pair .hero-card { margin-bottom: 0; }
 
         /* Section divider */
         .section-divider { font-size: 0.88rem; font-weight: 600; color: #888; margin-bottom: 1rem; padding-bottom: 0.4rem; border-bottom: 1px solid #e0e0e0; }
@@ -71,6 +73,7 @@
         @media (max-width: 600px) {
             .cards-grid { grid-template-columns: 1fr; }
             .hero-card { padding: 1.5rem; }
+            .hero-pair { grid-template-columns: 1fr; }
             .hero-card h2 { font-size: 1.2rem; }
             .bottom-row { flex-direction: column; }
         }
@@ -108,18 +111,26 @@
     <!-- Hero: Prediction Analysis -->
     <a class="hero-card" href="universal.html">
         <h2>Prediction Analysis</h2>
-        <p>Upload prediction files from AlphaFold-Multimer, AlphaFold3, ColabFold, Boltz-1/2, Chai-1, or OpenFold3. Calculate interface confidence metrics (iLIS, LIS, cLIS), view interactive PAE/LIS/cLIS maps, and generate visualization scripts.</p>
+        <p>Analyze predictions from AlphaFold-Multimer, AlphaFold3, ColabFold, Boltz-1/2, Chai-1, OpenFold3, Protenix-v2, and ESMFold2. Calculate interface confidence metrics (iLIS, LIS, cLIS), view interactive PAE/LIS/cLIS maps, and generate visualization scripts.</p>
         <span class="hero-cta">Launch Prediction Analysis &rarr;</span>
         <div class="hero-hint">Supports any major structure prediction platform &mdash; no installation needed.</div>
     </a>
 
-    <!-- Hero: cLIP -->
+    <!-- Heroes: cLIP + PPI Network Builder (side by side) -->
+    <div class="hero-pair">
     <a class="hero-card" href="clip.html">
-        <h2>cLIP <span style="font-weight:400; color:#555;">(<b style="color:#2471A3">c</b>lustered <b style="color:#2471A3">L</b>ocal <b style="color:#2471A3">I</b>nteraction <b style="color:#2471A3">P</b>rofiler)</span> <sup style="color:#e67e22; font-weight:700; font-size:0.5em; vertical-align:super;">beta</sup></h2>
-        <p>Cluster a query protein's whole interactome by contact fingerprints. Drop <strong>lis.py</strong> output (AFM-LIS) and cLIP groups its partners by which residues they engage &mdash; clustered fingerprint heatmap, per-residue contact frequency, and 3D structure coloring, all in your browser.</p>
+        <h2>cLIP <sup style="color:#e67e22; font-weight:700; font-size:0.5em; vertical-align:super;">beta</sup> <span style="font-weight:400; color:#555;">(<b style="color:#2471A3">c</b>lustered <b style="color:#2471A3">L</b>ocal <b style="color:#2471A3">I</b>nteraction <b style="color:#2471A3">P</b>rofiler)</span></h2>
+        <p>Cluster a protein's interactome by shared contact Local Interaction Residues (cLIR) &mdash; drop <strong>lis.py</strong> output, all in your browser.</p>
         <span class="hero-cta">Launch cLIP &rarr;</span>
         <div class="hero-hint">Resolves AlphaFold DB structures automatically from sequence or protein name.</div>
     </a>
+    <a class="hero-card" href="network.html">
+        <h2>PPI Network Builder <sup style="color:#e67e22; font-weight:700; font-size:0.5em; vertical-align:super;">beta</sup></h2>
+        <p>Build an interaction network from <strong>lis.py</strong> output &mdash; Leiden communities run in your browser.</p>
+        <span class="hero-cta">Launch PPI Network &rarr;</span>
+        <div class="hero-hint">Interactive layouts, name&rarr;symbol auto-convert, and export to Cytoscape/SVG.</div>
+    </a>
+    </div>
 
     <!-- Section divider -->
     <div class="section-divider">Browse Precomputed Interactomes &mdash; <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3; font-weight:400;">FlyPredictome</a> &middot; <a href="https://alphafold.ebi.ac.uk" target="_blank" style="color:#2471A3; font-weight:400;">AlphaFold DB</a></div>

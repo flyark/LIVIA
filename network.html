@@ -6,6 +6,7 @@
 <title>LIVIA — PPI Network</title>
 <script src="js/clip-pipeline.js"></script>
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="css/livia.css">
 <style>
@@ -15,6 +16,7 @@
   .dz{ border:2px dashed #b7c6d6; border-radius:10px; padding:14px; text-align:center; color:#557; cursor:pointer; transition:.15s; background:#fff; min-height:96px; display:flex; flex-direction:column; justify-content:center; }
   .dz:hover,.dz.drag{ border-color:var(--accent); background:#eef5fb; color:var(--accent); }
   .dz b{ color:var(--accent); }
+  .hint a{ color:var(--accent); }   /* match clip.html tone — was inheriting the vivid browser-default link blue */
   .zones3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; align-items:start; }
   .zonehdr{ font-weight:600; font-size:.85rem; color:#556; margin-bottom:6px; }
   .zonehdr .opt{ font-weight:400; font-size:.76rem; color:#9aa; }
@@ -60,7 +62,7 @@
 <body>
 <div class="header">
   <div class="container">
-    <h1><span style="color:#2471A3;">LIVIA</span> &mdash; PPI Network <sup style="color:#e67e22; font-weight:700; font-size:.42em; letter-spacing:.02em;">beta</sup> <span style="font-weight:400;">(interaction network builder)</span></h1>
+    <h1><span style="color:#2471A3;">LIVIA</span> &mdash; PPI Network Builder <sup style="color:#e67e22; font-weight:700; font-size:.42em; letter-spacing:.02em;">beta</sup></h1>
     <p>Build an interaction network from lis.py output &mdash; Leiden communities run in your browser (Pyodide + python-igraph)</p>
     <div class="header-links">
       <a href="index.html">Home</a>
@@ -85,9 +87,10 @@
         <div class="zonehdr">① lis.py CSV output <b style="color:#c0392b">*</b></div>
         <div class="dz" id="dz">
           <div style="font-size:14.5px"><b>Drop CSV files</b> (or click)</div>
-          <div class="hint" style="margin-top:3px">iLIS read directly · one or many · all-by-all → rich network</div>
-          <input id="in" type="file" accept=".csv" multiple class="hidden">
+          <div class="hint" style="margin-top:3px">iLIS read directly · CSVs or a .zip · all-by-all → rich network</div>
+          <input id="in" type="file" accept=".csv,.zip" multiple class="hidden">
         </div>
+        <div class="hint" style="margin-top:6px">▶ <a id="load-ex" href="#" style="font-weight:600">Try example</a> — fly small interactome · 565 proteins (from <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:var(--accent)">Kim et al. 2026</a>)</div>
       </div>
       <div class="zonecol">
         <div class="zonehdr">② Identity map <span class="opt">optional</span></div>
@@ -244,12 +247,23 @@ function rebuildIfBuilt(){ if (LAST) build(); }   // re-resolve identities / re-
 
 // ---------- load ----------
 async function routeFiles(list){
-  const files = [...list].filter(f=>/\.csv$/i.test(f.name)); if(!files.length) return;
-  setStatus(`Parsing ${files.length} file(s)…`);
-  for (const f of files){
-    let text, rows;
-    try { text = await f.text(); rows = CLIPPipeline.convertRows(CLIPPipeline.parseCSV(text).rows); } catch(e){ continue; }
-    FILES_RAW.push({ name:f.name, text });
+  const raw = [...list].filter(f=>/\.(csv|zip)$/i.test(f.name)); if(!raw.length) return;
+  setStatus(`Reading ${raw.length} file(s)…`);
+  const items = [];                                     // {name,text} — a dropped .zip of lis.py CSVs is expanded here
+  for (const f of raw){
+    if (/\.zip$/i.test(f.name)){
+      if (typeof fflate === 'undefined'){ setStatus('zip support failed to load (needs an internet connection)'); continue; }
+      try { const entries = fflate.unzipSync(new Uint8Array(await f.arrayBuffer())), dec = new TextDecoder();
+        for (const nm in entries){ if (nm.startsWith('__MACOSX/') || nm.endsWith('/')) continue; const base = nm.split('/').pop(); if (/\.csv$/i.test(base)) items.push({ name:base, text:dec.decode(entries[nm]) }); }
+      } catch(e){ setStatus('could not read the zip: '+e.message); continue; }
+    } else { try { items.push({ name:f.name, text: await f.text() }); } catch(e){} }
+  }
+  if (!items.length){ setStatus('No CSVs found in the upload.'); return; }
+  setStatus(`Parsing ${items.length} file(s)…`);
+  for (const it of items){
+    let rows;
+    try { rows = CLIPPipeline.convertRows(CLIPPipeline.parseCSV(it.text).rows); } catch(e){ continue; }
+    FILES_RAW.push({ name:it.name, text:it.text });
     for (const r of rows){                              // one record per prediction, best-iLIS row (identities resolved at build)
       const nm=r.name; if(!nm) continue;
       const il=+r.iLIS||0, prev=RAWPAIRS.get(nm);
@@ -258,7 +272,16 @@ async function routeFiles(list){
     FILECOUNT++;
   }
   updateLoaded();
-  if (RAWPAIRS.size && $('mg-auto') && $('mg-auto').checked && !META) maybeAutoConvert();
+  if (RAWPAIRS.size && $('mg-auto') && $('mg-auto').checked && !META) await maybeAutoConvert();
+}
+async function loadExample(){
+  setStatus('Loading example…');
+  RAWPAIRS.clear(); FILES_RAW.length=0; FILECOUNT=0; META=null; META_COL=null;
+  try {
+    const buf = await (await fetch('examples/fly_pathway_interactome.zip')).arrayBuffer();
+    await routeFiles([new File([buf], 'fly_pathway_interactome.zip', {type:'application/zip'})]);
+    if (RAWPAIRS.size) build();
+  } catch(e){ setStatus('Could not load the example: '+(e.message||e)); }
 }
 async function routeMeta(list){
   const f=[...list].filter(x=>/\.csv$/i.test(x.name))[0]; if(!f) return;
@@ -313,7 +336,7 @@ async function convertViaMyGene(){   // node names/IDs -> official symbols: myge
 function maybeAutoConvert(){   // auto-run name→symbol conversion when loaded names look like IDs (FBpp/FBgn/entry name/accession/entrez)
   const syms=new Set(); for (const r of RAWPAIRS.values()){ if(r.s1) syms.add(r.s1); if(r.s2) syms.add(r.s2); }
   const ids=[...syms], idLike=ids.filter(n=>/^FB(pp|gn|tr)\d+$/i.test(n)||/_(HUMAN|MOUSE|RAT|YEAST|DROME|CAEEL|DANRE|ARATH|SCHPO|BOVIN|CHICK|XENLA|PIG|HORSE|RABIT)(_\d+_\d+)?$/i.test(n)||/^[A-NR-Z][0-9][A-Z0-9]{3}[0-9]/.test(n)||/^\d+$/.test(n)).length;
-  if (ids.length && idLike/ids.length >= 0.3) convertViaMyGene();
+  if (ids.length && idLike/ids.length >= 0.3) return convertViaMyGene();
 }
 function rawIdFor(resolvedId){   // a raw split-symbol that resolves to this node (for the cLIP hand-off after a lookup relabel)
   for (const r of RAWPAIRS.values()){ if(resolveId(r.name,r.ci,r.s1)===resolvedId) return r.s1; if(resolveId(r.name,r.cj,r.s2)===resolvedId) return r.s2; }
@@ -482,7 +505,7 @@ function openInClip(nodeId){
   for (const f of FILES_RAW){ const lines=f.text.split(/\r?\n/); if(!header) header=lines[0];
     for(let i=1;i<lines.length;i++){ const nf=(lines[i].split(',',1)[0]||'').trim(); if(names.has(nf)) keep.push(lines[i]); } }
   const isLookup = META && META.mode==='lookup';
-  const payload = { csv:[header,...keep].join('\n'), meta: isLookup ? null : (META?META._raw:null), query: isLookup ? rawIdFor(nodeId) : nodeId };
+  const payload = { csv:[header,...keep].join('\n'), meta: isLookup ? null : (META?META._raw:null), query: isLookup ? rawIdFor(nodeId) : nodeId, querySym: nodeId };
   try { localStorage.setItem('livia_net2clip', JSON.stringify(payload)); window.open('clip.html','_blank'); }
   catch(e){ alert('This hub is too large to hand off automatically — open cLIP and drop the CSV, query = '+nodeId); }
 }
@@ -673,6 +696,7 @@ $('unicolor').addEventListener('input', restyle);
 $('labelby').addEventListener('change', e=>{ META_COL=e.target.value; updateLoaded(); rebuildIfBuilt(); });
 $('objfn').addEventListener('change', ()=>{ const cpm=$('objfn').value==='CPM'; $('resv').value=cpm?'0.01':'1.0'; $('res').value=cpm?0.01:1.0; });
 $('build').addEventListener('click', build);
+$('load-ex').addEventListener('click', e=>{ e.preventDefault(); loadExample(); });
 $('expsvg').addEventListener('click', ()=>exportSVG('view'));
 $('expsvgall').addEventListener('click', ()=>exportSVG('full'));
 $('expcsv').addEventListener('click', exportCSVs);
