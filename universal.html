@@ -238,9 +238,6 @@
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Looks up each chain in UniProt by sequence and lists any domains found.
             </div>
-            <div style="background:#fff8e1; border:1px solid #ffe08a; border-left:4px solid #f0ad4e; border-radius:6px; padding:0.5rem 0.7rem; margin-bottom:0.6rem; font-size:0.82rem; color:#6b5426;">
-                <strong>Chains not identified?</strong> Include the <strong>FASTA used for the prediction</strong> in your upload — chains are matched by exact sequence, so a truncated or modified chain will not resolve without it. Tested with ColabFold inputs. Still stuck? <a href="https://github.com/flyark/LIVIA/issues" target="_blank" style="color:#2471A3; font-weight:600;">Open an issue on GitHub</a>.
-            </div>
             <button class="btn" id="identify-btn" onclick="identifyChains()">Identify chains via UniProt</button>
             <div id="chain-identity-out" style="margin-top:0.6rem; overflow-x:auto;"></div>
         </div>

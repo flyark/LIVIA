@@ -95,6 +95,9 @@
         <input id="in-struct" type="file" accept=".pdb,.cif,.bcif,.ent,.mmcif" class="hidden">
       </div>
     </div>
+    <div style="background:#fff8e1; border:1px solid #ffe08a; border-left:4px solid #f0ad4e; border-radius:6px; padding:.5rem .7rem; margin-top:.7rem; font-size:.82rem; color:#6b5426;">
+      <strong>Proteins not resolving?</strong> Drop the <strong>FASTA used for the prediction</strong> — proteins are matched by exact sequence, so a truncated or engineered chain will not resolve from its name alone. Otherwise fill in the identity-map template below, or use auto-convert. Tested with ColabFold inputs. Still stuck? <a href="https://github.com/flyark/LIVIA/issues" target="_blank" style="color:#2471A3; font-weight:600;">Open an issue on GitHub</a>.
+    </div>
     <div id="meta-label-wrap" class="hidden" style="margin-top:.6rem; font-size:.85rem; color:#556;">
       🏷️ Identity map · <span id="meta-stat"></span> · Label by: <select id="meta-label" style="font-size:.85rem; padding:2px 6px"></select>
     </div>
