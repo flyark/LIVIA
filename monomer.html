@@ -1467,6 +1467,7 @@ function calculate() {
             const ri = validRegions[i];
             const rj = validRegions[j];
             const result = calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap, boundaryMargin);
+            result.i = i; result.j = j;                 // region indices, needed to band the chord arcs
             monPairResults.push(result);
         }
     }
@@ -3204,17 +3205,26 @@ function drawChordDiagram(validRegions) {
         for (const r of validRegions) arcColors.push(r.color);
     }
 
-    // Draw outer arcs (domain segments)
+    // Per-region LIR / cLIR residues (region-local, 1-based) gathered over every region pair
+    const lirByRegion = validRegions.map(() => new Set());
+    const clirByRegion = validRegions.map(() => new Set());
+    for (const res of monPairResults) {
+        if (res.i == null || res.j == null) continue;
+        const ri = validRegions[res.i], rj = validRegions[res.j];
+        if (!ri || !rj) continue;
+        if (res.lirI)  for (const a of res.lirI)  lirByRegion[res.i].add(a - ri.start + 1);
+        if (res.clirI) for (const a of res.clirI) clirByRegion[res.i].add(a - ri.start + 1);
+        if (res.lirJ)  for (const b of res.lirJ)  lirByRegion[res.j].add(b - rj.start + 1);
+        if (res.clirJ) for (const b of res.clirJ) clirByRegion[res.j].add(b - rj.start + 1);
+    }
+
+    // Draw outer arcs (domain segments) — grey where nothing binds, light = LIR, dark = cLIR
     for (const arc of arcs) {
-        ctx.beginPath();
-        ctx.arc(cx, cy, outerR, arc.start, arc.end);
-        ctx.arc(cx, cy, innerR, arc.end, arc.start, true);
-        ctx.closePath();
-        ctx.fillStyle = arcColors[arc.idx] || arc.region.color;
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1;
-        ctx.stroke();
+        const darkCol = arcColors[arc.idx] || arc.region.color;
+        const lightCol = lightenColor(darkCol, 0.5);
+        const arcLen = arc.region.end - arc.region.start + 1;
+        LiviaMaps.paintChordArcBand(ctx, cx, cy, outerR, innerR, arc.start, arc.end, arcLen,
+            lirByRegion[arc.idx], clirByRegion[arc.idx], lightCol, darkCol);
 
         // Label
         const labelAngle = arc.mid;

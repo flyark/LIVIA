@@ -1743,6 +1743,7 @@ function updateCombinedChord() {
     const canvasAll = document.getElementById('chord-canvas-all');
     const chordAllWrap = document.getElementById('chord-all-wrap');
     if (!canvasAll || !chordAllWrap) return;
+    LiviaMaps.attachExportBar('chord-canvas-all', { name: 'chord_diagram_all_ranks', svg: () => updateCombinedChord(), png: true });
 
     const row0 = flyParsed.rows[0];
     const sym1 = row0['Symbol 1'] || '?';
@@ -2792,6 +2793,7 @@ function buildChordDiagram(row, sym1, sym2, colors, pdbText) {
     const chordAllWrap = document.getElementById('chord-all-wrap');
     if (!card || !canvas || !pdbText) { if (card) card.style.display = 'none'; return; }
     LiviaMaps.attachExportBar('chord-canvas', { name: 'chord_diagram', svg: () => buildChordDiagram(row, sym1, sym2, colors, pdbText), png: true });
+    if (canvasAll) LiviaMaps.attachExportBar('chord-canvas-all', { name: 'chord_diagram_all_ranks', svg: () => buildChordDiagram(row, sym1, sym2, colors, pdbText), png: true });
 
     const cLIR_A = row._cLIR_A, cLIR_B = row._cLIR_B;
     const lenA = parseInt(row['Len A'] || row['protein_1_size']) || 0;

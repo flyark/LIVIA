@@ -123,10 +123,51 @@
         if (bar.children.length) cv.parentElement.appendChild(bar);
     }
 
+    // Merge a Set of 1-based residue numbers into [start, end] runs, so contiguous residues
+    // paint as one block instead of hairline-gapped per-residue slivers.
+    function setToRanges(set) {
+        if (!set || !set.size) return [];
+        const xs = [...set].map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
+        const out = [];
+        let s = xs[0], p = xs[0];
+        for (let i = 1; i < xs.length; i++) {
+            if (xs[i] === p + 1) { p = xs[i]; continue; }
+            out.push([s, p]); s = p = xs[i];
+        }
+        out.push([s, p]);
+        return out;
+    }
+
+    // A chord arc drawn as three bands over its residue span: non-LIR grey base,
+    // LIR in the light shade, cLIR in the dark shade. `len` is the arc's residue count and
+    // lirSet/clirSet hold 1-based indices within that span.
+    function paintChordArcBand(ctx, cx, cy, outerR, innerR, sA, eA, len, lirSet, clirSet, lightCol, darkCol) {
+        const donut = (a0, a1) => {
+            ctx.beginPath();
+            ctx.arc(cx, cy, outerR, a0, a1);
+            ctx.arc(cx, cy, innerR, a1, a0, true);
+            ctx.closePath();
+        };
+        donut(sA, eA); ctx.fillStyle = '#e8e8e8'; ctx.fill();
+        const paint = (set, color) => {
+            if (!set || !set.size) return;
+            ctx.fillStyle = color;
+            for (const [s, e] of setToRanges(set)) {
+                const a0 = sA + (eA - sA) * ((s - 1) / Math.max(1, len));
+                const a1 = sA + (eA - sA) * (e / Math.max(1, len));
+                donut(a0, a1); ctx.fill();
+            }
+        };
+        paint(lirSet, lightCol);
+        paint(clirSet, darkCol);
+        donut(sA, eA); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+    }
+
     global.LiviaMaps = {
         setExportOpts, applyExportOpts,
         svgFromDraw, svgFromFixedCanvas,
         downloadSVGFile, downloadSVGFromCanvas, downloadCanvasPNG,
         attachExportBar,
+        setToRanges, paintChordArcBand,
     };
 })(window);

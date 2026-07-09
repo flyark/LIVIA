@@ -302,7 +302,7 @@
                 Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B.
             </div>
             <canvas id="contact-canvas"></canvas>
-            <div style="text-align:center; margin-top:2px;"><button type="button" onclick="downloadContactMapSVG()" style="font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;">&darr; SVG</button></div>
+            <div style="text-align:center; margin-top:2px;"><button type="button" onclick="downloadContactMapSVG()" style="font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600; padding:0 6px;">&darr; SVG</button><button type="button" onclick="downloadContactMapPNG()" style="font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600; padding:0 6px;">&darr; PNG</button></div>
         </div>
 
         <!-- Circular Contact Map (multi-chain) -->
@@ -4204,6 +4204,7 @@ function svgFromFixedCanvas(canvasId, redraw){   // figures that draw to a fixed
     return svg;
 }
 function downloadContactMapSVG(){ if (!uniState.currentPairKey) return; try { downloadSVGFile('linear_contact_map.svg', svgFromFixedCanvas('contact-canvas', () => buildContactMap(uniState.currentPairKey))); } catch(e){ alert('SVG export failed: ' + e.message); } }
+function downloadContactMapPNG(){ const c = document.getElementById('contact-canvas'); if (!c) return; const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = 'linear_contact_map.png'; a.click(); }
 function downloadSVGFile(name, svg){ const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([applyExportOpts(svg)], {type:'image/svg+xml'})); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
 function addPngBtn(container, name, canvas){
     const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = '\u2193 PNG';
@@ -4330,6 +4331,7 @@ function drawAllScoreMatrices() {
         drawOneScoreMatrix(canvas, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), displaySize);
         wrap.appendChild(canvas);
         addSvgBtn(wrap, 'score_matrix_' + (md.label || mi), (c) => drawOneScoreMatrix(c, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), displaySize));
+        addPngBtn(wrap, 'score_matrix_' + (md.label || mi), canvas);
         row.appendChild(wrap);
     }
 }
@@ -6275,7 +6277,7 @@ function buildChordDiagram() {
     canvas.style.height = size + 'px';
     drawChord(canvas.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors, selLIR, selCLIR, chainLightColors);
     window.__chordDraw = (c) => { c.width = size * S; c.height = size * S; drawChord(c.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors, selLIR, selCLIR, chainLightColors); };
-    if (canvas.parentElement && !document.getElementById('chord-svg-btn')){ const _cb = document.createElement('button'); _cb.id = 'chord-svg-btn'; _cb.type = 'button'; _cb.textContent = '\u2193 SVG'; _cb.style.cssText = 'display:block; margin:4px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;'; _cb.onclick = () => { try { downloadSVGFile('chord_diagram.svg', svgFromDraw(window.__chordDraw)); } catch(e){ alert('SVG export failed: ' + e.message); } }; canvas.parentElement.appendChild(_cb); }
+    if (canvas.parentElement && !document.getElementById('chord-svg-btn')){ const _cb = document.createElement('button'); _cb.id = 'chord-svg-btn'; _cb.type = 'button'; _cb.textContent = '\u2193 SVG'; _cb.style.cssText = 'display:block; margin:4px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;'; _cb.onclick = () => { try { downloadSVGFile('chord_diagram.svg', svgFromDraw(window.__chordDraw)); } catch(e){ alert('SVG export failed: ' + e.message); } }; canvas.parentElement.appendChild(_cb); addPngBtn(canvas.parentElement, 'chord_diagram', canvas); }
 
     // --- Draw combined all-models chord ---
     const hasMultipleModels = uniState.modelPairs && uniState.modelPairs.length > 1;
@@ -6350,7 +6352,7 @@ function buildChordDiagram() {
             canvasAll.style.height = size + 'px';
             drawChordFromContacts(canvasAll.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, allContacts, chainColors, allLIR, allCLIR, chainLightColors);
             window.__chordAllDraw = (c) => { c.width = size * S; c.height = size * S; drawChordFromContacts(c.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, allContacts, chainColors, allLIR, allCLIR, chainLightColors); };
-            if (canvasAll.parentElement && !document.getElementById('chord-all-svg-btn')){ const _cb = document.createElement('button'); _cb.id = 'chord-all-svg-btn'; _cb.type = 'button'; _cb.textContent = '\u2193 SVG'; _cb.style.cssText = 'display:block; margin:4px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;'; _cb.onclick = () => { try { downloadSVGFile('chord_diagram_all_models.svg', svgFromDraw(window.__chordAllDraw)); } catch(e){ alert('SVG export failed: ' + e.message); } }; canvasAll.parentElement.appendChild(_cb); }
+            if (canvasAll.parentElement && !document.getElementById('chord-all-svg-btn')){ const _cb = document.createElement('button'); _cb.id = 'chord-all-svg-btn'; _cb.type = 'button'; _cb.textContent = '\u2193 SVG'; _cb.style.cssText = 'display:block; margin:4px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;'; _cb.onclick = () => { try { downloadSVGFile('chord_diagram_all_models.svg', svgFromDraw(window.__chordAllDraw)); } catch(e){ alert('SVG export failed: ' + e.message); } }; canvasAll.parentElement.appendChild(_cb); addPngBtn(canvasAll.parentElement, 'chord_diagram_all_models', canvasAll); }
         }
     }
 }
