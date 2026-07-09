@@ -69,6 +69,9 @@
 
 <div class="container">
   <div class="card">
+      <div style="font-size:0.82rem; color:#888; margin-bottom:0.8rem;">
+    Need the input? Generate it with <code style="background:#d6e9f8; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis.py</code> from <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a>.
+      </div>
     <div class="dropgrid">
       <div class="dz" id="dz-csv">
         <div class="dz-ic">📄</div><div class="dz-t">lis.py output CSV <b style="color:#c0392b">*</b></div>
@@ -95,7 +98,7 @@
         <input id="in-struct" type="file" accept=".pdb,.cif,.bcif,.ent,.mmcif" class="hidden">
       </div>
     </div>
-    <div style="background:#fff8e1; border:1px solid #ffe08a; border-left:4px solid #f0ad4e; border-radius:6px; padding:.5rem .7rem; margin-top:.7rem; font-size:.82rem; color:#6b5426;">
+    <div style="background:#eaf2f8; border:1px solid #b8d4e8; border-left:4px solid #2471A3; border-radius:6px; padding:.5rem .7rem; margin-top:.7rem; font-size:.82rem; color:#1f4e6b;">
       <strong>Proteins not resolving?</strong> Drop the <strong>FASTA used for the prediction</strong> — proteins are matched by exact sequence, so a truncated or engineered chain will not resolve from its name alone. Otherwise fill in the identity-map template below, or use auto-convert. Tested with ColabFold inputs. Still stuck? <a href="https://github.com/flyark/LIVIA/issues" target="_blank" style="color:#2471A3; font-weight:600;">Open an issue on GitHub</a>.
     </div>
     <div id="meta-label-wrap" class="hidden" style="margin-top:.6rem; font-size:.85rem; color:#556;">
@@ -225,9 +228,6 @@
       <h2>Partners <button id="export" class="ghost" style="float:right">⬇ Download report HTML</button></h2>
       <div style="max-height:360px; overflow:auto"><table id="ptable"></table></div>
     </div>
-  </div>
-  <div style="max-width:1100px; margin:0 auto; padding:0 1.5rem 0.9rem; font-size:0.82rem; color:#888;">
-    Need the input? Generate it with <code style="background:#d6e9f8; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis.py</code> from <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a>.
   </div>
   <div class="footer">
     <a href="https://github.com/flyark/LIVIA" target="_blank">LIVIA GitHub</a> &middot; <a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS GitHub</a>
