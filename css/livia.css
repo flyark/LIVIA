@@ -13,6 +13,9 @@ body {
     min-height: 100vh;
 }
 
+/* ── Form controls ── */
+input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVIA logo blue (favicon.svg) */
+
 /* ── Header ── */
 .header { background: white; color: #1a5276; padding: 0.8rem 2rem 0.8rem; border-bottom: 1px solid #e8e8e8; }
 .header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.15rem; color: #1a5276; letter-spacing: -0.02em; }

@@ -1101,9 +1101,14 @@ function buildDimerContactMap() {
     const hasTed = (chainTedDomains.A.length > 0 || chainTedDomains.B.length > 0);
     const domainRowH = hasDomains ? 20 : 0;
     const tedRowH = hasTed ? 20 : 0;
-    const width = Math.min(900, (card.clientWidth || 900) - 32), height = 280 + (domainRowH + tedRowH) * 2;
-    const barH = 14;
-    const barY_A = 45 + domainRowH + tedRowH, barY_B = height - 55 - domainRowH - tedRowH;
+    const topAnno = (chainDomains.A.length ? 20 : 0) + (chainTedDomains.A.length ? 20 : 0);   // chain-A rows (above the ticks)
+    const botAnno = (chainDomains.B.length ? 20 : 0) + (chainTedDomains.B.length ? 20 : 0);   // chain-B rows (below the ticks)
+    const tickH = 14;                                    // room for residue-number ticks (kept off the ribbons)
+    const width = Math.min(900, (card.clientWidth || 900) - 32);
+    const barH = 12;                                     // compact bars (was 14)
+    const barY_A = 10 + topAnno + tickH;                 // [margin][chain-A domains][ticks][bar]
+    const barY_B = barY_A + barH + 60;                   // compact ribbon gap — ribbons only (was ~186)
+    const height = barY_B + barH + tickH + botAnno + 40; // dynamic; +40 clears the contact-count label
     const barRight = width - 20;
 
     canvas.width = width * S;
@@ -1168,10 +1173,10 @@ function buildDimerContactMap() {
 
     // Ticks
     ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    for (const t of [1, Math.round(v.lenI/2), v.lenI]) ctx.fillText(t, xA(t), barY_A + barH + 3);
     ctx.textBaseline = 'bottom';
-    for (const t of [1, Math.round(v.lenJ/2), v.lenJ]) ctx.fillText(t, xB(t), barY_B - 3);
+    for (const t of [1, Math.round(v.lenI/2), v.lenI]) ctx.fillText(t, xA(t), barY_A - 3);            // chain A ticks ABOVE its bar
+    ctx.textBaseline = 'top';
+    for (const t of [1, Math.round(v.lenJ/2), v.lenJ]) ctx.fillText(t, xB(t), barY_B + barH + 3);     // chain B ticks BELOW its bar
 
     // Connection lines
     const minDist = Math.min(...contacts.map(c => c.dist));
@@ -1193,8 +1198,8 @@ function buildDimerContactMap() {
     }
 
     ctx.fillStyle = '#888'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    const labelOffset = (hasDomains ? 20 : 0) + (hasTed ? 20 : 0) + 18;
-    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width/2, barY_B + barH + labelOffset);
+    const labelOffset = botAnno + 18;
+    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width/2, barY_B + barH + tickH + labelOffset);
 
     // Domain palettes (used for both canvas drawing and legend)
     const domPalette = [
@@ -1219,7 +1224,7 @@ function buildDimerContactMap() {
             const x1 = xA(Math.max(1, d.start));
             const x2 = xA(Math.min(v.lenI, d.end));
             const dw = x2 - x1;
-            const dy = barY_A - domGap - domBlockH;
+            const dy = barY_A - tickH - domGap - domBlockH;
             ctx.fillStyle = domPalette[di % domPalette.length];
             ctx.fillRect(x1, dy, dw, domBlockH);
             ctx.strokeStyle = domBorderPalette[di % domBorderPalette.length];
@@ -1250,7 +1255,7 @@ function buildDimerContactMap() {
             const x1 = xB(Math.max(1, d.start));
             const x2 = xB(Math.min(v.lenJ, d.end));
             const dw = x2 - x1;
-            const dy = barY_B + barH + domGap;
+            const dy = barY_B + barH + tickH + domGap;
             ctx.fillStyle = domPalette[di % domPalette.length];
             ctx.fillRect(x1, dy, dw, domBlockH);
             ctx.strokeStyle = domBorderPalette[di % domBorderPalette.length];
@@ -1290,7 +1295,7 @@ function buildDimerContactMap() {
                 const x1 = xA(Math.max(1, seg.start));
                 const x2 = xA(Math.min(v.lenI, seg.end));
                 const dw = x2 - x1;
-                const dy = barY_A - tedGap - tedBlockH - (hasDomains ? tedBlockH + tedGap : 0);
+                const dy = barY_A - tickH - tedGap - tedBlockH - (chainDomains.A.length ? tedBlockH + tedGap : 0);
                 ctx.fillStyle = TED_PALETTE[di % TED_PALETTE.length];
                 ctx.globalAlpha = 0.6;
                 ctx.fillRect(x1, dy, dw, tedBlockH);
@@ -1304,7 +1309,7 @@ function buildDimerContactMap() {
             const x1 = xA(Math.max(1, mainSeg.start));
             const x2 = xA(Math.min(v.lenI, mainSeg.end));
             const dw = x2 - x1;
-            const dy = barY_A - tedGap - tedBlockH - (hasDomains ? tedBlockH + tedGap : 0);
+            const dy = barY_A - tickH - tedGap - tedBlockH - (chainDomains.A.length ? tedBlockH + tedGap : 0);
             ctx.fillStyle = '#333'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             const label = d.cath ? d.cath : `D${d.tedNo}`;
             const labelW = ctx.measureText(label).width;
@@ -1319,7 +1324,7 @@ function buildDimerContactMap() {
                 const x1 = xB(Math.max(1, seg.start));
                 const x2 = xB(Math.min(v.lenJ, seg.end));
                 const dw = x2 - x1;
-                const dy = barY_B + barH + tedGap + (hasDomains ? tedBlockH + tedGap : 0);
+                const dy = barY_B + barH + tickH + tedGap + (chainDomains.B.length ? tedBlockH + tedGap : 0);
                 ctx.fillStyle = TED_PALETTE[di % TED_PALETTE.length];
                 ctx.globalAlpha = 0.6;
                 ctx.fillRect(x1, dy, dw, tedBlockH);
@@ -1332,7 +1337,7 @@ function buildDimerContactMap() {
             const x1 = xB(Math.max(1, mainSeg.start));
             const x2 = xB(Math.min(v.lenJ, mainSeg.end));
             const dw = x2 - x1;
-            const dy = barY_B + barH + tedGap + (hasDomains ? tedBlockH + tedGap : 0);
+            const dy = barY_B + barH + tickH + tedGap + (chainDomains.B.length ? tedBlockH + tedGap : 0);
             ctx.fillStyle = '#333'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             const label = d.cath ? d.cath : `D${d.tedNo}`;
             const labelW = ctx.measureText(label).width;
