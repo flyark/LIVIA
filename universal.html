@@ -110,6 +110,7 @@
         }
     </style>
 <script src="js/canvas2svg.js"></script>
+<script src="js/livia-maps.js?v=20260709"></script>
 <script src="js/clip-resolver.js"></script>
 </head>
 <body>
@@ -236,6 +237,9 @@
             <h2>Chain identity</h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Looks up each chain in UniProt by sequence and lists any domains found.
+            </div>
+            <div style="background:#fff8e1; border:1px solid #ffe08a; border-left:4px solid #f0ad4e; border-radius:6px; padding:0.5rem 0.7rem; margin-bottom:0.6rem; font-size:0.82rem; color:#6b5426;">
+                <strong>Chains not identified?</strong> Include the <strong>FASTA used for the prediction</strong> in your upload — chains are matched by exact sequence, so a truncated or modified chain will not resolve without it. Tested with ColabFold inputs. Still stuck? <a href="https://github.com/flyark/LIVIA/issues" target="_blank" style="color:#2471A3; font-weight:600;">Open an issue on GitHub</a>.
             </div>
             <button class="btn" id="identify-btn" onclick="identifyChains()">Identify chains via UniProt</button>
             <div id="chain-identity-out" style="margin-top:0.6rem; overflow-x:auto;"></div>
@@ -4172,40 +4176,15 @@ function greensColor(value, vmin, vmax) {
     }
 }
 
-let EXPORT_FONT = 1, EXPORT_W = 0;   // figure-export options (SVG font multiplier / target width; 0 = native)
-function setExp(k, v){ if (k === 'font') EXPORT_FONT = +v; else EXPORT_W = +v; }
+function setExp(k, v){ LiviaMaps.setExportOpts(k === 'font' ? { font: v } : { width: v }); }   // figure-export options
 function chainLabel(name){ const g = uniState.chainGenes && uniState.chainGenes[name]; return g ? g + ' (' + name + ')' : name; }   // 'A' -> 'TP53 (A)' once resolved
-function applyExportOpts(svg){
-    if (EXPORT_FONT && EXPORT_FONT !== 1) svg = svg.replace(/font-size="([\d.]+)px"/g, (m, s) => 'font-size="' + (parseFloat(s) * EXPORT_FONT).toFixed(2) + 'px"');
-    const m = svg.match(/<svg\b[^>]*\bwidth="([\d.]+)"[^>]*\bheight="([\d.]+)"/);
-    if (m){
-        const ow = parseFloat(m[1]), oh = parseFloat(m[2]);
-        if (!/viewBox=/.test(svg)) svg = svg.replace(/<svg\b/, '<svg viewBox="0 0 ' + ow + ' ' + oh + '"');
-        if (EXPORT_W){ const th = Math.round(oh * EXPORT_W / ow);
-            svg = svg.replace(/(<svg\b[^>]*?)\bwidth="[\d.]+"/, '$1width="' + EXPORT_W + '"').replace(/(<svg\b[^>]*?)\bheight="[\d.]+"/, '$1height="' + th + '"'); }
-    }
-    return svg;
-}
+const applyExportOpts = (svg) => LiviaMaps.applyExportOpts(svg);                    // shared: js/livia-maps.js
 // ---- vector SVG export: re-run any canvas draw fn against a canvas2svg context ----
-function svgFromDraw(drawClosure){
-    const C = window.C2S; if (!C) throw new Error('SVG library not loaded (needs internet)');
-    let ctx = null;
-    const fake = { style:{}, _w:300, _h:150, set width(w){this._w=w;}, get width(){return this._w;}, set height(h){this._h=h;}, get height(){return this._h;}, getContext(){ ctx = new C(this._w, this._h); return ctx; } };
-    drawClosure(fake);
-    return ctx ? ctx.getSerializedSvg() : '';
-}
-function svgFromFixedCanvas(canvasId, redraw){   // figures that draw to a fixed <canvas> element (linear contact map)
-    const cv = document.getElementById(canvasId); if (!cv) return '';
-    const real = cv.getContext; let c2s = null;
-    cv.getContext = function(){ c2s = new C2S(this.width || 300, this.height || 150); return c2s; };
-    try { redraw(); } finally { cv.getContext = real; }
-    const svg = c2s ? c2s.getSerializedSvg() : '';
-    redraw();   // restore the on-screen bitmap render
-    return svg;
-}
+const svgFromDraw = (drawClosure) => LiviaMaps.svgFromDraw(drawClosure);
+const svgFromFixedCanvas = (canvasId, redraw) => LiviaMaps.svgFromFixedCanvas(canvasId, redraw);
 function downloadContactMapSVG(){ if (!uniState.currentPairKey) return; try { downloadSVGFile('linear_contact_map.svg', svgFromFixedCanvas('contact-canvas', () => buildContactMap(uniState.currentPairKey))); } catch(e){ alert('SVG export failed: ' + e.message); } }
 function downloadContactMapPNG(){ const c = document.getElementById('contact-canvas'); if (!c) return; const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = 'linear_contact_map.png'; a.click(); }
-function downloadSVGFile(name, svg){ const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([applyExportOpts(svg)], {type:'image/svg+xml'})); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+const downloadSVGFile = (name, svg) => LiviaMaps.downloadSVGFile(name, svg);
 function addPngBtn(container, name, canvas){
     const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = '\u2193 PNG';
     btn.style.cssText = 'display:block; margin:2px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;';
@@ -5331,6 +5310,7 @@ function buildPerResidueCharts(pairKey) {
         drawPerResLisChart(container, cd, selectedModelIdx, singleModel);
         drawPerResPlddtChart(container, cd, selectedModelIdx, singleModel);
     }
+    LiviaMaps.attachChartPngButtons('per-residue-charts', 'per_residue_chart');
 }
 
 function computeStd(models, accessor, avg, n) {
@@ -5920,18 +5900,7 @@ function buildContactMap(pairKey) {
 }
 
 // Convert a Set of residue numbers into sorted contiguous [start, end] ranges.
-function setToRanges(set) {
-    const sorted = [...set].sort((a, b) => a - b);
-    const ranges = [];
-    let s = null, p = null;
-    for (const r of sorted) {
-        if (s === null) { s = p = r; }
-        else if (r === p + 1) { p = r; }
-        else { ranges.push([s, p]); s = p = r; }
-    }
-    if (s !== null) ranges.push([s, p]);
-    return ranges;
-}
+const setToRanges = (set) => LiviaMaps.setToRanges(set);            // shared: js/livia-maps.js
 
 // Union each chain's LIR and cLIR residues across a set of pair results (per-chain,
 // union-over-partners), applying the same Min-segment filter + cLIR⊆LIR restriction

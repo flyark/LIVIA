@@ -2135,6 +2135,7 @@ function buildMonomerPerResidueCharts() {
 
     drawMonoChart(container, lisArr, n, 'LIS', 'Intra-chain LIS', true);
     drawMonoChart(container, plddtArr, n, 'pLDDT', 'pLDDT', false);
+    LiviaMaps.attachChartPngButtons('per-residue-charts', 'chart');
 }
 
 function drawMonoChart(container, arr, n, yLabel, title, autoScale) {
@@ -2992,6 +2993,7 @@ function drawPaeMap() {
     const clisMap = buildMonomerClisMap();
     const dilated = dilateMapMono(clisMap, 1);
     createMonomerMapPanel(container, 'cLIS', dilated, greensColor, 0, 1, ['1', '0.5', '0'], displaySize);
+    LiviaMaps.attachChartPngButtons('monomer-maps-flex', 'map');
 }
 
 function dilateMapMono(map2d, radius) {

@@ -80,7 +80,7 @@
     function downloadSVGFile(name, svg) {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(new Blob([applyExportOpts(svg)], { type: 'image/svg+xml' }));
-        a.download = safeName(name) + '.svg';
+        a.download = safeName(String(name).replace(/\.svg$/i, '')) + '.svg';
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     }
@@ -95,7 +95,7 @@
         if (!cv) return;
         const a = document.createElement('a');
         a.href = cv.toDataURL('image/png');
-        a.download = safeName(name) + '.png';
+        a.download = safeName(String(name).replace(/\.png$/i, '')) + '.png';
         a.click();
     }
 
@@ -163,11 +163,38 @@
         donut(sA, eA); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
     }
 
+    // PNG bar for a canvas ELEMENT (charts are built inside a container and carry no id).
+    function attachPngBtnFor(cv, name) {
+        if (!cv || !cv.parentElement) return;
+        if (cv.nextElementSibling && cv.nextElementSibling.classList.contains('livia-png-bar')) return;
+        const bar = document.createElement('div');
+        bar.className = 'livia-png-bar';
+        bar.style.cssText = 'text-align:center; margin-top:2px;';
+        const b = document.createElement('button');
+        b.type = 'button'; b.textContent = '↓ PNG';
+        b.style.cssText = 'font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600; padding:0 6px;';
+        b.onclick = () => {
+            const a = document.createElement('a');
+            a.href = cv.toDataURL('image/png');
+            a.download = safeName(String(name).replace(/\.png$/i, '')) + '.png';
+            a.click();
+        };
+        bar.appendChild(b);
+        cv.parentElement.insertBefore(bar, cv.nextSibling);
+    }
+
+    // Give every canvas inside a chart container its own ↓PNG button.
+    function attachChartPngButtons(containerId, prefix) {
+        const box = document.getElementById(containerId);
+        if (!box) return;
+        box.querySelectorAll('canvas').forEach((cv, i) => attachPngBtnFor(cv, (prefix || 'chart') + '_' + (i + 1)));
+    }
+
     global.LiviaMaps = {
         setExportOpts, applyExportOpts,
         svgFromDraw, svgFromFixedCanvas,
         downloadSVGFile, downloadSVGFromCanvas, downloadCanvasPNG,
-        attachExportBar,
+        attachExportBar, attachPngBtnFor, attachChartPngButtons,
         setToRanges, paintChordArcBand,
     };
 })(window);

@@ -2071,6 +2071,7 @@ function buildFlyPlddtCharts(selectedRank, colors) {
         ctx.fillText('pLDDT', 0, 0);
         ctx.restore();
     }
+    LiviaMaps.attachChartPngButtons('plddt-charts', 'plddt_chart');
 }
 
 function parsePdbSequence(pdbText) {
@@ -2605,37 +2606,11 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
 }
 
 // Convert a Set of residue numbers into sorted contiguous [start, end] ranges.
-function setToRanges(set) {
-    const sorted = [...set].sort((a, b) => a - b);
-    const ranges = [];
-    let s = null, p = null;
-    for (const r of sorted) {
-        if (s === null) { s = p = r; }
-        else if (r === p + 1) { p = r; }
-        else { ranges.push([s, p]); s = p = r; }
-    }
-    if (s !== null) ranges.push([s, p]);
-    return ranges;
-}
+const setToRanges = (set) => LiviaMaps.setToRanges(set);            // shared: js/livia-maps.js
 
 // Paint one chain's chord-ring arc: grey base → LIR residues (light) → cLIR residues
 // (dark) on top, matching the LIR/cLIR shading in the seq viewer & linear contact map.
-function paintChordArcBand(ctx, cx, cy, outerR, innerR, sA, eA, len, lirSet, clirSet, lightCol, darkCol) {
-    const donut = (a0, a1) => { ctx.beginPath(); ctx.arc(cx, cy, outerR, a0, a1); ctx.arc(cx, cy, innerR, a1, a0, true); ctx.closePath(); };
-    donut(sA, eA); ctx.fillStyle = '#e8e8e8'; ctx.fill();
-    const paint = (set, color) => {
-        if (!set || !set.size) return;
-        ctx.fillStyle = color;
-        for (const [s, e] of setToRanges(set)) {
-            const a0 = sA + (eA - sA) * ((s - 1) / Math.max(1, len));
-            const a1 = sA + (eA - sA) * (e / Math.max(1, len));
-            donut(a0, a1); ctx.fill();
-        }
-    };
-    paint(lirSet, lightCol);
-    paint(clirSet, darkCol);
-    donut(sA, eA); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
-}
+const paintChordArcBand = (...args) => LiviaMaps.paintChordArcBand(...args);   // shared: js/livia-maps.js
 
 function drawChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coordA, coordB, skipDistFilter, LIR_A, LIR_B) {
     const S = 2, size = 350;
