@@ -440,6 +440,8 @@
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260627"></script>
 <script src="js/livia-colors.js?v=20260627"></script>
+<script src="js/canvas2svg.js"></script>
+<script src="js/livia-maps.js?v=20260709"></script>
 <script>
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (dimerPairResult) { generateAndDisplayScript(); buildDimerSequenceViewer(); buildDimerContactMap(); buildChordDiagram(); buildComparisonCharts(); updateViewer3d(); renderChainToggleBar(); } };
@@ -1051,6 +1053,7 @@ function buildDimerContactMap() {
     const card = document.getElementById('contact-map-card');
     const canvas = document.getElementById('contact-canvas');
     if (!v || !card || !canvas || !dimerCifText) { if (card) card.style.display = 'none'; return; }
+    LiviaMaps.attachExportBar('contact-canvas', { name: 'linear_contact_map', svg: () => buildDimerContactMap(), png: true });
 
     // Apply Min segment filter to both chains; cLIR restricted to filtered LIR
     const lirI_f = filterSmallSegments(v.lirI);
@@ -1439,6 +1442,7 @@ function buildChordDiagram() {
     const card = document.getElementById('chord-card');
     const canvas = document.getElementById('chord-canvas');
     if (!v || !card || !canvas || !dimerCifText) { if (card) card.style.display = 'none'; return; }
+    LiviaMaps.attachExportBar('chord-canvas', { name: 'chord_diagram', svg: () => buildChordDiagram(), png: true });
 
     // Apply Min segment filter to both chains; cLIR restricted to filtered LIR
     const lirI_f = filterSmallSegments(v.lirI);

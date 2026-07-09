@@ -441,6 +441,8 @@
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260627"></script>
 <script src="js/livia-colors.js?v=20260627"></script>
+<script src="js/canvas2svg.js"></script>
+<script src="js/livia-maps.js?v=20260709"></script>
 <script>
 // ── Callbacks for shared modules (monomer overrides most of these) ──
 onScriptTabSwitch = () => { /* handled by page-specific switchScriptTab override */ };
@@ -1706,6 +1708,7 @@ function buildSequenceViewer(validRegions) {
 function drawDomainMap(validRegions) {
     const canvas = document.getElementById('domain-map-canvas');
     if (!canvas || !monSequence.length) return;
+    LiviaMaps.attachExportBar('domain-map-canvas', { name: 'domain_map', svg: () => drawDomainMap(validRegions), png: true });
     const hasDomains = monDomains && monDomains.length > 0;
     const hasTed = monTedDomains && monTedDomains.length > 0;
     if (!hasDomains && !hasTed && (!validRegions || validRegions.length === 0)) return;
@@ -3150,6 +3153,7 @@ function drawMapCanvasSingle(canvas, map2d, n, colorFn, vmin, vmax, regions, ove
 function drawChordDiagram(validRegions) {
     const container = document.getElementById('chord-diagram-container');
     const canvas = document.getElementById('chord-canvas');
+    LiviaMaps.attachExportBar('chord-canvas', { name: 'chord_diagram', svg: () => drawChordDiagram(validRegions), png: true });
     if (!canvas || !monPairResults || monPairResults.length === 0 || validRegions.length < 2) {
         if (container) container.style.display = 'none';
         return;
@@ -3325,6 +3329,7 @@ function drawChordDiagram(validRegions) {
 
 function drawScoreMatrix(validRegions) {
     const canvas = document.getElementById('score-matrix-canvas');
+    LiviaMaps.attachExportBar('score-matrix-canvas', { name: 'score_matrix', svg: () => drawScoreMatrix(validRegions), png: true });
     const nc = validRegions.length;
     const cellSize = Math.min(55, Math.floor(460 / nc));
     const leftMargin = 70;
