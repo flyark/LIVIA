@@ -6,6 +6,9 @@
 <title>LIVIA — cLIP</title>
 <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2/plotly.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+<script src="js/canvas2svg.js"></script>
+<script src="js/livia-maps.js"></script>
+<script src="js/livia-xlsx.js"></script>
 <script src="js/clip-clustering.js"></script>
 <script src="js/clip-pipeline.js"></script>
 <script src="js/clip-resolver.js"></script>
@@ -75,9 +78,9 @@
     <div class="dropgrid">
       <div class="dz" id="dz-csv">
         <div class="dz-ic">📄</div><div class="dz-t">lis.py output CSV <b style="color:#c0392b">*</b></div>
-        <div class="dz-h">Drag lis.py output (CSV or ZIP) here or click to upload</div>
+        <div class="dz-h">Drag lis.py output (CSV, ZIP or XLSX) here or click to upload</div>
         <div class="dz-l" id="ld-csv"></div>
-        <input id="in-csv" type="file" accept=".csv,.tsv,.txt,.zip" multiple class="hidden">
+        <input id="in-csv" type="file" accept=".csv,.tsv,.txt,.zip,.xlsx" multiple class="hidden">
       </div>
       <div class="dz" id="dz-fasta">
         <div class="dz-ic">🧬</div><div class="dz-t">FASTA <span class="opt">optional</span></div>
@@ -105,7 +108,7 @@
       🏷️ Identity map · <span id="meta-stat"></span> · Label by: <select id="meta-label" style="font-size:.85rem; padding:2px 6px"></select>
     </div>
     <div id="skel-wrap" class="hidden" style="margin-top:.4rem; font-size:.8rem; color:#889;">
-      Arbitrary prediction names? <a href="#" id="skel-link" style="color:#2471A3; font-weight:600">↓ download an identity-map template</a> for your CSV — fill in the IDs, re-upload.<br>or <a href="#" id="mg-convert" style="color:#2471A3; font-weight:600">✨ auto-convert names → symbols</a> (mygene.info + UniProt) <select id="mg-species" style="font-size:.8rem; padding:1px 4px"><option value="">all species</option><option value="7227">fly</option><option value="9606">human</option><option value="10090">mouse</option><option value="559292">yeast</option></select> <label style="margin-left:4px"><input type="checkbox" id="mg-auto" checked style="accent-color:#1a5276"> on load</label>
+      Arbitrary prediction names? <a href="#" id="skel-link" style="color:#2471A3; font-weight:600">↓ download an identity-map template</a> for your CSV — fill in the IDs, re-upload.<br>or <a href="#" id="mg-convert" style="color:#2471A3; font-weight:600">✨ auto-convert names → symbols</a> (mygene.info + UniProt) <select id="mg-species" style="font-size:.8rem; padding:1px 4px"><option value="">all species</option><option value="7227">fly</option><option value="9606">human</option><option value="10090">mouse</option><option value="10116">rat</option><option value="6239">worm</option><option value="7955">zebrafish</option><option value="559292">yeast</option><option value="3702">arabidopsis</option><option value="83333">E. coli</option></select> <label style="margin-left:4px"><input type="checkbox" id="mg-auto" checked style="accent-color:#1a5276"> on load</label>
     </div>
     <div style="margin-top:.7rem; font-size:.85rem; color:#556;">
       ▶ Try examples — kinase-transcription factor screen (<a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank" style="color:#2471A3">Kim et al. 2025</a>):<br>
@@ -156,7 +159,14 @@
   <div id="report" class="hidden">
     <div class="card">
       <div class="row" style="justify-content:space-between">
-        <div><h2 id="title" style="margin:0"></h2><div class="muted" id="subtitle"></div><div class="muted" id="query-uniprot" style="margin-top:3px"></div></div>
+        <div><h2 id="title" style="margin:0"></h2><div class="muted" id="subtitle"></div><div class="muted" id="query-uniprot" style="margin-top:3px"></div>
+          <div class="muted" id="uniprot-fix" style="margin-top:3px; font-size:.78rem">
+            Resolved from the names in your file, so it can pick the wrong protein or species &mdash; check it.
+            Wrong? <input id="uniprot-force" placeholder="UniProt accession, e.g. Q7KU87" style="font-size:.78rem; padding:1px 4px; width:190px">
+            <button class="ghost" id="uniprot-go" style="font-size:.72rem; padding:1px 7px">use this</button>
+            <span id="uniprot-forced" class="hidden" style="color:#1a5276; font-weight:600"></span>
+          </div>
+        </div>
         <div>
           <span class="stat"><b id="s-partners">0</b><span>partners</span></span>
           <span class="stat"><b id="s-predictions">0</b><span>predictions</span></span>
@@ -182,6 +192,7 @@
       <div id="freq-domains" style="font-size:.8rem; color:#556; margin-top:.35rem; line-height:1.55"></div>
     </div>
 
+
     <div class="card">
       <h2 style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap">Clustered interaction fingerprint
         <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem">SVG w<input id="hm-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="hm-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="hm-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"> <button class="ghost" id="svg-heatmap">&#8595; SVG</button></span>
@@ -197,6 +208,21 @@
       <div id="cluster-info" style="margin-top:.5rem; font-size:.85rem; line-height:1.55"></div>
     </div>
 
+
+    <div class="card" id="pair-card">
+      <h2>Contact residues per partner</h2>
+      <div class="muted">Which residues of each protein take part in the interface, read straight from the lis.py indices &mdash; no structure file needed.
+        <b>LIR</b> = local interaction residue, <b>cLIR</b> = contact LIR (the stricter, distance-filtered set).</div>
+      <div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin:.6rem 0 .2rem">
+        <label style="margin:0">partner <select id="pair-partner" style="max-width:340px"></select></label>
+        <span class="muted" id="pair-note" style="font-size:.8rem"></span>
+      </div>
+      <canvas id="pair-canvas"></canvas>
+      <div id="pair-seq" class="hidden" style="margin-top:.9rem">
+        <div class="muted" style="font-size:.8rem">Light background = LIR. Dark background with white text = cLIR. Each protein uses its own colour.</div>
+        <div id="pair-seq-body" style="font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace; margin-top:.4rem; overflow-x:auto"></div>
+      </div>
+    </div>
     <div class="card">
       <h2>3D structure <span id="struct-badge" class="muted" style="font-weight:400; font-size:.8rem"></span></h2>
       <div class="muted">Query protein structure, residues colored by the cluster that consensus-contacts them · click clusters to isolate.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.</div>
@@ -271,6 +297,8 @@ let FASTA_PARSE = null;  // parsed FASTA {map, byLen, seqs} from optional FASTA
 let FASTA_WARN = [];
 let STRUCT_FILE = null; // optional user-uploaded structure
 let META = null, META_LABELCOL = null, LABEL_IDS = {}, LABEL_FRAG = {};   // identity map globals; LABEL_IDS: label -> resolvable ids; LABEL_FRAG: label -> {start,end} for partial proteins
+let XLSX_IDS = {};   // symbol -> ids stated by a workbook (Protein_*/Uniprot_*); an identity map by another name
+let FORCE_ACC = '';  // user-supplied UniProt accession; overrides name-based resolution for the query
 let ACTIVE = null;      // active cluster ids (shared: 3D viewer + frequency plot)
 let TABLE_SORT = null;  // {label, dir} for the partners table
 const CHIP_CONTAINERS = ['cluster-chips', 'freq-chips', 'fp-chips'];
@@ -300,6 +328,10 @@ wireZone('dz-csv', 'in-csv', 'csv'); wireZone('dz-fasta', 'in-fasta', 'fasta'); 
 })();
 // Examples: fly TF kinase screens (published, Kim et al. 2025) — load the CSV, pick the TF, generate.
 async function loadExample(file, gene) {
+  if (location.protocol === 'file:'){   // file:// blocks fetch of the bundled CSVs; dropping your own still works
+    $('status').textContent = 'Bundled examples need an http server. Run  python3 -m http.server 8000  in the LIVIA folder — or just drop your own lis.py CSV, which works offline.';
+    return;
+  }
   $('status').textContent = `loading ${gene} kinase–TF screen…`;
   try {
     const text = await (await fetch('examples/' + file)).text();
@@ -313,6 +345,16 @@ document.querySelectorAll('.load-ex').forEach(a => a.onclick = (e) => { e.preven
 { const _ml = $('meta-label'); if (_ml) _ml.onchange = () => { META_LABELCOL = _ml.value; applyMetadata(); $('status').textContent = 'display labels updated — pick a query and generate'; }; }
 { const _sk = $('skel-link'); if (_sk) _sk.onclick = (e) => { e.preventDefault(); downloadSkeleton(); }; }
 { const _mc = $('mg-convert'); if (_mc) _mc.onclick = (e) => { e.preventDefault(); autoConvertClip(); }; }
+{ const _ug = $('uniprot-go'), _uf = $('uniprot-force');
+  const applyForce = () => {
+    const v = (_uf.value || '').trim().toUpperCase();
+    FORCE_ACC = v;
+    const tag = $('uniprot-forced');
+    if (v){ tag.textContent = `· forced to ${v}`; tag.classList.remove('hidden'); } else tag.classList.add('hidden');
+    if (LAST) resolve3D(LAST);   // re-resolve and re-render the structure card in place
+  };
+  if (_ug) _ug.onclick = (e) => { e.preventDefault(); applyForce(); };
+  if (_uf) _uf.onkeydown = (e) => { if (e.key === 'Enter'){ e.preventDefault(); applyForce(); } }; }
 // FPR ⇄ iLIS cutoff sync
 $('fpr').onchange = () => { if ($('fpr').value) $('ilis').value = $('fpr').value; };
 $('ilis').oninput = () => { $('fpr').value = ['0.223','0.339','0.551'].includes($('ilis').value) ? $('ilis').value : ''; };
@@ -322,6 +364,66 @@ $('gene').addEventListener('change', () => { PARTNER_EXCLUDE = new Set(); rebuil
 { const _sd = $('subset-dl'); if (_sd) _sd.onclick = (e) => { e.preventDefault(); downloadSubsetList(); };
   const _sl = $('subset-dl-lis'); if (_sl) _sl.onclick = (e) => { e.preventDefault(); downloadFilteredLis(); };
   const _su = $('subset-ul'); if (_su) _su.onchange = async (ev) => { const f = ev.target.files && ev.target.files[0]; if (!f) return; try { uploadSubsetList(await f.text()); } catch(err){ $('status').textContent = '⚠ subset list parse failed: ' + err.message; } finally { ev.target.value = ''; } }; }
+
+// A workbook states each protein's real identifiers alongside the display symbol. Feeding those to
+// the resolver is what separates FBgn0035802 (one fly gene) from the symbol 'Pura', which also matches
+// a human and an E. coli protein of a similar length. The fragment suffix rides along: resolveStructure
+// reads 'FBgn0035802_1_387' as residues 1–387 of that gene.
+function harvestXlsxIds(wb){
+  const add = (sym, ids) => {
+    const s = String(sym||'').trim(); if (!s) return;
+    const set = XLSX_IDS[s] = XLSX_IDS[s] || new Set();
+    for (const v of ids){ const x = String(v||'').trim(); if (x && x !== s) set.add(x); }
+  };
+  for (const name of Object.keys(wb)) for (const r of wb[name].rows){
+    add(r.Symbol_1, [r.Protein_1, r.Uniprot_1]);
+    add(r.Symbol_2, [r.Protein_2, r.Uniprot_2]);
+  }
+  applyXlsxIds();
+}
+function applyXlsxIds(){
+  for (const s in XLSX_IDS){ const ids = [...XLSX_IDS[s]]; if (ids.length) LABEL_IDS[s] = [...new Set((LABEL_IDS[s]||[]).concat(ids))]; }
+}
+
+// An .xlsx workbook already holds lis.py's converted columns, so it skips parseCSV/convertRows'
+// and goes straight in as rows. A Sequence sheet, if present, doubles as the FASTA upload.
+async function loadXlsx(file){
+  $('status').textContent = `parsing ${file.name}…`;
+  await new Promise(r => setTimeout(r, 0));
+  const wb = LiviaXlsx.parseXlsx(new Uint8Array(await file.arrayBuffer()));
+  const sheet = LiviaXlsx.pickLisSheet(wb);
+  if (!sheet){
+    const names = Object.keys(wb).join(', ') || '(none)';
+    throw new Error(`no sheet in ${file.name} has lis.py columns (Symbol_1/2, iLIS, cLIR_indice_A/B). Sheets: ${names}`);
+  }
+  let haveLen = sheet.kind === 'lis-full';
+  if (!haveLen){                                        // widest sheet often drops the lengths — borrow them from a sheet that has them
+    const len = LiviaXlsx.lengthMap(wb);
+    for (const r of sheet.rows){
+      const la = len.get(String(r.Symbol_1||'').trim()), lb = len.get(String(r.Symbol_2||'').trim());
+      if (la){ r.Protein_Len_A = la; haveLen = true; }
+      if (lb) r.Protein_Len_B = lb;
+    }
+  }
+  FILES.push({ name: `${file.name} · ${sheet.name}`, rows: sheet.rows });
+  harvestXlsxIds(wb);   // Protein_1 = 'FBgn0035802_1_387' resolves far better than the symbol 'Pura_1_387'
+
+  const sp = $('mg-species'), tax = LiviaXlsx.speciesHint(sheet.rows);   // Protein_*/Uniprot_* name the organism
+  if (sp && tax && !sp.value && [...sp.options].some(o=>o.value===tax)) sp.value = tax;
+  if (!FASTA_PARSE || !FASTA_PARSE.seqs.length){        // Sequence sheet → FASTA, so the user needn't upload one
+    const seqs = LiviaXlsx.sequenceSheet(wb);
+    if (seqs){
+      const { fasta, count } = LiviaXlsx.sequenceSheetToFasta(seqs);
+      if (count){
+        FASTA_PARSE = CLIPResolver.parseFastaToSeqMap(fasta);
+        FASTA_WARN = FASTA_PARSE.warn || [];
+        $('ld-fasta').textContent = `${count} sequences from ${file.name} · ${seqs.name}`;
+      }
+    }
+  }
+  if (!haveLen)   // no length anywhere in the workbook — cLIP falls back to the largest contact index
+    FASTA_WARN.push(`no Protein_Len in "${file.name}"; query length is inferred from the contacts — upload a FASTA for an exact match`);
+}
 
 async function routeFiles(list, kind){
   if (!list || !list.length) return;
@@ -337,6 +439,7 @@ async function routeFiles(list, kind){
     const wantExt = kind === 'fasta' ? /\.(fasta|fa|faa|fas|fna|mfa|pep|seq|txt)$/i : /\.(csv|tsv|txt)$/i;
     const items = [];   // {name,text} — a dropped .zip of lis.py CSVs / FASTA files is expanded here
     for (const f of list){
+      if (kind === 'csv' && /\.xlsx$/i.test(f.name)){ await loadXlsx(f); continue; }   // collaborator workbook
       if (/\.zip$/i.test(f.name)){
         if (typeof fflate === 'undefined') throw new Error('zip support failed to load (needs an internet connection)');
         const entries = fflate.unzipSync(new Uint8Array(await f.arrayBuffer())), dec = new TextDecoder();
@@ -389,6 +492,7 @@ function applyMetadata(){             // override Symbol_1/2 from the identity m
     LABEL_IDS[label] = [...new Set(META.cols.map(c => m[c]).filter(v => v != null && String(v).trim()).map(v => String(v).trim()))];
     if (META.startK && META.endK){ const s = +m[META.startK], e = +m[META.endK]; if (s >= 1 && e > s) LABEL_FRAG[label] = { start: s, end: e }; }
   }
+  applyXlsxIds();   // an identity map rebuilds LABEL_IDS from scratch — keep any ids a workbook stated
   rebuildGenes();
   const st = $('meta-stat'); if (st) st.textContent = matched.size + '/' + names.size + ' predictions mapped';
 }
@@ -417,13 +521,19 @@ async function convertNames(ids, species){   // names/IDs -> official symbols: m
     const m={}; for (const r of (res.results||[])){ const g=r.genes&&r.genes[0]&&r.genes[0].geneName&&r.genes[0].geneName.value; if(g){ m[r.uniProtkbId]=g; m[r.primaryAccession]=g; } }
     for (const x of chunk){ if(m[x]) sym.set(x,m[x]); }
   }
-  const out=new Map(); for (const id of ids){ const s=sym.get(baseOf.get(id)); if(s) out.set(id,s); } return out;
+  // Re-attach a fragment range (BASE_start_end) to the symbol: dropping it makes resolveStructure
+  // treat the fragment length as the full-length expectation and pick whatever protein is nearest.
+  const out=new Map(); for (const id of ids){ const s=sym.get(baseOf.get(id)); if(!s) continue; const m=id.match(/_(\d+_\d+)$/); out.set(id, m ? s+'_'+m[1] : s); } return out;
 }
 function maybeAutoConvertClip(){   // auto-run name→symbol conversion when loaded names look like IDs (FBpp/FBgn/entry name/accession)
   if (!FILES.length || META) return;
   const syms=new Set(); for (const f of FILES) for (const r of f.rows){ if(r.Symbol_1) syms.add(r.Symbol_1); if(r.Symbol_2) syms.add(r.Symbol_2); }
   const ids=[...syms], idLike=ids.filter(n=>/^FB(pp|gn|tr)\d+$/i.test(n)||/_(HUMAN|MOUSE|RAT|YEAST|DROME|CAEEL|DANRE|ARATH|SCHPO|BOVIN|CHICK|XENLA|PIG|HORSE|RABIT)(_\d+_\d+)?$/i.test(n)||/^[A-NR-Z][0-9][A-Z0-9]{3}[0-9]/.test(n)||/^\d+$/.test(n)).length;
-  if (ids.length && idLike/ids.length >= 0.3) return autoConvertClip();
+  if (ids.length && idLike/ids.length >= 0.3){
+    const sp=$('mg-species');   // FlyBase IDs pin the organism; without it 'Pura' also matches E. coli purA
+    if (sp && !sp.value && ids.some(n=>/^FB(gn|pp|tr)\d+/i.test(n))) sp.value='7227';
+    return autoConvertClip();
+  }
 }
 async function autoConvertClip(){   // convert loaded query/partner names to symbols -> build a name+chain identity map -> applyMetadata
   if (!FILES.length){ $('status').textContent='Load a lis.py CSV first.'; return; }
@@ -431,6 +541,26 @@ async function autoConvertClip(){   // convert loaded query/partner names to sym
   const ids=[...syms], species=$('mg-species').value;
   let clean; try { clean=await convertNames(ids, species); } catch(e){ $('status').textContent='Conversion error: '+(e.message||e); return; }
   if (!clean.size){ $('status').textContent='No names could be converted — check the species.'; return; }
+  // An identity map is keyed by prediction name + chain, which a workbook sheet does not carry.
+  // Keying those rows anyway collapses every chain onto one key, relabelling the whole file as
+  // the last row's protein — so rename the symbols in place instead.
+  const keyed = FILES.some(f => f.rows.some(r => r.name != null && r.chain_i != null));
+  if (!keyed){
+    for (const f of FILES) for (const r of f.rows){
+      r.Symbol_1 = clean.get(r._oSym1) || r._oSym1;
+      r.Symbol_2 = clean.get(r._oSym2) || r._oSym2;
+    }
+    for (const [oldSym, newSym] of clean){        // ids follow the rename, and the old name is itself resolvable
+      if (oldSym === newSym) continue;
+      const set = XLSX_IDS[newSym] = XLSX_IDS[newSym] || new Set();
+      for (const v of (XLSX_IDS[oldSym] || [])) set.add(v);
+      set.add(oldSym);
+    }
+    applyXlsxIds();
+    rebuildGenes();
+    $('status').textContent=`Converted ${clean.size}/${ids.length} names → symbols — pick a query and generate`;
+    return;
+  }
   const byKey={};
   for (const f of FILES) for (const r of f.rows){
     byKey[r.name+':::'+String(r.chain_i)]={ symbol: clean.get(r._oSym1)||r._oSym1, orig:r._oSym1 };
@@ -456,7 +586,20 @@ function rebuildGenes(){
   const sel = $('gene'); sel.innerHTML='';
   for (const g of genes.slice(0,500)) { const o=document.createElement('option'); o.value=g; o.textContent=`${g} (${partners[g].size} predictions${lenOf[g]?', '+lenOf[g]+' aa':''})`; sel.appendChild(o); }
   $('run').disabled = genes.length===0;
+  preselectBait(sel);
   rebuildSubsetPicker();
+}
+
+// Bait-vs-library screens put one protein in Symbol_1 on nearly every row. Select it, so a
+// single-bait file (a collaborator's workbook, say) opens on the protein it is about rather
+// than on whichever partner happens to sort first.
+function preselectBait(sel){
+  const n = FILES.reduce((s,f)=>s+f.rows.length, 0);
+  if (!n) return;
+  const c = {};
+  for (const f of FILES) for (const r of f.rows){ const s = r.Symbol_1; if (s) c[s] = (c[s]||0)+1; }
+  const top = Object.keys(c).sort((x,y)=>c[y]-c[x])[0];
+  if (top && c[top] >= 0.8*n && [...sel.options].some(o=>o.value===top)) sel.value = top;
 }
 
 // ── Subset picker (5th loader): choose which of the query's partners to cluster ──
@@ -596,7 +739,7 @@ function render(A){
   $('subtitle').textContent = `query length ${plen} aa · cosine + average linkage · silhouette-optimal k`;
   $('s-partners').textContent = uniqueP; $('s-predictions').textContent = n; $('s-clusters').textContent = k; $('s-len').textContent = plen;
   populateAxes(A);   // fill X/Y axis options from the metrics present in the data
-  renderHeatmap(A); renderFreq(A); renderScatter(A); renderTable(A); renderClusterInfo(A);
+  renderHeatmap(A); renderFreq(A); renderPairTracks(A); renderScatter(A); renderTable(A); renderClusterInfo(A);
   CHIP_CONTAINERS.forEach(id => renderChipBar(id, A));
   $('scatter-x').onchange = $('scatter-y').onchange = () => renderScatter(LAST);
   $('svg-freq').onclick = () => { if (LAST) downloadSVG(`clip_${LAST.gene}_frequency.svg`, svgFreq(LAST, svgOpts())); };
@@ -659,7 +802,7 @@ function renderHeatmap(A){
     for (let row = 0; row < n; row++){ const id = order[row]; yv[id] = rowMid(row); xv[id] = dendroX1; }
     const maxD = Z[Z.length - 1][2] || 1;
     for (let m = 0; m < Z.length; m++){ const a = Z[m][0], b = Z[m][1], id = n + m; yv[id] = (yv[a] + yv[b]) / 2; xv[id] = dendroX0 + (dendroX1 - dendroX0) * (1 - Z[m][2] / maxD); }
-    ctx.strokeStyle = '#8a97a8'; ctx.lineWidth = 1; ctx.beginPath();
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.beginPath();
     for (let m = 0; m < Z.length; m++){ const a = Z[m][0], b = Z[m][1], xm = xv[n + m];
       ctx.moveTo(xv[a], yv[a]); ctx.lineTo(xm, yv[a]);
       ctx.moveTo(xv[b], yv[b]); ctx.lineTo(xm, yv[b]);
@@ -668,7 +811,7 @@ function renderHeatmap(A){
     ctx.stroke();
   }
   // residue-number x-axis ticks (~15 evenly spaced; centered on the cell, aligned with frequency)
-  ctx.fillStyle = '#889'; ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#333'; ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
   ctx.font = `${9 * S}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   const nT = 15, ticks = [];
   for (let i = 0; i < nT; i++){ const r = Math.round(1 + i * (plen - 1) / (nT - 1)); if (!ticks.includes(r)) ticks.push(r); }
@@ -689,6 +832,129 @@ function renderClusterInfo(A){
       + `<span><b>Cluster ${c}</b> (${mem.length} / ${all.length}): ${mem.join(', ')}</span></div>`;
   }
   $('cluster-info').innerHTML = html;
+}
+
+// ── Contact residues per partner ────────────────────────────────────────────────
+// lis.py already names the interface residues on both chains, so a pair can be reviewed
+// without ever loading a structure: grey = not in the interface, light = LIR, dark = cLIR.
+const PAIR_COL = { q:{ base:'#e0e0e0', lir:'#80CBC4', clir:'#00897B' },      // chain A — same defaults as Prediction Analysis
+                   p:{ base:'#e0e0e0', lir:'#FFAB91', clir:'#E64A19' } };     // chain B
+
+function bestRowPerPartner(A){
+  const m = new Map();
+  for (const r of A.pipe.rows){ const p = r.Symbol_2, prev = m.get(p);
+    if (!prev || (+r.iLIS||0) > (+prev.iLIS||0)) m.set(p, r); }
+  return m;
+}
+function idxSet(v){ const s = new Set(); for (const n of CLIPPipeline.parseIndice(v)) if (n>=1) s.add(n); return s; }
+
+function drawPairTracks(cv, A, partner){
+  const row = bestRowPerPartner(A).get(partner);
+  if (!row) return;
+  const qLir = idxSet(row.LIR_indice_A), qClir = idxSet(row.cLIR_indice_A);
+  const pLir = idxSet(row.LIR_indice_B), pClir = idxSet(row.cLIR_indice_B);
+  const qLen = parseInt(row.Protein_Len_A, 10) || A.pipe.proteinLen;
+  // Without a length column the track can only run to the last contact residue, which
+  // truncates the protein. Say so rather than drawing a confidently wrong C-terminus.
+  const qKnown = !!parseInt(row.Protein_Len_A, 10);
+  let pLen = parseInt(row.Protein_Len_B, 10) || 0;
+  const pKnown = !!pLen;
+  if (!pLen) for (const s of [pLir, pClir]) for (const v of s) if (v > pLen) pLen = v;
+
+  const S=2, W=PLOT_W, padL=AX_L, padR=AX_R, barH=17, tickH=16, titleH=17, gap=20;
+  const H = 6 + 2*(titleH + barH + tickH) + gap + 22;
+  cv.width=W*S; cv.height=H*S; cv.style.width='100%'; cv.style.height='auto';
+  const ctx = cv.getContext('2d'); ctx.scale(S,S); ctx.clearRect(0,0,W,H);
+
+  const track = (y, label, len, known, lir, clir, col) => {
+    const bw = (W-padL-padR)/len, xOf = (r) => padL + (r-1)*bw;
+    ctx.fillStyle='#334'; ctx.font='600 11px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    const lenTxt = known ? `${len} aa` : `≥${len} aa (length not in file)`;
+    ctx.fillText(`${label}  ·  ${lenTxt}  ·  ${clir.size} cLIR${lir.size?` / ${lir.size} LIR`:''}`, padL, y+11);
+    const barY = y + titleH;
+    ctx.fillStyle=col.base; ctx.fillRect(padL, barY, W-padL-padR, barH);
+    const paint = (set, color) => { if(!set.size) return; ctx.fillStyle=color;
+      for (const [s,e] of LiviaMaps.setToRanges(set)) ctx.fillRect(xOf(s), barY, Math.max(1.2, (e-s+1)*bw), barH); };
+    paint(lir, col.lir); paint(clir, col.clir);          // cLIR ⊂ LIR, so it paints over
+    ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.strokeRect(padL+.5, barY+.5, W-padL-padR-1, barH-1);
+    ctx.fillStyle='#333'; ctx.font='9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+    const step = Math.max(1, Math.round(len/10));
+    for (let r=1; r<=len; r+=step){ const x=xOf(r)+bw/2;
+      ctx.strokeStyle='#ddd'; ctx.beginPath(); ctx.moveTo(x, barY+barH); ctx.lineTo(x, barY+barH+3); ctx.stroke();
+      ctx.fillText(String(r), x, barY+barH+4); }
+    return barY + barH + tickH;
+  };
+  let y = 6;
+  y = track(y, A.gene, qLen, qKnown, qLir, qClir, PAIR_COL.q) + gap;
+  y = track(y, partner, pLen, pKnown, pLir, pClir, PAIR_COL.p);
+
+  // one swatch per track colour, so the legend reads for the query (blue) and the partner (orange) alike
+  const chip = (x, cols, text) => {
+    cols.forEach((c,i) => { ctx.fillStyle=c; ctx.fillRect(x + i*11, y+7, 10, 10); });
+    x += cols.length*11 + 4;
+    ctx.fillStyle='#333'; ctx.font='10px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.fillText(text, x, y+12.5);
+    return x + 14 + ctx.measureText(text).width;
+  };
+  let x = padL;
+  x = chip(x, [PAIR_COL.q.base], 'not in interface');
+  if (qLir.size || pLir.size) x = chip(x, [PAIR_COL.q.lir, PAIR_COL.p.lir], 'LIR (local interaction area)');
+  x = chip(x, [PAIR_COL.q.clir, PAIR_COL.p.clir], 'cLIR (contact)');
+  ctx.fillStyle='#333'; ctx.fillText(`iLIS ${(+row.iLIS||0).toFixed(3)}${row.Rank?` · rank ${row.Rank}`:''}`, x+6, y+12.5);
+}
+
+// Sequence viewer, mirroring Prediction Analysis: 10-residue blocks, 80 per line, numbered both ends.
+// Only drawn when a FASTA (or a workbook Sequence sheet) supplied the actual sequences.
+function seqPanel(label, seq, lir, clir, col){
+  const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
+  let html = `<div style="margin-top:.55rem"><b style="color:${col.clir}">${esc(label)}</b> <span class="muted">(${seq.length} residues)</span></div>`;
+  for (let start = 0; start < seq.length; start += 80){
+    const end = Math.min(seq.length, start + 80);
+    let line = '';
+    for (let i = start; i < end; i++){
+      const r = i + 1, ch = esc(seq[i]);
+      if (clir.has(r))      line += `<span style="background:${col.clir}; color:#fff">${ch}</span>`;
+      else if (lir.has(r))  line += `<span style="background:${col.lir}">${ch}</span>`;
+      else                  line += ch;
+      if ((r - start) % 10 === 0 && r !== end) line += ' ';
+    }
+    html += `<div><span style="color:#333; display:inline-block; width:4.5em; text-align:right; padding-right:.8em">${start+1}</span>${line}`
+          + `<span style="color:#333; padding-left:.8em">${end}</span></div>`;
+  }
+  return html;
+}
+
+function renderPairSeq(A, partner){
+  const box = $('pair-seq'), body = $('pair-seq-body');
+  const row = bestRowPerPartner(A).get(partner);
+  if (!row || !FASTA_PARSE){ box.classList.add('hidden'); return; }
+  const qSeq = CLIPResolver.baitSequence(FASTA_PARSE, A.gene, A.pipe.proteinLen);
+  const pSeq = CLIPResolver.baitSequence(FASTA_PARSE, partner, parseInt(row.Protein_Len_B,10) || 0);
+  if (!qSeq && !pSeq){ box.classList.add('hidden'); return; }
+  let html = '';
+  if (qSeq) html += seqPanel(A.gene, qSeq, idxSet(row.LIR_indice_A), idxSet(row.cLIR_indice_A), PAIR_COL.q);
+  if (pSeq) html += seqPanel(partner, pSeq, idxSet(row.LIR_indice_B), idxSet(row.cLIR_indice_B), PAIR_COL.p);
+  body.innerHTML = html;
+  box.classList.remove('hidden');
+}
+
+function renderPairTracks(A){
+  const sel = $('pair-partner'), m = bestRowPerPartner(A);
+  const parts = [...m.keys()].sort((a,b) => (+m.get(b).iLIS||0) - (+m.get(a).iLIS||0));
+  if (!parts.length){ $('pair-card').classList.add('hidden'); return; }
+  $('pair-card').classList.remove('hidden');
+  const keep = (sel.value && m.has(sel.value)) ? sel.value : parts[0];
+  sel.innerHTML = '';
+  for (const p of parts){ const r = m.get(p), o = document.createElement('option');
+    o.value = p; o.textContent = `${p} — iLIS ${(+r.iLIS||0).toFixed(3)}${r.Rank?` · rank ${r.Rank}`:''}`; sel.appendChild(o); }
+  sel.value = keep;
+  const anyLir = [...m.values()].some(r => CLIPPipeline.parseIndice(r.LIR_indice_A).length);
+  $('pair-note').textContent = anyLir ? '' : 'this file carries no LIR indices — showing cLIR only';
+  const draw = () => drawPairTracks($('pair-canvas'), A, sel.value);
+  const paint = () => { draw(); renderPairSeq(A, sel.value);
+    LiviaMaps.attachExportBar('pair-canvas', { name:`clip_${A.gene}_vs_${sel.value}_residues`, svg:draw, png:true }); };
+  paint();
+  sel.onchange = paint;
 }
 
 function renderFreq(A){
@@ -724,11 +990,11 @@ function renderFreq(A){
   const ctx=cv.getContext('2d'); ctx.scale(S,S); ctx.clearRect(0,0,W,H);
   // # partners panel
   ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(padL,padT); ctx.lineTo(padL,freqBase); ctx.lineTo(W-padR,freqBase); ctx.stroke();
-  ctx.fillStyle='#889'; ctx.font='9px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  ctx.fillStyle='#333'; ctx.font='9px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
   for (const t of [...new Set([0, Math.round(maxF/2), maxF])]) ctx.fillText(String(t), padL-4, freqBase-(t/maxF)*freqH);
   for (let r=1;r<=plen;r++){ if(!tot[r])continue; let dom=1,best=-1; const cc=byC[r]||{}; for(const c in cc) if(cc[c]>best){best=cc[c];dom=+c;}
     const h=(tot[r]/maxF)*freqH; ctx.fillStyle=clusterColor(dom,k); ctx.fillRect(xOf(r), freqBase-h, Math.max(1,bw), h); }
-  ctx.save(); ctx.translate(11,(padT+freqBase)/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillStyle='#667'; ctx.fillText('# partners',0,0); ctx.restore();
+  ctx.save(); ctx.translate(11,(padT+freqBase)/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillStyle='#333'; ctx.fillText('# partners',0,0); ctx.restore();
   // pLDDT panel (separate, below; AFDB confidence)
   const xtickBase = amBase;
   if (hasP){
@@ -737,7 +1003,7 @@ function renderFreq(A){
     let prev=null;
     for (let r=1;r<=plen;r++){ const sr=map?map[r-1]:r; if(!sr){prev=null;continue;} const pl=A._plddt.get(qc+':'+sr); if(pl==null){prev=null;continue;}
       const x=xc(r), y=yOf(pl); if(prev){ const mx=(prev.x+x)/2, my=(prev.y+y)/2; ctx.lineWidth=1.4; ctx.strokeStyle=plddtColor(prev.v); ctx.beginPath(); ctx.moveTo(prev.x,prev.y); ctx.lineTo(mx,my); ctx.stroke(); ctx.strokeStyle=plddtColor(pl); ctx.beginPath(); ctx.moveTo(mx,my); ctx.lineTo(x,y); ctx.stroke(); } prev={x,y,v:pl}; }
-    ctx.fillStyle='#889'; ctx.font='9px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.fillStyle='#333'; ctx.font='9px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
     for (const t of [0,50,100]) ctx.fillText(String(t), padL-4, plddtBase-(t/100)*plddtH);
     ctx.save(); ctx.translate(11,(plddtTop+plddtBase)/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillStyle='#5a86b3'; ctx.fillText('pLDDT',0,0); ctx.restore();
   }
@@ -746,19 +1012,19 @@ function renderFreq(A){
     ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(padL,amTop); ctx.lineTo(padL,amBase); ctx.lineTo(W-padR,amBase); ctx.stroke();
     let prevA=null;
     for (let r=1;r<=plen;r++){ const sr=amap?amap[r-1]:r; const v=sr?A._am[sr]:null; if(v==null){prevA=null;continue;} const x=xcA(r), y=yOfA(v); if(prevA){ const mx=(prevA.x+x)/2, my=(prevA.y+y)/2; ctx.lineWidth=1.4; ctx.strokeStyle=amColor(prevA.v); ctx.beginPath(); ctx.moveTo(prevA.x,prevA.y); ctx.lineTo(mx,my); ctx.stroke(); ctx.strokeStyle=amColor(v); ctx.beginPath(); ctx.moveTo(mx,my); ctx.lineTo(x,y); ctx.stroke(); } prevA={x,y,v}; }
-    ctx.fillStyle='#889'; ctx.font='9px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.fillStyle='#333'; ctx.font='9px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
     for (const t of [0,0.5,1]) ctx.fillText(t.toFixed(1), padL-4, amBase-t*amH);
     ctx.save(); ctx.translate(11,(amTop+amBase)/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.fillStyle='#a33'; ctx.fillText('AM path.',0,0); ctx.restore();
   }
   // shared residue x-axis ticks (bottom)
-  ctx.fillStyle='#889'; ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.font='9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillStyle='#333'; ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.font='9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
   { const nT=15, ticks=[]; for (let i=0;i<nT;i++){ const r=Math.round(1+i*(plen-1)/(nT-1)); if(!ticks.includes(r)) ticks.push(r); }
     for (const r of ticks){ const x=xOf(r)+bw/2; ctx.beginPath(); ctx.moveTo(x,xtickBase); ctx.lineTo(x,xtickBase+3); ctx.stroke(); ctx.fillText(String(r + (A._fragOffset||0)), x, xtickBase+5); } }
   // domain track (stacked lanes, top)
   ctx.font='9px sans-serif'; ctx.textBaseline='middle';
   for (const d of doms){ const y=domTop + d.lane*DRH, w=d.x1-d.x0;
     ctx.fillStyle='#e3e9f1'; ctx.fillRect(d.x0, y, w, domBoxH); ctx.strokeStyle='#9fb0c4'; ctx.lineWidth=.5; ctx.strokeRect(d.x0, y, w, domBoxH);
-    ctx.fillStyle='#456'; ctx.textAlign='center'; const _lbl='D'+d.idx; if (ctx.measureText(_lbl).width < w-2) ctx.fillText(_lbl, d.x0+w/2, y+domBoxH/2); }   // short D1/D2/... labels (always fit); full names in the legend below
+    ctx.fillStyle='#333'; ctx.textAlign='center'; const _lbl='D'+d.idx; if (ctx.measureText(_lbl).width < w-2) ctx.fillText(_lbl, d.x0+w/2, y+domBoxH/2); }   // short D1/D2/... labels (always fit); full names in the legend below
   { const dl = $('freq-domains');
     if (dl){ if (doms.length){
       const items = doms.map(d => `<b style="color:#456">D${d.idx}</b> = ${_esc(d.name)} <span style="color:#8a97a8">(${d.start}\u2013${d.end})</span>`).join(' &nbsp;\u00b7&nbsp; ');
@@ -803,13 +1069,13 @@ function svgHeatmap(A, opts){
     let d = '';
     for (let m = 0; m < Z.length; m++){ const a = Z[m][0], b = Z[m][1], xm = xv[n + m];
       d += `M${_f(xv[a])} ${_f(yv[a])}L${_f(xm)} ${_f(yv[a])}M${_f(xv[b])} ${_f(yv[b])}L${_f(xm)} ${_f(yv[b])}M${_f(xm)} ${_f(yv[a])}L${_f(xm)} ${_f(yv[b])}`; }
-    s += `<path d="${d}" stroke="#8a97a8" stroke-width="0.8" fill="none"/>`;
+    s += `<path d="${d}" stroke="#555" stroke-width="0.8" fill="none"/>`;
   }
   const nT = 15, ticks = [];
   for (let i = 0; i < nT; i++){ const r = Math.round(1 + i * (plen - 1) / (nT - 1)); if (!ticks.includes(r)) ticks.push(r); }
   for (const r of ticks){ const x = edge(r) + step / 2;
     s += `<line x1="${_f(x)}" y1="${_f(rowsH)}" x2="${_f(x)}" y2="${_f(rowsH + 3)}" stroke="#ccc" stroke-width="1"/>`
-      + `<text x="${_f(x)}" y="${_f(rowsH + 4 + fs)}" font-size="${fs}" fill="#889" text-anchor="middle">${r + (A._fragOffset||0)}</text>`; }
+      + `<text x="${_f(x)}" y="${_f(rowsH + 4 + fs)}" font-size="${fs}" fill="#333" text-anchor="middle">${r + (A._fragOffset||0)}</text>`; }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${_f(W)}" height="${_f(H)}" viewBox="0 0 ${_f(W)} ${_f(H)}" font-family="${SVG_FONT}">${s}</svg>`;
 }
 
@@ -837,26 +1103,26 @@ function svgFreq(A, opts){
   const padB=22, H = amBase + padB;
   let s='';
   s += `<path d="M${padL} ${_f(padT)}L${padL} ${_f(freqBase)}L${_f(W-padR)} ${_f(freqBase)}" stroke="#ccc" stroke-width="1" fill="none"/>`;
-  for(const t of [...new Set([0,Math.round(maxF/2),maxF])]) s += `<text x="${padL-4}" y="${_f(freqBase-(t/maxF)*freqH)}" font-size="${fs}" fill="#889" text-anchor="end" dominant-baseline="central">${t}</text>`;
+  for(const t of [...new Set([0,Math.round(maxF/2),maxF])]) s += `<text x="${padL-4}" y="${_f(freqBase-(t/maxF)*freqH)}" font-size="${fs}" fill="#333" text-anchor="end" dominant-baseline="central">${t}</text>`;
   for(let r=1;r<=plen;r++){ if(!tot[r])continue; let dom=1,best=-1; const cc=byC[r]||{}; for(const c in cc)if(cc[c]>best){best=cc[c];dom=+c;} const h=(tot[r]/maxF)*freqH; s += `<rect x="${_f(xOf(r))}" y="${_f(freqBase-h)}" width="${_f(Math.max(0.5,bw))}" height="${_f(h)}" fill="${clusterColor(dom,k)}"/>`; }
-  const ycl1=_f((padT+freqBase)/2); s += `<text x="11" y="${ycl1}" font-size="${fs}" fill="#667" text-anchor="middle" transform="rotate(-90 11 ${ycl1})"># partners</text>`;
+  const ycl1=_f((padT+freqBase)/2); s += `<text x="11" y="${ycl1}" font-size="${fs}" fill="#333" text-anchor="middle" transform="rotate(-90 11 ${ycl1})"># partners</text>`;
   const xtickBase = amBase;
   if(hasP){ const map=A.residueMap, yOf=(pl)=>plddtBase-(pl/100)*plddtH, xc=(r)=>padL+(r-1)*bw+bw/2, qc=A._queryChain||'A';
     s += `<path d="M${padL} ${_f(plddtTop)}L${padL} ${_f(plddtBase)}L${_f(W-padR)} ${_f(plddtBase)}" stroke="#ccc" stroke-width="1" fill="none"/>`;
     let prev=null;
     for(let r=1;r<=plen;r++){ const sr=map?map[r-1]:r; if(!sr){prev=null;continue;} const pl=A._plddt.get(qc+':'+sr); if(pl==null){prev=null;continue;} const x=xc(r),y=yOf(pl); if(prev){ const mx=(prev.x+x)/2, my=(prev.y+y)/2; s+=`<line x1="${_f(prev.x)}" y1="${_f(prev.y)}" x2="${_f(mx)}" y2="${_f(my)}" stroke="${plddtColor(prev.v)}" stroke-width="1.4"/><line x1="${_f(mx)}" y1="${_f(my)}" x2="${_f(x)}" y2="${_f(y)}" stroke="${plddtColor(pl)}" stroke-width="1.4"/>`; } prev={x,y,v:pl}; }
-    for(const t of [0,50,100]) s += `<text x="${padL-4}" y="${_f(plddtBase-(t/100)*plddtH)}" font-size="${fs}" fill="#889" text-anchor="end" dominant-baseline="central">${t}</text>`;
+    for(const t of [0,50,100]) s += `<text x="${padL-4}" y="${_f(plddtBase-(t/100)*plddtH)}" font-size="${fs}" fill="#333" text-anchor="end" dominant-baseline="central">${t}</text>`;
     const ycl2=_f((plddtTop+plddtBase)/2); s += `<text x="11" y="${ycl2}" font-size="${fs}" fill="#5a86b3" text-anchor="middle" transform="rotate(-90 11 ${ycl2})">pLDDT</text>`;
   }
   if (hasAM){ const amap=A.residueMap, yOfA=(v)=>amBase-v*amH, xcA=(r)=>padL+(r-1)*bw+bw/2;
     s += `<path d="M${padL} ${_f(amTop)}L${padL} ${_f(amBase)}L${_f(W-padR)} ${_f(amBase)}" stroke="#ccc" stroke-width="1" fill="none"/>`;
     let prevA=null;
     for (let r=1;r<=plen;r++){ const sr=amap?amap[r-1]:r; const v=sr?A._am[sr]:null; if(v==null){prevA=null;continue;} const x=xcA(r), y=yOfA(v); if(prevA){ const mx=(prevA.x+x)/2, my=(prevA.y+y)/2; s += `<line x1="${_f(prevA.x)}" y1="${_f(prevA.y)}" x2="${_f(mx)}" y2="${_f(my)}" stroke="${amColor(prevA.v)}" stroke-width="1.4"/><line x1="${_f(mx)}" y1="${_f(my)}" x2="${_f(x)}" y2="${_f(y)}" stroke="${amColor(v)}" stroke-width="1.4"/>`; } prevA={x,y,v}; }
-    for (const t of [0,0.5,1]) s += `<text x="${padL-4}" y="${_f(amBase-t*amH)}" font-size="${fs}" fill="#889" text-anchor="end" dominant-baseline="central">${t.toFixed(1)}</text>`;
+    for (const t of [0,0.5,1]) s += `<text x="${padL-4}" y="${_f(amBase-t*amH)}" font-size="${fs}" fill="#333" text-anchor="end" dominant-baseline="central">${t.toFixed(1)}</text>`;
     const yamL=_f((amTop+amBase)/2); s += `<text x="11" y="${yamL}" font-size="${fs}" fill="#a33" text-anchor="middle" transform="rotate(-90 11 ${yamL})">AM path.</text>`;
   }
   const nT=15,ticks=[]; for(let i=0;i<nT;i++){const r=Math.round(1+i*(plen-1)/(nT-1)); if(!ticks.includes(r))ticks.push(r);}
-  for(const r of ticks){ const x=xOf(r)+bw/2; s += `<line x1="${_f(x)}" y1="${_f(xtickBase)}" x2="${_f(x)}" y2="${_f(xtickBase+3)}" stroke="#ccc" stroke-width="1"/><text x="${_f(x)}" y="${_f(xtickBase+4+fs)}" font-size="${fs}" fill="#889" text-anchor="middle">${r + (A._fragOffset||0)}</text>`; }
+  for(const r of ticks){ const x=xOf(r)+bw/2; s += `<line x1="${_f(x)}" y1="${_f(xtickBase)}" x2="${_f(x)}" y2="${_f(xtickBase+3)}" stroke="#ccc" stroke-width="1"/><text x="${_f(x)}" y="${_f(xtickBase+4+fs)}" font-size="${fs}" fill="#333" text-anchor="middle">${r + (A._fragOffset||0)}</text>`; }
   for(const d of doms){ const y=domTop+d.lane*DRH, w=d.x1-d.x0; s += `<rect x="${_f(d.x0)}" y="${y}" width="${_f(w)}" height="${domBoxH}" fill="#e3e9f1" stroke="#9fb0c4" stroke-width="0.5"/>`; if(String(d.name).length*fs*0.55 < w-3) s += `<text x="${_f(d.x0+w/2)}" y="${y+domBoxH/2}" font-size="${fs}" fill="#456" text-anchor="middle" dominant-baseline="central">${_esc(d.name)}</text>`; }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${_f(W)}" height="${_f(H)}" viewBox="0 0 ${_f(W)} ${_f(H)}" font-family="${SVG_FONT}">${s}</svg>`;
 }
@@ -996,7 +1262,7 @@ $('export').onclick = async () => {
     let out = await (await fetch(location.href)).text();
     const navBase = location.origin + location.pathname.replace(/[^/]*$/, '');   // downloaded nav points back at the live site
     out = out.replace(/href="(?!https?:|#|mailto:)([^"]+\.html[^"]*)"/g, 'href="' + navBase + '$1"');
-    const locals = ['js/clip-clustering.js', 'js/clip-pipeline.js', 'js/clip-resolver.js', 'js/livia-viewer.js'];
+    const locals = ['js/canvas2svg.js', 'js/livia-maps.js', 'js/livia-xlsx.js', 'js/clip-clustering.js', 'js/clip-pipeline.js', 'js/clip-resolver.js', 'js/livia-viewer.js'];
     for (const f of locals){ const js = await (await fetch(f)).text(); out = out.replace('<script src="' + f + '"><\/script>', '<script src="data:text/javascript;base64,' + b64(js) + '"></scr' + 'ipt>'); }
     try { const ff = await (await fetch('https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js')).text(); out = out.replace('<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"><\/script>', '<script src="data:text/javascript;base64,' + b64(ff) + '"></scr' + 'ipt>'); } catch(e){}
     try { const css = await (await fetch('css/livia.css')).text(); out = out.replace('<link rel="stylesheet" href="css/livia.css">', '<style>\n' + css + '\n</style>'); } catch(e){}
@@ -1125,7 +1391,7 @@ async function load3D(source, A){
   frame._url = URL.createObjectURL(blob); frame.src = frame._url;
 }
 async function resolve3D(A){
-  const badge = $('struct-badge'), gene = A.gene, plen = A.pipe.proteinLen, species = '';
+  const badge = $('struct-badge'), gene = A.gene, plen = A.pipe.proteinLen, species = ($('mg-species') && $('mg-species').value) || '';
   A.residueMap = null; A._structText = null; A._domains = null; A._accession = null; A._fragOffset = 0; $('query-uniprot').innerHTML = '';
   // bait sequence from FASTA — by symbol/pair-name, else by unique length (arbitrary headers)
   const predSeq = CLIPResolver.baitSequence(FASTA_PARSE, gene, plen);
@@ -1135,7 +1401,13 @@ async function resolve3D(A){
   }
   badge.textContent = '· resolving…';
   let res = null;
-  const _cands = [...new Set([gene].concat((META && LABEL_IDS[gene]) || []))];   // try the display label, then the identity-map id columns (UniProt/symbol/etc.)
+  // A forced accession still describes the same fragment: 'Pura_1_387' + Q7KU87 -> 'Q7KU87_1_387',
+  // which resolveStructure reads as residues 1–387 of that entry rather than a length mismatch.
+  const _frag = String(gene).match(/_(\d+_\d+)$/);
+  const _all = FORCE_ACC ? [FORCE_ACC + (_frag ? '_' + _frag[1] : '')]   // the user named the protein — do not second-guess it
+                        : [...new Set([gene].concat(LABEL_IDS[gene] || []))];   // identity map and/or workbook-stated ids
+  const _xrefish = (s) => /^(FB(gn|pp|tr)\d+|WBGene\d+|ENS[A-Z]*[GPT]\d+)/i.test(String(s));   // resolve via xref: — unambiguous across organisms
+  const _cands = [..._all.filter(_xrefish), ..._all.filter(x => !_xrefish(x))];   // then the display label / identity-map id columns
   for (const _c of _cands){ let _r = null; try { _r = await CLIPResolver.resolveStructure({ gene: _c, length: plen, seq: predSeq, species }); } catch(e){ console.warn(e); } if (_r && _r.cifUrl){ res = _r; break; } if (_r && !res) res = _r; }
   if (!res){ badge.textContent = `· no UniProt match (${gene}${species ? ', ' + species : ''}) — drop a structure or set species`; $('viewer3d-frame').src = 'about:blank'; return; }
   // UniProt identity — shown whether or not an AFDB structure is available.
@@ -1162,6 +1434,6 @@ async function resolve3D(A){
 if (typeof window !== 'undefined' && window.__CLIP_DATA__) loadExportData(window.__CLIP_DATA__);   // self-contained export bootstrap
 </script>
 <script data-goatcounter="https://livia.goatcounter.com/count"
-        async src="//gc.zgo.at/count.js"></script>
+        async src="https://gc.zgo.at/count.js"></script>
 </body>
 </html>

@@ -53,7 +53,7 @@
     for (const s of seps) if (s && name.includes(s)) { const p = name.split(s); return [p[0].trim(), p.slice(1).join(s).trim()]; }
     return [name, name];
   }
-  const DROP_COLS = ['structure_file', 'pae_plot', 'deeploc_1', 'deeploc_2', 'iLIS_x_iLIA', 'LIR_indice_A', 'LIR_indice_B'];   // columns cLIP never renders — dropped on parse to cut memory on large multi-file loads
+  const DROP_COLS = ['structure_file', 'pae_plot', 'deeploc_1', 'deeploc_2', 'iLIS_x_iLIA'];   // columns cLIP never renders — dropped on parse to cut memory on large multi-file loads
   function convertRows(rows, sep) {
     sep = sep || '_vs_';
     if (!rows.length) return rows;
@@ -74,7 +74,7 @@
     return rows.filter((r) => String(r.Symbol_1) === g || String(r.Symbol_2) === g);
   }
   const SWAP = [['Symbol_1', 'Symbol_2'], ['cLIR_indice_A', 'cLIR_indice_B'],
-    ['Protein_Len_A', 'Protein_Len_B']];
+    ['LIR_indice_A', 'LIR_indice_B'], ['Protein_Len_A', 'Protein_Len_B']];
   function orient(rows, gene) {
     const g = String(gene);
     return rows.map((r) => {

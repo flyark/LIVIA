@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LIVIA — PPI Network</title>
+<script src="js/livia-xlsx.js"></script>
 <script src="js/clip-pipeline.js"></script>
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
@@ -90,8 +91,8 @@
         <div class="zonehdr">① lis.py CSV output <b style="color:#c0392b">*</b></div>
         <div class="dz" id="dz">
           <div style="font-size:14.5px"><b>Drop CSV files</b> (or click)</div>
-          <div class="hint" style="margin-top:3px">iLIS read directly · CSVs or a .zip · all-by-all → rich network</div>
-          <input id="in" type="file" accept=".csv,.zip" multiple class="hidden">
+          <div class="hint" style="margin-top:3px">iLIS read directly · CSV, .zip or .xlsx · all-by-all → rich network</div>
+          <input id="in" type="file" accept=".csv,.zip,.xlsx" multiple class="hidden">
         </div>
         <div class="hint" style="margin-top:6px">▶ <a id="load-ex" href="#" style="font-weight:600">Try example</a> — fly small interactome · 565 proteins (from <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:var(--accent)">Kim et al. 2026</a>)</div>
       </div>
@@ -103,7 +104,7 @@
           <input id="inmeta" type="file" accept=".csv" multiple class="hidden">
         </div>
         <div id="tmpl-wrap" class="hint hidden" style="margin-top:6px"><a id="tmpl" href="#" style="font-weight:600">↓ template</a> pre-filled with your predictions — fill in the IDs, drop it here.</div>
-        <div class="hint" style="margin-top:6px">or <a id="mg-convert" href="#" style="font-weight:600">✨ auto-convert names → symbols</a> (mygene.info + UniProt) <select id="mg-species" style="font-size:11.5px; padding:2px 5px; border:1px solid var(--line); border-radius:5px"><option value="">all species</option><option value="7227">fly</option><option value="9606">human</option><option value="10090">mouse</option><option value="559292">yeast</option></select> <label style="margin-left:4px"><input type="checkbox" id="mg-auto" checked> on load</label></div>
+        <div class="hint" style="margin-top:6px">or <a id="mg-convert" href="#" style="font-weight:600">✨ auto-convert names → symbols</a> (mygene.info + UniProt) <select id="mg-species" style="font-size:11.5px; padding:2px 5px; border:1px solid var(--line); border-radius:5px"><option value="">all species</option><option value="7227">fly</option><option value="9606">human</option><option value="10090">mouse</option><option value="10116">rat</option><option value="6239">worm</option><option value="7955">zebrafish</option><option value="559292">yeast</option><option value="3702">arabidopsis</option><option value="83333">E. coli</option></select> <label style="margin-left:4px"><input type="checkbox" id="mg-auto" checked> on load</label></div>
         <div style="background:#eaf2f8; border:1px solid #b8d4e8; border-left:4px solid #2471A3; border-radius:6px; padding:.5rem .7rem; margin-top:8px; font-size:12.5px; color:#1f4e6b; line-height:1.45;">
           <strong>Names not resolving to gene symbols?</strong> Fill in the <strong>identity-map template</strong> above, or use auto-convert and pick the right species — FBpp / FBgn, UniProt accessions and Entrez IDs all resolve. Still stuck? <a href="https://github.com/flyark/LIVIA/issues" target="_blank" style="color:#2471A3; font-weight:600;">Open an issue on GitHub</a>.
         </div>
@@ -253,10 +254,21 @@ function rebuildIfBuilt(){ if (LAST) build(); }   // re-resolve identities / re-
 
 // ---------- load ----------
 async function routeFiles(list){
-  const raw = [...list].filter(f=>/\.(csv|zip)$/i.test(f.name)); if(!raw.length) return;
+  const raw = [...list].filter(f=>/\.(csv|zip|xlsx)$/i.test(f.name)); if(!raw.length) return;
   setStatus(`Reading ${raw.length} file(s)…`);
   const items = [];                                     // {name,text} — a dropped .zip of lis.py CSVs is expanded here
   for (const f of raw){
+    if (/\.xlsx$/i.test(f.name)){                        // collaborator workbook → lis.py-style CSV, then the usual path
+      try {
+        const wb = LiviaXlsx.parseXlsx(new Uint8Array(await f.arrayBuffer()));
+        const sh = LiviaXlsx.pickPairSheet(wb);
+        if (!sh){ setStatus(`no sheet in ${f.name} has Symbol_1/Symbol_2/iLIS columns`); continue; }
+        const sp = $('mg-species'), tax = LiviaXlsx.speciesHint(sh.rows);
+        if (sp && tax && !sp.value && [...sp.options].some(o=>o.value===tax)) sp.value = tax;
+        items.push({ name:`${f.name} · ${sh.name}`, text: LiviaXlsx.sheetToCsv(sh, LiviaXlsx.lengthMap(wb)) });
+      } catch(e){ setStatus('could not read the workbook: '+e.message); }
+      continue;
+    }
     if (/\.zip$/i.test(f.name)){
       if (typeof fflate === 'undefined'){ setStatus('zip support failed to load (needs an internet connection)'); continue; }
       try { const entries = fflate.unzipSync(new Uint8Array(await f.arrayBuffer())), dec = new TextDecoder();
@@ -281,6 +293,10 @@ async function routeFiles(list){
   if (RAWPAIRS.size && $('mg-auto') && $('mg-auto').checked && !META) await maybeAutoConvert();
 }
 async function loadExample(){
+  if (location.protocol === 'file:'){   // file:// blocks fetch of the bundled zip; dropping your own CSVs still works
+    setStatus('Bundled example needs an http server. Run  python3 -m http.server 8000  in the LIVIA folder — or drop your own lis.py CSVs, which works offline.');
+    return;
+  }
   setStatus('Loading example…');
   RAWPAIRS.clear(); FILES_RAW.length=0; FILECOUNT=0; META=null; META_COL=null;
   try {
@@ -721,6 +737,6 @@ $('layout').addEventListener('change', ()=>applyLayout($('layout').value));
 $('layiter').addEventListener('change', ()=>{ const L=$('layout').value; if(['fr','kk','drl','force'].includes(L)) applyLayout(L); });
 </script>
 <script data-goatcounter="https://livia.goatcounter.com/count"
-        async src="//gc.zgo.at/count.js"></script>
+        async src="https://gc.zgo.at/count.js"></script>
 </body>
 </html>
