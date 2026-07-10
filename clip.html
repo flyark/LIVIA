@@ -252,9 +252,9 @@
       <div class="row" style="font-size:.85rem; margin-bottom:.5rem">
         <label style="margin:0">Y <select id="scatter-y"></select></label>
         <label style="margin:0">X <select id="scatter-x"></select></label>
-        <label style="margin:0">show <select id="scatter-points"><option value="rank1">rank-1 per pair</option><option value="all">every prediction</option></select></label>
+        <label style="margin:0">show <select id="scatter-points"><option value="all">every prediction</option><option value="rank1">rank-1 per pair</option></select></label>
         <span id="scatter-rho" class="muted" style="margin-left:.5rem; font-weight:600; color:#445"></span>
-        <span class="muted">gray = below cutoff / unclustered · colored = clustered. <b>rank</b> = global rank by iLIS across all predictions.</span>
+        <span class="muted">gray = below cutoff / unclustered · colored = clustered. <b>rank</b> = global rank (1..N) by the Y-axis metric across all predictions.</span>
       </div>
       <div id="scatter" style="height:380px"></div>
     </div>
@@ -1254,7 +1254,7 @@ function availableMetrics(rows){
 const RANK_METRIC = '_rank';   // synthetic axis: pure global rank (1..N) by iLIS across every prediction
 function populateAxes(A){
   const metrics = availableMetrics(A.pipe.rows).concat(RANK_METRIC);
-  const LABEL = { [RANK_METRIC]: 'rank (global, by iLIS)' };
+  const LABEL = { [RANK_METRIC]: 'rank (global)' };
   const fill = (id, def) => { const s=$(id); if(!s) return; const cur=s.value;
     s.innerHTML=''; for (const m of metrics){ const o=document.createElement('option'); o.value=m; o.textContent=LABEL[m]||m; s.appendChild(o); }
     s.value = metrics.includes(cur) ? cur : def; };
@@ -1280,13 +1280,15 @@ function renderScatter(A){
   const cutoff = (A.opts && A.opts.ilisCutoff) || 0.223;
   const xKey = ($('scatter-x') && $('scatter-x').value) || 'iLIA';
   const yKey = ($('scatter-y') && $('scatter-y').value) || 'iLIS';
-  const pointsMode = ($('scatter-points') && $('scatter-points').value) || 'rank1';   // rank-1 per pair vs every prediction
+  const pointsMode = ($('scatter-points') && $('scatter-points').value) || 'all';   // every prediction vs rank-1 per pair
   const pk = (p) => p.Symbol_2 + '\u0001' + p.Rank;
-  // Pure global rank: order every prediction by iLIS (desc) → 1..N. If the screen has 6465
-  // predictions, ranks run 1..6465. Keyed by pair+model-rank so it maps onto any point instance.
+  // Pure global rank over every prediction, by whichever metric the axes are showing (the Y metric,
+  // or X if Y itself is the rank axis, else iLIS). 6465 predictions → ranks 1..6465. Keyed by
+  // pair+model-rank so it maps onto any point instance.
+  const rankBy = yKey !== RANK_METRIC ? yKey : (xKey !== RANK_METRIC ? xKey : 'iLIS');
   const allPreds = pipe.allPredictions || pipe.allPoints || pipe.rows;
   const grankMap = new Map();
-  allPreds.map((p,i)=>[p,i]).sort((a,b)=>(scVal(b[0],'iLIS')-scVal(a[0],'iLIS'))||(a[1]-b[1]))
+  allPreds.map((p,i)=>[p,i]).sort((a,b)=>(scVal(b[0],rankBy)-scVal(a[0],rankBy))||(a[1]-b[1]))
     .forEach(([p],i)=>{ const key=pk(p); if(!grankMap.has(key)) grankMap.set(key, i+1); });
   const val = (p, key) => key===RANK_METRIC ? (grankMap.get(pk(p)) ?? NaN) : scVal(p, key);
   const rl = (p) => `${p.Symbol_2} (R${p.Rank != null && p.Rank !== '' ? p.Rank : '?'})`;   // rank label, e.g. "sqa (R1)"
@@ -1294,16 +1296,16 @@ function renderScatter(A){
   const hoverM = HM_BASE.concat([...new Set([yKey, xKey])].filter(m => !HM_BASE.includes(m)));   // append the selected Y/X metric when it isn't one of the four already shown (e.g. ipSAE, actifpTM)
   const cd = (p) => hoverM.map(m => val(p, m));
   const HT = '%{text}' + hoverM.map((m,i) => `<br>${m} %{customdata[${i}]:${HM_FMT[m]||'.4g'}}`).join('') + '<extra></extra>';
-  // Foreground points, coloured by the partner's cluster. "rank-1 per pair" keeps only the Rank-1
-  // prediction of each clustered pair (one dot per partner); "every prediction" keeps all ranks.
-  // The rest fade to grey in the background. cLIP keeps only pairs that have a Rank-1, so every
-  // clustered partner has one.
-  const partnerCluster = {};
-  for (let i=0;i<pipe.rows.length;i++){ const r=pipe.rows[i], s=r.Symbol_2; if (partnerCluster[s]==null || +r.Rank===1) partnerCluster[s]=cl.labels[i]; }
-  const clustered = (p) => partnerCluster[p.Symbol_2] != null;
-  const fg = (pointsMode === 'all' ? allPreds.filter(clustered)
-                                   : allPreds.filter(p => clustered(p) && +p.Rank === 1))
-             .map(p => ({ p, lab: partnerCluster[p.Symbol_2] }));
+  // Colour is per PREDICTION, not per gene: clustering runs on each prediction's contact fingerprint,
+  // so the same partner's different ranks can land in different clusters (a protein that binds two
+  // domains of the target shows up as two clusters). Key the cluster by gene+rank. A prediction that
+  // never entered the clustered set — below the iLIS cutoff, e.g. iLIS≈0 — has no cluster and stays
+  // grey; it is never coloured by borrowing a sibling rank's cluster.
+  const predCluster = new Map();
+  for (let i=0;i<pipe.rows.length;i++) predCluster.set(pk(pipe.rows[i]), cl.labels[i]);
+  const fg = (pointsMode === 'all' ? allPreds.filter(p => predCluster.has(pk(p)))
+                                   : allPreds.filter(p => predCluster.has(pk(p)) && +p.Rank === 1))
+             .map(p => ({ p, lab: predCluster.get(pk(p)) }));
   const fgKeys = new Set(fg.map(f => pk(f.p)));
   const bg = allPreds.filter(p => !fgKeys.has(pk(p)));
   const bgTrace = { x: bg.map(p=>val(p,xKey)), y: bg.map(p=>val(p,yKey)), text: bg.map(rl), customdata: bg.map(cd),
@@ -1314,7 +1316,7 @@ function renderScatter(A){
     traces[lab].x.push(val(p,xKey)); traces[lab].y.push(val(p,yKey)); traces[lab].text.push(rl(p)); traces[lab].cd.push(cd(p)); }
   const clTraces = Object.keys(traces).sort((a,b)=>a-b).map(lab=>({ x:traces[lab].x, y:traces[lab].y, text:traces[lab].text, customdata:traces[lab].cd,
     mode:'markers', type:'scatter', legendrank:+lab, name:'cluster '+lab+' ('+traces[lab].x.length+')', marker:{ size:9, color:clusterColor(+lab,k), line:{width:.5,color:'#fff'} }, hovertemplate: HT }));
-  const axTitle = (kk) => kk===RANK_METRIC ? 'global rank (by iLIS)' : kk;
+  const axTitle = (kk) => kk===RANK_METRIC ? `global rank (by ${rankBy})` : kk;
   const layout = { margin:{t:10,r:10,b:45,l:62}, xaxis:{title:axTitle(xKey), rangemode:'tozero'}, yaxis:{title:axTitle(yKey), rangemode:'tozero'}, legend:{font:{size:10}} };
   // FPR iLIS reference lines when iLIS is on an axis (active cutoff = dashed+bold, others dotted)
   const fprShape = (ax, v) => ax==='y'

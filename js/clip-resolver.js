@@ -68,11 +68,28 @@
   }
 
   const _sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // Serialize every UniProt/EBI call through one FIFO queue with a minimum gap, so a resolution's
+  // many candidate queries — and any partner lookups queued behind them — go out one at a time
+  // instead of as a burst. The query is enqueued before partner lookups (those wait until it
+  // resolves), so "target first, the rest slowly" falls out of FIFO order. Gentler on the API and
+  // avoids self-inflicted rate-limiting.
+  const _GAP = 120; let _chain = Promise.resolve(), _lastAt = 0;
+  function _throttle(fn) {
+    const run = _chain.then(async () => {
+      const wait = _GAP - (_now() - _lastAt);
+      if (wait > 0) await _sleep(wait);
+      _lastAt = _now();
+      return fn();
+    });
+    _chain = run.then(() => {}, () => {});   // keep the queue alive across errors
+    return run;
+  }
+  const _now = () => (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
   async function _json(url, tries) {                 // retry on 429/5xx/network (transient rate-limits)
     tries = tries || 3;
     for (let i = 0; i < tries; i++) {
       try {
-        const r = await _fetch(url);
+        const r = await _throttle(() => _fetch(url));
         if (r.ok) return r.json();
         if (r.status !== 429 && r.status < 500) throw new Error(url + ' → ' + r.status);
       } catch (e) { if (i === tries - 1) throw e; }
