@@ -18,6 +18,10 @@
 <style>
   /* cLIP-specific — livia.css provides the shell (body, .header, .container, .card, .btn) */
   .card h2 { margin:0 0 .5rem; font-size:1.05rem; color:#1a5276; font-weight:600; }
+  .card h3 { margin:0 0 .3rem; font-size:.92rem; color:#1a5276; font-weight:600; }
+  .seq-flow { font:14px/2.6 ui-monospace,SFMono-Regular,Menlo,monospace; margin-top:.5rem; color:#1a2733; }
+  .seq-flow .g10 { position:relative; margin-right:.75em; white-space:nowrap; }
+  .seq-flow .g10::before { content:attr(data-n); position:absolute; top:-1.05em; right:.05em; font-size:.6rem; line-height:1; color:#8a93a0; font-weight:400; letter-spacing:0; }
   .dropgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:.8rem; }
   .dz { border:2px dashed #b7c6d6; border-radius:10px; padding:1rem .8rem; text-align:center; color:#557; cursor:pointer; transition:.15s; }
   .dz.hover { border-color:#2471A3; background:#eef5fb; }
@@ -77,14 +81,14 @@
       </div>
     <div class="dropgrid">
       <div class="dz" id="dz-csv">
-        <div class="dz-ic">📄</div><div class="dz-t">lis.py output CSV <b style="color:#c0392b">*</b></div>
-        <div class="dz-h">Drag lis.py output (CSV, ZIP or XLSX) here or click to upload</div>
+        <div class="dz-ic">📄</div><div class="dz-t">lis.py output <b style="color:#c0392b">*</b> <span class="opt">+ FASTA</span></div>
+        <div class="dz-h">Drag lis.py output <b>and</b> FASTA here (CSV / XLSX / FASTA, or ZIPs of them) — files are sorted automatically</div>
         <div class="dz-l" id="ld-csv"></div>
-        <input id="in-csv" type="file" accept=".csv,.tsv,.txt,.zip,.xlsx" multiple class="hidden">
+        <input id="in-csv" type="file" accept=".csv,.tsv,.txt,.zip,.xlsx,.fasta,.fa,.faa,.fas,.fna,.mfa,.pep,.seq" multiple class="hidden">
       </div>
       <div class="dz" id="dz-fasta">
-        <div class="dz-ic">🧬</div><div class="dz-t">FASTA <span class="opt">optional</span></div>
-        <div class="dz-h">Drag or click to upload predicted sequences to color contact residues (cLIR) on the 3D structure</div>
+        <div class="dz-ic">🧬</div><div class="dz-t">FASTA <span class="opt">optional · or drop above</span></div>
+        <div class="dz-h">Predicted sequences → colour cLIR on the 3D structure and fill the sequence viewer (you can also drop these in the panel on the left)</div>
         <div class="dz-l" id="ld-fasta"></div>
         <input id="in-fasta" type="file" accept=".fasta,.fa,.faa,.fas,.fna,.mfa,.pep,.seq,.txt,.zip" multiple class="hidden">
       </div>
@@ -210,17 +214,20 @@
 
 
     <div class="card" id="pair-card">
-      <h2>Contact residues per partner</h2>
+      <h2>Interaction Residues</h2>
       <div class="muted">Which residues of each protein take part in the interface, read straight from the lis.py indices &mdash; no structure file needed.
-        <b>LIR</b> = local interaction residue, <b>cLIR</b> = contact LIR (the stricter, distance-filtered set).</div>
-      <div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin:.6rem 0 .2rem">
+        <b>LIR</b> (Local Interaction Residue, PAE &lt; 12&nbsp;&Aring;) &middot; <b>cLIR</b> (contact LIR, PAE &lt; 12&nbsp;&Aring; &amp; C&beta; &lt; 8&nbsp;&Aring;).</div>
+      <h3 style="margin-top:.9rem">Interface map</h3>
+      <div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin:.4rem 0 .2rem">
         <label style="margin:0">partner <select id="pair-partner" style="max-width:340px"></select></label>
         <span class="muted" id="pair-note" style="font-size:.8rem"></span>
       </div>
-      <canvas id="pair-canvas"></canvas>
-      <div id="pair-seq" class="hidden" style="margin-top:.9rem">
-        <div class="muted" style="font-size:.8rem">Light background = LIR. Dark background with white text = cLIR. Each protein uses its own colour.</div>
-        <div id="pair-seq-body" style="font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace; margin-top:.4rem; overflow-x:auto"></div>
+      <div id="pair-map-wrap"><canvas id="pair-canvas"></canvas></div>
+      <div id="pair-seq" style="margin-top:1rem; border-top:1px solid var(--line, #e2e6ea); padding-top:.8rem">
+        <h3 style="margin:0 0 .2rem">Sequence viewer</h3>
+        <div class="muted" style="font-size:.8rem">Light background = LIR (PAE &lt; 12&nbsp;&Aring;). Dark background with white text = cLIR (PAE &lt; 12&nbsp;&Aring; &amp; C&beta; &lt; 8&nbsp;&Aring;). Each protein uses its own colour. Text is searchable (&#8984;F / Ctrl-F).</div>
+        <div id="pair-seq-msg" class="muted" style="font-size:.82rem; margin-top:.5rem"></div>
+        <div id="pair-seq-body" style="font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace; margin-top:.5rem; overflow-x:auto"></div>
       </div>
     </div>
     <div class="card">
@@ -244,8 +251,10 @@
       <h2>Interaction scatter plot</h2>
       <div class="row" style="font-size:.85rem; margin-bottom:.5rem">
         <label style="margin:0">Y <select id="scatter-y"></select></label>
-        <label style="margin:0">X <select id="scatter-x"></select></label> <span id="scatter-rho" class="muted" style="margin-left:.5rem; font-weight:600; color:#445"></span>
-        <span class="muted">each point = a partner · gray = all predictions (incl. below cutoff) · colored = clustered</span>
+        <label style="margin:0">X <select id="scatter-x"></select></label>
+        <label style="margin:0">show <select id="scatter-points"><option value="rank1">rank-1 per pair</option><option value="all">every prediction</option></select></label>
+        <span id="scatter-rho" class="muted" style="margin-left:.5rem; font-weight:600; color:#445"></span>
+        <span class="muted">gray = below cutoff / unclustered · colored = clustered. <b>rank</b> = global rank by iLIS across all predictions.</span>
       </div>
       <div id="scatter" style="height:380px"></div>
     </div>
@@ -436,18 +445,27 @@ async function routeFiles(list, kind){
     applyMetadata(); updateLoaded(); return;
   }
   try {
-    const wantExt = kind === 'fasta' ? /\.(fasta|fa|faa|fas|fna|mfa|pep|seq|txt)$/i : /\.(csv|tsv|txt)$/i;
-    const items = [];   // {name,text} — a dropped .zip of lis.py CSVs / FASTA files is expanded here
+    // The lis panel takes CSV, xlsx, and FASTA together (drop both zips at once). Everything is
+    // sorted by content, not by which box it landed in: a leading '>' or a FASTA extension is a
+    // sequence, the rest is lis.py CSV. The dedicated FASTA box still works for sequences alone.
+    const FA_EXT = /\.(fasta|fa|faa|fas|fna|mfa|pep|seq)$/i;
+    const wantExt = kind === 'fasta' ? /\.(fasta|fa|faa|fas|fna|mfa|pep|seq|txt)$/i
+                                     : /\.(csv|tsv|txt|fasta|fa|faa|fas|fna|mfa|pep|seq)$/i;
+    const items = [], fastaTexts = [];   // {name,text}: a dropped .zip of lis.py CSVs and/or FASTA files is expanded here
+    const sort = (name, text) => {
+      const isFa = kind === 'fasta' || FA_EXT.test(name) || /^\s*>/.test(text);
+      if (isFa) fastaTexts.push(text); else items.push({ name, text });
+    };
     for (const f of list){
       if (kind === 'csv' && /\.xlsx$/i.test(f.name)){ await loadXlsx(f); continue; }   // collaborator workbook
       if (/\.zip$/i.test(f.name)){
         if (typeof fflate === 'undefined') throw new Error('zip support failed to load (needs an internet connection)');
         const entries = fflate.unzipSync(new Uint8Array(await f.arrayBuffer())), dec = new TextDecoder();
-        for (const nm in entries){ if (nm.startsWith('__MACOSX/') || nm.endsWith('/')) continue; const base = nm.split('/').pop(); if (wantExt.test(base)) items.push({ name: base, text: dec.decode(entries[nm]) }); }
-      } else items.push({ name: f.name, text: await f.text() });
+        for (const nm in entries){ if (nm.startsWith('__MACOSX/') || nm.endsWith('/')) continue; const base = nm.split('/').pop(); if (wantExt.test(base)) sort(base, dec.decode(entries[nm])); }
+      } else sort(f.name, await f.text());
     }
-    if (kind === 'fasta'){ FASTA_PARSE = CLIPResolver.parseFastaToSeqMap(items.map(it => it.text).join('\n')); FASTA_WARN = FASTA_PARSE.warn || []; }
-    else for (const it of items){                                            // csv — parse+convert ONCE, reuse for gene list + every generate
+    if (fastaTexts.length){ FASTA_PARSE = CLIPResolver.parseFastaToSeqMap(fastaTexts.join('\n')); FASTA_WARN = FASTA_PARSE.warn || []; }
+    for (const it of items){                                                 // csv — parse+convert ONCE, reuse for gene list + every generate
       $('status').textContent = `parsing ${it.name}…`;
       await new Promise(r => setTimeout(r, 0));
       FILES.push({ name: it.name, rows: CLIPPipeline.convertRows(CLIPPipeline.parseCSV(it.text).rows) });
@@ -458,6 +476,7 @@ async function routeFiles(list, kind){
   }
   if (kind === 'csv'){ if (META) applyMetadata(); else rebuildGenes(); }
   updateLoaded();
+  if (LAST && FASTA_PARSE) renderPairTracks(LAST);   // FASTA added after generating → light up the sequence viewer
   if (kind === 'csv' && $('mg-auto') && $('mg-auto').checked && !META) await maybeAutoConvertClip();
 }
 function parseMetadata(text){
@@ -706,6 +725,8 @@ function updateLoaded(){
 }
 
 $('run').onclick = () => {
+  PAIR_DOMAINS = {};
+  if (LAST) LAST._resolved = false;
   const gene = $('gene').value;
   const tn = $('topn').value.trim();   // blank = all partners (no cap)
   const opts = { ilisCutoff: parseFloat($('ilis').value)||0.223, topN: tn==='' ? Infinity : (parseInt(tn)||Infinity), sortBy:'iLIS' };
@@ -742,6 +763,7 @@ function render(A){
   renderHeatmap(A); renderFreq(A); renderPairTracks(A); renderScatter(A); renderTable(A); renderClusterInfo(A);
   CHIP_CONTAINERS.forEach(id => renderChipBar(id, A));
   $('scatter-x').onchange = $('scatter-y').onchange = () => renderScatter(LAST);
+  { const sp = $('scatter-points'); if (sp) sp.onchange = () => renderScatter(LAST); }
   $('svg-freq').onclick = () => { if (LAST) downloadSVG(`clip_${LAST.gene}_frequency.svg`, svgFreq(LAST, svgOpts())); };
   $('svg-heatmap').onclick = () => { if (LAST) downloadSVG(`clip_${LAST.gene}_fingerprint.svg`, svgHeatmap(LAST, heatOpts())); };
   $('commonality').onchange = () => { COMMONALITY = +$('commonality').value; if (LAST) recolor3D(LAST); };
@@ -848,94 +870,167 @@ function bestRowPerPartner(A){
 }
 function idxSet(v){ const s = new Set(); for (const n of CLIPPipeline.parseIndice(v)) if (n>=1) s.add(n); return s; }
 
+let PAIR_DOMAINS = {};   // partner symbol -> [{start,end,name}] (canonical coords) · null = fetch in flight
+function fetchPartnerDomainsFor(A, part, done){
+  const r = bestRowPerPartner(A).get(part), pl = r ? (parseInt(r.Protein_Len_B,10)||0) : 0;
+  ensurePartnerDomains(part, pl, ($('mg-species') && $('mg-species').value) || '').then(ch => { if (ch && done) done(); });
+}
+// Resolve a partner to a UniProt accession (reusing whatever ids we know) and pull its domains,
+// so the interface map can show them like Prediction Analysis. Best-effort and cached per symbol.
+async function ensurePartnerDomains(sym, len, species){
+  if (sym in PAIR_DOMAINS) return false;
+  PAIR_DOMAINS[sym] = null;
+  let acc = null;
+  for (const id of [sym].concat(LABEL_IDS[sym] || [])){
+    try { const r = await CLIPResolver.resolveStructure({ gene: id, length: len, species }); if (r && r.accession){ acc = r.accession; break; } } catch(e){}
+  }
+  PAIR_DOMAINS[sym] = acc ? (await CLIPResolver.fetchDomains(acc).catch(() => [])) : [];
+  return true;
+}
+// Query domains are in full-protein coords; the query may be a fragment, so shift by its offset.
+function mapQueryDomains(A){
+  const off = A._fragOffset || 0, len = A.pipe.proteinLen, out = [];
+  for (const d of (A._domains || [])){ const s = d.start - off, e = d.end - off; if (e < 1 || s > len) continue; out.push({ start: Math.max(1, s), end: Math.min(len, e), name: d.name }); }
+  return out;
+}
+function clipDomains(doms, len){ const out = []; for (const d of (doms || [])){ if (d.end < 1 || d.start > len) continue; out.push({ start: Math.max(1, d.start), end: Math.min(len, d.end), name: d.name }); } return out; }
+
 function drawPairTracks(cv, A, partner){
   const row = bestRowPerPartner(A).get(partner);
   if (!row) return;
   const qLir = idxSet(row.LIR_indice_A), qClir = idxSet(row.cLIR_indice_A);
   const pLir = idxSet(row.LIR_indice_B), pClir = idxSet(row.cLIR_indice_B);
   const qLen = parseInt(row.Protein_Len_A, 10) || A.pipe.proteinLen;
-  // Without a length column the track can only run to the last contact residue, which
-  // truncates the protein. Say so rather than drawing a confidently wrong C-terminus.
   const qKnown = !!parseInt(row.Protein_Len_A, 10);
   let pLen = parseInt(row.Protein_Len_B, 10) || 0;
   const pKnown = !!pLen;
   if (!pLen) for (const s of [pLir, pClir]) for (const v of s) if (v > pLen) pLen = v;
 
-  const S=2, W=PLOT_W, padL=AX_L, padR=AX_R, barH=17, tickH=16, titleH=17, gap=20;
-  const H = 6 + 2*(titleH + barH + tickH) + gap + 22;
-  cv.width=W*S; cv.height=H*S; cv.style.width='100%'; cv.style.height='auto';
-  const ctx = cv.getContext('2d'); ctx.scale(S,S); ctx.clearRect(0,0,W,H);
+  const qDoms = mapQueryDomains(A), pDoms = clipDomains(PAIR_DOMAINS[partner], pLen);
+  const domRowH = (qDoms.length || pDoms.length) ? 16 : 0;
 
-  const track = (y, label, len, known, lir, clir, col) => {
-    const bw = (W-padL-padR)/len, xOf = (r) => padL + (r-1)*bw;
-    ctx.fillStyle='#334'; ctx.font='600 11px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-    const lenTxt = known ? `${len} aa` : `≥${len} aa (length not in file)`;
-    ctx.fillText(`${label}  ·  ${lenTxt}  ·  ${clir.size} cLIR${lir.size?` / ${lir.size} LIR`:''}`, padL, y+11);
-    const barY = y + titleH;
-    ctx.fillStyle=col.base; ctx.fillRect(padL, barY, W-padL-padR, barH);
-    const paint = (set, color) => { if(!set.size) return; ctx.fillStyle=color;
-      for (const [s,e] of LiviaMaps.setToRanges(set)) ctx.fillRect(xOf(s), barY, Math.max(1.2, (e-s+1)*bw), barH); };
+  const S = 2, W = PLOT_W, padR = AX_R, barH = 20, tickH = 16, gap = 24;
+  const labelFont = '600 12px sans-serif';
+  const meas = cv.getContext('2d'); meas.font = labelFont;
+  const fit = (s, max) => { if (meas.measureText(s).width <= max) return s;
+    while (s.length > 1 && meas.measureText(s + '…').width > max) s = s.slice(0, -1); return s + '…'; };
+  const labels = [A.gene, partner];
+  const padL = Math.min(230, 14 + Math.max(60, ...labels.map(l => meas.measureText(l).width)) + 12);
+  const H = 8 + 2*(domRowH + barH + tickH) + gap + 62;
+  cv.width = W*S; cv.height = H*S; cv.style.width = '100%'; cv.style.height = 'auto';
+  const ctx = cv.getContext('2d'); ctx.scale(S, S); ctx.clearRect(0, 0, W, H);
+
+  const track = (y, label, len, doms, lir, clir, col) => {
+    const bw = (W - padL - padR) / len, xOf = (r) => padL + (r-1)*bw;
+    if (domRowH){                                        // UniProt domains above the bar
+      for (const d of doms){
+        const dx0 = xOf(d.start), dx1 = Math.max(dx0 + 2, xOf(d.end) + bw);
+        ctx.fillStyle = '#8579b8'; ctx.fillRect(dx0, y + 2, dx1 - dx0, domRowH - 5);
+        ctx.fillStyle = '#fff'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        if (ctx.measureText(d.name).width < dx1 - dx0 - 4) ctx.fillText(d.name, (dx0 + dx1)/2, y + 2 + (domRowH-5)/2);
+      }
+    }
+    const barY = y + domRowH;
+    ctx.fillStyle = col.clir; ctx.font = labelFont; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(fit(label, padL - 14), padL - 10, barY + barH/2);
+    ctx.fillStyle = col.base; ctx.fillRect(padL, barY, W - padL - padR, barH);
+    const paint = (set, color) => { if (!set.size) return; ctx.fillStyle = color;
+      for (const [s, e] of LiviaMaps.setToRanges(set)) ctx.fillRect(xOf(s), barY, Math.max(1.2, (e-s+1)*bw), barH); };
     paint(lir, col.lir); paint(clir, col.clir);          // cLIR ⊂ LIR, so it paints over
-    ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.strokeRect(padL+.5, barY+.5, W-padL-padR-1, barH-1);
-    ctx.fillStyle='#333'; ctx.font='9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1; ctx.strokeRect(padL+.5, barY+.5, W - padL - padR - 1, barH-1);
+    ctx.fillStyle = '#333'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     const step = Math.max(1, Math.round(len/10));
-    for (let r=1; r<=len; r+=step){ const x=xOf(r)+bw/2;
-      ctx.strokeStyle='#ddd'; ctx.beginPath(); ctx.moveTo(x, barY+barH); ctx.lineTo(x, barY+barH+3); ctx.stroke();
+    for (let r = 1; r <= len; r += step){ const x = xOf(r) + bw/2;
+      ctx.strokeStyle = '#ddd'; ctx.beginPath(); ctx.moveTo(x, barY+barH); ctx.lineTo(x, barY+barH+3); ctx.stroke();
       ctx.fillText(String(r), x, barY+barH+4); }
     return barY + barH + tickH;
   };
-  let y = 6;
-  y = track(y, A.gene, qLen, qKnown, qLir, qClir, PAIR_COL.q) + gap;
-  y = track(y, partner, pLen, pKnown, pLir, pClir, PAIR_COL.p);
+  let y = 8;
+  y = track(y, A.gene, qLen, qDoms, qLir, qClir, PAIR_COL.q) + gap;
+  y = track(y, partner, pLen, pDoms, pLir, pClir, PAIR_COL.p);
 
-  // one swatch per track colour, so the legend reads for the query (blue) and the partner (orange) alike
+  y += 16;
   const chip = (x, cols, text) => {
-    cols.forEach((c,i) => { ctx.fillStyle=c; ctx.fillRect(x + i*11, y+7, 10, 10); });
+    cols.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(x + i*11, y, 10, 10); });
     x += cols.length*11 + 4;
-    ctx.fillStyle='#333'; ctx.font='10px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
-    ctx.fillText(text, x, y+12.5);
-    return x + 14 + ctx.measureText(text).width;
+    ctx.fillStyle = '#333'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y + 5.5);
+    return x + 13 + ctx.measureText(text).width;
   };
   let x = padL;
   x = chip(x, [PAIR_COL.q.base], 'not in interface');
-  if (qLir.size || pLir.size) x = chip(x, [PAIR_COL.q.lir, PAIR_COL.p.lir], 'LIR (local interaction area)');
-  x = chip(x, [PAIR_COL.q.clir, PAIR_COL.p.clir], 'cLIR (contact)');
-  ctx.fillStyle='#333'; ctx.fillText(`iLIS ${(+row.iLIS||0).toFixed(3)}${row.Rank?` · rank ${row.Rank}`:''}`, x+6, y+12.5);
+  if (qLir.size || pLir.size) x = chip(x, [PAIR_COL.q.lir, PAIR_COL.p.lir], 'LIR (PAE<12\u00c5)');
+  x = chip(x, [PAIR_COL.q.clir, PAIR_COL.p.clir], 'cLIR (PAE<12\u00c5 & C\u03b2<8\u00c5)');
+  if (qDoms.length || pDoms.length){ ctx.fillStyle = '#8579b8'; ctx.fillRect(x, y, 10, 10);
+    ctx.fillStyle = '#333'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('domain (UniProt)', x + 13, y + 5.5); }
+
+  y += 22;
+  const count = (x, name, len, known, lir, clir, col) => {
+    ctx.fillStyle = col.clir; ctx.fillRect(x, y, 10, 10); x += 15;
+    ctx.fillStyle = '#333'; ctx.font = '10.5px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const lenTxt = known ? `${len} aa` : `\u2265${len} aa (length not in file)`;
+    const s = `${name} · ${lenTxt} · ${clir.size} cLIR${lir.size ? ` / ${lir.size} LIR` : ''}`;
+    ctx.fillText(s, x, y + 5.5);
+    return x + ctx.measureText(s).width + 22;
+  };
+  x = padL;
+  x = count(x, A.gene, qLen, qKnown, qLir, qClir, PAIR_COL.q);
+  x = count(x, partner, pLen, pKnown, pLir, pClir, PAIR_COL.p);
+  ctx.fillStyle = '#889'; ctx.font = '10px sans-serif';
+  ctx.fillText(`iLIS ${(+row.iLIS||0).toFixed(3)}${row.Rank ? ` · rank ${row.Rank}` : ''}`, x, y + 5.5);
 }
 
 // Sequence viewer, mirroring Prediction Analysis: 10-residue blocks, 80 per line, numbered both ends.
 // Only drawn when a FASTA (or a workbook Sequence sheet) supplied the actual sequences.
 function seqPanel(label, seq, lir, clir, col){
   const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
-  let html = `<div style="margin-top:.55rem"><b style="color:${col.clir}">${esc(label)}</b> <span class="muted">(${seq.length} residues)</span></div>`;
-  for (let start = 0; start < seq.length; start += 80){
-    const end = Math.min(seq.length, start + 80);
-    let line = '';
-    for (let i = start; i < end; i++){
-      const r = i + 1, ch = esc(seq[i]);
-      if (clir.has(r))      line += `<span style="background:${col.clir}; color:#fff">${ch}</span>`;
-      else if (lir.has(r))  line += `<span style="background:${col.lir}">${ch}</span>`;
-      else                  line += ch;
-      if ((r - start) % 10 === 0 && r !== end) line += ' ';
-    }
-    html += `<div><span style="color:#333; display:inline-block; width:4.5em; text-align:right; padding-right:.8em">${start+1}</span>${line}`
-          + `<span style="color:#333; padding-left:.8em">${end}</span></div>`;
+  // Residues flow as one continuous string that wraps to the available width, so it stays fully
+  // searchable (Cmd-F across gaps and line wraps): the 10-residue gap is a CSS margin, the wrap
+  // opportunity between blocks is a <wbr>, and the running position number is CSS ::before content
+  // — none of the three put a character into the text, so a motif is never broken.
+  let body = '';
+  for (let i = 0; i < seq.length; i++){
+    if (i % 10 === 0){ if (i) body += '</span><wbr>'; body += `<span class="g10" data-n="${Math.min(i + 10, seq.length)}">`; }
+    const r = i + 1, ch = esc(seq[i]);
+    if (clir.has(r))      body += `<span style="background:${col.clir}; color:#fff">${ch}</span>`;
+    else if (lir.has(r))  body += `<span style="background:${col.lir}">${ch}</span>`;
+    else                  body += ch;
   }
-  return html;
+  body += '</span>';
+  return `<div style="margin-top:.9rem"><b style="color:${col.clir}">${esc(label)}</b> <span class="muted">(${seq.length} residues)</span></div>`
+       + `<div class="seq-flow">${body}</div>`;
+}
+
+// Paired FASTA headers key sequences on FBgn/UniProt ids, not the display symbol, so try the
+// symbol first and then whatever ids the workbook or identity map recorded for it.
+function seqForSymbol(sym, len){
+  let s = CLIPResolver.baitSequence(FASTA_PARSE, sym, len);
+  if (s) return s;
+  for (const id of (LABEL_IDS[sym] || [])){ s = CLIPResolver.baitSequence(FASTA_PARSE, id, len); if (s) return s; }
+  return null;
 }
 
 function renderPairSeq(A, partner){
-  const box = $('pair-seq'), body = $('pair-seq-body');
+  const msg = $('pair-seq-msg'), body = $('pair-seq-body');
+  if (!FASTA_PARSE || !FASTA_PARSE.seqs.length){    // viewer stays, but explains what it needs
+    body.innerHTML = '';
+    msg.innerHTML = 'Add a <b>FASTA</b> (or a <b>.zip</b> of FASTAs) in the upload panel to see the interface residues highlighted on each full sequence.';
+    return;
+  }
   const row = bestRowPerPartner(A).get(partner);
-  if (!row || !FASTA_PARSE){ box.classList.add('hidden'); return; }
-  const qSeq = CLIPResolver.baitSequence(FASTA_PARSE, A.gene, A.pipe.proteinLen);
-  const pSeq = CLIPResolver.baitSequence(FASTA_PARSE, partner, parseInt(row.Protein_Len_B,10) || 0);
-  if (!qSeq && !pSeq){ box.classList.add('hidden'); return; }
+  const qSeq = row && seqForSymbol(A.gene, A.pipe.proteinLen);
+  const pSeq = row && seqForSymbol(partner, parseInt(row.Protein_Len_B,10) || 0);
+  if (!qSeq && !pSeq){
+    body.innerHTML = '';
+    msg.textContent = `No sequence in the FASTA matched ${A.gene} or ${partner} (by name, id, or unique length).`;
+    return;
+  }
+  msg.textContent = '';
   let html = '';
   if (qSeq) html += seqPanel(A.gene, qSeq, idxSet(row.LIR_indice_A), idxSet(row.cLIR_indice_A), PAIR_COL.q);
   if (pSeq) html += seqPanel(partner, pSeq, idxSet(row.LIR_indice_B), idxSet(row.cLIR_indice_B), PAIR_COL.p);
   body.innerHTML = html;
-  box.classList.remove('hidden');
 }
 
 function renderPairTracks(A){
@@ -952,7 +1047,8 @@ function renderPairTracks(A){
   $('pair-note').textContent = anyLir ? '' : 'this file carries no LIR indices — showing cLIR only';
   const draw = () => drawPairTracks($('pair-canvas'), A, sel.value);
   const paint = () => { draw(); renderPairSeq(A, sel.value);
-    LiviaMaps.attachExportBar('pair-canvas', { name:`clip_${A.gene}_vs_${sel.value}_residues`, svg:draw, png:true }); };
+    LiviaMaps.attachExportBar('pair-canvas', { name:`clip_${A.gene}_vs_${sel.value}_residues`, svg:draw, png:true });
+    if (A._resolved) fetchPartnerDomainsFor(A, sel.value, () => { if (sel.value) draw(); }); };   // query first; partners after it resolves
   paint();
   sel.onchange = paint;
 }
@@ -1155,10 +1251,12 @@ function availableMetrics(rows){
   for (const k in first){ if (!k.startsWith('_') && !SKIP_COLS.has(k) && !out.includes(k) && isNum(k)) out.push(k); }
   return out;
 }
+const RANK_METRIC = '_rank';   // synthetic axis: pure global rank (1..N) by iLIS across every prediction
 function populateAxes(A){
-  const metrics = availableMetrics(A.pipe.rows);
+  const metrics = availableMetrics(A.pipe.rows).concat(RANK_METRIC);
+  const LABEL = { [RANK_METRIC]: 'rank (global, by iLIS)' };
   const fill = (id, def) => { const s=$(id); if(!s) return; const cur=s.value;
-    s.innerHTML=''; for (const m of metrics){ const o=document.createElement('option'); o.value=m; o.textContent=m; s.appendChild(o); }
+    s.innerHTML=''; for (const m of metrics){ const o=document.createElement('option'); o.value=m; o.textContent=LABEL[m]||m; s.appendChild(o); }
     s.value = metrics.includes(cur) ? cur : def; };
   fill('scatter-y', metrics.includes('iLIS') ? 'iLIS' : metrics[0]);
   fill('scatter-x', metrics.includes('iLIA') ? 'iLIA' : (metrics[1] || metrics[0]));
@@ -1182,23 +1280,42 @@ function renderScatter(A){
   const cutoff = (A.opts && A.opts.ilisCutoff) || 0.223;
   const xKey = ($('scatter-x') && $('scatter-x').value) || 'iLIA';
   const yKey = ($('scatter-y') && $('scatter-y').value) || 'iLIS';
+  const pointsMode = ($('scatter-points') && $('scatter-points').value) || 'rank1';   // rank-1 per pair vs every prediction
+  const pk = (p) => p.Symbol_2 + '\u0001' + p.Rank;
+  // Pure global rank: order every prediction by iLIS (desc) → 1..N. If the screen has 6465
+  // predictions, ranks run 1..6465. Keyed by pair+model-rank so it maps onto any point instance.
+  const allPreds = pipe.allPredictions || pipe.allPoints || pipe.rows;
+  const grankMap = new Map();
+  allPreds.map((p,i)=>[p,i]).sort((a,b)=>(scVal(b[0],'iLIS')-scVal(a[0],'iLIS'))||(a[1]-b[1]))
+    .forEach(([p],i)=>{ const key=pk(p); if(!grankMap.has(key)) grankMap.set(key, i+1); });
+  const val = (p, key) => key===RANK_METRIC ? (grankMap.get(pk(p)) ?? NaN) : scVal(p, key);
   const rl = (p) => `${p.Symbol_2} (R${p.Rank != null && p.Rank !== '' ? p.Rank : '?'})`;   // rank label, e.g. "sqa (R1)"
   const HM_BASE = ['iLIS','iLIA','iLISA','ipTM'], HM_FMT = {iLIS:'.4g', iLIA:'.4g', iLISA:'.1f', ipTM:'.3g'};
   const hoverM = HM_BASE.concat([...new Set([yKey, xKey])].filter(m => !HM_BASE.includes(m)));   // append the selected Y/X metric when it isn't one of the four already shown (e.g. ipSAE, actifpTM)
-  const cd = (p) => hoverM.map(m => scVal(p, m));
+  const cd = (p) => hoverM.map(m => val(p, m));
   const HT = '%{text}' + hoverM.map((m,i) => `<br>${m} %{customdata[${i}]:${HM_FMT[m]||'.4g'}}`).join('') + '<extra></extra>';
-  const pk = (p) => p.Symbol_2 + '\u0001' + p.Rank;
-  const passing = new Set(pipe.rows.map(pk));
-  const bg = (pipe.allPredictions || pipe.allPoints || []).filter(p => !passing.has(pk(p)));   // every rank, minus the clustered ones
-  const bgTrace = { x: bg.map(p=>scVal(p,xKey)), y: bg.map(p=>scVal(p,yKey)), text: bg.map(rl), customdata: bg.map(cd),
+  // Foreground points, coloured by the partner's cluster. "rank-1 per pair" keeps only the Rank-1
+  // prediction of each clustered pair (one dot per partner); "every prediction" keeps all ranks.
+  // The rest fade to grey in the background. cLIP keeps only pairs that have a Rank-1, so every
+  // clustered partner has one.
+  const partnerCluster = {};
+  for (let i=0;i<pipe.rows.length;i++){ const r=pipe.rows[i], s=r.Symbol_2; if (partnerCluster[s]==null || +r.Rank===1) partnerCluster[s]=cl.labels[i]; }
+  const clustered = (p) => partnerCluster[p.Symbol_2] != null;
+  const fg = (pointsMode === 'all' ? allPreds.filter(clustered)
+                                   : allPreds.filter(p => clustered(p) && +p.Rank === 1))
+             .map(p => ({ p, lab: partnerCluster[p.Symbol_2] }));
+  const fgKeys = new Set(fg.map(f => pk(f.p)));
+  const bg = allPreds.filter(p => !fgKeys.has(pk(p)));
+  const bgTrace = { x: bg.map(p=>val(p,xKey)), y: bg.map(p=>val(p,yKey)), text: bg.map(rl), customdata: bg.map(cd),
     mode:'markers', type:'scatter', legendrank:9999, name:`other predictions (${bg.length})`, marker:{ size:5, color:'#cdd3db', line:{width:0} }, hovertemplate: HT };
   const traces = {};
-  for (let i=0;i<pipe.rows.length;i++){ const lab=cl.labels[i], r=pipe.rows[i];
+  for (const { p, lab } of fg){
     (traces[lab]=traces[lab]||{x:[],y:[],text:[],cd:[]});
-    traces[lab].x.push(scVal(r,xKey)); traces[lab].y.push(scVal(r,yKey)); traces[lab].text.push(rl(r)); traces[lab].cd.push(cd(r)); }
+    traces[lab].x.push(val(p,xKey)); traces[lab].y.push(val(p,yKey)); traces[lab].text.push(rl(p)); traces[lab].cd.push(cd(p)); }
   const clTraces = Object.keys(traces).sort((a,b)=>a-b).map(lab=>({ x:traces[lab].x, y:traces[lab].y, text:traces[lab].text, customdata:traces[lab].cd,
     mode:'markers', type:'scatter', legendrank:+lab, name:'cluster '+lab+' ('+traces[lab].x.length+')', marker:{ size:9, color:clusterColor(+lab,k), line:{width:.5,color:'#fff'} }, hovertemplate: HT }));
-  const layout = { margin:{t:10,r:10,b:45,l:62}, xaxis:{title:xKey, rangemode:'tozero'}, yaxis:{title:yKey, rangemode:'tozero'}, legend:{font:{size:10}} };
+  const axTitle = (kk) => kk===RANK_METRIC ? 'global rank (by iLIS)' : kk;
+  const layout = { margin:{t:10,r:10,b:45,l:62}, xaxis:{title:axTitle(xKey), rangemode:'tozero'}, yaxis:{title:axTitle(yKey), rangemode:'tozero'}, legend:{font:{size:10}} };
   // FPR iLIS reference lines when iLIS is on an axis (active cutoff = dashed+bold, others dotted)
   const fprShape = (ax, v) => ax==='y'
     ? { type:'line', xref:'paper', x0:0, x1:1, y0:v, y1:v, line:{ color:'#e07a5f', width: v===cutoff?1.5:0.8, dash: 'dash' } }
@@ -1209,7 +1326,7 @@ function renderScatter(A){
   const ax = yKey==='iLIS' ? 'y' : (xKey==='iLIS' ? 'x' : null);
   if (ax){ layout.shapes = FPR_ILIS.map(([,v])=>fprShape(ax,v)); layout.annotations = FPR_ILIS.map(([l,v])=>fprAnn(ax,l,v)); }
   const _cx=[], _cy=[];   // Spearman rank correlation of the two axes across all plotted predictions
-  for (const p of bg){ _cx.push(scVal(p,xKey)); _cy.push(scVal(p,yKey)); }
+  for (const p of bg){ _cx.push(val(p,xKey)); _cy.push(val(p,yKey)); }
   for (const lab in traces){ for (let i=0;i<traces[lab].x.length;i++){ _cx.push(traces[lab].x[i]); _cy.push(traces[lab].y[i]); } }
   const _rho = spearman(_cx, _cy), _r = pearson(_cx, _cy);
   { const el = $('scatter-rho'); if (el) el.textContent = (isNaN(_r) ? '' : `Pearson r = ${_r.toFixed(3)} \u00b7 `) + (isNaN(_rho) ? '' : `Spearman \u03c1 = ${_rho.toFixed(3)}`) + ` (n=${_cx.length})`; }
@@ -1425,7 +1542,9 @@ async function resolve3D(A){
   else note = res.lengthOk ? 'len ✓' : `⚠ len ${res.structureLength}≠${plen}`;
   document.querySelectorAll('.am-only').forEach(e => e.classList.add('hidden'));   // AM is human-only; revealed only if AlphaMissense loads
   A._accession = res.accession;
-  CLIPResolver.fetchDomains(res.accession).then(d => { if (d && d.length){ A._domains = d; renderFreq(A); } });   // UniProt domain track (needs only accession)
+  A._resolved = true;   // query structure resolved — now safe to look up partner domains without starving it
+  CLIPResolver.fetchDomains(res.accession).then(d => { if (d && d.length){ A._domains = d; renderFreq(A); if ($('pair-partner') && $('pair-partner').value) drawPairTracks($('pair-canvas'), A, $('pair-partner').value); } });   // UniProt domain track (needs only accession)
+  { const pp = $('pair-partner') && $('pair-partner').value; if (pp) fetchPartnerDomainsFor(A, pp, () => { if ($('pair-partner').value === pp) drawPairTracks($('pair-canvas'), A, pp); }); }
   CLIPResolver.fetchAlphaMissense(res.accession).then(am => { if (am && am.length){ A._am = am; renderFreq(A); document.querySelectorAll('.am-only').forEach(e => e.classList.remove('hidden')); } });   // AlphaMissense per-residue pathogenicity (human only)
   if (!res.cifUrl){ badge.textContent = `· ${res.accession}${res.gene ? ' (' + res.gene + ')' : ''} · via ${res.matchedBy} · ⚠ no AFDB structure`; $('viewer3d-frame').src = 'about:blank'; return; }
   badge.textContent = `· AFDB ${res.accession}${res.organism ? ' · ' + res.organism : ''} · via ${res.matchedBy} · ${note}`;
