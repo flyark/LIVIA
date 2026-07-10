@@ -117,21 +117,21 @@
     <div style="margin-top:.7rem; font-size:.85rem; color:#556;">
       ▶ Try examples — kinase-transcription factor screen (<a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank" style="color:#2471A3">Kim et al. 2025</a>):<br>
       <span style="color:#889; font-size:.8rem;">fly TF &rarr;</span>
-      <a href="#" class="load-ex" data-file="ftz_kinase_screen.csv" data-gene="ftz" style="color:#2471A3; font-weight:600; text-decoration:none;">ftz</a> ·
-      <a href="#" class="load-ex" data-file="eve_kinase_screen.csv" data-gene="eve" style="color:#2471A3; font-weight:600; text-decoration:none;">eve</a> ·
-      <a href="#" class="load-ex" data-file="antp_kinase_screen.csv" data-gene="Antp" style="color:#2471A3; font-weight:600; text-decoration:none;">Antp</a>
+      <a href="#" class="load-ex" data-file="ftz_kinase_screen.zip" data-gene="ftz" style="color:#2471A3; font-weight:600; text-decoration:none;">ftz</a> ·
+      <a href="#" class="load-ex" data-file="eve_kinase_screen.zip" data-gene="eve" style="color:#2471A3; font-weight:600; text-decoration:none;">eve</a> ·
+      <a href="#" class="load-ex" data-file="antp_kinase_screen.zip" data-gene="Antp" style="color:#2471A3; font-weight:600; text-decoration:none;">Antp</a>
       &nbsp; <span style="color:#889; font-size:.8rem;">fly kinase &rarr;</span>
-      <a href="#" class="load-ex" data-file="apkc_tf_screen.csv" data-gene="aPKC" style="color:#2471A3; font-weight:600; text-decoration:none;">aPKC</a> ·
-      <a href="#" class="load-ex" data-file="pdk1_tf_screen.csv" data-gene="Pdk1" style="color:#2471A3; font-weight:600; text-decoration:none;">Pdk1</a> ·
-      <a href="#" class="load-ex" data-file="s6k_tf_screen.csv" data-gene="S6k" style="color:#2471A3; font-weight:600; text-decoration:none;">S6k</a><br>
+      <a href="#" class="load-ex" data-file="apkc_tf_screen.zip" data-gene="aPKC" style="color:#2471A3; font-weight:600; text-decoration:none;">aPKC</a> ·
+      <a href="#" class="load-ex" data-file="pdk1_tf_screen.zip" data-gene="Pdk1" style="color:#2471A3; font-weight:600; text-decoration:none;">Pdk1</a> ·
+      <a href="#" class="load-ex" data-file="s6k_tf_screen.zip" data-gene="S6k" style="color:#2471A3; font-weight:600; text-decoration:none;">S6k</a><br>
       <span style="color:#889; font-size:.8rem;">human TF &rarr;</span>
-      <a href="#" class="load-ex" data-file="jun_kinase_screen.csv" data-gene="JUN" style="color:#2471A3; font-weight:600; text-decoration:none;">JUN</a> ·
-      <a href="#" class="load-ex" data-file="tp53_kinase_screen.csv" data-gene="TP53" style="color:#2471A3; font-weight:600; text-decoration:none;">TP53</a> ·
-      <a href="#" class="load-ex" data-file="myc_kinase_screen.csv" data-gene="MYC" style="color:#2471A3; font-weight:600; text-decoration:none;">MYC</a>
+      <a href="#" class="load-ex" data-file="jun_kinase_screen.zip" data-gene="JUN" style="color:#2471A3; font-weight:600; text-decoration:none;">JUN</a> ·
+      <a href="#" class="load-ex" data-file="tp53_kinase_screen.zip" data-gene="TP53" style="color:#2471A3; font-weight:600; text-decoration:none;">TP53</a> ·
+      <a href="#" class="load-ex" data-file="myc_kinase_screen.zip" data-gene="MYC" style="color:#2471A3; font-weight:600; text-decoration:none;">MYC</a>
       &nbsp; <span style="color:#889; font-size:.8rem;">human kinase &rarr;</span>
-      <a href="#" class="load-ex" data-file="akt1_tf_screen.csv" data-gene="AKT1" style="color:#2471A3; font-weight:600; text-decoration:none;">AKT1</a> ·
-      <a href="#" class="load-ex" data-file="p38a_tf_screen.csv" data-gene="MAPK14" style="color:#2471A3; font-weight:600; text-decoration:none;">p38&alpha;</a> ·
-      <a href="#" class="load-ex" data-file="chk1_tf_screen.csv" data-gene="CHEK1" style="color:#2471A3; font-weight:600; text-decoration:none;">CHK1</a>
+      <a href="#" class="load-ex" data-file="akt1_tf_screen.zip" data-gene="AKT1" style="color:#2471A3; font-weight:600; text-decoration:none;">AKT1</a> ·
+      <a href="#" class="load-ex" data-file="p38a_tf_screen.zip" data-gene="MAPK14" style="color:#2471A3; font-weight:600; text-decoration:none;">p38&alpha;</a> ·
+      <a href="#" class="load-ex" data-file="chk1_tf_screen.zip" data-gene="CHEK1" style="color:#2471A3; font-weight:600; text-decoration:none;">CHK1</a>
     </div>
     <div class="row" style="margin-top:1rem">
       <label>Query protein: <select id="gene"><option>—</option></select></label>
@@ -152,7 +152,8 @@
       <a href="#" id="subset-none" style="color:#2471A3; font-weight:600">none</a>
       &nbsp;·&nbsp;<a href="#" id="subset-dl" style="color:#2471A3; font-weight:600">↓ review list</a> ·
       <label style="color:#2471A3; font-weight:600; cursor:pointer">↑ upload<input type="file" id="subset-ul" accept=".csv,.tsv,.txt" class="hidden"></label> ·
-      <a href="#" id="subset-dl-lis" style="color:#2471A3; font-weight:600">↓ lis.py (selected)</a>
+      <a href="#" id="subset-dl-lis" style="color:#2471A3; font-weight:600">↓ lis.py output (selected)</a> ·
+      <a href="#" id="subset-dl-fasta" style="color:#2471A3; font-weight:600">↓ FASTA (selected)</a>
       <div id="subset-list" style="margin-top:.4rem; max-height:150px; overflow:auto; display:flex; flex-wrap:wrap; gap:.3rem .8rem;"></div>
     </div>
     <div class="row" style="margin-top:.6rem; font-size:.85rem; color:#556">
@@ -337,17 +338,21 @@ wireZone('dz-csv', 'in-csv', 'csv'); wireZone('dz-fasta', 'in-fasta', 'fasta'); 
 })();
 // Examples: fly TF kinase screens (published, Kim et al. 2025) — load the CSV, pick the TF, generate.
 async function loadExample(file, gene) {
-  if (location.protocol === 'file:'){   // file:// blocks fetch of the bundled CSVs; dropping your own still works
+  if (location.protocol === 'file:'){   // file:// blocks fetch of the bundled files; dropping your own still works
     $('status').textContent = 'Bundled examples need an http server. Run  python3 -m http.server 8000  in the LIVIA folder — or just drop your own lis.py CSV, which works offline.';
     return;
   }
-  $('status').textContent = `loading ${gene} kinase–TF screen…`;
+  $('status').textContent = `loading ${gene}…`;
   try {
-    const text = await (await fetch('examples/' + file)).text();
-    if (!FILES.some(f => f.name === file)) FILES.push({ name: file, rows: CLIPPipeline.convertRows(CLIPPipeline.parseCSV(text).rows) });
-    rebuildGenes(); updateLoaded();
-    const sel = $('gene'); if ([...sel.options].some(o => o.value === gene)) sel.value = gene;
-    $('run').click();
+    // start clean so a second example doesn't stack on the first
+    FILES.length = 0; FASTA_PARSE = null; FASTA_WARN = []; META = null; META_LABELCOL = null;
+    LABEL_IDS = {}; LABEL_FRAG = {}; XLSX_IDS = {}; FORCE_ACC = ''; STRUCT_FILE = null; PARTNER_EXCLUDE = new Set();
+    const blob = await (await fetch('examples/' + file)).blob();
+    // routeFiles handles a .zip (CSV + optional FASTA, auto-sorted) or a bare .csv, and awaits the
+    // name→symbol auto-conversion, so the bait below is the converted symbol.
+    await routeFiles([new File([blob], file, { type: blob.type })], 'csv');
+    const sel = $('gene'); const o = [...sel.options].find(x => x.value === gene) || sel.options[0];
+    if (o){ sel.value = o.value; $('run').click(); }
   } catch (err) { $('status').textContent = '⚠ could not load example: ' + err.message; }
 }
 document.querySelectorAll('.load-ex').forEach(a => a.onclick = (e) => { e.preventDefault(); loadExample(a.dataset.file, a.dataset.gene); });
@@ -372,6 +377,7 @@ $('gene').addEventListener('change', () => { PARTNER_EXCLUDE = new Set(); rebuil
   const _sn = $('subset-none'); if (_sn) _sn.onclick = (e) => { e.preventDefault(); PARTNER_EXCLUDE = new Set(queryPartners($('gene').value)); rebuildSubsetPicker(); }; }
 { const _sd = $('subset-dl'); if (_sd) _sd.onclick = (e) => { e.preventDefault(); downloadSubsetList(); };
   const _sl = $('subset-dl-lis'); if (_sl) _sl.onclick = (e) => { e.preventDefault(); downloadFilteredLis(); };
+  const _sf = $('subset-dl-fasta'); if (_sf) _sf.onclick = (e) => { e.preventDefault(); downloadFilteredFasta(); };
   const _su = $('subset-ul'); if (_su) _su.onchange = async (ev) => { const f = ev.target.files && ev.target.files[0]; if (!f) return; try { uploadSubsetList(await f.text()); } catch(err){ $('status').textContent = '⚠ subset list parse failed: ' + err.message; } finally { ev.target.value = ''; } }; }
 
 // A workbook states each protein's real identifiers alongside the display symbol. Feeding those to
@@ -712,6 +718,28 @@ function downloadFilteredLis(){
   const cols = [...new Set(rows.flatMap(r => Object.keys(r)))].filter(k => k[0] !== '_'); cols.push('original_name');
   const body = rows.map(r => cols.map(c => _csvEsc(c==='original_name' ? r.name : r[c])).join(','));
   _saveCsv([cols.join(','), ...body].join('\n'), 'clip_' + gene + '_filtered.csv');
+}
+// The paired FASTA that matches the lis.py output above — one ">Sym1___Sym2" record per included
+// partner, sequences joined by ':'. Lets people see exactly the format cLIP expects so they can
+// build their own from a screen.
+function downloadFilteredFasta(){
+  const gene = $('gene').value;
+  if (!gene || gene === '—' || !FILES.length) return;
+  if (!FASTA_PARSE || !FASTA_PARSE.seqs.length){ $('status').textContent = 'No FASTA loaded — drop sequences first, then download.'; return; }
+  const rows = FILES.flatMap(f=>f.rows).filter(r => { const pt = r.Symbol_1===gene ? r.Symbol_2 : (r.Symbol_2===gene ? r.Symbol_1 : null); return pt && !PARTNER_EXCLUDE.has(pt); });
+  const seen = new Set(); let out = '', miss = 0;
+  for (const r of rows){
+    const key = r.Symbol_1 + '___' + r.Symbol_2; if (seen.has(key)) continue; seen.add(key);
+    const q1 = seqForSymbol(r.Symbol_1, parseInt(r.Protein_Len_A,10)||0), q2 = seqForSymbol(r.Symbol_2, parseInt(r.Protein_Len_B,10)||0);
+    if (!q1 || !q2){ miss++; continue; }
+    out += `>${r.Symbol_1}___${r.Symbol_2}\n${q1}:${q2}\n`;
+  }
+  if (!out){ $('status').textContent = 'No sequences matched the selected partners.'; return; }
+  const blob = new Blob([out], { type:'text/plain' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'clip_' + gene + '_sequences.fasta';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { try { URL.revokeObjectURL(a.href); } catch(_){} a.remove(); }, 1000);
+  if (miss) $('status').textContent = `FASTA downloaded · ${miss} partner(s) had no sequence in the loaded FASTA`;
 }
 function updateLoaded(){
   $('ld-csv').textContent = FILES.length ? `✓ ${FILES.length} file${FILES.length>1?'s':''}` : '';
