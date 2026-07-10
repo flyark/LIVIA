@@ -82,13 +82,13 @@
     <div class="dropgrid">
       <div class="dz" id="dz-csv">
         <div class="dz-ic">📄</div><div class="dz-t">lis.py output <b style="color:#c0392b">*</b> <span class="opt">+ FASTA</span></div>
-        <div class="dz-h">Drag lis.py output <b>and</b> FASTA here (CSV / XLSX / FASTA, or ZIPs of them) — files are sorted automatically</div>
+        <div class="dz-h">Drop lis.py output and FASTA here — CSV, XLSX, FASTA, or zips. Sorted automatically.</div>
         <div class="dz-l" id="ld-csv"></div>
         <input id="in-csv" type="file" accept=".csv,.tsv,.txt,.zip,.xlsx,.fasta,.fa,.faa,.fas,.fna,.mfa,.pep,.seq" multiple class="hidden">
       </div>
       <div class="dz" id="dz-fasta">
         <div class="dz-ic">🧬</div><div class="dz-t">FASTA <span class="opt">optional · or drop above</span></div>
-        <div class="dz-h">Predicted sequences → colour cLIR on the 3D structure and fill the sequence viewer (you can also drop these in the panel on the left)</div>
+        <div class="dz-h">Predicted sequences → color cLIR on the 3D structure and fill the sequence viewer (you can also drop these in the panel on the left)</div>
         <div class="dz-l" id="ld-fasta"></div>
         <input id="in-fasta" type="file" accept=".fasta,.fa,.faa,.fas,.fna,.mfa,.pep,.seq,.txt,.zip" multiple class="hidden">
       </div>
@@ -166,8 +166,8 @@
       <div class="row" style="justify-content:space-between">
         <div><h2 id="title" style="margin:0"></h2><div class="muted" id="subtitle"></div><div class="muted" id="query-uniprot" style="margin-top:3px"></div>
           <div class="muted" id="uniprot-fix" style="margin-top:3px; font-size:.78rem">
-            Resolved from the names in your file, so it can pick the wrong protein or species &mdash; check it.
-            Wrong? <input id="uniprot-force" placeholder="UniProt accession, e.g. Q7KU87" style="font-size:.78rem; padding:1px 4px; width:190px">
+            Resolved from the names in your file, so it might land on the wrong protein or species. Not right?
+            <input id="uniprot-force" placeholder="UniProt accession, e.g. Q7KU87" style="font-size:.78rem; padding:1px 4px; width:190px">
             <button class="ghost" id="uniprot-go" style="font-size:.72rem; padding:1px 7px">use this</button>
             <span id="uniprot-forced" class="hidden" style="color:#1a5276; font-weight:600"></span>
           </div>
@@ -216,17 +216,18 @@
 
     <div class="card" id="pair-card">
       <h2>Interaction Residues</h2>
-      <div class="muted">Which residues of each protein take part in the interface, read straight from the lis.py indices &mdash; no structure file needed.
-        <b>LIR</b> (Local Interaction Residue, PAE &lt; 12&nbsp;&Aring;) &middot; <b>cLIR</b> (contact LIR, PAE &lt; 12&nbsp;&Aring; &amp; C&beta; &lt; 8&nbsp;&Aring;).</div>
+      <div class="muted">The interface residues on each protein, taken from the lis.py indices. No structure file needed.<br>
+        <b>LIR</b> = local interaction residue (PAE &lt; 12&nbsp;&Aring;); <b>cLIR</b> = contact LIR (PAE &lt; 12&nbsp;&Aring; &amp; C&beta; &lt; 8&nbsp;&Aring;).</div>
       <h3 style="margin-top:.9rem">Interface map</h3>
       <div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin:.4rem 0 .2rem">
         <label style="margin:0">partner <select id="pair-partner" style="max-width:340px"></select></label>
+        <input id="pair-partner-search" autocomplete="off" placeholder="🔍 search partner…" style="font:inherit; padding:2px 6px; width:170px">
         <span class="muted" id="pair-note" style="font-size:.8rem"></span>
       </div>
       <div id="pair-map-wrap"><canvas id="pair-canvas"></canvas></div>
       <div id="pair-seq" style="margin-top:1rem; border-top:1px solid var(--line, #e2e6ea); padding-top:.8rem">
         <h3 style="margin:0 0 .2rem">Sequence viewer</h3>
-        <div class="muted" style="font-size:.8rem">Light background = LIR (PAE &lt; 12&nbsp;&Aring;). Dark background with white text = cLIR (PAE &lt; 12&nbsp;&Aring; &amp; C&beta; &lt; 8&nbsp;&Aring;). Each protein uses its own colour. Text is searchable (&#8984;F / Ctrl-F).</div>
+        <div class="muted" style="font-size:.8rem">Light background = LIR (PAE &lt; 12&nbsp;&Aring;). Dark background with white text = cLIR (PAE &lt; 12&nbsp;&Aring; &amp; C&beta; &lt; 8&nbsp;&Aring;).</div>
         <div id="pair-seq-msg" class="muted" style="font-size:.82rem; margin-top:.5rem"></div>
         <div id="pair-seq-body" style="font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace; margin-top:.5rem; overflow-x:auto"></div>
       </div>
@@ -235,7 +236,7 @@
       <h2>3D structure <span id="struct-badge" class="muted" style="font-weight:400; font-size:.8rem"></span></h2>
       <div class="muted">Query protein structure, residues colored by the cluster that consensus-contacts them · click clusters to isolate.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.</div>
       <div class="muted" style="margin-top:.35rem">Highlight residues contacted by &ge; <select id="commonality" style="font-size:.82rem; padding:1px 4px"><option value="0.5">50%</option><option value="0.6">60%</option><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option></select> of a cluster's members (consensus / core residues).</div>
-      <div class="muted" style="margin-top:.25rem">Colour only clusters with &ge; <input id="min-cluster" type="number" min="1" value="5" style="width:46px; font-size:.82rem; padding:1px 4px"> predictions (hides tiny clusters).</div>
+      <div class="muted" style="margin-top:.25rem">Color only clusters with &ge; <input id="min-cluster" type="number" min="1" value="5" style="width:46px; font-size:.82rem; padding:1px 4px"> predictions (hides tiny clusters).</div>
       <div class="muted" style="font-size:.78rem; color:#99a">&nbsp;&nbsp;(the <b>(N)</b> on each cluster chip — AlphaFold ranks, not unique partners).</div>
       <div id="cluster-chips" class="chips" style="margin:.5rem 0 0"></div>
       <div class="row" style="margin-top:.5rem; gap:.4rem; align-items:center; flex-wrap:wrap">
@@ -281,17 +282,17 @@ const TAB20B = ['#393b79','#5254a3','#6b6ecf','#9c9ede','#637939','#8ca252','#b5
 const TAB20C = ['#3182bd','#6baed6','#9ecae1','#c6dbef','#e6550d','#fd8d3c','#fdae6b','#fdd0a2','#31a354','#74c476','#a1d99b','#c7e9c0','#756bb1','#9e9ac8','#bcbddc','#dadaeb','#636363','#969696','#bdbdbd','#d9d9d9'];
 const TAB60 = TAB20.concat(TAB20B, TAB20C);   // 60 distinct — 'auto' uses this beyond k=20
 const PALETTES = { tab10: TAB10, tab20: TAB20, tab20b: TAB20B, tab20c: TAB20C, distinct: TAB60 };
-let PALETTE = 'auto';   // default; 'auto' scales with k (tab10->tab20->tab60->HSL); fixed palettes extend with generated colours past their length
-// golden-angle HSL so colours never collide when clusters exceed the curated palettes
+let PALETTE = 'auto';   // default; 'auto' scales with k (tab10->tab20->tab60->HSL); fixed palettes extend with generated colors past their length
+// golden-angle HSL so colors never collide when clusters exceed the curated palettes
 function hslDistinct(i){ const h = (i * 137.508) % 360, s = (62 + (i % 2) * 16)/100, l = (42 + (i % 3) * 13)/100, a = s * Math.min(l, 1-l); const f = (n) => { const k = (n + h/30) % 12, c = l - a * Math.max(-1, Math.min(k-3, 9-k, 1)); return Math.round(255*c).toString(16).padStart(2,'0'); }; return `#${f(0)}${f(8)}${f(4)}`; }
 function clusterColor(id, k){
   if (PALETTE === 'distinct') return id <= 60 ? TAB60[id - 1] : hslDistinct(id - 1);        // never cycles, any N
-  if (PALETTE !== 'auto' && PALETTES[PALETTE]){ const p = PALETTES[PALETTE]; return id <= p.length ? p[id - 1] : hslDistinct(id - 1); }   // fixed palette, extends with generated colours past its length
+  if (PALETTE !== 'auto' && PALETTES[PALETTE]){ const p = PALETTES[PALETTE]; return id <= p.length ? p[id - 1] : hslDistinct(id - 1); }   // fixed palette, extends with generated colors past its length
   const pal = k <= 10 ? TAB10 : k <= 20 ? TAB20 : k <= 60 ? TAB60 : null;                    // auto: smallest curated palette that fits
-  return pal ? pal[(id - 1) % pal.length] : hslDistinct(id - 1);                             // k>60 -> generated distinct colours
+  return pal ? pal[(id - 1) % pal.length] : hslDistinct(id - 1);                             // k>60 -> generated distinct colors
 }
 // Single-model iLIS thresholds (Y2H reference sets in yeast/fly/human via ColabFold; Kim et al. 2026)
-function amColor(v){ const t=Math.max(0,Math.min(1,v));   // AlphaMissense: benign(blue) -> ambiguous(grey) -> pathogenic(red)
+function amColor(v){ const t=Math.max(0,Math.min(1,v));   // AlphaMissense: benign(blue) -> ambiguous(gray) -> pathogenic(red)
   const lerp=(a,b,u)=>[0,1,2].map(i=>Math.round(a[i]+(b[i]-a[i])*u));
   const c = t<0.5 ? lerp([44,123,182],[224,224,224],t/0.5) : lerp([224,224,224],[215,25,28],(t-0.5)/0.5);
   return '#' + c.map(x => x.toString(16).padStart(2, '0')).join('');
@@ -753,7 +754,7 @@ function updateLoaded(){
 }
 
 $('run').onclick = () => {
-  PAIR_DOMAINS = {};
+  PAIR_DOMAINS = {}; PAIR_SEQ = {};
   if (LAST) LAST._resolved = false;
   const gene = $('gene').value;
   const tn = $('topn').value.trim();   // blank = all partners (no cap)
@@ -886,7 +887,7 @@ function renderClusterInfo(A){
 
 // ── Contact residues per partner ────────────────────────────────────────────────
 // lis.py already names the interface residues on both chains, so a pair can be reviewed
-// without ever loading a structure: grey = not in the interface, light = LIR, dark = cLIR.
+// without ever loading a structure: gray = not in the interface, light = LIR, dark = cLIR.
 const PAIR_COL = { q:{ base:'#e0e0e0', lir:'#80CBC4', clir:'#00897B' },      // chain A — same defaults as Prediction Analysis
                    p:{ base:'#e0e0e0', lir:'#FFAB91', clir:'#E64A19' } };     // chain B
 
@@ -899,6 +900,7 @@ function bestRowPerPartner(A){
 function idxSet(v){ const s = new Set(); for (const n of CLIPPipeline.parseIndice(v)) if (n>=1) s.add(n); return s; }
 
 let PAIR_DOMAINS = {};   // partner symbol -> [{start,end,name}] (canonical coords) · null = fetch in flight
+let PAIR_SEQ = {};      // partner symbol -> {seq, acc, len}: UniProt canonical sequence, shown when no FASTA is loaded
 function fetchPartnerDomainsFor(A, part, done){
   const r = bestRowPerPartner(A).get(part), pl = r ? (parseInt(r.Protein_Len_B,10)||0) : 0;
   ensurePartnerDomains(part, pl, ($('mg-species') && $('mg-species').value) || '').then(ch => { if (ch && done) done(); });
@@ -910,7 +912,8 @@ async function ensurePartnerDomains(sym, len, species){
   PAIR_DOMAINS[sym] = null;
   let acc = null;
   for (const id of [sym].concat(LABEL_IDS[sym] || [])){
-    try { const r = await CLIPResolver.resolveStructure({ gene: id, length: len, species }); if (r && r.accession){ acc = r.accession; break; } } catch(e){}
+    try { const r = await CLIPResolver.resolveStructure({ gene: id, length: len, species });
+      if (r && r.accession){ acc = r.accession; if (r.structureSequence) PAIR_SEQ[sym] = { seq: r.structureSequence, acc: r.accession, len: r.structureLength }; break; } } catch(e){}
   }
   PAIR_DOMAINS[sym] = acc ? (await CLIPResolver.fetchDomains(acc).catch(() => [])) : [];
   return true;
@@ -926,6 +929,7 @@ function clipDomains(doms, len){ const out = []; for (const d of (doms || [])){ 
 function drawPairTracks(cv, A, partner){
   const row = bestRowPerPartner(A).get(partner);
   if (!row) return;
+  const _cluster = A.cl ? A.cl.labels[A.pipe.rows.indexOf(row)] : null;   // this pair's cluster, for the footer
   const qLir = idxSet(row.LIR_indice_A), qClir = idxSet(row.cLIR_indice_A);
   const pLir = idxSet(row.LIR_indice_B), pClir = idxSet(row.cLIR_indice_B);
   const qLen = parseInt(row.Protein_Len_A, 10) || A.pipe.proteinLen;
@@ -1006,7 +1010,7 @@ function drawPairTracks(cv, A, partner){
   x = count(x, A.gene, qLen, qKnown, qLir, qClir, PAIR_COL.q);
   x = count(x, partner, pLen, pKnown, pLir, pClir, PAIR_COL.p);
   ctx.fillStyle = '#889'; ctx.font = '10px sans-serif';
-  ctx.fillText(`iLIS ${(+row.iLIS||0).toFixed(3)}${row.Rank ? ` · rank ${row.Rank}` : ''}`, x, y + 5.5);
+  ctx.fillText(`iLIS ${(+row.iLIS||0).toFixed(3)}${row.Rank ? ` · rank ${row.Rank}` : ''}${_cluster!=null ? ` · cluster ${_cluster}` : ''}`, x, y + 5.5);
 }
 
 // Sequence viewer, mirroring Prediction Analysis: 10-residue blocks, 80 per line, numbered both ends.
@@ -1039,46 +1043,69 @@ function seqForSymbol(sym, len){
   return null;
 }
 
+// Remap prediction-space residue indices onto the full UniProt sequence (fragment offset / alignment).
+function remapIndices(set, map){ if (!map) return set; const out = new Set(); for (const i of set){ const r = map[i-1]; if (r != null) out.add(r); } return out; }
+
 function renderPairSeq(A, partner){
   const msg = $('pair-seq-msg'), body = $('pair-seq-body');
-  if (!FASTA_PARSE || !FASTA_PARSE.seqs.length){    // viewer stays, but explains what it needs
-    body.innerHTML = '';
-    msg.innerHTML = 'Add a <b>FASTA</b> (or a <b>.zip</b> of FASTAs) in the upload panel to see the interface residues highlighted on each full sequence.';
-    return;
-  }
   const row = bestRowPerPartner(A).get(partner);
-  const qSeq = row && seqForSymbol(A.gene, A.pipe.proteinLen);
-  const pSeq = row && seqForSymbol(partner, parseInt(row.Protein_Len_B,10) || 0);
+  if (!row){ body.innerHTML = ''; msg.textContent = ''; return; }
+  const plen = A.pipe.proteinLen, pLen = parseInt(row.Protein_Len_B,10) || 0;
+  // Prefer the uploaded FASTA (the exact predicted construct). With none, fall back to the UniProt
+  // canonical sequence resolved for the 3D card — approximate, so it carries a caveat. The query's
+  // indices are remapped onto its full sequence (fragment/isoform); the partner is taken directly.
+  let qSeq = seqForSymbol(A.gene, plen), qLir = idxSet(row.LIR_indice_A), qClir = idxSet(row.cLIR_indice_A), qGuess = false;
+  if (!qSeq && A._uniprotSeq){ qSeq = A._uniprotSeq; qLir = remapIndices(qLir, A.residueMap); qClir = remapIndices(qClir, A.residueMap); qGuess = true; }
+  let pSeq = seqForSymbol(partner, pLen), pLir = idxSet(row.LIR_indice_B), pClir = idxSet(row.cLIR_indice_B), pGuess = false;
+  const ps = PAIR_SEQ[partner];
+  if (!pSeq && ps && ps.seq){ pSeq = ps.seq; pGuess = true; }
+
   if (!qSeq && !pSeq){
     body.innerHTML = '';
-    msg.textContent = `No sequence in the FASTA matched ${A.gene} or ${partner} (by name, id, or unique length).`;
+    msg.innerHTML = (FASTA_PARSE && FASTA_PARSE.seqs.length)
+      ? `No sequence matched ${A.gene} or ${partner}.`
+      : 'Resolving from UniProt… or upload a <b>FASTA</b> (or a <b>.zip</b>) for the exact sequences.';
     return;
   }
-  msg.textContent = '';
   let html = '';
-  if (qSeq) html += seqPanel(A.gene, qSeq, idxSet(row.LIR_indice_A), idxSet(row.cLIR_indice_A), PAIR_COL.q);
-  if (pSeq) html += seqPanel(partner, pSeq, idxSet(row.LIR_indice_B), idxSet(row.cLIR_indice_B), PAIR_COL.p);
+  if (qSeq) html += seqPanel(A.gene + (qGuess ? ` · UniProt ${A._uniprotAcc || ''}` : ''), qSeq, qLir, qClir, PAIR_COL.q);
+  if (pSeq) html += seqPanel(partner + (pGuess && ps && ps.acc ? ` · UniProt ${ps.acc}` : ''), pSeq, pLir, pClir, PAIR_COL.p);
   body.innerHTML = html;
+  msg.innerHTML = (qGuess || pGuess)
+    ? '⚠ No FASTA loaded, so these are <b>UniProt canonical</b> sequences — they may not match what was predicted (isoform, fragment, tags). Upload a FASTA for the exact sequences.'
+    : '';
 }
 
 function renderPairTracks(A){
-  const sel = $('pair-partner'), m = bestRowPerPartner(A);
+  const sel = $('pair-partner'), search = $('pair-partner-search'), m = bestRowPerPartner(A);
   const parts = [...m.keys()].sort((a,b) => (+m.get(b).iLIS||0) - (+m.get(a).iLIS||0));
   if (!parts.length){ $('pair-card').classList.add('hidden'); return; }
   $('pair-card').classList.remove('hidden');
+  const clById = new Map(); A.pipe.rows.forEach((r,i) => clById.set(r, A.cl.labels[i]));   // each partner's best-row cluster
+  const info = (p) => { const r = m.get(p), c = clById.get(r);
+    return `iLIS ${(+r.iLIS||0).toFixed(3)}${r.Rank?` (rank ${r.Rank})`:''}${c!=null?` (C${c})`:''}`; };
   const keep = (sel.value && m.has(sel.value)) ? sel.value : parts[0];
   sel.innerHTML = '';
-  for (const p of parts){ const r = m.get(p), o = document.createElement('option');
-    o.value = p; o.textContent = `${p} — iLIS ${(+r.iLIS||0).toFixed(3)}${r.Rank?` · rank ${r.Rank}`:''}`; sel.appendChild(o); }
+  for (const p of parts){ const o = document.createElement('option'); o.value = p; o.textContent = `${p} — ${info(p)}`; sel.appendChild(o); }
   sel.value = keep;
   const anyLir = [...m.values()].some(r => CLIPPipeline.parseIndice(r.LIR_indice_A).length);
   $('pair-note').textContent = anyLir ? '' : 'this file carries no LIR indices — showing cLIR only';
   const draw = () => drawPairTracks($('pair-canvas'), A, sel.value);
   const paint = () => { draw(); renderPairSeq(A, sel.value);
     LiviaMaps.attachExportBar('pair-canvas', { name:`clip_${A.gene}_vs_${sel.value}_residues`, svg:draw, png:true });
-    if (A._resolved) fetchPartnerDomainsFor(A, sel.value, () => { if (sel.value) draw(); }); };   // query first; partners after it resolves
+    if (A._resolved) fetchPartnerDomainsFor(A, sel.value, () => { if (sel.value) { draw(); renderPairSeq(A, sel.value); } }); };   // query first; partners after it resolves
   paint();
   sel.onchange = paint;
+  // Separate search: type to filter the scrollable dropdown (hides non-matching options); the
+  // select itself still opens the full list. Enter jumps to the first match.
+  if (search){ search.value = '';
+    search.oninput = () => { const q = search.value.trim().toLowerCase();
+      let first = null;
+      for (const o of sel.options){ const hit = !q || o.value.toLowerCase().includes(q) || o.textContent.toLowerCase().includes(q);
+        o.hidden = !hit; if (hit && !first) first = o.value; }
+      if (q && first){ sel.value = first; } };
+    search.onkeydown = (e) => { if (e.key === 'Enter'){ e.preventDefault(); if (m.has(sel.value)) paint(); } };
+    search.onchange = () => { if (m.has(sel.value)) paint(); }; }
 }
 
 function renderFreq(A){
@@ -1324,11 +1351,11 @@ function renderScatter(A){
   const hoverM = HM_BASE.concat([...new Set([yKey, xKey])].filter(m => !HM_BASE.includes(m)));   // append the selected Y/X metric when it isn't one of the four already shown (e.g. ipSAE, actifpTM)
   const cd = (p) => hoverM.map(m => val(p, m));
   const HT = '%{text}' + hoverM.map((m,i) => `<br>${m} %{customdata[${i}]:${HM_FMT[m]||'.4g'}}`).join('') + '<extra></extra>';
-  // Colour is per PREDICTION, not per gene: clustering runs on each prediction's contact fingerprint,
+  // Color is per PREDICTION, not per gene: clustering runs on each prediction's contact fingerprint,
   // so the same partner's different ranks can land in different clusters (a protein that binds two
   // domains of the target shows up as two clusters). Key the cluster by gene+rank. A prediction that
   // never entered the clustered set — below the iLIS cutoff, e.g. iLIS≈0 — has no cluster and stays
-  // grey; it is never coloured by borrowing a sibling rank's cluster.
+  // gray; it is never colored by borrowing a sibling rank's cluster.
   const predCluster = new Map();
   for (let i=0;i<pipe.rows.length;i++) predCluster.set(pk(pipe.rows[i]), cl.labels[i]);
   const fg = (pointsMode === 'all' ? allPreds.filter(p => predCluster.has(pk(p)))
@@ -1494,10 +1521,10 @@ function pickQueryChain(plddtMap, queryLen){
   chains.sort((a,b) => Math.abs(counts[a]-queryLen) - Math.abs(counts[b]-queryLen) || (a<b?-1:1));
   return chains[0];
 }
-let COMMONALITY = 0.5;   // 3D: colour a residue with a cluster when >= this fraction of the cluster's members contact it
+let COMMONALITY = 0.5;   // 3D: color a residue with a cluster when >= this fraction of the cluster's members contact it
 let MIN_CLUSTER = 5;   // 3D: skip clusters with fewer than this many predictions/members (matches the "Cn (N)" chip count); ignored when a single cluster is isolated
-let COLOR3D = 'cluster';   // 3D colour mode: cluster | plddt | am
-let AM_CUTOFF = 0;         // AM mode: only colour residues with mean pathogenicity >= this (0 = show all)
+let COLOR3D = 'cluster';   // 3D color mode: cluster | plddt | am
+let AM_CUTOFF = 0;         // AM mode: only color residues with mean pathogenicity >= this (0 = show all)
 function clusterColorComponents(A){
   const { pipe, cl } = A, k = cl.optimalK, map = A.residueMap;
   let N = A._structLen || pipe.proteinLen; const GRAY = '#e6e6e6', qc = A._queryChain || 'A'; if (A.residueMap){ for (const sr of A.residueMap) if (sr && sr > N) N = sr; }   // fragment cLIR coords map onto the full structure (e.g. 410-764) — cover them
@@ -1505,7 +1532,7 @@ function clusterColorComponents(A){
   const mode = COLOR3D;
   if (mode === 'plddt' && A._plddt){ for (let sr=1;sr<=N;sr++){ const v=A._plddt.get(qc+':'+sr); if(v!=null) colorAt[sr]=plddtColor(v); } }
   else if (mode === 'am' && A._am){ for (let sr=1;sr<=N;sr++){ const v=A._am[sr]; if(v!=null && v>=AM_CUTOFF) colorAt[sr]=amColor(v); } }
-  else {   // cluster consensus: colour a residue with a cluster only when >= COMMONALITY fraction of its members contact it
+  else {   // cluster consensus: color a residue with a cluster only when >= COMMONALITY fraction of its members contact it
     const active = ACTIVE || _allClusters(k), toStruct = (r) => map ? map[r-1] : r, thr = COMMONALITY;
     const byRes = {}, clusterSize = {};
     for (let i=0;i<pipe.fingerprints.length;i++){ const lab=cl.labels[i]; clusterSize[lab]=(clusterSize[lab]||0)+1;
@@ -1572,9 +1599,11 @@ async function resolve3D(A){
   else note = res.lengthOk ? 'len ✓' : `⚠ len ${res.structureLength}≠${plen}`;
   document.querySelectorAll('.am-only').forEach(e => e.classList.add('hidden'));   // AM is human-only; revealed only if AlphaMissense loads
   A._accession = res.accession;
+  A._uniprotSeq = res.structureSequence || null; A._uniprotAcc = res.accession;   // fallback sequence when no FASTA
   A._resolved = true;   // query structure resolved — now safe to look up partner domains without starving it
+  if ($('pair-partner') && $('pair-partner').value) renderPairSeq(A, $('pair-partner').value);
   CLIPResolver.fetchDomains(res.accession).then(d => { if (d && d.length){ A._domains = d; renderFreq(A); if ($('pair-partner') && $('pair-partner').value) drawPairTracks($('pair-canvas'), A, $('pair-partner').value); } });   // UniProt domain track (needs only accession)
-  { const pp = $('pair-partner') && $('pair-partner').value; if (pp) fetchPartnerDomainsFor(A, pp, () => { if ($('pair-partner').value === pp) drawPairTracks($('pair-canvas'), A, pp); }); }
+  { const pp = $('pair-partner') && $('pair-partner').value; if (pp) fetchPartnerDomainsFor(A, pp, () => { if ($('pair-partner').value === pp) { drawPairTracks($('pair-canvas'), A, pp); renderPairSeq(A, pp); } }); }
   CLIPResolver.fetchAlphaMissense(res.accession).then(am => { if (am && am.length){ A._am = am; renderFreq(A); document.querySelectorAll('.am-only').forEach(e => e.classList.remove('hidden')); } });   // AlphaMissense per-residue pathogenicity (human only)
   if (!res.cifUrl){ badge.textContent = `· ${res.accession}${res.gene ? ' (' + res.gene + ')' : ''} · via ${res.matchedBy} · ⚠ no AFDB structure`; $('viewer3d-frame').src = 'about:blank'; return; }
   badge.textContent = `· AFDB ${res.accession}${res.organism ? ' · ' + res.organism : ''} · via ${res.matchedBy} · ${note}`;

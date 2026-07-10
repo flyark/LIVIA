@@ -2834,7 +2834,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     const xB = (res) => barLeft + ((res - 1) / Math.max(1, lenB - 1)) * barW;
 
     // Paint contiguous LIR/cLIR runs as solid blocks. One rect per residue leaves hairline
-    // grey gaps between adjacent residues (the "lines between residues" barcode artifact);
+    // gray gaps between adjacent residues (the "lines between residues" barcode artifact);
     // merging runs via setToRanges gives clean blocks like the chord map.
     function paintBarRanges(yBar, set, xFn, len, color) {
         const resW = barW / Math.max(1, len - 1);
@@ -3099,7 +3099,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
 // Convert a Set of residue numbers into sorted contiguous [start, end] ranges.
 const setToRanges = (set) => LiviaMaps.setToRanges(set);            // shared: js/livia-maps.js
 
-// Paint one chain's chord-ring arc: grey base → LIR residues (light) → cLIR residues
+// Paint one chain's chord-ring arc: gray base → LIR residues (light) → cLIR residues
 // (dark) on top, matching the LIR/cLIR shading in the seq viewer & linear contact map.
 const paintChordArcBand = (...args) => LiviaMaps.paintChordArcBand(...args);   // shared: js/livia-maps.js
 
@@ -3185,7 +3185,7 @@ function drawFlyChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, co
         }
     }
 
-    // Draw arcs (grey base + LIR light + cLIR dark, matching seq viewer / linear map)
+    // Draw arcs (gray base + LIR light + cLIR dark, matching seq viewer / linear map)
     const lightA = colors.lir_a || colA, lightB = colors.lir_b || colB;
     paintChordArcBand(ctx, cx, cy, outerR, innerR, startA, endA, lenA, LIR_A, cLIR_A, lightA, colA);
     paintChordArcBand(ctx, cx, cy, outerR, innerR, startB, endB, lenB, LIR_B, cLIR_B, lightB, colB);
@@ -3261,7 +3261,7 @@ function drawFlyChordFromContacts(canvas, contacts, lenA, lenB, sym1, sym2, colo
         ctx.strokeStyle = grad; ctx.lineWidth = 1.2; ctx.stroke();
     }
 
-    // Arcs (grey base + LIR light + cLIR dark)
+    // Arcs (gray base + LIR light + cLIR dark)
     const lightA = colors.lir_a || colA, lightB = colors.lir_b || colB;
     paintChordArcBand(ctx, cx, cy, outerR, innerR, startA, endA, lenA, LIR_A, cLIR_A, lightA, colA);
     paintChordArcBand(ctx, cx, cy, outerR, innerR, startB, endB, lenB, LIR_B, cLIR_B, lightB, colB);

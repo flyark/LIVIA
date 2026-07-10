@@ -3220,7 +3220,7 @@ function drawChordDiagram(validRegions) {
         if (res.clirJ) for (const b of res.clirJ) clirByRegion[res.j].add(b - rj.start + 1);
     }
 
-    // Draw outer arcs (domain segments) — grey where nothing binds, light = LIR, dark = cLIR
+    // Draw outer arcs (domain segments) — gray where nothing binds, light = LIR, dark = cLIR
     for (const arc of arcs) {
         const darkCol = arcColors[arc.idx] || arc.region.color;
         const lightCol = lightenColor(darkCol, 0.5);

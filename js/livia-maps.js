@@ -138,7 +138,7 @@
         return out;
     }
 
-    // A chord arc drawn as three bands over its residue span: non-LIR grey base,
+    // A chord arc drawn as three bands over its residue span: non-LIR gray base,
     // LIR in the light shade, cLIR in the dark shade. `len` is the arc's residue count and
     // lirSet/clirSet hold 1-based indices within that span.
     function paintChordArcBand(ctx, cx, cy, outerR, innerR, sA, eA, len, lirSet, clirSet, lightCol, darkCol) {

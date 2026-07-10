@@ -1407,7 +1407,7 @@ function buildDimerContactMap() {
 // Convert a Set of residue numbers into sorted contiguous [start, end] ranges.
 const setToRanges = (set) => LiviaMaps.setToRanges(set);            // shared: js/livia-maps.js
 
-// Paint one chain's chord-ring arc: grey base → LIR residues (light) → cLIR residues
+// Paint one chain's chord-ring arc: gray base → LIR residues (light) → cLIR residues
 // (dark) on top, matching the LIR/cLIR shading in the seq viewer & linear contact map.
 const paintChordArcBand = (...args) => LiviaMaps.paintChordArcBand(...args);   // shared: js/livia-maps.js
 
@@ -1511,7 +1511,7 @@ function buildChordDiagram() {
         ctx.stroke();
     }
 
-    // Draw arcs: grey base + LIR (light) + cLIR (dark), matching seq viewer / linear map
+    // Draw arcs: gray base + LIR (light) + cLIR (dark), matching seq viewer / linear map
     {
         const lightA = colors.lir_a || colA, lightB = colors.lir_b || colB;
         paintChordArcBand(ctx, cx, cy, outerR, innerR, startA, endA, lenA, lirI_f, clirI_f, lightA, colA);

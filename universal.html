@@ -5815,7 +5815,7 @@ function buildContactMap(pairKey) {
     const xB = (res) => barLeft + ((res - 1) / Math.max(1, v.lenJ - 1)) * barW;
 
     // Paint contiguous LIR/cLIR runs as solid blocks. Drawing one rect per residue
-    // leaves hairline grey gaps between adjacent residues (the "lines between residues"
+    // leaves hairline gray gaps between adjacent residues (the "lines between residues"
     // barcode artifact); merging runs via setToRanges gives clean blocks like the chord map.
     function paintBarRanges(yBar, set, xFn, len, color) {
         const resW = barW / Math.max(1, len - 1);
@@ -5917,7 +5917,7 @@ function collectArcResidues(pairs, chainNames) {
 }
 
 // Paint one chain's arc on the chord ring. When per-residue LIR/cLIR sets are supplied,
-// draw grey base → LIR residues (light color) → cLIR residues (dark color) on top,
+// draw gray base → LIR residues (light color) → cLIR residues (dark color) on top,
 // matching the LIR/cLIR shading in the sequence viewer & linear contact map. Falls back
 // to the legacy solid-color arc when no LIR/cLIR data is passed.
 function paintChordArc(ctx, cxC, cyC, outerR, innerR, arc, hidden, arcLIR, arcCLIR, chainColors, arcLightColors) {
