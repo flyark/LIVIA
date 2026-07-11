@@ -783,7 +783,8 @@ $('run').onclick = () => {
   if (LAST) LAST._resolved = false;
   const gene = $('gene').value;
   const tn = $('topn').value.trim();   // blank = all partners (no cap)
-  const opts = { ilisCutoff: parseFloat($('ilis').value)||0.223, topN: tn==='' ? Infinity : (parseInt(tn)||Infinity), sortBy:'iLIS' };
+  const opts = { ilisCutoff: parseFloat($('ilis').value)||0.223, topN: tn==='' ? Infinity : (parseInt(tn)||Infinity), sortBy:'iLIS',
+    fastaParse: FASTA_PARSE, alignMap: (window.CLIPResolver && CLIPResolver.alignMap) };   // normalize mixed full/partial constructs onto one frame
   $('status').textContent = 'clustering…';
   setTimeout(() => {
     const t0 = performance.now();
@@ -811,7 +812,10 @@ function render(A){
   TABLE_SORT = null;
   $('report').classList.remove('hidden');
   $('title').textContent = `${gene} — interactome (${uniqueP} partners, ${n} predictions, ${k} clusters)`;
-  $('subtitle').textContent = `query length ${plen} aa · cosine + average linkage · silhouette-optimal k`;
+  const _norm = pipe.constructNorm || {};
+  $('subtitle').textContent = `query length ${plen} aa · cosine + average linkage · silhouette-optimal k`
+    + (_norm.remapped ? ` · ⤳ ${_norm.remapped} partial-construct row${_norm.remapped>1?'s':''} remapped to full-length coordinates` : '')
+    + (_norm.mixed && !_norm.remapped ? ` · ⚠ mixed full/partial constructs detected — add the paired FASTA so coordinates can be unified` : '');
   $('s-partners').textContent = uniqueP; $('s-predictions').textContent = n; $('s-clusters').textContent = k; $('s-len').textContent = plen;
   populateAxes(A);   // fill X/Y axis options from the metrics present in the data
   renderHeatmap(A); renderFreq(A); renderPairTracks(A); renderScatter(A); renderTable(A); renderClusterInfo(A);

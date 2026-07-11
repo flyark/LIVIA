@@ -30,12 +30,13 @@
     }
     if (h !== null) recs.push({ h, s: s.join('') });
     const clean = (x) => (x || '').replace(/[^A-Za-z]/g, '').toUpperCase();
-    const map = {}, warn = [], allSeqs = [];
+    const map = {}, warn = [], allSeqs = [], bySymLen = {};
     const put = (sym, seq) => {
       sym = (sym || '').trim(); seq = clean(seq);
       if (!sym || !seq) return;
-      if (map[sym] && map[sym] !== seq) warn.push(sym);      // inconsistent sequence across pairs
-      if (!map[sym]) map[sym] = seq;
+      (bySymLen[sym] = bySymLen[sym] || {})[seq.length] = seq;   // every construct of this symbol, keyed by length (mixed full/partial folds)
+      if (map[sym] && map[sym] !== seq) warn.push(sym);          // inconsistent sequence across pairs (e.g. a partial construct)
+      if (!map[sym] || seq.length > map[sym].length) map[sym] = seq;   // keep the LONGEST (full-length) as the symbol's canonical local sequence
     };
     for (const r of recs) {
       const parts = r.h.split(sep === '___' ? /___|\s*&\s*|_vs_|\s+vs\s+|_VS_|--/ : sep).map((x) => x.trim()).filter(Boolean);   // handle old-style ' & ' and other pair separators
@@ -48,7 +49,7 @@
     }
     const uniq = [...new Set(allSeqs)], byLen = {};
     for (const q of uniq) (byLen[q.length] = byLen[q.length] || []).push(q);
-    return { map, byLen, seqs: uniq, warn: [...new Set(warn)] };
+    return { map, byLen, bySymLen, seqs: uniq, warn: [...new Set(warn)] };
   }
 
   // Pick the bait's sequence from a parsed FASTA: by symbol/pair-name, else by unique length

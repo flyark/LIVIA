@@ -156,6 +156,50 @@
     return { fingerprints, keptRows, proteinLen: maxPos };
   }
 
+  // ---- residue list → compact "[a,b-c]" string (inverse of parseIndice) ----
+  function serialiseIndice(nums) {
+    const s = [...new Set(nums.filter((n) => n >= 1))].sort((a, b) => a - b);
+    if (!s.length) return '[]';
+    const out = []; let a = s[0], p = s[0];
+    for (let i = 1; i < s.length; i++) { if (s[i] === p + 1) p = s[i]; else { out.push(a === p ? '' + a : a + '-' + p); a = p = s[i]; } }
+    out.push(a === p ? '' + a : a + '-' + p);
+    return '[' + out.join(',') + ']';
+  }
+
+  // ---- normalize mixed full/partial constructs ----
+  // A screen may fold the same protein at different lengths across predictions (e.g. a receptor
+  // as a full-length chain for some partners, an ectodomain/internal fragment for others). lis.py
+  // residue indices are relative to whatever construct was folded, so those rows sit on different
+  // coordinate frames and clustering/heatmap/sequence-viewer mis-register. Using the paired FASTA
+  // (bySymLen: every construct of a symbol, by length) + alignMap(pred,target)->{map}, remap each
+  // row's residue indices onto that symbol's LONGEST local construct so every row shares one frame.
+  // Rows whose construct sequence isn't in the FASTA are left as-is (and flagged mixed). Mutates rows.
+  function normalizeConstructs(rows, gene, parse, alignMapFn) {
+    if (!parse || !parse.bySymLen || !alignMapFn) return { mixed: false, remapped: 0 };
+    const refOf = (sym) => (parse.map && parse.map[sym]) || null;
+    const cache = new Map();                              // (sym|len) → residue map (pred→ref) or null
+    const mapFor = (sym, len) => {
+      const k = sym + '|' + len; if (cache.has(k)) return cache.get(k);
+      const ref = refOf(sym), byL = parse.bySymLen[sym]; let m = null;
+      if (ref && byL && byL[len] && byL[len] !== ref) { const a = alignMapFn(byL[len], ref); m = (a && a.map) || null; }
+      cache.set(k, m); return m;
+    };
+    let mixed = false, remapped = 0;
+    for (const sym in parse.bySymLen) if (Object.keys(parse.bySymLen[sym]).length > 1) { mixed = true; break; }
+    const side = (row, idxCols, lenCol, sym) => {
+      const len = parseInt(row[lenCol], 10), ref = refOf(sym);
+      if (!len || !ref || len === ref.length) return;    // no ref, or already full-length
+      const m = mapFor(sym, len); if (!m) return;        // construct sequence not in FASTA → leave as-is
+      for (const col of idxCols) { const out = []; for (const v of parseIndice(row[col])) { const t = (v >= 1 && v <= m.length) ? m[v - 1] : null; if (t) out.push(t); } row[col] = serialiseIndice(out); }
+      row[lenCol] = ref.length; remapped++;
+    };
+    for (const row of rows) {
+      side(row, ['cLIR_indice_A', 'LIR_indice_A'], 'Protein_Len_A', row.Symbol_1);
+      side(row, ['cLIR_indice_B', 'LIR_indice_B'], 'Protein_Len_B', row.Symbol_2);
+    }
+    return { mixed, remapped };
+  }
+
   // Best prediction per partner (max iLIS, any rank) — no cutoff/exclusion/topN.
   // Used as the scatter background so ALL predictions show, incl. below-cutoff ones.
   function bestPerPartner(rows) {
@@ -174,11 +218,12 @@
     opts = opts || {};
     const hits = orient(searchGene(rows, gene), gene);
     const allPoints = bestPerPartner(hits);               // background: every partner
-    const filt = filterAndDedup(hits, opts);
+    const filt = filterAndDedup(hits, opts);              // (clones rows — safe to mutate below)
+    const norm = normalizeConstructs(filt, gene, opts.fastaParse, opts.alignMap);   // unify mixed full/partial constructs onto one frame
     let plen = 0;
     for (const x of filt) { const v = num(x.Protein_Len_A); if (v && v > plen) plen = v; }
     const fp = buildFingerprints(filt, 'cLIR_indice_A', plen);
-    return { rows: fp.keptRows, fingerprints: fp.fingerprints, proteinLen: fp.proteinLen, allPoints, allPredictions: hits };
+    return { rows: fp.keptRows, fingerprints: fp.fingerprints, proteinLen: fp.proteinLen, allPoints, allPredictions: hits, constructNorm: norm };
   }
 
   // ---- full pipeline: raw CSV text(s) + gene → {rows, fingerprints, proteinLen, allPoints} ----
@@ -189,5 +234,5 @@
     return runPipelineRows(all, gene, opts);
   }
 
-  return { parseCSV, convertRows, searchGene, orient, filterAndDedup, parseIndice, buildFingerprints, bestPerPartner, runPipeline, runPipelineRows };
+  return { parseCSV, convertRows, searchGene, orient, filterAndDedup, parseIndice, serialiseIndice, normalizeConstructs, buildFingerprints, bestPerPartner, runPipeline, runPipelineRows };
 });
