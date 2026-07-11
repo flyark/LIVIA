@@ -26,6 +26,9 @@ Browser-based tools for analyzing protein-protein interactions from structure pr
 - **ChimeraX and PyMOL scripts** — color presets (gradient, solid, high contrast, pLDDT, bychain)
 - **TED domain annotations** — domain boundaries from [AlphaFold DB](https://alphafold.ebi.ac.uk) displayed alongside detected regions
 - **CSV download** — full metrics with LIR/cLIR residue indices, LIpLDDT/cLIpLDDT per chain
+- **Interactome clustering (cLIP)** — cluster a bait's partners by shared contact residues; per-partner interface maps, searchable sequence viewer, and AlphaFold DB structure resolution
+- **Network building (PPI Network)** — Leiden communities from `lis.py` output, computed in-browser (Pyodide + python-igraph)
+- **Collaborator workbooks** — cLIP and PPI Network also read `.xlsx` (e.g. Total Predictions / Positive PPI sheets), not just CSV/ZIP
 
 ## Pages
 
@@ -36,6 +39,8 @@ Browser-based tools for analyzing protein-protein interactions from structure pr
 | **[Ortholog Interactome](https://flyark.github.io/LIVIA/ortholog_predictome.html)** | Non-fly predictions from [FlyPredictome](https://www.flyrnai.org/tools/fly_predictome) ortholog search |
 | **[AFDB Dimer](https://flyark.github.io/LIVIA/dimer.html)** | Dimer analysis from [AlphaFold DB](https://alphafold.ebi.ac.uk) |
 | **[Monomer Subdomain](https://flyark.github.io/LIVIA/monomer.html)** | Intramolecular domain interaction analysis from [AlphaFold DB](https://alphafold.ebi.ac.uk) |
+| **[cLIP](https://flyark.github.io/LIVIA/clip.html)** | Cluster a protein's interactome by shared contact residues (cLIR) from `lis.py` output |
+| **[PPI Network](https://flyark.github.io/LIVIA/network.html)** | Build an interaction network with Leiden communities, computed in-browser (Pyodide + python-igraph) |
 | **[Tutorials](https://flyark.github.io/LIVIA/tutorials.html)** | Step-by-step visual walkthroughs with auto-advancing screenshots |
 | **[About](https://flyark.github.io/LIVIA/about.html)** | Metric definitions, color schemes, and references |
 

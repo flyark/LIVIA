@@ -333,6 +333,7 @@ wireZone('dz-csv', 'in-csv', 'csv'); wireZone('dz-fasta', 'in-fasta', 'fasta'); 
   try {
     await routeFiles([new File([h.csv], 'network_query.csv', { type:'text/csv' })], 'csv');
     if (h.meta) await routeFiles([new File([h.meta], 'identity_map.csv', { type:'text/csv' })], 'meta');
+    if (h.fasta) await routeFiles([new File([h.fasta], 'network_query.fasta', { type:'text/plain' })], 'fasta');   // sequences carried from the network
     const sel = $('gene');
     if (sel && (h.querySym||h.query)){ const o=[...sel.options].find(o=>o.value===h.querySym) || [...sel.options].find(o=>o.value===h.query); if(o){ sel.value=o.value; PARTNER_EXCLUDE = new Set(); rebuildSubsetPicker(); if ($('run') && !$('run').disabled) $('run').click(); } }
   } catch(e){ console.warn('net2clip', e); }
@@ -926,29 +927,31 @@ function mapQueryDomains(A){
 }
 function clipDomains(doms, len){ const out = []; for (const d of (doms || [])){ if (d.end < 1 || d.start > len) continue; out.push({ start: Math.max(1, d.start), end: Math.min(len, d.end), name: d.name }); } return out; }
 
-function drawPairTracks(cv, A, partner){
-  const row = bestRowPerPartner(A).get(partner);
-  if (!row) return;
-  const _cluster = A.cl ? A.cl.labels[A.pipe.rows.indexOf(row)] : null;   // this pair's cluster, for the footer
-  const qLir = idxSet(row.LIR_indice_A), qClir = idxSet(row.cLIR_indice_A);
-  const pLir = idxSet(row.LIR_indice_B), pClir = idxSet(row.cLIR_indice_B);
-  const qLen = parseInt(row.Protein_Len_A, 10) || A.pipe.proteinLen;
-  const qKnown = !!parseInt(row.Protein_Len_A, 10);
-  let pLen = parseInt(row.Protein_Len_B, 10) || 0;
-  const pKnown = !!pLen;
-  if (!pLen) for (const s of [pLir, pClir]) for (const v of s) if (v > pLen) pLen = v;
+function allRanksFor(A, partner){   // every prediction (rank) of the query↔partner pair, best rank first
+  const rows = A.pipe.rows.filter(r => r.Symbol_2 === partner);
+  rows.sort((a,b) => (+a.Rank||99) - (+b.Rank||99) || (+b.iLIS||0) - (+a.iLIS||0));
+  return rows;
+}
 
+function drawPairTracks(cv, A, partner){
+  const rows = allRanksFor(A, partner);
+  if (!rows.length) return;
+  const r0 = rows[0];
+  const qLen = parseInt(r0.Protein_Len_A, 10) || A.pipe.proteinLen, qKnown = !!parseInt(r0.Protein_Len_A, 10);
+  let pLen = parseInt(r0.Protein_Len_B, 10) || 0; const pKnown = !!pLen;
+  if (!pLen) for (const r of rows){ for (const v of idxSet(r.LIR_indice_B)) if (v>pLen) pLen=v; for (const v of idxSet(r.cLIR_indice_B)) if (v>pLen) pLen=v; }
   const qDoms = mapQueryDomains(A), pDoms = clipDomains(PAIR_DOMAINS[partner], pLen);
   const domRowH = (qDoms.length || pDoms.length) ? 16 : 0;
+  const clById = new Map(); if (A.cl && A.cl.labels) A.pipe.rows.forEach((r,i) => clById.set(r, A.cl.labels[i]));
 
-  const S = 2, W = PLOT_W, padR = AX_R, barH = 20, tickH = 16, gap = 24;
+  const S = 2, W = PLOT_W, padR = AX_R, barH = 18, tickH = 15, hdrH = 17, blockGap = 16;
   const labelFont = '600 12px sans-serif';
   const meas = cv.getContext('2d'); meas.font = labelFont;
   const fit = (s, max) => { if (meas.measureText(s).width <= max) return s;
     while (s.length > 1 && meas.measureText(s + '…').width > max) s = s.slice(0, -1); return s + '…'; };
-  const labels = [A.gene, partner];
-  const padL = Math.min(230, 14 + Math.max(60, ...labels.map(l => meas.measureText(l).width)) + 12);
-  const H = 8 + 2*(domRowH + barH + tickH) + gap + 62;
+  const padL = Math.min(230, 14 + Math.max(60, meas.measureText(A.gene).width, meas.measureText(partner).width) + 12);
+  const blockH = hdrH + 2*(domRowH + barH + tickH);
+  const H = 8 + rows.length*(blockH + blockGap) + 46;
   cv.width = W*S; cv.height = H*S; cv.style.width = '100%'; cv.style.height = 'auto';
   const ctx = cv.getContext('2d'); ctx.scale(S, S); ctx.clearRect(0, 0, W, H);
 
@@ -977,11 +980,22 @@ function drawPairTracks(cv, A, partner){
       ctx.fillText(String(r), x, barY+barH+4); }
     return barY + barH + tickH;
   };
-  let y = 8;
-  y = track(y, A.gene, qLen, qDoms, qLir, qClir, PAIR_COL.q) + gap;
-  y = track(y, partner, pLen, pDoms, pLir, pClir, PAIR_COL.p);
 
-  y += 16;
+  // one block per rank of this pair
+  let y = 8;
+  for (const row of rows){
+    const c = clById.get(row);
+    const qL = idxSet(row.LIR_indice_A), qC = idxSet(row.cLIR_indice_A), pL = idxSet(row.LIR_indice_B), pC = idxSet(row.cLIR_indice_B);
+    ctx.fillStyle = '#456'; ctx.font = '600 11px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(`rank ${row.Rank || '?'}  ·  iLIS ${(+row.iLIS||0).toFixed(3)}${c!=null ? `  ·  cluster ${c}` : ''}  ·  ${qC.size} / ${pC.size} cLIR`, padL, y + 12);
+    y += hdrH;
+    y = track(y, A.gene, qLen, qDoms, qL, qC, PAIR_COL.q);
+    y = track(y, partner, pLen, pDoms, pL, pC, PAIR_COL.p);
+    y += blockGap;
+  }
+
+  // legend + length summary
+  y += 2;
   const chip = (x, cols, text) => {
     cols.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(x + i*11, y, 10, 10); });
     x += cols.length*11 + 4;
@@ -991,26 +1005,14 @@ function drawPairTracks(cv, A, partner){
   };
   let x = padL;
   x = chip(x, [PAIR_COL.q.base], 'not in interface');
-  if (qLir.size || pLir.size) x = chip(x, [PAIR_COL.q.lir, PAIR_COL.p.lir], 'LIR (PAE<12\u00c5)');
-  x = chip(x, [PAIR_COL.q.clir, PAIR_COL.p.clir], 'cLIR (PAE<12\u00c5 & C\u03b2<8\u00c5)');
+  x = chip(x, [PAIR_COL.q.lir, PAIR_COL.p.lir], 'LIR (PAE<12Å)');
+  x = chip(x, [PAIR_COL.q.clir, PAIR_COL.p.clir], 'cLIR (PAE<12Å & Cβ<8Å)');
   if (qDoms.length || pDoms.length){ ctx.fillStyle = '#8579b8'; ctx.fillRect(x, y, 10, 10);
-    ctx.fillStyle = '#333'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText('domain (UniProt)', x + 13, y + 5.5); }
-
-  y += 22;
-  const count = (x, name, len, known, lir, clir, col) => {
-    ctx.fillStyle = col.clir; ctx.fillRect(x, y, 10, 10); x += 15;
-    ctx.fillStyle = '#333'; ctx.font = '10.5px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    const lenTxt = known ? `${len} aa` : `\u2265${len} aa (length not in file)`;
-    const s = `${name} · ${lenTxt} · ${clir.size} cLIR${lir.size ? ` / ${lir.size} LIR` : ''}`;
-    ctx.fillText(s, x, y + 5.5);
-    return x + ctx.measureText(s).width + 22;
-  };
-  x = padL;
-  x = count(x, A.gene, qLen, qKnown, qLir, qClir, PAIR_COL.q);
-  x = count(x, partner, pLen, pKnown, pLir, pClir, PAIR_COL.p);
-  ctx.fillStyle = '#889'; ctx.font = '10px sans-serif';
-  ctx.fillText(`iLIS ${(+row.iLIS||0).toFixed(3)}${row.Rank ? ` · rank ${row.Rank}` : ''}${_cluster!=null ? ` · cluster ${_cluster}` : ''}`, x, y + 5.5);
+    ctx.fillStyle = '#333'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('domain (UniProt)', x + 13, y + 5.5); }
+  y += 20;
+  ctx.fillStyle = '#889'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const ql = qKnown ? `${qLen} aa` : `≥${qLen} aa`, pl = pKnown ? `${pLen} aa` : `≥${pLen} aa (length not in file)`;
+  ctx.fillText(`${A.gene} · ${ql}    ${partner} · ${pl}    ${rows.length} rank${rows.length>1?'s':''} shown`, padL, y + 5.5);
 }
 
 // Sequence viewer, mirroring Prediction Analysis: 10-residue blocks, 80 per line, numbered both ends.
@@ -1025,7 +1027,7 @@ function seqPanel(label, seq, lir, clir, col){
   for (let i = 0; i < seq.length; i++){
     if (i % 10 === 0){ if (i) body += '</span><wbr>'; body += `<span class="g10" data-n="${Math.min(i + 10, seq.length)}">`; }
     const r = i + 1, ch = esc(seq[i]);
-    if (clir.has(r))      body += `<span style="background:${col.clir}; color:#fff">${ch}</span>`;
+    if (clir.has(r))      body += `<span style="background:${col.clir}; color:#fff; font-weight:700">${ch}</span>`;
     else if (lir.has(r))  body += `<span style="background:${col.lir}">${ch}</span>`;
     else                  body += ch;
   }

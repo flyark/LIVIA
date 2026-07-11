@@ -49,7 +49,7 @@
     cLIpLDDT_i: 'cLIpLDDT_A', cLIpLDDT_j: 'cLIpLDDT_B',
   };
   function parseProteinNames(name, sep) {
-    const seps = [sep, '___', '_vs_', ' vs ', '_VS_', '--', '__'];
+    const seps = [sep, '___', ' & ', '_vs_', ' vs ', '_VS_', '--', '__'];
     for (const s of seps) if (s && name.includes(s)) { const p = name.split(s); return [p[0].trim(), p.slice(1).join(s).trim()]; }
     return [name, name];
   }

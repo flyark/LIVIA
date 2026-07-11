@@ -38,7 +38,7 @@
       if (!map[sym]) map[sym] = seq;
     };
     for (const r of recs) {
-      const parts = r.h.split(sep).map((x) => x.trim()).filter(Boolean);
+      const parts = r.h.split(sep === '___' ? /___|\s*&\s*|_vs_|\s+vs\s+|_VS_|--/ : sep).map((x) => x.trim()).filter(Boolean);   // handle old-style ' & ' and other pair separators
       const chains = r.s.split(':').map(clean).filter(Boolean);
       for (const c of chains) allSeqs.push(c);               // index every chain (length fallback)
       // confident symbol→seq only when header parts line up 1:1 with chains

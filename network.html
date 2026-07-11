@@ -91,8 +91,8 @@
         <div class="zonehdr">① lis.py CSV output <b style="color:#c0392b">*</b></div>
         <div class="dz" id="dz">
           <div style="font-size:14.5px"><b>Drop CSV files</b> (or click)</div>
-          <div class="hint" style="margin-top:3px">iLIS read directly · CSV, .zip or .xlsx · all-by-all → rich network</div>
-          <input id="in" type="file" accept=".csv,.zip,.xlsx" multiple class="hidden">
+          <div class="hint" style="margin-top:3px">iLIS read directly · CSV, .zip, .xlsx (+ FASTA for the cLIP hand-off) · all-by-all → rich network</div>
+          <input id="in" type="file" accept=".csv,.zip,.xlsx,.fasta,.fa,.faa,.fas,.fna,.mfa,.pep,.seq" multiple class="hidden">
         </div>
         <div class="hint" style="margin-top:6px">▶ <a id="load-ex" href="#" style="font-weight:600">Try example</a> — fly small interactome · 565 proteins (from <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:var(--accent)">Kim et al. 2026</a>)</div>
       </div>
@@ -183,6 +183,7 @@
 const $ = id => document.getElementById(id);
 const RAWPAIRS = new Map();         // prediction name -> {name, ci, cj, s1, s2, iLIS, ipTM}  (best iLIS per prediction)
 const FILES_RAW = [];              // [{name,text}] kept for the cLIP hand-off
+let FASTA_RAW = '';                 // concatenated FASTA text (paired or per-symbol) for the cLIP hand-off
 let NAME_OF = {};                  // resolved node id -> Set(original prediction names)  (for the hand-off filter)
 let FILECOUNT = 0, PYODIDE = null, NETWORK = null, NODES = null, EDGES = null, LAST = null;
 let META = null, META_COL = null, COMMCOLORS = {}, SUBSET = null, LAYER_ROOT = null;   // SUBSET: node ids to keep (tab 3); LAYER_ROOT: BFS-shell root or null
@@ -254,9 +255,11 @@ function rebuildIfBuilt(){ if (LAST) build(); }   // re-resolve identities / re-
 
 // ---------- load ----------
 async function routeFiles(list){
-  const raw = [...list].filter(f=>/\.(csv|zip|xlsx)$/i.test(f.name)); if(!raw.length) return;
+  const FA = /\.(fasta|fa|faa|fas|fna|mfa|pep|seq)$/i;
+  const raw = [...list].filter(f=>/\.(csv|zip|xlsx|fasta|fa|faa|fas|fna|mfa|pep|seq)$/i.test(f.name)); if(!raw.length) return;
   setStatus(`Reading ${raw.length} file(s)…`);
-  const items = [];                                     // {name,text} — a dropped .zip of lis.py CSVs is expanded here
+  const items = [];                                     // {name,text} — a dropped .zip of lis.py CSVs (+ FASTA) is expanded here
+  const sortText = (name, text) => { if (FA.test(name) || /^\s*>/.test(text)) FASTA_RAW += (FASTA_RAW ? '\n' : '') + text; else items.push({ name, text }); };
   for (const f of raw){
     if (/\.xlsx$/i.test(f.name)){                        // collaborator workbook → lis.py-style CSV, then the usual path
       try {
@@ -266,17 +269,18 @@ async function routeFiles(list){
         const sp = $('mg-species'), tax = LiviaXlsx.speciesHint(sh.rows);
         if (sp && tax && !sp.value && [...sp.options].some(o=>o.value===tax)) sp.value = tax;
         items.push({ name:`${f.name} · ${sh.name}`, text: LiviaXlsx.sheetToCsv(sh, LiviaXlsx.lengthMap(wb)) });
+        const seqs = LiviaXlsx.sequenceSheet(wb); if (seqs){ const r = LiviaXlsx.sequenceSheetToFasta(seqs); if (r.fasta) FASTA_RAW += (FASTA_RAW ? '\n' : '') + r.fasta; }   // Sequence sheet → FASTA for the hand-off
       } catch(e){ setStatus('could not read the workbook: '+e.message); }
       continue;
     }
     if (/\.zip$/i.test(f.name)){
       if (typeof fflate === 'undefined'){ setStatus('zip support failed to load (needs an internet connection)'); continue; }
       try { const entries = fflate.unzipSync(new Uint8Array(await f.arrayBuffer())), dec = new TextDecoder();
-        for (const nm in entries){ if (nm.startsWith('__MACOSX/') || nm.endsWith('/')) continue; const base = nm.split('/').pop(); if (/\.csv$/i.test(base)) items.push({ name:base, text:dec.decode(entries[nm]) }); }
+        for (const nm in entries){ if (nm.startsWith('__MACOSX/') || nm.endsWith('/')) continue; const base = nm.split('/').pop(); if (/\.(csv|fasta|fa|faa|fas|fna|mfa|pep|seq)$/i.test(base)) sortText(base, dec.decode(entries[nm])); }
       } catch(e){ setStatus('could not read the zip: '+e.message); continue; }
-    } else { try { items.push({ name:f.name, text: await f.text() }); } catch(e){} }
+    } else { try { sortText(f.name, await f.text()); } catch(e){} }
   }
-  if (!items.length){ setStatus('No CSVs found in the upload.'); return; }
+  if (!items.length){ setStatus(FASTA_RAW ? 'FASTA loaded, but no lis.py CSV in the upload — add the CSV/XLSX.' : 'No CSVs found in the upload.'); return; }
   setStatus(`Parsing ${items.length} file(s)…`);
   for (const it of items){
     let rows;
@@ -298,7 +302,7 @@ async function loadExample(){
     return;
   }
   setStatus('Loading example…');
-  RAWPAIRS.clear(); FILES_RAW.length=0; FILECOUNT=0; META=null; META_COL=null;
+  RAWPAIRS.clear(); FILES_RAW.length=0; FASTA_RAW=''; FILECOUNT=0; META=null; META_COL=null;
   try {
     const buf = await (await fetch('examples/fly_pathway_interactome.zip')).arrayBuffer();
     await routeFiles([new File([buf], 'fly_pathway_interactome.zip', {type:'application/zip'})]);
@@ -526,10 +530,21 @@ function openInClip(nodeId){
   let header=null; const keep=[];
   for (const f of FILES_RAW){ const lines=f.text.split(/\r?\n/); if(!header) header=lines[0];
     for(let i=1;i<lines.length;i++){ const nf=(lines[i].split(',',1)[0]||'').trim(); if(names.has(nf)) keep.push(lines[i]); } }
+  // FASTA for exactly this node's predictions: paired records (>A___B) matched by prediction name,
+  // plus per-symbol records for the proteins involved. cLIP's sequence viewer picks these up directly.
+  const prot = new Set(); for (const nm of names) for (const part of String(nm).split('___')) prot.add(part.trim());
+  let fasta = '';
+  if (FASTA_RAW){
+    let h=null, buf=[];
+    const flush = () => { if (h!=null){ const bare=h.replace(/___.*$/,''); if (names.has(h) || (!h.includes('___') && prot.has(h)) || prot.has(bare)) fasta += `>${h}\n${buf.join('\n')}\n`; } h=null; buf=[]; };
+    for (const line of FASTA_RAW.split(/\r?\n/)){ if (line[0]==='>'){ flush(); h=line.slice(1).trim(); } else if (line.trim()) buf.push(line.trim()); }
+    flush();
+  }
   const isLookup = META && META.mode==='lookup';
-  const payload = { csv:[header,...keep].join('\n'), meta: isLookup ? null : (META?META._raw:null), query: isLookup ? rawIdFor(nodeId) : nodeId, querySym: nodeId };
+  const payload = { csv:[header,...keep].join('\n'), meta: isLookup ? null : (META?META._raw:null), query: isLookup ? rawIdFor(nodeId) : nodeId, querySym: nodeId, fasta: fasta || undefined };
   try { localStorage.setItem('livia_net2clip', JSON.stringify(payload)); window.open('clip.html','_blank'); }
-  catch(e){ alert('This hub is too large to hand off automatically — open cLIP and drop the CSV, query = '+nodeId); }
+  catch(e){ try { delete payload.fasta; localStorage.setItem('livia_net2clip', JSON.stringify(payload)); window.open('clip.html','_blank'); }   // retry without sequences if over quota
+            catch(e2){ alert('This hub is too large to hand off automatically — open cLIP and drop the CSV, query = '+nodeId); } }
 }
 
 // ---------- layer (BFS-shell) view around a chosen vertex; Leiden colors kept ----------

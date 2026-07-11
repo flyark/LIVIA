@@ -304,6 +304,75 @@
     </div>
 
     <!-- ================================================================ -->
+    <!-- TOOL 6: cLIP -->
+    <!-- ================================================================ -->
+    <div class="tool-section">
+        <h2 class="tool-title">6. cLIP (clustered Local Interaction Profiler)</h2>
+
+        <div class="subsection">
+            <p>cLIP takes the output of a screen &mdash; one bait against many partners &mdash; and clusters the partners by <strong>which residues of the bait they contact</strong>. Partners that bind the same surface fall into the same cluster, so a large screen resolves into a handful of interaction modes. Everything runs in the browser from <code>lis.py</code> output; no structure files are required.</p>
+            <h3>Quick Start</h3>
+            <ol class="quick-steps">
+                <li>Open <a href="clip.html">cLIP</a> and drop your <code>lis.py</code> output (a CSV or a ZIP of CSVs). Add a FASTA in the same panel for exact sequences (optional) &mdash; or click a bundled example</li>
+                <li>Prediction names (FlyBase IDs, UniProt entry names, accessions) are auto-converted to gene symbols (mygene.info + UniProt); set a species if needed</li>
+                <li>Choose a query (bait) protein &mdash; the partner picker is scrollable and searchable. Optionally narrow the set with the subset picker</li>
+                <li>Click <strong>Generate</strong> &mdash; partners are clustered by shared contact residues (cLIR)</li>
+                <li>Review the clustered heatmap, contact-residue frequency, per-partner interface map, sequence viewer, 3D structure, and the interaction scatter</li>
+                <li>Download the filtered <code>lis.py</code> CSV, the paired FASTA, a self-contained report HTML, or SVG/PNG figures</li>
+            </ol>
+        </div>
+
+        <div class="subsection">
+            <h3>Features</h3>
+            <ul class="features-list">
+                <li><strong>Flexible input</strong> &mdash; a <code>lis.py</code> CSV or a ZIP of CSVs. Drop the lis.py output and a FASTA together; files are sorted by content automatically</li>
+                <li><strong>Name resolution</strong> &mdash; arbitrary prediction names are converted to gene symbols (mygene.info + UniProt), with a downloadable identity-map template for manual mapping</li>
+                <li><strong>Clustered fingerprint heatmap</strong> &mdash; partners (rows) &times; query residues (columns), clustered by shared cLIR contacts (cosine distance, average linkage, silhouette-optimal <em>k</em>); reorderable palettes</li>
+                <li><strong>Contact residue frequency</strong> &mdash; how often each query residue is a contact across partners, colored by the dominant cluster, with pLDDT and (human) AlphaMissense tracks</li>
+                <li><strong>Interaction Residues</strong> &mdash; a per-partner interface map showing each protein's LIR/cLIR straight from the lis.py indices (no structure file needed), with UniProt domains overlaid</li>
+                <li><strong>Sequence viewer</strong> &mdash; full sequences with LIR/cLIR highlighting, grouped by ten and searchable (&#8984;F / Ctrl-F). Uses an uploaded FASTA, or falls back to UniProt canonical sequences with a caveat</li>
+                <li><strong>3D structure</strong> &mdash; query resolved from AlphaFold DB, residues colored by the cluster that consensus-contacts them; upload your own structure or set a UniProt accession manually to override</li>
+                <li><strong>Interaction scatter</strong> &mdash; plot any two metrics, plus a global-rank axis (rank by the selected metric across every prediction) and a rank-1-per-pair / every-prediction toggle; colored per prediction by cluster</li>
+                <li><strong>Subset picker</strong> &mdash; include or exclude partners before clustering, with a downloadable review list you can edit and re-upload</li>
+                <li><strong>Downloads</strong> &mdash; filtered <code>lis.py</code> CSV, paired FASTA, self-contained report HTML, and SVG/PNG figures</li>
+                <li><strong>Examples</strong> &mdash; bundled human kinase&times;TF and <em>Drosophila</em> TF&times;kinase screens, each with lis.py output and FASTA</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- TOOL 7: PPI NETWORK -->
+    <!-- ================================================================ -->
+    <div class="tool-section">
+        <h2 class="tool-title">7. PPI Network (Network Builder)</h2>
+
+        <div class="subsection">
+            <p>PPI Network turns an all-by-all screen into an interaction graph and finds communities of densely connected proteins. Community detection runs entirely in the browser using <a href="https://pyodide.org" target="_blank" style="color:#2471A3;">Pyodide</a> and python-igraph &mdash; no server, no installation.</p>
+            <h3>Quick Start</h3>
+            <ol class="quick-steps">
+                <li>Open <a href="network.html">PPI Network</a> and drop your <code>lis.py</code> output (a CSV or a ZIP of CSVs); include a FASTA to carry sequences to cLIP (optional) &mdash; or try the example</li>
+                <li>Set the iLIS threshold and, optionally, an identity map or name conversion</li>
+                <li>Click <strong>Build network</strong> &mdash; Leiden community detection runs in your browser (Pyodide + python-igraph)</li>
+                <li>Adjust the objective and resolution, the layout, and the coloring; rebuild with a node subset if needed</li>
+                <li>Export SVG, node/edge CSVs, or a Cytoscape file &mdash; or open any hub's interactome in cLIP</li>
+            </ol>
+        </div>
+
+        <div class="subsection">
+            <h3>Features</h3>
+            <ul class="features-list">
+                <li><strong>Same input as cLIP</strong> &mdash; a <code>lis.py</code> CSV or a ZIP of CSVs; a FASTA can be included (dropped alongside, or inside the ZIP) to carry sequences to cLIP</li>
+                <li><strong>Leiden communities in-browser</strong> &mdash; python-igraph via Pyodide, with a choice of modularity or CPM objective, adjustable resolution and seed</li>
+                <li><strong>iLIS threshold</strong> &mdash; edges kept above an adjustable iLIS cutoff, with FPR reference marks</li>
+                <li><strong>Identity map &amp; node subset</strong> &mdash; relabel nodes to your own names, or rebuild the network from a chosen subset of proteins</li>
+                <li><strong>Layouts &amp; styling</strong> &mdash; force and other layouts; color nodes by community, degree, or interaction strength (&Sigma; iLIS); adjustable node size and edge width</li>
+                <li><strong>Exports</strong> &mdash; SVG (current view or the full network), node/edge CSVs, and a Cytoscape file</li>
+                <li><strong>Hand-off to cLIP</strong> &mdash; open any hub's partners directly in cLIP for contact-residue clustering, carrying that node's sequences so the sequence viewer works immediately</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ================================================================ -->
 
     <!-- ================================================================ -->
     <!-- LIR DISPLAY OPTIONS -->
@@ -325,13 +394,13 @@
         <h2 class="tool-title">Sequence Viewer</h2>
 
         <div class="subsection">
-            <p>All four tools include a <strong>sequence viewer</strong> that displays the actual amino acid sequence (one-letter codes) for each chain or domain. Residues are color-coded based on their interaction status:</p>
+            <p>The analysis tools include a <strong>sequence viewer</strong> that displays the actual amino acid sequence (one-letter codes) for each chain or domain. Residues are color-coded based on their interaction status:</p>
             <div style="display:flex; gap:1.5rem; margin:0.8rem 0; flex-wrap:wrap;">
                 <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:60px; height:24px; background:#80CBC4; border-radius:4px; border:1px solid #ccc; text-align:center; font-family:monospace; font-size:0.8rem; line-height:24px;">A K L</div><span style="font-size:0.85rem;">LIR residues (light color)</span></div>
                 <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:60px; height:24px; background:#00897B; border-radius:4px; text-align:center; font-family:monospace; font-size:0.8rem; line-height:24px; color:white; font-weight:700;">R D E</div><span style="font-size:0.85rem;">cLIR residues (dark color, bold white)</span></div>
                 <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:60px; height:24px; background:#f0f0f0; border-radius:4px; text-align:center; font-family:monospace; font-size:0.8rem; line-height:24px; color:#999;">G P S</div><span style="font-size:0.85rem;">Non-interacting residues</span></div>
             </div>
-            <p>Residue numbering is shown at intervals. The viewer scrolls horizontally for long sequences.</p>
+            <p>Residue numbering is shown at intervals. The viewer scrolls horizontally for long sequences. In <a href="clip.html">cLIP</a> the sequence is grouped by ten and stays searchable (&#8984;F / Ctrl-F), and when no FASTA is loaded it falls back to the UniProt canonical sequence.</p>
         </div>
     </div>
 
