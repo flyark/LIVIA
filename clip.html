@@ -338,6 +338,30 @@ wireZone('dz-csv', 'in-csv', 'csv'); wireZone('dz-fasta', 'in-fasta', 'fasta'); 
     if (sel && (h.querySym||h.query)){ const o=[...sel.options].find(o=>o.value===h.querySym) || [...sel.options].find(o=>o.value===h.query); if(o){ sel.value=o.value; PARTNER_EXCLUDE = new Set(); rebuildSubsetPicker(); if ($('run') && !$('run').disabled) $('run').click(); } }
   } catch(e){ console.warn('net2clip', e); }
 })();
+// Direct data hand-off: clip.html?data=<url>[&gene=<symbol>] — fetch a per-gene bundle (a .zip of CSV+FASTA,
+// or a bare CSV/.gz) and cluster it. Used by external sites (e.g. FlyPredictome-network) that link straight in.
+(async function dataParam(){
+  const params = new URLSearchParams(location.search);
+  const url = params.get('data'); if (!url) return;
+  try {
+    $('status').textContent = 'loading data…';
+    const resp = await fetch(url); if (!resp.ok) throw new Error('HTTP ' + resp.status);   // await first: lets the top-level `let`s finish initializing (avoids TDZ)
+    const blob = await resp.blob();
+    FILES.length = 0; FASTA_PARSE = null; FASTA_WARN = []; META = null; META_LABELCOL = null;
+    LABEL_IDS = {}; LABEL_FRAG = {}; XLSX_IDS = {}; FORCE_ACC = ''; STRUCT_FILE = null; PARTNER_EXCLUDE = new Set();
+    await routeFiles([new File([blob], (url.split('/').pop() || 'data.zip'))], 'csv');   // .zip → CSV+FASTA auto-sorted
+    const sel = $('gene'); if (!sel || !sel.options.length){ $('status').textContent = 'no proteins found in the data'; return; }
+    const want = params.get('gene');
+    let o = want ? [...sel.options].find(x => x.value.toLowerCase() === want.toLowerCase()) : null;
+    if (!o){                                          // else the protein present in the most rows (the file's bait)
+      const rows = FILES.flatMap(f => f.rows), c = {};
+      for (const r of rows){ if (r.Symbol_1) c[r.Symbol_1] = (c[r.Symbol_1]||0)+1; if (r.Symbol_2) c[r.Symbol_2] = (c[r.Symbol_2]||0)+1; }
+      const top = Object.keys(c).sort((a,b)=>c[b]-c[a])[0];
+      o = [...sel.options].find(x => x.value === top) || sel.options[0];
+    }
+    if (o){ sel.value = o.value; rebuildSubsetPicker(); if ($('run') && !$('run').disabled) $('run').click(); }
+  } catch(e){ $('status').textContent = '⚠ could not load data: ' + e.message; console.warn('dataParam', e); }
+})();
 // Examples: fly TF kinase screens (published, Kim et al. 2025) — load the CSV, pick the TF, generate.
 async function loadExample(file, gene) {
   if (location.protocol === 'file:'){   // file:// blocks fetch of the bundled files; dropping your own still works
