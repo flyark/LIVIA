@@ -226,7 +226,7 @@
       </div>
       <div id="pair-map-wrap"><canvas id="pair-canvas"></canvas></div>
       <div id="pair-seq" style="margin-top:1rem; border-top:1px solid var(--line, #e2e6ea); padding-top:.8rem">
-        <h3 style="margin:0 0 .2rem">Sequence viewer</h3>
+        <h3 style="margin:0 0 .2rem; display:flex; align-items:baseline; gap:.55rem; flex-wrap:wrap">Sequence viewer <label style="font-size:.78rem; font-weight:400; color:#556"><select id="pair-seq-rank" title="model rank from the prediction — ColabFold/AlphaFold-Multimer rank by ipTM (rank 1 = top model)" style="font:inherit; padding:1px 5px"></select></label></h3>
         <div class="muted" style="font-size:.8rem">Light background = LIR (PAE &lt; 12&nbsp;&Aring;). Dark background with white text = cLIR (PAE &lt; 12&nbsp;&Aring; &amp; C&beta; &lt; 8&nbsp;&Aring;).</div>
         <div id="pair-seq-msg" class="muted" style="font-size:.82rem; margin-top:.5rem"></div>
         <div id="pair-seq-body" style="font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace; margin-top:.5rem; overflow-x:auto"></div>
@@ -927,7 +927,7 @@ function mapQueryDomains(A){
 }
 function clipDomains(doms, len){ const out = []; for (const d of (doms || [])){ if (d.end < 1 || d.start > len) continue; out.push({ start: Math.max(1, d.start), end: Math.min(len, d.end), name: d.name }); } return out; }
 
-function allRanksFor(A, partner){   // every prediction (rank) of the query↔partner pair, best rank first
+function allRanksFor(A, partner){   // every prediction of the query↔partner pair, in rank order (1 first)
   const rows = A.pipe.rows.filter(r => r.Symbol_2 === partner);
   rows.sort((a,b) => (+a.Rank||99) - (+b.Rank||99) || (+b.iLIS||0) - (+a.iLIS||0));
   return rows;
@@ -1049,8 +1049,24 @@ function seqForSymbol(sym, len){
 function remapIndices(set, map){ if (!map) return set; const out = new Set(); for (const i of set){ const r = map[i-1]; if (r != null) out.add(r); } return out; }
 
 function renderPairSeq(A, partner){
-  const msg = $('pair-seq-msg'), body = $('pair-seq-body');
-  const row = bestRowPerPartner(A).get(partner);
+  const sel = $('pair-seq-rank'), body = $('pair-seq-body'), msg = $('pair-seq-msg');
+  const ranks = allRanksFor(A, partner);
+  if (!ranks.length){ body.innerHTML = ''; msg.textContent = ''; if (sel) sel.parentElement.style.display = 'none'; return; }
+  if (sel){                                 // rank picker — default to the best rank, keep the user's pick within a partner
+    const same = sel.dataset.partner === partner, keep = same ? sel.value : null;
+    sel.innerHTML = '';
+    for (const r of ranks){ const o = document.createElement('option'); o.value = String(r.Rank); o.textContent = `rank ${r.Rank || '?'} · iLIS ${(+r.iLIS||0).toFixed(3)}`; sel.appendChild(o); }
+    sel.parentElement.style.display = ranks.length > 1 ? '' : 'none';
+    sel.value = (keep && ranks.some(r => String(r.Rank) === keep)) ? keep : String(ranks[0].Rank);
+    sel.dataset.partner = partner;
+    sel.onchange = () => drawSeqPanels(A, partner);
+  }
+  drawSeqPanels(A, partner);
+}
+function drawSeqPanels(A, partner){
+  const sel = $('pair-seq-rank'), msg = $('pair-seq-msg'), body = $('pair-seq-body');
+  const ranks = allRanksFor(A, partner);
+  const row = (sel && ranks.find(r => String(r.Rank) === sel.value)) || ranks[0];
   if (!row){ body.innerHTML = ''; msg.textContent = ''; return; }
   const plen = A.pipe.proteinLen, pLen = parseInt(row.Protein_Len_B,10) || 0;
   // Prefer the uploaded FASTA (the exact predicted construct). With none, fall back to the UniProt
