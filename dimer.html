@@ -386,7 +386,7 @@
                 <span style="font-weight:600;">Script view:</span>
                 <label style="cursor:pointer;"><input type="radio" name="exportScope" value="pair" checked onchange="setExportScope('pair')"> This pair only</label>
                 <label style="cursor:pointer;"><input type="radio" name="exportScope" value="all" onchange="setExportScope('all')"> All subunits</label>
-                <span style="color:#999; font-size:0.75rem;">(script only — the pair is highlighted; "All subunits" also shows the rest in gray. Downloads always include every subunit.)</span>
+                <span style="color:#999; font-size:0.75rem;">(script view only — the pair is highlighted; "All subunits" also shows the rest in gray. Both downloads keep every subunit.)</span>
             </div>
             <div class="download-row">
                 <a class="btn-download cxc" id="dl-script" download>&#8595; Download <span id="dl-script-ext">.cxc</span></a>
@@ -394,12 +394,12 @@
             </div>
             <div style="display:flex; gap:12px; margin-top:0.8rem; flex-wrap:wrap;">
                 <div style="flex:1; min-width:210px;">
-                    <a class="btn-download cif" id="dl-cif-full" download style="display:block; text-align:center;">&#8595; Structure — full length</a>
+                    <a class="btn-download cif" id="dl-cif-full" download style="display:block; text-align:center;">&#8595; Full structure .cif</a>
                     <div style="font-size:0.72rem; color:#999; margin-top:0.3rem; line-height:1.35;">The whole chain(s). Surfaces will include the floppy N/C-terminal tails.</div>
                 </div>
                 <div style="flex:1; min-width:210px;" id="dl-cif-conf-wrap">
-                    <a class="btn-download cif" id="dl-cif-conf" download style="display:block; text-align:center;">&#8595; Structure — partial</a>
-                    <div style="font-size:0.72rem; color:#999; margin-top:0.3rem; line-height:1.35;">All subunits kept; the interface pair is trimmed to its LIR span (first&nbsp;&rarr;&nbsp;last interface residue) — clean surfaces for post-processing. Residue numbers preserved.</div>
+                    <a class="btn-download cif" id="dl-cif-conf" download style="display:block; text-align:center;">&#8595; Partial structure .cif</a>
+                    <div style="font-size:0.72rem; color:#999; margin-top:0.3rem; line-height:1.35;">Every subunit kept; each interface chain trimmed to its LIR span (first&nbsp;&rarr;&nbsp;last interface residue). Residue numbers preserved.</div>
                 </div>
             </div>
             <div class="info-box" style="margin-top:1rem;">Download the script + <b>one</b> structure file into the same folder, then open the script in ChimeraX (.cxc) or PyMOL (.pml). Both structure files carry the original residue numbers, so the script's coloring works either way.</div>
@@ -3078,7 +3078,7 @@ function generateAndDisplayScript() {
     const dlConf = document.getElementById('dl-cif-conf');
     if (dlConf) {
         const km = {}; cifChains(dimerCifText).forEach(c => km[c] = null);
-        const sp = confidentSpan(v); Object.keys(sp).forEach(c => km[c] = sp[c]);   // keep every subunit; trim only the pair's floppy termini
+        const sp = confidentSpan(v); Object.keys(sp).forEach(c => km[c] = sp[c]);   // every subunit kept; the interface chains trimmed to their LIR span
         dlConf.href = URL.createObjectURL(new Blob([trimCif(dimerCifText, km)], { type: 'text/plain' }));
         dlConf.download = dimerCifFilename;
     }
