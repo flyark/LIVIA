@@ -457,16 +457,16 @@
             </div>
             <div class="script-preview" id="script-preview"></div>
             <div class="download-row">
-                <a class="btn-download cxc" id="dl-script" download>&#8595; Download <span id="dl-script-ext">.cxc</span></a>
+                <a class="btn-download cxc" id="dl-script-full" download>&#8595; .cxc &middot; full structure</a>
                 <a class="btn-download cif" id="dl-structure" download>&#8595; Full structure</a>
+                <a class="btn-download cxc" id="dl-script-partial" download style="background:#8e44ad; border-color:#8e44ad;">&#8595; .cxc &middot; partial structure</a>
                 <a class="btn-download cif" id="dl-structure-conf" download style="background:white; color:#8e44ad; border-color:#8e44ad;">&#8595; Partial structure</a>
-                <a class="btn-download cxc" id="dl-all-chains" style="background:#1a5276; border-color:#1a5276;" onclick="downloadAllChains()">&#8595; Download All Chains .cxc</a>
-                <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy to Clipboard</button>
+                <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy script</button>
             </div>
             <div style="font-size:0.72rem; color:#999; margin-top:0.5rem; line-height:1.45;">
-                <b>Full structure</b> = the whole complex, untouched. &nbsp;<b style="color:#8e44ad;">Partial structure</b> = every subunit kept, each chain trimmed to its LIR span (first&nbsp;&rarr;&nbsp;last interface residue across all its partners) — the interface core of the complex, clean surfaces for post-processing. Residue numbers preserved so the script still colors correctly. Download <b>one</b> structure file.
+                Both scripts show <b>every subunit</b>, each chain's LIR/cLIR coloured to match the 3D viewer (LIR light &amp; cLIR dark in <i>Gradient</i> shade; one colour per chain in <i>Solid</i>). <b>.cxc &middot; full structure</b> opens <b>Full structure</b> = the whole complex. &nbsp;<b style="color:#8e44ad;">.cxc &middot; partial structure</b> opens <b style="color:#8e44ad;">Partial structure</b> = the same subunit composition, each chain trimmed to the LIR segments shown above (<b>Fill gaps</b> / <b>Min segment</b> honored). Distinct filenames, so nothing overwrites; residue numbers preserved.
             </div>
-            <div class="info-box" style="margin-top:1rem;">Place the script and structure file in the same folder, then open the script in ChimeraX or PyMOL. "All Chains" shows every chain with LIR regions, colored by chain.</div>
+            <div class="info-box" style="margin-top:1rem;">Download a script and its matching structure file into the same folder, then open the script in ChimeraX or PyMOL.</div>
         </div>
 
         <!-- Per-Residue pLDDT & Intra-chain LIS -->
@@ -587,19 +587,7 @@ function updateScriptPreview() {
     const seedVal = document.getElementById('seed-select')?.value || '0';
     const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureFilenames || {})[0] : seedVal;
     const structFilename = (uniState.structureFilenames || {})[useIdx] || 'structure.cif';
-    const isPymol = scriptMode === 'pymol';
-    const visScript = isPymol ? generatePml(v, structFilename, colors) : generateCxc(v, structFilename, colors);
-    const scriptExt = isPymol ? '.pml' : '.cxc';
-    document.getElementById('script-preview').innerHTML = highlightCxc(visScript);
-    const scriptBlob = new Blob([visScript], { type: 'text/plain' });
-    const dlScript = document.getElementById('dl-script');
-    if (dlScript) {
-        dlScript.href = URL.createObjectURL(scriptBlob);
-        const name = (v.ci || 'A') + '_' + (v.cj || 'B');
-        dlScript.download = name + '_interface' + scriptExt;
-    }
-    const extEl = document.getElementById('dl-script-ext');
-    if (extEl) extEl.textContent = scriptExt;
+    updateScriptButtons(v, structFilename, colors);
 }
 
 // ============================================================================
@@ -3767,14 +3755,7 @@ function selectPair(key) {
     const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureFilenames)[0] : seedVal;
     const structFilename = uniState.structureFilenames[useIdx] || uniState.structureFilenames[Object.keys(uniState.structureFilenames)[0]];
     const isPymol = scriptMode === 'pymol';
-    const visScript = isPymol ? generatePml(v, structFilename, colors) : generateCxc(v, structFilename, colors);
-    const scriptExt = isPymol ? '.pml' : '.cxc';
-
-    document.getElementById('script-preview').innerHTML = highlightCxc(visScript);
-    const dlScript = document.getElementById('dl-script');
-    dlScript.href = URL.createObjectURL(new Blob([visScript], { type: 'text/plain' }));
-    dlScript.download = `chain${v.ci}_chain${v.cj}_interface${scriptExt}`;
-    document.getElementById('dl-script-ext').textContent = scriptExt;
+    updateScriptButtons(v, structFilename, colors);   // full + partial scripts + preview
 
     const structContent = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
     const dlStruct = document.getElementById('dl-structure');
@@ -3787,11 +3768,16 @@ function selectPair(key) {
     // Same filename as the full download, so the generated script's open/load still resolves it.
     const dlStructConf = document.getElementById('dl-structure-conf');
     if (dlStructConf) {
-        const spans = allChainLirSpans(uniState.results);                          // every chain trimmed to its own LIR footprint (all subunits kept)
-        const km = {}; structChains(structContent, uniState.structureFormat).forEach(c => { km[c] = spans[c] || null; });
+        const lirSets = allChainLirSets(uniState.results);                          // per-chain LIR, honoring the Fill-gaps / Min-segment settings
+        const km = {}; structChains(structContent, uniState.structureFormat).forEach(c => {
+            const raw = lirSets[c];
+            if (!raw || raw.size === 0) { km[c] = null; return; }                    // no interface → keep the whole subunit
+            const seg = fillGaps(filterSmallSegments(raw));                          // exactly the segments the viewer/script show
+            km[c] = seg.size ? seg : null;
+        });
         const confText = trimStructure(structContent, uniState.structureFormat, km);
         dlStructConf.href = URL.createObjectURL(new Blob([confText], { type: 'text/plain' }));
-        dlStructConf.download = structFilename;
+        dlStructConf.download = structFilename.replace(/(\.[^.]+)$/, '_partial$1');
         dlStructConf.textContent = `\u2193 Partial structure .${uniState.structureFormat}`;
     }
 
@@ -3828,8 +3814,8 @@ function trimCif(cifText, keepMap){
         while(k<lines.length){
           const t=lines[k].trim();
           if(t===''||t==='#'||t==='loop_'||t.startsWith('_')||t.startsWith('data_'))break;
-          const toks=t.split(/\s+/); const ch=toks[cc], rn=parseInt(toks[rc],10);
-          if(keepMap.hasOwnProperty(ch)&&(keepMap[ch]===null||(rn>=keepMap[ch][0]&&rn<=keepMap[ch][1]))) out.push(lines[k]);
+          const toks=t.split(/\s+/); const ch=toks[cc], rn=parseInt(toks[rc],10); const kr=keepMap[ch];
+          if(keepMap.hasOwnProperty(ch)&&(kr===null||(kr instanceof Set?kr.has(rn):(rn>=kr[0]&&rn<=kr[1])))) out.push(lines[k]);
           k++;
         }
         i=k; continue;
@@ -3843,9 +3829,9 @@ function trimPdb(pdbText, keepMap){
   return pdbText.split('\n').filter(l=>{
     const rec=l.substr(0,6);
     if(!(rec.startsWith('ATOM')||rec.startsWith('HETATM')||rec.startsWith('ANISOU')||rec.startsWith('TER'))) return true;   // keep headers/other records
-    const ch=l[21], rn=parseInt(l.substr(22,4),10);
+    const ch=l[21], rn=parseInt(l.substr(22,4),10), kr=keepMap[ch];
     if(rec.startsWith('TER')) return keepMap.hasOwnProperty(ch);
-    return keepMap.hasOwnProperty(ch) && (keepMap[ch]===null || (rn>=keepMap[ch][0]&&rn<=keepMap[ch][1]));
+    return keepMap.hasOwnProperty(ch) && (kr===null || (kr instanceof Set ? kr.has(rn) : (rn>=kr[0]&&rn<=kr[1])));
   }).join('\n');
 }
 function trimStructure(text, format, keepMap){
@@ -3871,21 +3857,36 @@ function structChains(text, format){
   if(String(format).toLowerCase()==='pdb'){ const s=new Set(); text.split('\n').forEach(l=>{ if(l.startsWith('ATOM')||l.startsWith('HETATM')) s.add(l[21]); }); return [...s]; }
   return cifChains(text);
 }
-// Per-chain LIR span [min,max] aggregated across EVERY pair result (each chain's full interface footprint).
-function allChainLirSpans(results){
+// Per-chain LIR residue Set aggregated across EVERY pair result (each chain's full interface footprint).
+function allChainLirSets(results){
   const byChain={};
   for(const k in (results||{})){ const v=results[k]; if(!v)continue;
-    if(v.ci){ (byChain[v.ci]=byChain[v.ci]||[]).push(...(v.lirI||[])); }
-    if(v.cj){ (byChain[v.cj]=byChain[v.cj]||[]).push(...(v.lirJ||[])); }
+    if(v.ci){ const s=byChain[v.ci]=byChain[v.ci]||new Set(); (v.lirI||[]).forEach(r=>s.add(r)); }
+    if(v.cj){ const s=byChain[v.cj]=byChain[v.cj]||new Set(); (v.lirJ||[]).forEach(r=>s.add(r)); }
   }
-  const spans={}; for(const c in byChain){ const a=byChain[c]; if(a.length) spans[c]=[Math.min(...a),Math.max(...a)]; }
-  return spans;
+  return byChain;
 }
 // Per-chain LIR contiguous span [min,max] for the current pair (trims floppy termini, keeps the interface domain intact).
 function confidentSpan(v){
   const sp=s=>{ const a=[...(s||[])]; return a.length?[Math.min(...a),Math.max(...a)]:null; };
   const m={}, si=sp(v.lirI), sj=sp(v.lirJ);
   if(si) m[v.ci]=si; if(sj) m[v.cj]=sj; return m;
+}
+
+// Wire the two script buttons: full-structure script (opens the full file) and
+// partial-structure script (opens the _partial file). They differ only in the open/load line.
+function updateScriptButtons(v, structFilename, colors) {
+    const isPymol = scriptMode === 'pymol';
+    const scriptExt = isPymol ? '.pml' : '.cxc';
+    const base = structFilename.replace(/\.[^.]+$/, '');
+    const partialFilename = structFilename.replace(/(\.[^.]+)$/, '_partial$1');
+    const gen = fn => isPymol ? buildAllChainsPml(fn, v) : buildAllChainsCxc(fn, v);   // every subunit's LIR/cLIR (consistent with Mol*), + title with the selected pair's iLIS/ipTM
+    const fullScript = gen(structFilename), partialScript = gen(partialFilename);
+    const pv = document.getElementById('script-preview'); if (pv) pv.innerHTML = highlightCxc(fullScript);
+    const setBtn = (id, blob, name, text) => { const el = document.getElementById(id); if (!el) return;
+        el.href = URL.createObjectURL(new Blob([blob], { type: 'text/plain' })); el.download = name; el.textContent = text; };
+    setBtn('dl-script-full', fullScript, base + '_full' + scriptExt, '↓ ' + scriptExt + ' · full structure');
+    setBtn('dl-script-partial', partialScript, base + '_partial' + scriptExt, '↓ ' + scriptExt + ' · partial structure');
 }
 
 function generateCxc(v, structFilename, colors) {
@@ -3920,6 +3921,7 @@ function generateCxc(v, structFilename, colors) {
         'close', `open ${structFilename}`, '',
         '# \u2500\u2500 Setup \u2500\u2500',
         'set bgColor white', 'graphics silhouettes true', 'lighting soft',
+        'hide pseudobonds',   // no dashed "missing structure" connectors across the trimmed gaps
     ];
     // ── Color mode (independent of showComplete) ──
     if (uniState.cxcColorMode === 'plddt') {
@@ -3978,6 +3980,20 @@ function generateCxc(v, structFilename, colors) {
         if (lirISpec) lines.push(...showChain(lirISpec, v.ci));
         lines.push('', `# LIR ${v.cj}: ${v.lirJ.size} residues`);
         if (lirJSpec) lines.push(...showChain(lirJSpec, v.cj));
+        // Show (and color) every other subunit's LIR too — full subunit composition, not just the pair
+        for (const c of (uniState.chainNames || []).filter(x => x !== v.ci && x !== v.cj)) {
+            const lset = new Set();
+            for (const [, pv] of Object.entries(uniState.results || {})) {
+                if (pv.ci === c && pv.lirI) for (const r of pv.lirI) lset.add(r);
+                if (pv.cj === c && pv.lirJ) for (const r of pv.lirJ) lset.add(r);
+            }
+            const spec = lset.size ? resSpec(fillGaps(filterSmallSegments(lset)), c) : '';
+            if (spec) {
+                lines.push(...showChain(spec, c));
+                const cc = (uniState.multiChainColors && uniState.multiChainColors[c]) || '#B0B0B0';
+                lines.push(`color #1${spec} ${cc}`);
+            }
+        }
         lines.push('');
     }
 
@@ -4799,12 +4815,12 @@ function downloadAllChains() {
     return downloadAllChainsCxc();
 }
 
-function downloadAllChainsCxc() {
-    if (!uniState.avgResults || !uniState.chainNames) return;
+function buildAllChainsCxc(overrideFilename, sel) {
+    if (!uniState.avgResults || !uniState.chainNames) return '';
 
     const seedVal = document.getElementById('seed-select')?.value || '0';
     const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureFilenames)[0] : seedVal;
-    const structFilename = uniState.structureFilenames[useIdx] || uniState.structureFilenames[Object.keys(uniState.structureFilenames)[0]];
+    const structFilename = overrideFilename || (uniState.structureFilenames[useIdx] || uniState.structureFilenames[Object.keys(uniState.structureFilenames)[0]]);
 
     const allLIR = {};
     for (const name of uniState.chainNames) allLIR[name] = new Set();
@@ -4839,7 +4855,9 @@ function downloadAllChainsCxc() {
         'graphics silhouettes true',
         'lighting soft',
         'hide atoms',
-        'hide cartoons', '',
+        'hide cartoons',
+        'hide pseudobonds',   // no dashed "missing structure" connectors across trimmed gaps
+        '',
     ];
 
     // Get per-chain colors matching the sequence viewer
@@ -4854,7 +4872,6 @@ function downloadAllChainsCxc() {
     };
 
     const nc = uniState.chainNames.length;
-    const multiActive = chainColors._active;
 
     // Get 2-chain color picker values
     const pickerColors = {
@@ -4864,15 +4881,77 @@ function downloadAllChainsCxc() {
         clir_b: document.getElementById('color-clir-b')?.value || '#E64A19',
     };
 
-    // Helper: get LIR/cLIR colors for a chain
+    // Helper: get LIR/cLIR colors for a chain.
+    // 2 chains → the A/B colour pickers. >2 chains → per-chain palette (matches Mol*), whether or
+    // not multi-chain colouring is "active": a fixed 2-colour fallback would paint chains C, D, … the
+    // same shade (and mis-fires during the brief window before multi-colour auto-activates on load).
     const getChainColors = (ci, name) => {
-        if (nc <= 2 || !multiActive) {
+        if (nc <= 2) {
             return { lir: ci === 0 ? pickerColors.lir_a : pickerColors.lir_b,
                      clir: ci === 0 ? pickerColors.clir_a : pickerColors.clir_b };
         }
         const cc = chainColors[name] || palette[ci % palette.length];
         return { lir: isGradient ? lighten(cc, 0.5) : cc, clir: cc };
     };
+
+    // Proportional per-glyph advance (fraction of window width, calibrated for size 12; scale by k for
+    // other sizes). A narrow "/" or digit must not reserve the width of a capital letter.
+    const glyphW = (ch, k) => ((ch === '/' ? 0.0034 : (ch === '.' || ch === ' ') ? 0.0030
+        : (ch === '(' || ch === ')' || ch === '-') ? 0.0038 : (ch >= '0' && ch <= '9') ? 0.0052 : 0.0064) * k);
+    const textW = (t, k) => [...t].reduce((a, ch) => a + glyphW(ch, k), 0);
+
+    // ── Title row: every interacting chain (its colour + LIR span) ──
+    let _tx = 0.03;
+    for (let ci = 0; ci < nc; ci++) {
+        const nm = uniState.chainNames[ci];
+        if ((types[ci] || 'protein') !== 'protein' || !allLIR[nm] || allLIR[nm].size === 0) continue;
+        const arr = [...allLIR[nm]]; const rng = `${Math.min(...arr)}-${Math.max(...arr)}`;
+        const txt = `Chain ${nm} (${rng})`;
+        lines.push(`2dlabels create tt${ci} text "${txt}" xpos ${_tx.toFixed(4)} ypos 0.96 size 13 color ${getChainColors(ci, nm).clir} bold true`);
+        _tx += textW(txt, 13 / 12) + 0.012;   // 0.012 = gap between adjacent chain labels
+    }
+    // ── Positive PPI pairs, listed vertically: "i / j (iLIS / ipTM)" with chain IDs in their own colours ──
+    // iLIS is PAIRWISE; positive = at/above the 10% FPR threshold used by ilisHtml (0.073 avg, 0.223 single-model).
+    const _isAvg = (seedVal === 'avg');
+    const _posCut = _isAvg ? 0.073 : 0.223;
+    const _idxOf = nm => uniState.chainNames.indexOf(nm);
+    const _pairMap = {};
+    for (const [, pv] of Object.entries(uniState.results || {})) {
+        if (pv.ci == null || pv.cj == null || pv.iLIS == null) continue;
+        const key = [pv.ci, pv.cj].sort().join('|');
+        const cur = _pairMap[key];
+        if (!cur || pv.iLIS > cur.iLIS) _pairMap[key] = { a: pv.ci, c: pv.cj, iLIS: pv.iLIS, ipTM: pv.ipTM };
+    }
+    const _posPairs = Object.values(_pairMap).filter(p => p.iLIS >= _posCut).sort((x, y) => y.iLIS - x.iLIS);
+    if (_posPairs.length) {
+        // Row pitch adapts to the pair count so even a large complex (many pairs) stays on-screen;
+        // font shrinks a step when rows get tight. Widths (below) scale with the chosen size.
+        const _n = _posPairs.length;
+        const _step = Math.max(0.020, Math.min(0.028, 0.80 / (_n + 1)));
+        const _sz = _step < 0.024 ? 11 : 12;
+        const _k = _sz / 12;
+        const _segW = t => textW(t, _k) + 0.0012;
+        lines.push(`2dlabels create ttscoreh text "Positive PPI  (iLIS / ipTM)" xpos 0.03 ypos 0.915 size 12 color black bold true`);
+        let _yy = 0.915 - _step;
+        _posPairs.forEach((p, pi) => {
+            const cA = getChainColors(_idxOf(p.a), p.a).clir;
+            const cB = getChainColors(_idxOf(p.c), p.c).clir;
+            const sc = ` (${(+p.iLIS).toFixed(3)} / ${p.ipTM != null ? (+p.ipTM).toFixed(2) : '-'})`;
+            const segs = [
+                { t: `${p.a}`, col: cA },
+                { t: '/',      col: 'black' },
+                { t: `${p.c}`, col: cB },
+                { t: sc,       col: 'black' },
+            ];
+            let _xx = 0.03;
+            segs.forEach((s, si) => {
+                lines.push(`2dlabels create ttp${pi}_${si} text "${s.t}" xpos ${_xx.toFixed(4)} ypos ${_yy.toFixed(4)} size ${_sz} color ${s.col} bold true`);
+                _xx += _segW(s.t);
+            });
+            _yy -= _step;
+        });
+    }
+    lines.push('');
 
     // ── Show structure ──
     if (showFull) {
@@ -4967,19 +5046,15 @@ function downloadAllChainsCxc() {
         lines.push('# color bfactor palette #FF7D45:#FFDB13:#65CBF3:#0053D6 range 50,90');
     }
 
-    const cxc = lines.join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([cxc], { type: 'text/plain' }));
-    a.download = 'all_chains_LIR.cxc';
-    a.click();
+    return lines.join('\n');
 }
 
-function downloadAllChainsPml() {
-    if (!uniState.avgResults || !uniState.chainNames) return;
+function buildAllChainsPml(overrideFilename) {
+    if (!uniState.avgResults || !uniState.chainNames) return '';
 
     const seedVal = document.getElementById('seed-select')?.value || '0';
     const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureFilenames)[0] : seedVal;
-    const structFilename = uniState.structureFilenames[useIdx] || uniState.structureFilenames[Object.keys(uniState.structureFilenames)[0]];
+    const structFilename = overrideFilename || (uniState.structureFilenames[useIdx] || uniState.structureFilenames[Object.keys(uniState.structureFilenames)[0]]);
     const types = uniState.chainTypes || [];
     const chainColors = uniState.multiChainColors || {};
     const palette = uniState.chainNames.length <= 10 ? TAB10 : TAB20;
@@ -5153,11 +5228,7 @@ function downloadAllChainsPml() {
     lines.push('# ray 2400, 2400');
     lines.push('# png all_chains_LIR.png, dpi=300');
 
-    const pml = lines.join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([pml], { type: 'text/plain' }));
-    a.download = 'all_chains_LIR.pml';
-    a.click();
+    return lines.join('\n');
 }
 
 // ============================================================================
