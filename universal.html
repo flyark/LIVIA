@@ -459,10 +459,14 @@
             <div class="download-row">
                 <a class="btn-download cxc" id="dl-script" download>&#8595; Download <span id="dl-script-ext">.cxc</span></a>
                 <a class="btn-download cif" id="dl-structure" download>&#8595; Download structure</a>
+                <a class="btn-download cif" id="dl-structure-conf" download style="background:white; color:#8e44ad; border-color:#8e44ad;">&#8595; Structure (confident)</a>
                 <a class="btn-download cxc" id="dl-all-chains" style="background:#1a5276; border-color:#1a5276;" onclick="downloadAllChains()">&#8595; Download All Chains .cxc</a>
                 <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy to Clipboard</button>
             </div>
-            <div class="info-box" style="margin-top:1rem;">Place the script and structure files in the same folder, then open the script in ChimeraX or PyMOL. "All Chains" shows every chain with LIR regions, colored by chain.</div>
+            <div style="font-size:0.72rem; color:#999; margin-top:0.5rem; line-height:1.45;">
+                <b>Structure</b> = full length (surfaces include the floppy N/C-terminal tails). &nbsp;<b style="color:#8e44ad;">Structure (confident)</b> = the two interface chains trimmed to their LIR span (first&nbsp;&rarr;&nbsp;last interface residue) — clean surfaces for post-processing; residue numbers are preserved so the script still colors correctly. Download <b>one</b> structure file.
+            </div>
+            <div class="info-box" style="margin-top:1rem;">Place the script and structure file in the same folder, then open the script in ChimeraX or PyMOL. "All Chains" shows every chain with LIR regions, colored by chain.</div>
         </div>
 
         <!-- Per-Residue pLDDT & Intra-chain LIS -->
@@ -3779,6 +3783,16 @@ function selectPair(key) {
     dlStruct.textContent = `\u2193 Download .${uniState.structureFormat}`;
     dlStruct.className = `btn-download cif`;
 
+    // Confident-region structure: the two interface chains trimmed to their LIR span.
+    // Same filename as the full download, so the generated script's open/load still resolves it.
+    const dlStructConf = document.getElementById('dl-structure-conf');
+    if (dlStructConf) {
+        const confText = trimStructure(structContent, uniState.structureFormat, confidentSpan(v));
+        dlStructConf.href = URL.createObjectURL(new Blob([confText], { type: 'text/plain' }));
+        dlStructConf.download = structFilename;
+        dlStructConf.textContent = `\u2193 Confident .${uniState.structureFormat}`;
+    }
+
     // Refresh the per-model selector chips (label + per-pair iLIS, selected highlighted)
     renderModelSelectors();
 }
@@ -3793,6 +3807,55 @@ function updateGapFill() {
 }
 
 // Remove LIR segments shorter than minSize residues
+// ── Confident-region structure trimming for ChimeraX / PyMOL post-processing ──
+// keepMap[chain] = null (whole chain) | [minResnum, maxResnum]; chains absent are dropped.
+// Original residue numbering is preserved so the generated script's coloring still works.
+function trimCif(cifText, keepMap){
+  const lines=cifText.split('\n'), out=[]; let i=0;
+  while(i<lines.length){
+    const line=lines[i];
+    if(line.trim()==='loop_'){
+      let j=i+1; const headers=[];
+      while(j<lines.length && lines[j].trim().startsWith('_')){ headers.push(lines[j].trim()); j++; }
+      if(headers.length && headers[0].startsWith('_atom_site.')){
+        const col=n=>headers.indexOf('_atom_site.'+n);
+        let cc=col('auth_asym_id'); if(cc<0)cc=col('label_asym_id');
+        let rc=col('auth_seq_id'); if(rc<0)rc=col('label_seq_id');
+        out.push(line); headers.forEach(h=>out.push(h));
+        let k=j;
+        while(k<lines.length){
+          const t=lines[k].trim();
+          if(t===''||t==='#'||t==='loop_'||t.startsWith('_')||t.startsWith('data_'))break;
+          const toks=t.split(/\s+/); const ch=toks[cc], rn=parseInt(toks[rc],10);
+          if(keepMap.hasOwnProperty(ch)&&(keepMap[ch]===null||(rn>=keepMap[ch][0]&&rn<=keepMap[ch][1]))) out.push(lines[k]);
+          k++;
+        }
+        i=k; continue;
+      }
+    }
+    out.push(line); i++;
+  }
+  return out.join('\n');
+}
+function trimPdb(pdbText, keepMap){
+  return pdbText.split('\n').filter(l=>{
+    const rec=l.substr(0,6);
+    if(!(rec.startsWith('ATOM')||rec.startsWith('HETATM')||rec.startsWith('ANISOU')||rec.startsWith('TER'))) return true;   // keep headers/other records
+    const ch=l[21], rn=parseInt(l.substr(22,4),10);
+    if(rec.startsWith('TER')) return keepMap.hasOwnProperty(ch);
+    return keepMap.hasOwnProperty(ch) && (keepMap[ch]===null || (rn>=keepMap[ch][0]&&rn<=keepMap[ch][1]));
+  }).join('\n');
+}
+function trimStructure(text, format, keepMap){
+  return (String(format).toLowerCase()==='pdb') ? trimPdb(text, keepMap) : trimCif(text, keepMap);
+}
+// Per-chain LIR contiguous span [min,max] for the current pair (trims floppy termini, keeps the interface domain intact).
+function confidentSpan(v){
+  const sp=s=>{ const a=[...(s||[])]; return a.length?[Math.min(...a),Math.max(...a)]:null; };
+  const m={}, si=sp(v.lirI), sj=sp(v.lirJ);
+  if(si) m[v.ci]=si; if(sj) m[v.cj]=sj; return m;
+}
+
 function generateCxc(v, structFilename, colors) {
     const lirIStr = rangesStr(v.lirI), lirJStr = rangesStr(v.lirJ);
     const iLIS = v.iLIS.toFixed(3), ipTM = v.ipTM.toFixed(2);
