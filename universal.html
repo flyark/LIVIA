@@ -459,12 +459,12 @@
             <div class="download-row">
                 <a class="btn-download cxc" id="dl-script" download>&#8595; Download <span id="dl-script-ext">.cxc</span></a>
                 <a class="btn-download cif" id="dl-structure" download>&#8595; Download structure</a>
-                <a class="btn-download cif" id="dl-structure-conf" download style="background:white; color:#8e44ad; border-color:#8e44ad;">&#8595; Structure (confident)</a>
+                <a class="btn-download cif" id="dl-structure-conf" download style="background:white; color:#8e44ad; border-color:#8e44ad;">&#8595; Structure (partial)</a>
                 <a class="btn-download cxc" id="dl-all-chains" style="background:#1a5276; border-color:#1a5276;" onclick="downloadAllChains()">&#8595; Download All Chains .cxc</a>
                 <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy to Clipboard</button>
             </div>
             <div style="font-size:0.72rem; color:#999; margin-top:0.5rem; line-height:1.45;">
-                <b>Structure</b> = full length (surfaces include the floppy N/C-terminal tails). &nbsp;<b style="color:#8e44ad;">Structure (confident)</b> = the two interface chains trimmed to their LIR span (first&nbsp;&rarr;&nbsp;last interface residue) — clean surfaces for post-processing; residue numbers are preserved so the script still colors correctly. Download <b>one</b> structure file.
+                <b>Structure</b> = full length (surfaces include the floppy N/C-terminal tails). &nbsp;<b style="color:#8e44ad;">Structure (partial)</b> = all subunits kept, with the two interface chains trimmed to their LIR span (first&nbsp;&rarr;&nbsp;last interface residue) — clean surfaces for post-processing; residue numbers are preserved so the script still colors correctly. Download <b>one</b> structure file.
             </div>
             <div class="info-box" style="margin-top:1rem;">Place the script and structure file in the same folder, then open the script in ChimeraX or PyMOL. "All Chains" shows every chain with LIR regions, colored by chain.</div>
         </div>
@@ -3787,10 +3787,11 @@ function selectPair(key) {
     // Same filename as the full download, so the generated script's open/load still resolves it.
     const dlStructConf = document.getElementById('dl-structure-conf');
     if (dlStructConf) {
-        const confText = trimStructure(structContent, uniState.structureFormat, confidentSpan(v));
+        const km = partialKeepMap(structContent, uniState.structureFormat, confidentSpan(v));   // keep every subunit; trim only the pair's floppy termini
+        const confText = trimStructure(structContent, uniState.structureFormat, km);
         dlStructConf.href = URL.createObjectURL(new Blob([confText], { type: 'text/plain' }));
         dlStructConf.download = structFilename;
-        dlStructConf.textContent = `\u2193 Confident .${uniState.structureFormat}`;
+        dlStructConf.textContent = `\u2193 Partial .${uniState.structureFormat}`;
     }
 
     // Refresh the per-model selector chips (label + per-pair iLIS, selected highlighted)
@@ -3848,6 +3849,32 @@ function trimPdb(pdbText, keepMap){
 }
 function trimStructure(text, format, keepMap){
   return (String(format).toLowerCase()==='pdb') ? trimPdb(text, keepMap) : trimCif(text, keepMap);
+}
+// Distinct chains in a PDB or mmCIF.
+function cifChains(cifText){
+  const lines=cifText.split('\n'), set=new Set();
+  for(let i=0;i<lines.length;i++){
+    if(lines[i].trim()==='loop_'){
+      const hdr=[]; let j=i+1;
+      while(j<lines.length && lines[j].trim().startsWith('_')){ hdr.push(lines[j].trim()); j++; }
+      if(hdr.length && hdr[0].startsWith('_atom_site.')){
+        let cc=hdr.indexOf('_atom_site.auth_asym_id'); if(cc<0)cc=hdr.indexOf('_atom_site.label_asym_id');
+        for(let k=j;k<lines.length;k++){ const t=lines[k].trim(); if(t===''||t==='#'||t==='loop_'||t.startsWith('_')||t.startsWith('data_'))break; set.add(t.split(/\s+/)[cc]); }
+        break;
+      }
+    }
+  }
+  return [...set];
+}
+function structChains(text, format){
+  if(String(format).toLowerCase()==='pdb'){ const s=new Set(); text.split('\n').forEach(l=>{ if(l.startsWith('ATOM')||l.startsWith('HETATM')) s.add(l[21]); }); return [...s]; }
+  return cifChains(text);
+}
+// Partial keep-map: every subunit is kept; only the interface pair chains are trimmed to their LIR span.
+function partialKeepMap(text, format, pairSpans){
+  const km={}; structChains(text, format).forEach(c=>km[c]=null);
+  Object.keys(pairSpans).forEach(c=>{ km[c]=pairSpans[c]; });
+  return km;
 }
 // Per-chain LIR contiguous span [min,max] for the current pair (trims floppy termini, keeps the interface domain intact).
 function confidentSpan(v){

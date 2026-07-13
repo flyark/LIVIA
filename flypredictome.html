@@ -449,7 +449,11 @@
             <div class="download-row">
                 <a class="btn-download cxc" id="dl-script" download>&#8595; Download <span id="dl-script-ext">.cxc</span></a>
                 <a class="btn-download pdb" id="dl-pdb" target="_blank">&#8595; Download .pdb</a>
+                <a class="btn-download pdb" id="dl-pdb-conf" download style="background:white; color:#8e44ad; border-color:#8e44ad;">&#8595; .pdb (partial)</a>
                 <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy to Clipboard</button>
+            </div>
+            <div style="font-size:0.72rem; color:#999; margin-top:0.5rem; line-height:1.45;">
+                <b>.pdb</b> = full length (surfaces include the floppy N/C-terminal tails). &nbsp;<b style="color:#8e44ad;">.pdb (partial)</b> = both chains trimmed to their LIR span (first&nbsp;&rarr;&nbsp;last interface residue) — clean surfaces for post-processing; residue numbers preserved so the script still colors correctly. Download <b>one</b> structure file.
             </div>
             <div class="info-box" style="margin-top: 1rem;">
                 The .pdb link opens the file from FlyPredictome. Save it in the same folder as the script file, then open the script in ChimeraX or PyMOL.
@@ -1363,9 +1367,41 @@ function updateScriptPreview() {
     }
     const extEl = document.getElementById('dl-script-ext');
     if (extEl) extEl.textContent = scriptExt;
+
+    // Confident-region PDB: both chains trimmed to their LIR span (same filename → the script's `open` resolves either).
+    const dlPdbConf = document.getElementById('dl-pdb-conf');
+    if (dlPdbConf) {
+        const pdbText = (typeof flyPdbPerRank !== 'undefined' && flyPdbPerRank[flyCurrentRank]) || flyPdbText;
+        if (pdbText && (target._LIR_A || target._LIR_B)) {
+            const conf = trimPdb(pdbText, confidentSpanAB(target._LIR_A, target._LIR_B));
+            dlPdbConf.href = URL.createObjectURL(new Blob([conf], { type: 'text/plain' }));
+            dlPdbConf.download = pdbFilename;
+            dlPdbConf.style.display = '';
+        } else {
+            dlPdbConf.style.display = 'none';   // structure not loaded yet
+        }
+    }
 }
 
 // ── Generate CXC script ──
+// ── Confident-region structure trimming (PDB) for ChimeraX / PyMOL post-processing ──
+// keepMap[chain] = null (whole chain) | [minResnum,maxResnum]; chains absent are dropped. Residue numbers preserved.
+function trimPdb(pdbText, keepMap){
+  return pdbText.split('\n').filter(l=>{
+    const rec=l.substr(0,6);
+    if(!(rec.startsWith('ATOM')||rec.startsWith('HETATM')||rec.startsWith('ANISOU')||rec.startsWith('TER'))) return true;
+    const ch=l[21], rn=parseInt(l.substr(22,4),10);
+    if(rec.startsWith('TER')) return keepMap.hasOwnProperty(ch);
+    return keepMap.hasOwnProperty(ch) && (keepMap[ch]===null || (rn>=keepMap[ch][0]&&rn<=keepMap[ch][1]));
+  }).join('\n');
+}
+// Per-chain LIR contiguous span [min,max] for chains A/B (trims floppy termini, keeps interface domain intact).
+function confidentSpanAB(LIR_A, LIR_B){
+  const sp=s=>{ const a=[...(s||[])]; return a.length?[Math.min(...a),Math.max(...a)]:null; };
+  const m={}, sa=sp(LIR_A), sb=sp(LIR_B);
+  if(sa) m['A']=sa; if(sb) m['B']=sb; return m;
+}
+
 function generateCxc(row, pdbFilename, colors) {
     const sym1 = row['Symbol 1'] || 'Protein1';
     const sym2 = row['Symbol 2'] || 'Protein2';

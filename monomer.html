@@ -383,9 +383,13 @@
             <div class="download-row">
                 <a class="btn-download cxc" id="dl-script" download>&#8595; Download <span id="dl-script-ext">.cxc</span></a>
                 <a class="btn-download pdb" id="dl-pdb" download>&#8595; Download .pdb</a>
+                <a class="btn-download pdb" id="dl-pdb-conf" download style="background:white; color:#8e44ad; border-color:#8e44ad;">&#8595; .pdb (partial)</a>
                 <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy to Clipboard</button>
             </div>
-            <div class="info-box" style="margin-top:1rem;">Place the script and .pdb files in the same folder, then open the script in ChimeraX or PyMOL.</div>
+            <div style="font-size:0.72rem; color:#999; margin-top:0.5rem; line-height:1.45;">
+                <b>.pdb</b> = full length (surfaces include the floppy N/C-terminal tails). &nbsp;<b style="color:#8e44ad;">.pdb (partial)</b> = trimmed to the LIR span (first&nbsp;&rarr;&nbsp;last interacting residue across the region pairs) — clean surfaces for post-processing; residue numbers preserved so the script still colors correctly. Download <b>one</b> structure file.
+            </div>
+            <div class="info-box" style="margin-top:1rem;">Place the script and .pdb file in the same folder, then open the script in ChimeraX or PyMOL.</div>
         </div>
 
         <!-- Per-Residue pLDDT & Intra-chain LIS -->
@@ -2221,6 +2225,18 @@ function drawMonoChart(container, arr, n, yLabel, title, autoScale) {
     ctx.restore();
 }
 
+// ── Partial-structure trimming (PDB) for ChimeraX / PyMOL post-processing ──
+// keepMap[chain] = null (whole chain) | [minResnum,maxResnum]; residue numbers preserved.
+function trimPdb(pdbText, keepMap){
+  return pdbText.split('\n').filter(l=>{
+    const rec=l.substr(0,6);
+    if(!(rec.startsWith('ATOM')||rec.startsWith('HETATM')||rec.startsWith('ANISOU')||rec.startsWith('TER'))) return true;
+    const ch=l[21], rn=parseInt(l.substr(22,4),10);
+    if(rec.startsWith('TER')) return keepMap.hasOwnProperty(ch);
+    return keepMap.hasOwnProperty(ch) && (keepMap[ch]===null || (rn>=keepMap[ch][0]&&rn<=keepMap[ch][1]));
+  }).join('\n');
+}
+
 function generateAndShowScript(validRegions) {
     const paeCut = document.getElementById('pae-cutoff')?.value || '12';
     const cbCut = document.getElementById('cb-cutoff')?.value || '8';
@@ -2351,6 +2367,21 @@ function generateAndShowScript(validRegions) {
     const dlPdb = document.getElementById('dl-pdb');
     dlPdb.href = URL.createObjectURL(new Blob([monPdbText], { type: 'text/plain' }));
     dlPdb.download = monPdbFilename;
+
+    // Partial structure: chain A trimmed to the LIR span across all region pairs (floppy termini removed).
+    const dlPdbConf = document.getElementById('dl-pdb-conf');
+    if (dlPdbConf) {
+        const all = [];
+        (monPairResults || []).forEach(v => { for (const r of v.lirI) all.push(r); for (const r of v.lirJ) all.push(r); });
+        if (all.length && monPdbText) {
+            const span = { A: [Math.min(...all), Math.max(...all)] };
+            dlPdbConf.href = URL.createObjectURL(new Blob([trimPdb(monPdbText, span)], { type: 'text/plain' }));
+            dlPdbConf.download = monPdbFilename;
+            dlPdbConf.style.display = '';
+        } else {
+            dlPdbConf.style.display = 'none';
+        }
+    }
 }
 
 function downloadCSV() {

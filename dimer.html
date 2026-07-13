@@ -383,10 +383,10 @@
 
             <div class="script-preview" id="script-preview"></div>
             <div style="display:flex; align-items:center; gap:14px; margin-bottom:0.7rem; font-size:0.82rem; color:#555; flex-wrap:wrap;">
-                <span style="font-weight:600;">Chains:</span>
+                <span style="font-weight:600;">Script view:</span>
                 <label style="cursor:pointer;"><input type="radio" name="exportScope" value="pair" checked onchange="setExportScope('pair')"> This pair only</label>
                 <label style="cursor:pointer;"><input type="radio" name="exportScope" value="all" onchange="setExportScope('all')"> All subunits</label>
-                <span style="color:#999; font-size:0.75rem;">(the selected pair is highlighted; other subunits shown in gray)</span>
+                <span style="color:#999; font-size:0.75rem;">(script only — the pair is highlighted; "All subunits" also shows the rest in gray. Downloads always include every subunit.)</span>
             </div>
             <div class="download-row">
                 <a class="btn-download cxc" id="dl-script" download>&#8595; Download <span id="dl-script-ext">.cxc</span></a>
@@ -398,8 +398,8 @@
                     <div style="font-size:0.72rem; color:#999; margin-top:0.3rem; line-height:1.35;">The whole chain(s). Surfaces will include the floppy N/C-terminal tails.</div>
                 </div>
                 <div style="flex:1; min-width:210px;" id="dl-cif-conf-wrap">
-                    <a class="btn-download cif" id="dl-cif-conf" download style="display:block; text-align:center;">&#8595; Structure — confident region</a>
-                    <div style="font-size:0.72rem; color:#999; margin-top:0.3rem; line-height:1.35;">Trimmed to each chain's LIR span (first&nbsp;&rarr;&nbsp;last interface residue). Clean surfaces for ChimeraX/PyMOL post-processing.</div>
+                    <a class="btn-download cif" id="dl-cif-conf" download style="display:block; text-align:center;">&#8595; Structure — partial</a>
+                    <div style="font-size:0.72rem; color:#999; margin-top:0.3rem; line-height:1.35;">All subunits kept; the interface pair is trimmed to its LIR span (first&nbsp;&rarr;&nbsp;last interface residue) — clean surfaces for post-processing. Residue numbers preserved.</div>
                 </div>
             </div>
             <div class="info-box" style="margin-top:1rem;">Download the script + <b>one</b> structure file into the same folder, then open the script in ChimeraX (.cxc) or PyMOL (.pml). Both structure files carry the original residue numbers, so the script's coloring works either way.</div>
@@ -3069,22 +3069,18 @@ function generateAndDisplayScript() {
     dlScript.download = `chain${v.ci}_chain${v.cj}_interface${scriptExt}`;
     document.getElementById('dl-script-ext').textContent = scriptExt;
 
-    // Structure downloads — full-length vs confident region, respecting the chain scope.
-    const scopeChains = exportScope === 'all' ? cifChains(dimerCifText) : [v.ci, v.cj];
-    const fullMap = {}; scopeChains.forEach(c => fullMap[c] = null);
+    // Structure downloads — always every subunit. Full = whole structure; Partial = the pair trimmed to its LIR span.
     const dlFull = document.getElementById('dl-cif-full');
     if (dlFull) {
-        dlFull.href = URL.createObjectURL(new Blob([trimCif(dimerCifText, fullMap)], { type: 'text/plain' }));
+        dlFull.href = URL.createObjectURL(new Blob([dimerCifText], { type: 'text/plain' }));
         dlFull.download = dimerCifFilename;
     }
-    const confWrap = document.getElementById('dl-cif-conf-wrap');
     const dlConf = document.getElementById('dl-cif-conf');
-    if (exportScope === 'pair' && dlConf) {                          // confident trim is defined per pair
-        dlConf.href = URL.createObjectURL(new Blob([trimCif(dimerCifText, confidentSpan(v))], { type: 'text/plain' }));
+    if (dlConf) {
+        const km = {}; cifChains(dimerCifText).forEach(c => km[c] = null);
+        const sp = confidentSpan(v); Object.keys(sp).forEach(c => km[c] = sp[c]);   // keep every subunit; trim only the pair's floppy termini
+        dlConf.href = URL.createObjectURL(new Blob([trimCif(dimerCifText, km)], { type: 'text/plain' }));
         dlConf.download = dimerCifFilename;
-        if (confWrap) confWrap.style.display = '';
-    } else if (confWrap) {
-        confWrap.style.display = 'none';                             // all-subunits → full length only
     }
 }
 
