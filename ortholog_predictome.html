@@ -409,13 +409,14 @@
 
             <div class="script-preview" id="script-preview"></div>
             <div class="download-row">
-                <a class="btn-download cxc" id="dl-script" download>&#8595; Download <span id="dl-script-ext">.cxc</span></a>
                 <a class="btn-download pdb" id="dl-pdb" target="_blank">&#8595; Full structure .pdb</a>
+                <a class="btn-download cxc" id="dl-script-full" download>&#8595; .cxc &middot; for full</a>
                 <a class="btn-download pdb" id="dl-pdb-conf" download style="background:white; color:#8e44ad; border-color:#8e44ad;">&#8595; Partial structure .pdb</a>
-                <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy to Clipboard</button>
+                <a class="btn-download cxc" id="dl-script-partial" download style="background:#8e44ad; border-color:#8e44ad;">&#8595; .cxc &middot; for partial</a>
+                <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy script</button>
             </div>
             <div style="font-size:0.72rem; color:#999; margin-top:0.5rem; line-height:1.45;">
-                <b>.pdb</b> = full length (surfaces include the floppy N/C-terminal tails). &nbsp;<b style="color:#8e44ad;">.pdb (partial)</b> = both chains trimmed to their LIR span (first&nbsp;&rarr;&nbsp;last interface residue) — clean surfaces for post-processing; residue numbers preserved so the script still colors correctly. Download <b>one</b> structure file.
+                <b>Full structure .pdb</b> = full length (surfaces include the floppy N/C-terminal tails). &nbsp;<b style="color:#8e44ad;">Partial structure .pdb</b> = both chains trimmed to exactly the LIR segments shown (Fill gaps / Min segment honored) — clean surfaces for post-processing; residue numbers preserved so the script still colors correctly. Download <b>one</b> structure file.
             </div>
             <div class="info-box" style="margin-top: 1rem;">
                 Download the structure file (.pdb) and the script, place both in the same folder. Double-click the script to launch the viewer automatically.
@@ -963,33 +964,7 @@ function updateScriptPreview() {
         clir_a: document.getElementById('color-clir-a').value,
         clir_b: document.getElementById('color-clir-b').value,
     };
-    const pdbFilename = flyParsed.pdbUrl ? flyParsed.pdbUrl.split('/').pop() : sym1 + '___' + sym2 + '.pdb';
-    const isPymol = scriptMode === 'pymol';
-    const visScript = isPymol ? generatePml(target, pdbFilename, colors) : generateCxc(target, pdbFilename, colors);
-    const scriptExt = isPymol ? '.pml' : '.cxc';
-    document.getElementById('script-preview').innerHTML = highlightCxc(visScript);
-    const scriptBlob = new Blob([visScript], { type: 'text/plain' });
-    const dlScript = document.getElementById('dl-script');
-    if (dlScript) {
-        dlScript.href = URL.createObjectURL(scriptBlob);
-        dlScript.download = sym1 + '_' + sym2 + '_' + (isAvg ? 'average' : 'rank' + flyCurrentRank) + '_interface' + scriptExt;
-    }
-    const extEl = document.getElementById('dl-script-ext');
-    if (extEl) extEl.textContent = scriptExt;
-
-    // Confident-region PDB: both chains trimmed to their LIR span (same filename → the script's `open` resolves either).
-    const dlPdbConf = document.getElementById('dl-pdb-conf');
-    if (dlPdbConf) {
-        const pdbText = (typeof flyPdbPerRank !== 'undefined' && flyPdbPerRank[flyCurrentRank]) || flyPdbText;
-        if (pdbText && (target._LIR_A || target._LIR_B)) {
-            const conf = trimPdb(pdbText, confidentSpanAB(target._LIR_A, target._LIR_B));
-            dlPdbConf.href = URL.createObjectURL(new Blob([conf], { type: 'text/plain' }));
-            dlPdbConf.download = pdbFilename;
-            dlPdbConf.style.display = '';
-        } else {
-            dlPdbConf.style.display = 'none';
-        }
-    }
+    orthoWireDownloads(target, colors);
 }
 let flyParsed = null;
 let flyChainSeqs = null;
@@ -1146,15 +1121,44 @@ function trimPdb(pdbText, keepMap){
   return pdbText.split('\n').filter(l=>{
     const rec=l.substr(0,6);
     if(!(rec.startsWith('ATOM')||rec.startsWith('HETATM')||rec.startsWith('ANISOU')||rec.startsWith('TER'))) return true;
-    const ch=l[21], rn=parseInt(l.substr(22,4),10);
+    const ch=l[21], rn=parseInt(l.substr(22,4),10), kr=keepMap[ch];
     if(rec.startsWith('TER')) return keepMap.hasOwnProperty(ch);
-    return keepMap.hasOwnProperty(ch) && (keepMap[ch]===null || (rn>=keepMap[ch][0]&&rn<=keepMap[ch][1]));
+    return keepMap.hasOwnProperty(ch) && (kr===null || (kr instanceof Set ? kr.has(rn) : (rn>=kr[0]&&rn<=kr[1])));
   }).join('\n');
 }
 function confidentSpanAB(LIR_A, LIR_B){
   const sp=s=>{ const a=[...(s||[])]; return a.length?[Math.min(...a),Math.max(...a)]:null; };
   const m={}, sa=sp(LIR_A), sb=sp(LIR_B);
   if(sa) m['A']=sa; if(sb) m['B']=sb; return m;
+}
+
+// Wire the 4 download buttons: full/partial scripts (each opens its matching structure) + full/partial PDB.
+function orthoWireDownloads(target, colors) {
+    const isPymol = scriptMode === 'pymol';
+    const scriptExt = isPymol ? '.pml' : '.cxc';
+    const sym1 = target['Symbol 1'] || '?', sym2 = target['Symbol 2'] || '?';
+    const isAvg = flyCurrentRank === 'avg';
+    const pdbFilename = flyParsed.pdbUrl ? flyParsed.pdbUrl.split('/').pop() : `${sym1}___${sym2}.pdb`;
+    const partialFilename = pdbFilename.replace(/(\.[^.]+)$/, '_partial$1');
+    const base = `${sym1}_${sym2}_${isAvg ? 'average' : 'rank' + flyCurrentRank}`;
+    const gen = fn => isPymol ? generatePml(target, fn, colors) : generateCxc(target, fn, colors);
+    const fullScript = gen(pdbFilename), partialScript = gen(partialFilename);
+    document.getElementById('script-preview').innerHTML = highlightCxc(fullScript);
+    const setBtn = (id, blob, name) => { const el = document.getElementById(id); if (!el) return; el.href = URL.createObjectURL(new Blob([blob], { type: 'text/plain' })); el.download = name; };
+    setBtn('dl-script-full', fullScript, base + '_full' + scriptExt);
+    setBtn('dl-script-partial', partialScript, base + '_partial' + scriptExt);
+    const dlPdb = document.getElementById('dl-pdb');
+    if (dlPdb) { if (flyParsed.pdbUrl) { dlPdb.href = flyParsed.pdbUrl; dlPdb.style.display = ''; } else dlPdb.style.display = 'none'; }
+    const dlPdbConf = document.getElementById('dl-pdb-conf');
+    if (dlPdbConf) {
+        const pdbText = (typeof flyPdbPerRank !== 'undefined' && flyPdbPerRank[flyCurrentRank]) || flyPdbText;
+        if (pdbText && (target._LIR_A || target._LIR_B)) {
+            const km = {};
+            [['A', target._LIR_A], ['B', target._LIR_B]].forEach(([c, raw]) => { const seg = raw ? fillGaps(filterSmallSegments(raw)) : null; km[c] = (seg && seg.size) ? seg : null; });
+            dlPdbConf.href = URL.createObjectURL(new Blob([trimPdb(pdbText, km)], { type: 'text/plain' }));
+            dlPdbConf.download = partialFilename; dlPdbConf.style.display = '';
+        } else dlPdbConf.style.display = 'none';
+    }
 }
 
 function generateCxc(row, pdbFilename, colors) {
@@ -1182,13 +1186,6 @@ function generateCxc(row, pdbFilename, colors) {
     const clirASpec = resSpec(cLIR_A_filtered, 'A');
     const clirBSpec = resSpec(cLIR_B_filtered, 'B');
 
-    // Title positions
-    const partA = `${sym1} (${lirAStr})`;
-    const partB = `${sym2} (${lirBStr})`;
-    const partC = `iLIS: ${iLIS}  ipTM: ${ipTM}`;
-    const xposB = (0.03 + partA.length * 0.009 + 0.015).toFixed(3);
-    const xposC = (parseFloat(xposB) + partB.length * 0.009 + 0.015).toFixed(3);
-
     // Partial protein info
     const infoA = flyDomainInfo?.A;
     const infoB = flyDomainInfo?.B;
@@ -1208,6 +1205,7 @@ function generateCxc(row, pdbFilename, colors) {
         `set bgColor white`,
         `graphics silhouettes true`,
         `lighting soft`,
+        `hide pseudobonds`,
     ];
     // Color mode applies independently of showComplete
     if (cxcColorMode === 'plddt') {
@@ -1228,16 +1226,37 @@ function generateCxc(row, pdbFilename, colors) {
         `hide atoms`,
         `hide cartoons`,
         ``,
-        `# \u2500\u2500 Title \u2500\u2500`,
-        `2dlabels create title text "${partA}" xpos 0.03 ypos 0.95 size 16 color ${colors.clir_a} bold true`,
-        `2dlabels create title2 text "${partB}" xpos ${xposB} ypos 0.95 size 16 color ${colors.clir_b} bold true`,
-        `2dlabels create title3 text "${partC}" xpos ${xposC} ypos 0.95 size 16 color black bold true`,
+        `# \u2500\u2500 Title: chain-boundary row + positive-PPI score (mirrors universal.html) \u2500\u2500`,
     );
+    // Proportional per-glyph advance (fraction of window width; calibrated for size 12, scale by k).
+    const glyphW = (ch, k) => ((ch === '/' ? 0.0034 : (ch === '.' || ch === ' ') ? 0.0030
+        : (ch === '(' || ch === ')' || ch === '-') ? 0.0038 : (ch >= '0' && ch <= '9') ? 0.0052
+        : (ch >= 'a' && ch <= 'z') ? 0.0056 : 0.0064) * k);
+    const textW = (t, k) => [...t].reduce((a, ch) => a + glyphW(ch, k), 0);
+    // Chain-boundary row (each protein in its own colour + LIR span)
+    const bndA = `${sym1} (${lirAStr})`, bndB = `${sym2} (${lirBStr})`;
+    lines.push(`2dlabels create ttA text "${bndA}" xpos 0.0300 ypos 0.96 size 13 color ${colors.clir_a} bold true`);
+    lines.push(`2dlabels create ttB text "${bndB}" xpos ${(0.03 + textW(bndA, 13 / 12) + 0.012).toFixed(4)} ypos 0.96 size 13 color ${colors.clir_b} bold true`);
+    // Positive-PPI score row \u2014 shown only when this pair passes the 10% FPR threshold (single-model iLIS >= 0.223)
+    const _ilisN = parseFloat(iLIS), _iptmN = parseFloat(ipTM);
+    let _partialY = 0.915;
+    if (isFinite(_ilisN) && _ilisN >= 0.223) {
+        lines.push(`2dlabels create ttscoreh text "Positive PPI  (iLIS / ipTM)" xpos 0.0300 ypos 0.915 size 12 color black bold true`);
+        const sc = ` (${_ilisN.toFixed(3)} / ${isFinite(_iptmN) ? _iptmN.toFixed(2) : ipTM})`;
+        const segs = [ { t: sym1, col: colors.clir_a }, { t: '/', col: 'black' }, { t: sym2, col: colors.clir_b }, { t: sc, col: 'black' } ];
+        let _xx = 0.03;
+        segs.forEach((s, si) => {
+            lines.push(`2dlabels create ttp0_${si} text "${s.t}" xpos ${_xx.toFixed(4)} ypos 0.887 size 12 color ${s.col} bold true`);
+            _xx += textW(s.t, 1) + 0.0012;
+        });
+        _partialY = 0.859;
+    }
+    // Partial-protein note (below the score row when present)
     const partialParts = [];
     if (infoA?.isPartial) partialParts.push(`${sym1}: aa ${infoA.startInFull}-${infoA.endInFull} of ${infoA.fullLength}`);
     if (infoB?.isPartial) partialParts.push(`${sym2}: aa ${infoB.startInFull}-${infoB.endInFull} of ${infoB.fullLength}`);
     if (partialParts.length > 0) {
-        lines.push(`2dlabels create subtitle text "Partial: ${partialParts.join(', ')}" xpos 0.03 ypos 0.92 size 11 color gray bold false`);
+        lines.push(`2dlabels create subtitle text "Partial: ${partialParts.join(', ')}" xpos 0.03 ypos ${_partialY.toFixed(3)} size 11 color gray bold false`);
     }
 
     // showComplete controls visibility only
@@ -1849,11 +1868,6 @@ async function loadRank(rankNum) {
         clir_b: document.getElementById('color-clir-b').value,
     };
 
-    const pdbFilename = flyParsed.pdbUrl ? flyParsed.pdbUrl.split('/').pop() : `${sym1}___${sym2}.pdb`;
-    const isPymol = scriptMode === 'pymol';
-    const visScript = isPymol ? generatePml(target, pdbFilename, colors) : generateCxc(target, pdbFilename, colors);
-    const scriptExt = isPymol ? '.pml' : '.cxc';
-
     const titleLabel = isAvg ? 'Average' : `Rank ${rankNum}`;
     document.getElementById('result-title').textContent = `${sym1} \u2014 ${sym2} (${titleLabel})`;
     // (Model label now shown by the per-rank selector chips via renderModelSelectors, called below.)
@@ -1862,21 +1876,7 @@ async function loadRank(rankNum) {
         tr.classList.toggle('selected', tr.cells[0].textContent.trim() === String(isAvg ? 'Avg' : rankNum));
     });
 
-    document.getElementById('script-preview').innerHTML = highlightCxc(visScript);
-
-    const scriptBlob = new Blob([visScript], { type: 'text/plain' });
-    const dlScript = document.getElementById('dl-script');
-    dlScript.href = URL.createObjectURL(scriptBlob);
-    dlScript.download = `${sym1}_${sym2}_${isAvg ? 'average' : 'rank' + rankNum}_interface${scriptExt}`;
-    document.getElementById('dl-script-ext').textContent = scriptExt;
-
-    const dlPdb = document.getElementById('dl-pdb');
-    if (flyParsed.pdbUrl) {
-        dlPdb.href = flyParsed.pdbUrl;
-        dlPdb.style.display = '';
-    } else {
-        dlPdb.style.display = 'none';
-    }
+    orthoWireDownloads(target, colors);
 
     buildSeqViewer(target, sym1, sym2, colors, flyChainSeqs);
     buildConnectionDiagram(target, sym1, sym2, colors, flyPdbText);
