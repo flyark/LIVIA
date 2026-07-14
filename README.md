@@ -28,7 +28,6 @@ Browser-based tools for analyzing protein-protein interactions from structure pr
 - **CSV download** — full metrics with LIR/cLIR residue indices, LIpLDDT/cLIpLDDT per chain
 - **Interactome clustering (cLIP)** — cluster a bait's partners by shared contact residues; per-partner interface maps, searchable sequence viewer, and AlphaFold DB structure resolution
 - **Network building (PPI Network)** — Leiden communities from `lis.py` output, computed in-browser (Pyodide + python-igraph)
-- **Collaborator workbooks** — cLIP and PPI Network also read `.xlsx` (e.g. Total Predictions / Positive PPI sheets), not just CSV/ZIP
 
 ## Pages
 
