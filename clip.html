@@ -255,6 +255,7 @@
         <label style="margin:0">Y <select id="scatter-y"></select></label>
         <label style="margin:0">X <select id="scatter-x"></select></label>
         <label style="margin:0">show <select id="scatter-points"><option value="all">every prediction</option><option value="rank1">rank-1 per pair</option></select></label>
+        <label style="margin:0; position:relative">find <input id="scatter-search" type="search" list="scatter-list" placeholder="🔍 partner…" autocomplete="off" spellcheck="false" style="font:inherit; font-size:.85rem; padding:2px 8px; width:130px; border:1px solid #ccd6e0; border-radius:6px"><datalist id="scatter-list"></datalist></label>
         <span id="scatter-rho" class="muted" style="margin-left:.5rem; font-weight:600; color:#445"></span>
         <span class="muted">gray = below cutoff / unclustered · colored = clustered. <b>rank</b> = global rank (1..N) by the Y-axis metric across all predictions.</span>
       </div>
@@ -262,7 +263,7 @@
     </div>
 
     <div class="card">
-      <h2>Partners <button id="export" class="ghost" style="float:right">⬇ Download report HTML</button></h2>
+      <h2>Partners <input id="ptable-search" type="search" list="ptable-list" placeholder="🔍 filter partner…" autocomplete="off" spellcheck="false" style="font:inherit; font-size:.8rem; font-weight:400; padding:2px 8px; width:150px; border:1px solid #ccd6e0; border-radius:6px; vertical-align:middle"><span id="ptable-count" class="muted" style="font-size:.72rem; font-weight:400; margin-left:.4rem"></span> <button id="export" class="ghost" style="float:right">⬇ Download report HTML</button><datalist id="ptable-list"></datalist></h2>
       <div style="max-height:360px; overflow:auto"><table id="ptable"></table></div>
     </div>
   </div>
@@ -312,6 +313,8 @@ let XLSX_IDS = {};   // symbol -> ids stated by a workbook (Protein_*/Uniprot_*)
 let FORCE_ACC = '';  // user-supplied UniProt accession; overrides name-based resolution for the query
 let ACTIVE = null;      // active cluster ids (shared: 3D viewer + frequency plot)
 let TABLE_SORT = null;  // {label, dir} for the partners table
+let TABLE_FILTER = '';  // partner-name filter for the partners table (substring, case-insensitive)
+let SCATTER_HL = '';    // partner name highlighted in the interaction scatter plot ('' = none)
 const CHIP_CONTAINERS = ['cluster-chips', 'freq-chips', 'fp-chips'];
 
 const $ = (id) => document.getElementById(id);
@@ -809,7 +812,8 @@ function render(A){
   const n = pipe.fingerprints.length, k = cl.optimalK, plen = pipe.proteinLen;
   const uniqueP = new Set(pipe.rows.map(r => r.Symbol_2)).size;
   ACTIVE = new Set(Array.from({length:k},(_,i)=>i+1));
-  TABLE_SORT = null;
+  TABLE_SORT = null; TABLE_FILTER = ''; SCATTER_HL = '';
+  { const a=$('ptable-search'), b=$('scatter-search'); if(a){a.value='';a.classList.remove('nf');} if(b){b.value='';b.classList.remove('nf');} }
   $('report').classList.remove('hidden');
   $('title').textContent = `${gene} — interactome (${uniqueP} partners, ${n} predictions, ${k} clusters)`;
   const _norm = pipe.constructNorm || {};
@@ -822,6 +826,14 @@ function render(A){
   CHIP_CONTAINERS.forEach(id => renderChipBar(id, A));
   $('scatter-x').onchange = $('scatter-y').onchange = () => renderScatter(LAST);
   { const sp = $('scatter-points'); if (sp) sp.onchange = () => renderScatter(LAST); }
+  { const ps = $('ptable-search'); if (ps) ps.oninput = () => { TABLE_FILTER = ps.value.trim(); if (LAST) renderTable(LAST); }; }
+  { const ss = $('scatter-search');
+    if (ss){
+      const apply = () => { SCATTER_HL = ss.value.trim(); if (LAST) renderScatter(LAST); };
+      ss.onchange = apply;                                                   // datalist pick / commit
+      ss.onkeydown = (e) => { if (e.key==='Enter'){ e.preventDefault(); apply(); } };
+      ss.oninput = () => { if (ss.value===''){ SCATTER_HL=''; ss.classList.remove('nf'); if (LAST) renderScatter(LAST); } };
+    } }
   $('svg-freq').onclick = () => { if (LAST) downloadSVG(`clip_${LAST.gene}_frequency.svg`, svgFreq(LAST, svgOpts())); };
   $('svg-heatmap').onclick = () => { if (LAST) downloadSVG(`clip_${LAST.gene}_fingerprint.svg`, svgHeatmap(LAST, heatOpts())); };
   $('commonality').onchange = () => { COMMONALITY = +$('commonality').value; if (LAST) recolor3D(LAST); };
@@ -1433,7 +1445,24 @@ function renderScatter(A){
   for (const lab in traces){ for (let i=0;i<traces[lab].x.length;i++){ _cx.push(traces[lab].x[i]); _cy.push(traces[lab].y[i]); } }
   const _rho = spearman(_cx, _cy), _r = pearson(_cx, _cy);
   { const el = $('scatter-rho'); if (el) el.textContent = (isNaN(_r) ? '' : `Pearson r = ${_r.toFixed(3)} \u00b7 `) + (isNaN(_rho) ? '' : `Spearman \u03c1 = ${_rho.toFixed(3)}`) + ` (n=${_cx.length})`; }
-  Plotly.newPlot('scatter', [bgTrace, ...clTraces], layout, {responsive:true, displaylogo:false});
+  // Autocomplete list of partner names present in the plot (unique, sorted)
+  const partnerNames = [...new Set(allPreds.map(p=>String(p.Symbol_2)))];
+  { const dl=$('scatter-list'); if(dl) dl.innerHTML = partnerNames.slice().sort((a,b)=>a.toLowerCase()<b.toLowerCase()?-1:a.toLowerCase()>b.toLowerCase()?1:0).map(n=>`<option value="${n.replace(/"/g,'&quot;')}"></option>`).join(''); }
+  // Highlight the searched partner: ring every one of its plotted points (all its ranks) and label them
+  const extra=[];
+  if (SCATTER_HL){
+    const q=SCATTER_HL.toLowerCase();
+    const canon = partnerNames.find(n=>n.toLowerCase()===q) || partnerNames.find(n=>n.toLowerCase().startsWith(q)) || partnerNames.find(n=>n.toLowerCase().includes(q));
+    const si=$('scatter-search');
+    if (canon){
+      if(si) si.classList.remove('nf');
+      const hip = allPreds.filter(p=>String(p.Symbol_2)===canon);
+      extra.push({ x:hip.map(p=>val(p,xKey)), y:hip.map(p=>val(p,yKey)), text:hip.map(rl), mode:'markers+text', type:'scatter',
+        name:'\u2605 '+canon, legendrank:-1, textposition:'top center', textfont:{size:11,color:'#111'},
+        marker:{ size:17, color:'rgba(0,0,0,0)', symbol:'circle-open', line:{width:3, color:'#111'} }, hoverinfo:'skip' });
+    } else if(si){ si.classList.add('nf'); }
+  }
+  Plotly.newPlot('scatter', [bgTrace, ...clTraces, ...extra], layout, {responsive:true, displaylogo:false});
 }
 
 function renderTable(A){
@@ -1456,6 +1485,13 @@ function renderTable(A){
   if (has('cLIR_A')||has('cLIR_B')) cols.push({ l:'cLIR (i/j)', fmt:combo('cLIR_A','cLIR_B'), sort:(r)=>(+r.cLIR_A||0)+(+r.cLIR_B||0) });
 
   let items = pipe.rows.map((r,i)=>({ r, lab: cl.labels[i] }));   // keep row↔cluster pairing
+  // Autocomplete list of partner names (unique, sorted)
+  { const dl = $('ptable-list');
+    if (dl){ const names=[...new Set(pipe.rows.map(r=>String(r.Symbol_2)))].sort((a,b)=>a.toLowerCase()<b.toLowerCase()?-1:a.toLowerCase()>b.toLowerCase()?1:0);
+      dl.innerHTML = names.map(n=>`<option value="${n.replace(/"/g,'&quot;')}"></option>`).join(''); } }
+  const _total = items.length;
+  if (TABLE_FILTER){ const q=TABLE_FILTER.toLowerCase(); items = items.filter(it=>String(it.r.Symbol_2).toLowerCase().includes(q)); }
+  { const cnt=$('ptable-count'); if(cnt) cnt.textContent = TABLE_FILTER ? `${items.length} / ${_total}` : ''; }
   if (TABLE_SORT){
     const col = cols.find(c=>c.l===TABLE_SORT.label);
     if (col){ const d = TABLE_SORT.dir==='desc'?-1:1;
