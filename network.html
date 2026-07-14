@@ -45,6 +45,11 @@
   #nodeinfo .meta{ color:var(--mut); margin:3px 0 9px; }
   #nodeinfo button{ width:100%; padding:7px; font-size:13px; background:var(--accent); color:#fff; border:0; border-radius:7px; font-weight:600; cursor:pointer; }
   #nodeinfo .x{ position:absolute; top:6px; right:9px; color:var(--mut); cursor:pointer; font-size:15px; }
+  #netsearch{ position:absolute; top:12px; left:12px; z-index:5; background:#fff; border:1px solid var(--line); border-radius:9px; box-shadow:0 4px 14px rgba(20,40,60,.12); padding:6px 8px; display:flex; align-items:center; gap:6px; }
+  #netsearch input{ height:30px; box-sizing:border-box; padding:3px 9px; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:13px; width:186px; outline:none; color:var(--ink); }
+  #netsearch input:focus{ border-color:var(--accent); }
+  #netsearch input.nf{ border-color:#e64a19; background:#fff5f2; }
+  #netsearch .clr{ color:var(--mut); cursor:pointer; font-size:15px; user-select:none; padding:0 2px; }
   #modules{ max-height:720px; overflow:auto; }
   #modules h3{ margin:0 0 10px; font-size:15px; }
   .mod{ border:1px solid var(--line); border-radius:8px; padding:9px 11px; margin-bottom:8px; }
@@ -164,6 +169,7 @@
   <div class="main">
     <div class="netwrap">
       <div id="net"></div>
+      <div id="netsearch" class="hidden"><input id="net-search-input" type="search" list="net-node-list" placeholder="🔍 find protein…" autocomplete="off" spellcheck="false"><span class="clr" id="net-search-clr" title="clear">×</span><datalist id="net-node-list"></datalist></div>
       <div id="nodeinfo" class="hidden"><span class="x" id="ni-x">×</span><div class="nm" id="ni-name"></div><div class="meta" id="ni-meta"></div><button id="ni-clip">Open in cLIP →</button><button id="ni-layer" style="margin-top:6px; background:#eef3f8; color:var(--accent)">⊕ Layers from here</button></div>
     </div>
     <div id="modules"><h3>Modules</h3><div class="hint">Build a network to see communities.</div></div>
@@ -187,6 +193,7 @@ let FASTA_RAW = '';                 // concatenated FASTA text (paired or per-sy
 let NAME_OF = {};                  // resolved node id -> Set(original prediction names)  (for the hand-off filter)
 let FILECOUNT = 0, PYODIDE = null, NETWORK = null, NODES = null, EDGES = null, LAST = null;
 let META = null, META_COL = null, COMMCOLORS = {}, SUBSET = null, LAYER_ROOT = null;   // SUBSET: node ids to keep (tab 3); LAYER_ROOT: BFS-shell root or null
+let NET_HL = null;                 // node id currently highlighted by the search box (null = none)
 
 // ---------- helpers ----------
 function commColor(i){
@@ -334,29 +341,37 @@ async function convertViaMyGene(){   // node names/IDs -> official symbols: myge
   const ids = [...new Set([...RAWPAIRS.values()].flatMap(r=>[r.s1, r.s2]).filter(Boolean))];
   const baseOf = new Map(ids.map(id=>[id, id.replace(/_\d+_\d+$/,'')]));   // drop fragment suffix (BASE_start_end)
   const bases = [...new Set(baseOf.values())], species = $('mg-species').value, sym = new Map();
-  try {
-    for (let i=0;i<bases.length;i+=800){                                     // 1) mygene.info
+  const warn = [];                                                          // each source is best-effort: one being down must not abort the other
+  try {                                                                     // 1) mygene.info (symbol/alias/entrez/FBgn/accession)
+    for (let i=0;i<bases.length;i+=800){
       const chunk = bases.slice(i, i+800); setStatus(`Converting (mygene.info)… ${Math.min(i+800,bases.length)}/${bases.length}`);
       const body = new URLSearchParams(); body.set('q', chunk.join(',')); body.set('scopes','symbol,alias,retired,entrezgene,flybase,uniprot,ensembl.protein,refseq,accession'); body.set('fields','symbol'); if(species) body.set('species', species);
-      const res = await (await fetch('https://mygene.info/v3/query', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body })).json();
+      const r = await fetch('https://mygene.info/v3/query', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+      if (!r.ok) throw new Error('HTTP '+r.status);                          // a 502/503 has no CORS headers → surfaces as "Failed to fetch"; treat as unavailable
+      const res = await r.json();
       for (const h of res){ if(!h.notfound && h.symbol && !sym.has(h.query)) sym.set(h.query, h.symbol); }
     }
-    const missing = bases.filter(b=>!sym.has(b));                            // 2) UniProt: entry names (GENE_YEAST/GENE_HUMAN) + accessions
+  } catch(e){ warn.push('mygene.info unavailable ('+(e.message||e)+')'); }
+  try {                                                                     // 2) UniProt fallback for whatever mygene missed: entry names (GENE_YEAST) + accessions
+    const missing = bases.filter(b=>!sym.has(b));
     for (let i=0;i<missing.length;i+=80){
       const chunk = missing.slice(i, i+80); setStatus(`Converting (UniProt)… ${Math.min(i+80,missing.length)}/${missing.length}`);
       const accRE = /^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})$/;   // UniProt accession vs entry name
       const q = chunk.map(x=>accRE.test(x) ? `accession:${x}` : `id:${x}`).join(' OR ');
-      const res = await (await fetch(`https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent('('+q+')')}&fields=id,accession,gene_primary&format=json&size=500`)).json();
-      const m = {}; for (const r of (res.results||[])){ const g=r.genes&&r.genes[0]&&r.genes[0].geneName&&r.genes[0].geneName.value; if(g){ m[r.uniProtkbId]=g; m[r.primaryAccession]=g; } }
+      const r = await fetch(`https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent('('+q+')')}&fields=id,accession,gene_primary&format=json&size=500`);
+      if (!r.ok) throw new Error('HTTP '+r.status);
+      const res = await r.json();
+      const m = {}; for (const rr of (res.results||[])){ const g=rr.genes&&rr.genes[0]&&rr.genes[0].geneName&&rr.genes[0].geneName.value; if(g){ m[rr.uniProtkbId]=g; m[rr.primaryAccession]=g; } }
       for (const b of chunk){ if(m[b]) sym.set(b, m[b]); }
     }
-  } catch(e){ setStatus('Conversion error: '+(e.message||e)); return; }
+  } catch(e){ warn.push('UniProt unavailable ('+(e.message||e)+')'); }
+  const note = warn.length ? ' · ' + warn.join(' · ') : '';
   const lookup = new Map();
   for (const id of ids){ const s = sym.get(baseOf.get(id)); if(s) lookup.set(id, { input:id, symbol:s }); }
-  if (!lookup.size){ setStatus('No names could be converted — check the species / ID format.'); return; }
+  if (!lookup.size){ setStatus(`No names converted — keeping raw IDs.${warn.length ? ' ' + warn.join('; ') : ' Check the species / ID format.'} You can still build the network.`); return; }
   META = { mode:'lookup', lookup, cols:['input','symbol'], _raw:null }; META_COL='symbol';
   $('labelby').innerHTML = META.cols.map(c=>`<option value="${c}">${c}</option>`).join(''); $('labelby').value='symbol'; $('labelby-wrap').classList.remove('hidden');
-  setStatus(`Converted ${lookup.size}/${ids.length} names → symbols.`);
+  setStatus(`Converted ${lookup.size}/${ids.length} names → symbols.${note}`);
   updateLoaded(); rebuildIfBuilt();
 }
 function maybeAutoConvert(){   // auto-run name→symbol conversion when loaded names look like IDs (FBpp/FBgn/entry name/accession/entrez)
@@ -442,6 +457,7 @@ async function build(){
     $('stats').innerHTML = [['proteins',nodes.length],['edges',edges.length],['communities',nComm],['iLIS &ge;',cut.toFixed(3)],['Leiden',Math.round(performance.now()-t0)+' ms'], dup?['duplicate pairs',dup+' → max iLIS']:null, SUBSET?['subset','on']:null]
       .filter(Boolean).map(([k,v])=>`<span class="s">${k}<br><b>${v}</b></span>`).join('');
     $('display').classList.remove('hidden'); $('expsvg').classList.remove('hidden'); $('expsvgall').classList.remove('hidden'); $('expcsv').classList.remove('hidden'); $('expcyto').classList.remove('hidden');
+    populateNetSearch();
     setStatus('');
   } catch(e){ setStatus('Error: '+(e.message||e)); }
   $('build').disabled = false;
@@ -476,7 +492,7 @@ function render({ nodes, edges, membership, degree }){
     interaction:{ hover:true, tooltipDelay:120 } };
   NETWORK = new vis.Network($('net'), { nodes:NODES, edges:EDGES }, opts);
   NETWORK.on('click', p=>{ if(p.nodes && p.nodes.length) showNodeInfo(p.nodes[0]); else hideNodeInfo(); });
-  LAYER_ROOT=null; { const lb=$('layerbar'); if(lb) lb.classList.add('hidden'); }
+  LAYER_ROOT=null; NET_HL=null; { const lb=$('layerbar'); if(lb) lb.classList.add('hidden'); }
 }
 function restyle(){
   if (!LAST || !NODES) return;
@@ -525,6 +541,48 @@ function showNodeInfo(sym){
   $('nodeinfo').classList.remove('hidden');
 }
 function hideNodeInfo(){ $('nodeinfo').classList.add('hidden'); }
+
+// ---------- node search (locate + highlight a protein in the graph) ----------
+function populateNetSearch(){
+  const dl=$('net-node-list'); if(!dl||!LAST) return;
+  dl.innerHTML = LAST.nodes.slice().sort((a,b)=>a.toLowerCase()<b.toLowerCase()?-1:a.toLowerCase()>b.toLowerCase()?1:0)
+    .map(n=>`<option value="${String(n).replace(/"/g,'&quot;')}"></option>`).join('');
+  $('netsearch').classList.remove('hidden');
+}
+function netHighlightNode(id){
+  if(!NODES) return;
+  if(NET_HL && NET_HL!==id) restyle();          // revert the previous highlight (restyle recomputes every node from the controls)
+  NET_HL=id;
+  const cur=NODES.get(id); if(!cur) return;
+  const base=cur.size||10;
+  NODES.update({ id, borderWidth:4, color:{ background:(cur.color&&cur.color.background)||'#2471A3', border:'#e67e22' }, size:base*1.7, label:nodeLabel(id) });
+}
+function netClearHighlight(){ if(NET_HL){ NET_HL=null; if(NODES) restyle(); } }
+function netFocusNode(id){
+  netHighlightNode(id);
+  try{ NETWORK.selectNodes([id]); }catch(e){}
+  try{ NETWORK.focus(id,{ scale:1.5, locked:false, animation:{ duration:650, easingFunction:'easeInOutQuad' } }); }catch(e){}
+  showNodeInfo(id);
+}
+function netFind(q){
+  const inp=$('net-search-input');
+  q=(q||'').trim();
+  if(!q){ if(inp) inp.classList.remove('nf'); netClearHighlight(); return; }
+  if(!LAST || !NETWORK) return;
+  const lc=q.toLowerCase();
+  const id = LAST.nodes.find(n=>n.toLowerCase()===lc)          // exact
+          || LAST.nodes.find(n=>n.toLowerCase().startsWith(lc)) // prefix
+          || LAST.nodes.find(n=>n.toLowerCase().includes(lc));  // substring
+  if(!id){ if(inp) inp.classList.add('nf'); return; }
+  if(inp) inp.classList.remove('nf');
+  if(NODES && !NODES.get(id)){                                  // hidden by the min-edges filter → reveal, then focus once relaid out
+    $('mindeg').value=1; $('mindegv').value=1;
+    if(LAYER_ROOT) layerLayout(LAYER_ROOT); else applyLayout($('layout').value);
+    setTimeout(()=>{ if(NODES && NODES.get(id)) netFocusNode(id); }, 400);
+    return;
+  }
+  netFocusNode(id);
+}
 function openInClip(nodeId){
   const names = NAME_OF[nodeId] || new Set([nodeId]);   // original prediction names contributing this node
   let header=null; const keep=[];
@@ -742,6 +800,12 @@ $('expset').addEventListener('click', exportSettings);
 $('impset-btn').addEventListener('click', ()=>$('impset').click());
 $('impset').addEventListener('change', e=>{ if(e.target.files[0]) importSettings(e.target.files[0]); });
 $('ni-x').addEventListener('click', hideNodeInfo);
+{ const si=$('net-search-input');
+  si.addEventListener('change', ()=>netFind(si.value));                                   // datalist pick / commit
+  si.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); netFind(si.value); } });
+  si.addEventListener('input', ()=>{ if(si.value===''){ si.classList.remove('nf'); netClearHighlight(); } });
+  $('net-search-clr').addEventListener('click', ()=>{ si.value=''; si.classList.remove('nf'); netClearHighlight(); si.focus(); });
+}
 $('tmpl').addEventListener('click', e=>{ e.preventDefault(); downloadTemplate(); });
 $('subtmpl').addEventListener('click', e=>{ e.preventDefault(); downloadSubset(); });
 $('subclear').addEventListener('click', e=>{ e.preventDefault(); clearSubset(); });
