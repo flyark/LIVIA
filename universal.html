@@ -195,6 +195,7 @@
                 <h2 id="result-title" style="margin-bottom:0;">Interaction Analysis Summary</h2>
                 <a style="font-size:0.8rem; color:#2471A3; cursor:pointer; text-decoration:none; border-bottom:1px dashed #2471A3;" onclick="downloadCSV()">&#8595; Download CSV</a>
             </div>
+            <div id="interactome-summary" style="display:none; font-size:0.85rem; color:#334; margin:0.2rem 0 0.1rem;"></div>
             <div class="info-box">Click a row to switch models. This updates all visualizations and the script below.</div>
             <input type="hidden" id="seed-select" value="0">
             <div style="overflow-x:auto;">
@@ -3213,6 +3214,44 @@ function iptmCell(val) {
     return `<td>${v}</td>`;
 }
 
+// Whole-interactome summary over the POSITIVE chain pairs (iLIS >= posCut): mean ± std of the
+// pairwise iLIS and of the per-pair ipTM (chain_pair_iptm). Pairs are deduped (A-B == B-A, keep max iLIS).
+// Meaningful only for multi-subunit complexes — callers gate on n >= 2.
+function interactomeSummary(results, posCut) {
+    const map = {};
+    for (const k in (results || {})) {
+        const v = results[k];
+        if (v.ci == null || v.cj == null || v.iLIS == null) continue;
+        const key = [v.ci, v.cj].sort().join('|');
+        if (!map[key] || v.iLIS > map[key].iLIS) map[key] = { iLIS: +v.iLIS, ipTM: +v.ipTM || 0 };
+    }
+    const pos = Object.values(map).filter(p => p.iLIS >= posCut);
+    const n = pos.length;
+    if (!n) return { n: 0 };
+    const mean = a => a.reduce((s, x) => s + x, 0) / a.length;
+    const std = (a, m) => a.length > 1 ? Math.sqrt(a.reduce((s, x) => s + (x - m) * (x - m), 0) / (a.length - 1)) : 0;
+    const il = pos.map(p => p.iLIS), ip = pos.map(p => p.ipTM);
+    const mIL = mean(il), mIP = mean(ip);
+    return { n, meanILIS: mIL, stdILIS: std(il, mIL), meanIptm: mIP, stdIptm: std(ip, mIP) };
+}
+
+// Whole-interactome iLIS/ipTM summary line — follows the currently selected model (or the job
+// average when the "avg" view is active). Recomputed on every model switch via selectRow.
+function updateInteractomeSummary() {
+    const el = document.getElementById('interactome-summary');
+    if (!el) return;
+    const seedVal = document.getElementById('seed-select')?.value ?? 'avg';
+    const isAvg = (seedVal === 'avg');
+    const posCut = isAvg ? 0.073 : 0.223;                         // 10% FPR threshold (avg vs single-model)
+    const s = interactomeSummary(uniState.results || uniState.avgResults, posCut);
+    if (!s.n || s.n < 2) { el.style.display = 'none'; return; }   // only meaningful for multi-subunit complexes
+    const scope = isAvg ? 'model average' : (uniState.modelData?.[parseInt(seedVal)]?.label || ('model ' + seedVal));
+    el.style.display = '';
+    el.innerHTML = `<b>Positive interactions</b> (${scope}, n = ${s.n}) &nbsp;&mdash;&nbsp; `
+        + `mean iLIS <b>${s.meanILIS.toFixed(3)} &plusmn; ${s.stdILIS.toFixed(3)}</b>`
+        + ` &nbsp;&middot;&nbsp; mean ipTM <b>${s.meanIptm.toFixed(2)} &plusmn; ${s.stdIptm.toFixed(2)}</b>`;
+}
+
 function displayResults(results, jobName) {
     document.getElementById('result-title').textContent = jobName;
     // Update iPTM column header: append asterisk + tooltip when value is iPTM+pTM
@@ -3352,6 +3391,7 @@ function selectRow(pairKey, modelIdx, trEl) {
     // Per-model selector chips (header strips on every single-model card) are refreshed
     // inside selectPair → renderModelSelectors, which reads #seed-select + currentPairKey.
     selectPair(pairKey);
+    updateInteractomeSummary();   // top summary line tracks the selected model
 }
 
 // Click handler for a model-selector chip: switch the active model for the CURRENT pair.
@@ -3383,18 +3423,47 @@ function renderModelSelectors() {
     }
     const seedVal = String(document.getElementById('seed-select')?.value ?? '0');
 
+    // Multi-subunit: each chip shows THIS model's mean iLIS over its own positive interactions
+    // (chain pairs with iLIS ≥ 0.223), so the chip represents the whole complex, not the selected
+    // pair. Dimers keep the single-pair value (there is only one pair).
+    const nc = uniState.chainNames ? uniState.chainNames.length : 0;
+    const multimer = nc > 2;
     const chips = [];
     for (let i = 0; i < nModels; i++) {
-        const mv = uniState.perModelSym[i]?.[key];
-        chips.push({ idx: String(i), label: uniState.modelData[i]?.label || ('model_' + i), ilis: mv ? mv.iLIS : null });
+        const label = uniState.modelData[i]?.label || ('model_' + i);
+        if (multimer) {
+            const s = interactomeSummary(uniState.perModelSym[i], 0.223);
+            chips.push({ idx: String(i), label, mean: true, n: s.n,
+                ilis: s.n ? s.meanILIS : null, ilisStd: s.n ? s.stdILIS : 0,
+                iptm: s.n ? s.meanIptm : null, iptmStd: s.n ? s.stdIptm : 0 });
+        } else {
+            const mv = uniState.perModelSym[i]?.[key];
+            chips.push({ idx: String(i), label, mean: false,
+                ilis: mv ? mv.iLIS : null, iptm: mv ? +mv.ipTM : null });
+        }
     }
 
     const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const fmt = (v, d) => (v == null || isNaN(v)) ? '—' : v.toFixed(d);
     const html = chips.map(c => {
         const sel = seedVal === c.idx ? ' selected' : '';
-        const ilisStr = (c.ilis == null || isNaN(c.ilis)) ? '—' : c.ilis.toFixed(3);
         const label = esc(c.label);
-        return `<button type="button" class="model-chip${sel}" onclick="selectModel('${c.idx}')" title="Select ${label} (iLIS ${ilisStr})"><span class="model-chip-name">${label}</span><span class="model-chip-ilis"><span class="model-chip-metric">iLIS</span>${ilisStr}</span></button>`;
+        const il = fmt(c.ilis, 3), ip = fmt(c.iptm, 2);
+        let stats, ttl;
+        if (c.mean) {
+            const ilv = c.n ? `${il} &plusmn; ${c.ilisStd.toFixed(3)}` : '—';
+            const ipv = c.n ? `${ip} &plusmn; ${c.iptmStd.toFixed(2)}` : '—';
+            stats = `<span class="model-chip-ilis"><span class="model-chip-metric">mean iLIS</span>${ilv}</span>`
+                  + `<span class="model-chip-ilis"><span class="model-chip-metric">mean ipTM</span>${ipv}</span>`;
+            ttl = c.n
+                ? `Select ${label} — over ${c.n} positive interaction${c.n === 1 ? '' : 's'} (iLIS ≥ 0.223): mean iLIS ${il} ± ${c.ilisStd.toFixed(3)}, mean ipTM ${ip} ± ${c.iptmStd.toFixed(2)}`
+                : `Select ${label} — no positive interactions (all chain pairs iLIS < 0.223)`;
+        } else {
+            stats = `<span class="model-chip-ilis"><span class="model-chip-metric">iLIS</span>${il}</span>`
+                  + `<span class="model-chip-ilis"><span class="model-chip-metric">ipTM</span>${ip}</span>`;
+            ttl = `Select ${label} (iLIS ${il}, ipTM ${ip})`;
+        }
+        return `<button type="button" class="model-chip${sel}" onclick="selectModel('${c.idx}')" title="${ttl}"><span class="model-chip-name">${label}</span>${stats}</button>`;
     }).join('');
 
     selectors.forEach(s => { s.innerHTML = html; s.style.display = 'flex'; });
@@ -4900,15 +4969,16 @@ function buildAllChainsCxc(overrideFilename, sel) {
         : (ch === '(' || ch === ')' || ch === '-') ? 0.0038 : (ch >= '0' && ch <= '9') ? 0.0052 : 0.0064) * k);
     const textW = (t, k) => [...t].reduce((a, ch) => a + glyphW(ch, k), 0);
 
-    // ── Title row: every interacting chain (its colour + LIR span) ──
-    let _tx = 0.03;
+    // ── Title row: every interacting chain (its colour + LIR span) — compact ("A (12-330)", no "Chain "
+    // prefix) and hugging the top-left so the labels don't span across / hide the central structure ──
+    let _tx = 0.02;
     for (let ci = 0; ci < nc; ci++) {
         const nm = uniState.chainNames[ci];
         if ((types[ci] || 'protein') !== 'protein' || !allLIR[nm] || allLIR[nm].size === 0) continue;
         const arr = [...allLIR[nm]]; const rng = `${Math.min(...arr)}-${Math.max(...arr)}`;
-        const txt = `Chain ${nm} (${rng})`;
-        lines.push(`2dlabels create tt${ci} text "${txt}" xpos ${_tx.toFixed(4)} ypos 0.96 size 13 color ${getChainColors(ci, nm).clir} bold true`);
-        _tx += textW(txt, 13 / 12) + 0.012;   // 0.012 = gap between adjacent chain labels
+        const txt = `${nm} (${rng})`;
+        lines.push(`2dlabels create tt${ci} text "${txt}" xpos ${_tx.toFixed(4)} ypos 0.975 size 12 color ${getChainColors(ci, nm).clir} bold true`);
+        _tx += textW(txt, 1) + 0.010;   // 0.010 = gap between adjacent chain labels
     }
     // ── Positive PPI pairs, listed vertically: "i / j (iLIS / ipTM)" with chain IDs in their own colours ──
     // iLIS is PAIRWISE; positive = at/above the 10% FPR threshold used by ilisHtml (0.073 avg, 0.223 single-model).
@@ -4927,12 +4997,23 @@ function buildAllChainsCxc(overrideFilename, sel) {
         // Row pitch adapts to the pair count so even a large complex (many pairs) stays on-screen;
         // font shrinks a step when rows get tight. Widths (below) scale with the chosen size.
         const _n = _posPairs.length;
-        const _step = Math.max(0.020, Math.min(0.028, 0.80 / (_n + 1)));
-        const _sz = _step < 0.024 ? 11 : 12;
+        const _step = Math.max(0.018, Math.min(0.024, 0.80 / (_n + 1)));
+        const _sz = _step < 0.021 ? 10 : 11;
         const _k = _sz / 12;
         const _segW = t => textW(t, _k) + 0.0012;
-        lines.push(`2dlabels create ttscoreh text "Positive PPI  (iLIS / ipTM)" xpos 0.03 ypos 0.915 size 12 color black bold true`);
-        let _yy = 0.915 - _step;
+        lines.push(`2dlabels create ttscoreh text "Positive PPI  (iLIS / ipTM)" xpos 0.02 ypos 0.94 size 11 color black bold true`);
+        let _yy = 0.94 - _step;
+        // Whole-complex summary — mean ± std over the positive pairs, one metric per line (≥2 pairs)
+        if (_posPairs.length >= 2) {
+            const _il = _posPairs.map(p => +p.iLIS), _ip = _posPairs.map(p => +p.ipTM || 0);
+            const _mean = a => a.reduce((s, x) => s + x, 0) / a.length;
+            const _std = (a, m) => a.length > 1 ? Math.sqrt(a.reduce((s, x) => s + (x - m) * (x - m), 0) / (a.length - 1)) : 0;
+            const _mIL = _mean(_il), _mIP = _mean(_ip);
+            lines.push(`2dlabels create ttsum1 text "mean iLIS ${_mIL.toFixed(3)} ± ${_std(_il, _mIL).toFixed(3)}" xpos 0.02 ypos ${_yy.toFixed(4)} size ${_sz} color black bold true`);
+            _yy -= _step;
+            lines.push(`2dlabels create ttsum2 text "mean ipTM ${_mIP.toFixed(2)} ± ${_std(_ip, _mIP).toFixed(2)}" xpos 0.02 ypos ${_yy.toFixed(4)} size ${_sz} color black bold true`);
+            _yy -= _step;
+        }
         _posPairs.forEach((p, pi) => {
             const cA = getChainColors(_idxOf(p.a), p.a).clir;
             const cB = getChainColors(_idxOf(p.c), p.c).clir;
@@ -4943,7 +5024,7 @@ function buildAllChainsCxc(overrideFilename, sel) {
                 { t: `${p.c}`, col: cB },
                 { t: sc,       col: 'black' },
             ];
-            let _xx = 0.03;
+            let _xx = 0.02;
             segs.forEach((s, si) => {
                 lines.push(`2dlabels create ttp${pi}_${si} text "${s.t}" xpos ${_xx.toFixed(4)} ypos ${_yy.toFixed(4)} size ${_sz} color ${s.col} bold true`);
                 _xx += _segW(s.t);
