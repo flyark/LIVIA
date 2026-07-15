@@ -447,7 +447,7 @@
 <script src="js/livia-viewer.js?v=20260627"></script>
 <script src="js/livia-colors.js?v=20260627"></script>
 <script src="js/canvas2svg.js"></script>
-<script src="js/livia-maps.js?v=20260709"></script>
+<script src="js/livia-maps.js?v=20260715"></script>
 <script>
 // ── Callbacks for shared modules (monomer overrides most of these) ──
 onScriptTabSwitch = () => { /* handled by page-specific switchScriptTab override */ };
@@ -2991,7 +2991,36 @@ function createMonomerMapPanel(container, label, map2d, colorFn, vmin, vmax, tic
     row.appendChild(cbarWrap);
 
     panel.appendChild(row);
+
+    // Single "↓ PNG" that downloads the map + colorbar + scale as ONE image (not two separate canvases)
+    const pngBtn = document.createElement('button');
+    pngBtn.type = 'button'; pngBtn.textContent = '↓ PNG';
+    pngBtn.style.cssText = 'display:block; margin:3px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;';
+    pngBtn.onclick = () => exportMapWithColorbar(canvas, cbar, tickLabels, displaySize, label.toLowerCase() + '_map');
+    panel.appendChild(pngBtn);
+
     container.appendChild(panel);
+}
+
+// Composite a heatmap canvas + its vertical colorbar + scale labels into a single PNG.
+function exportMapWithColorbar(mapCanvas, cbar, tickLabels, displaySize, name) {
+    const S = Math.max(1, Math.round(mapCanvas.height / (displaySize || mapCanvas.height)));
+    const pad = 6 * S, cbarW = cbar.width * S, gap = 8 * S, tickGap = 4 * S;
+    const meas = document.createElement('canvas').getContext('2d');
+    meas.font = `${11 * S}px sans-serif`;
+    let tickW = 0; for (const t of tickLabels) tickW = Math.max(tickW, meas.measureText(String(t)).width);
+    const W = mapCanvas.width + gap + cbarW + tickGap + Math.ceil(tickW) + pad;
+    const H = mapCanvas.height + pad;
+    const out = document.createElement('canvas'); out.width = W; out.height = H;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    ctx.drawImage(mapCanvas, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(cbar, 0, 0, cbar.width, cbar.height, mapCanvas.width + gap, 0, cbarW, mapCanvas.height);
+    ctx.fillStyle = '#888'; ctx.font = `${11 * S}px sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const tx = mapCanvas.width + gap + cbarW + tickGap, n = tickLabels.length;
+    tickLabels.forEach((t, i) => { const y = n <= 1 ? mapCanvas.height / 2 : (i / (n - 1)) * mapCanvas.height; ctx.fillText(String(t), tx, Math.max(7 * S, Math.min(mapCanvas.height - 7 * S, y))); });
+    const a = document.createElement('a'); a.href = out.toDataURL('image/png'); a.download = String(name).replace(/[^\w.-]+/g, '_') + '.png'; a.click();
 }
 
 function drawPaeMap() {
@@ -3028,7 +3057,7 @@ function drawPaeMap() {
     const clisMap = buildMonomerClisMap();
     const dilated = dilateMapMono(clisMap, 1);
     createMonomerMapPanel(container, 'cLIS', dilated, greensColor, 0, 1, ['1', '0.5', '0'], displaySize);
-    LiviaMaps.attachChartPngButtons('monomer-maps-flex', 'map');
+    // (map + colorbar exported together via each panel's own ↓ PNG button — no per-canvas buttons)
 }
 
 function dilateMapMono(map2d, radius) {

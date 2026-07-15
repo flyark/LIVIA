@@ -11,7 +11,7 @@
 <script src="js/livia-xlsx.js"></script>
 <script src="js/clip-clustering.js"></script>
 <script src="js/clip-pipeline.js"></script>
-<script src="js/clip-resolver.js"></script>
+<script src="js/clip-resolver.js?v=20260715"></script>
 <script src="js/livia-viewer.js"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="css/livia.css">
@@ -189,7 +189,7 @@
 
     <div class="card">
       <h2 style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap">Contact residue frequency
-        <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem">SVG&nbsp; w<input id="svg-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="svg-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="svg-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"> <button class="ghost" id="svg-freq">&#8595; SVG</button></span>
+        <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem">SVG&nbsp; w<input id="svg-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="svg-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="svg-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"> &middot; x-ticks<input id="clip-xticks" type="number" value="15" min="2" max="40" step="1" title="residue x-tick count (frequency + fingerprint)" style="width:44px" onchange="if(LAST){renderFreq(LAST);renderHeatmap(LAST);}"> <button class="ghost" id="svg-freq">&#8595; SVG</button></span>
       </h2>
       <div class="muted">How often each query residue is a contact Local Interaction Residue (cLIR) across partners, colored by the dominant cluster · click clusters to filter.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.<br>Tracks below the bars: AlphaFold <b>pLDDT</b> (0&ndash;100) &mdash; <span style="white-space:nowrap"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#FF7D45"></span> &lt;50 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#FFDB13"></span> 50&ndash;70 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#65CBF3"></span> 70&ndash;90 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#0053D6"></span> &ge;90</span><span class="am-only hidden"><br><b style="color:#a33">AM path.</b> = AlphaMissense mean pathogenicity per residue (averaged over all ~19 substitutions at that position; blue = benign &rarr; red = pathogenic; human only, from AlphaFold DB).</span></div>
       <div id="freq-chips" class="chips" style="margin:.4rem 0"></div>
@@ -222,6 +222,7 @@
       <div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin:.4rem 0 .2rem">
         <label style="margin:0">partner <select id="pair-partner" style="max-width:340px"></select></label>
         <input id="pair-partner-search" autocomplete="off" placeholder="🔍 search partner…" style="font:inherit; padding:2px 6px; width:170px">
+        <label style="margin:0; font-size:.8rem; color:#556">x-ticks <input id="pair-xticks" type="number" value="10" min="2" max="40" step="1" title="residue x-tick count" style="width:44px" onchange="{var p=document.getElementById('pair-partner'); if(LAST&&p&&p.value)drawPairTracks(document.getElementById('pair-canvas'),LAST,p.value);}"></label>
         <span class="muted" id="pair-note" style="font-size:.8rem"></span>
       </div>
       <div id="pair-map-wrap"><canvas id="pair-canvas"></canvas></div>
@@ -853,6 +854,11 @@ function mergeRuns(fp){
   for(let i=1;i<s.length;i++){ if(s[i]===p+1) p=s[i]; else { out.push([a,p]); a=s[i]; p=s[i]; } }
   out.push([a,p]); return out;
 }
+// Residue x-tick counts (user-adjustable). Fingerprint + frequency share the aligned axis (#clip-xticks);
+// the Interaction-Residues interface map has its own (#pair-xticks).
+function clipXTicks(){ return Math.max(2, Math.min(40, parseInt((document.getElementById('clip-xticks')||{}).value) || 15)); }
+function pairXTicks(){ return Math.max(2, Math.min(40, parseInt((document.getElementById('pair-xticks')||{}).value) || 10)); }
+
 function renderHeatmap(A){
   const { pipe, cl } = A, plen = pipe.proteinLen, k = cl.optimalK;
   const showAll = !ACTIVE || ACTIVE.size === k;
@@ -905,7 +911,7 @@ function renderHeatmap(A){
   // residue-number x-axis ticks (~15 evenly spaced; centered on the cell, aligned with frequency)
   ctx.fillStyle = '#333'; ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
   ctx.font = `${9 * S}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  const nT = 15, ticks = [];
+  const nT = clipXTicks(), ticks = [];
   for (let i = 0; i < nT; i++){ const r = Math.round(1 + i * (plen - 1) / (nT - 1)); if (!ticks.includes(r)) ticks.push(r); }
   for (const r of ticks){ const x = edge(r) + step * S / 2; ctx.beginPath(); ctx.moveTo(x, rowsHb); ctx.lineTo(x, rowsHb + 3 * S); ctx.stroke(); ctx.fillText(String(r + (A._fragOffset||0)), x, rowsHb + 5 * S); }
 }
@@ -1014,8 +1020,8 @@ function drawPairTracks(cv, A, partner){
     paint(lir, col.lir); paint(clir, col.clir);          // cLIR ⊂ LIR, so it paints over
     ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1; ctx.strokeRect(padL+.5, barY+.5, W - padL - padR - 1, barH-1);
     ctx.fillStyle = '#333'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    const step = Math.max(1, Math.round(len/10));
-    for (let r = 1; r <= len; r += step){ const x = xOf(r) + bw/2;
+    const nT = pairXTicks(), tks = []; for (let i = 0; i < Math.min(nT, len); i++){ const r = Math.round(1 + i*(len-1)/(Math.max(1, Math.min(nT,len)-1))); if(!tks.includes(r)) tks.push(r); }
+    for (const r of tks){ const x = xOf(r) + bw/2;
       ctx.strokeStyle = '#ddd'; ctx.beginPath(); ctx.moveTo(x, barY+barH); ctx.lineTo(x, barY+barH+3); ctx.stroke();
       ctx.fillText(String(r), x, barY+barH+4); }
     return barY + barH + tickH;
@@ -1227,7 +1233,7 @@ function renderFreq(A){
   }
   // shared residue x-axis ticks (bottom)
   ctx.fillStyle='#333'; ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.font='9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
-  { const nT=15, ticks=[]; for (let i=0;i<nT;i++){ const r=Math.round(1+i*(plen-1)/(nT-1)); if(!ticks.includes(r)) ticks.push(r); }
+  { const nT=clipXTicks(), ticks=[]; for (let i=0;i<nT;i++){ const r=Math.round(1+i*(plen-1)/(nT-1)); if(!ticks.includes(r)) ticks.push(r); }
     for (const r of ticks){ const x=xOf(r)+bw/2; ctx.beginPath(); ctx.moveTo(x,xtickBase); ctx.lineTo(x,xtickBase+3); ctx.stroke(); ctx.fillText(String(r + (A._fragOffset||0)), x, xtickBase+5); } }
   // domain track (stacked lanes, top)
   ctx.font='9px sans-serif'; ctx.textBaseline='middle';
@@ -1280,7 +1286,7 @@ function svgHeatmap(A, opts){
       d += `M${_f(xv[a])} ${_f(yv[a])}L${_f(xm)} ${_f(yv[a])}M${_f(xv[b])} ${_f(yv[b])}L${_f(xm)} ${_f(yv[b])}M${_f(xm)} ${_f(yv[a])}L${_f(xm)} ${_f(yv[b])}`; }
     s += `<path d="${d}" stroke="#555" stroke-width="0.8" fill="none"/>`;
   }
-  const nT = 15, ticks = [];
+  const nT = clipXTicks(), ticks = [];
   for (let i = 0; i < nT; i++){ const r = Math.round(1 + i * (plen - 1) / (nT - 1)); if (!ticks.includes(r)) ticks.push(r); }
   for (const r of ticks){ const x = edge(r) + step / 2;
     s += `<line x1="${_f(x)}" y1="${_f(rowsH)}" x2="${_f(x)}" y2="${_f(rowsH + 3)}" stroke="#ccc" stroke-width="1"/>`
@@ -1330,7 +1336,7 @@ function svgFreq(A, opts){
     for (const t of [0,0.5,1]) s += `<text x="${padL-4}" y="${_f(amBase-t*amH)}" font-size="${fs}" fill="#333" text-anchor="end" dominant-baseline="central">${t.toFixed(1)}</text>`;
     const yamL=_f((amTop+amBase)/2); s += `<text x="11" y="${yamL}" font-size="${fs}" fill="#a33" text-anchor="middle" transform="rotate(-90 11 ${yamL})">AM path.</text>`;
   }
-  const nT=15,ticks=[]; for(let i=0;i<nT;i++){const r=Math.round(1+i*(plen-1)/(nT-1)); if(!ticks.includes(r))ticks.push(r);}
+  const nT=clipXTicks(),ticks=[]; for(let i=0;i<nT;i++){const r=Math.round(1+i*(plen-1)/(nT-1)); if(!ticks.includes(r))ticks.push(r);}
   for(const r of ticks){ const x=xOf(r)+bw/2; s += `<line x1="${_f(x)}" y1="${_f(xtickBase)}" x2="${_f(x)}" y2="${_f(xtickBase+3)}" stroke="#ccc" stroke-width="1"/><text x="${_f(x)}" y="${_f(xtickBase+4+fs)}" font-size="${fs}" fill="#333" text-anchor="middle">${r + (A._fragOffset||0)}</text>`; }
   for(const d of doms){ const y=domTop+d.lane*DRH, w=d.x1-d.x0; s += `<rect x="${_f(d.x0)}" y="${y}" width="${_f(w)}" height="${domBoxH}" fill="#e3e9f1" stroke="#9fb0c4" stroke-width="0.5"/>`; if(String(d.name).length*fs*0.55 < w-3) s += `<text x="${_f(d.x0+w/2)}" y="${y+domBoxH/2}" font-size="${fs}" fill="#456" text-anchor="middle" dominant-baseline="central">${_esc(d.name)}</text>`; }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${_f(W)}" height="${_f(H)}" viewBox="0 0 ${_f(W)} ${_f(H)}" font-family="${SVG_FONT}">${s}</svg>`;
