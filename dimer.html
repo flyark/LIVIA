@@ -235,10 +235,14 @@
         <!-- Linear Contact Map -->
         <div class="card result-card" id="contact-map-card" style="display:none;">
             <h2>Linear Contact Map</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B. UniProt domain annotations shown when available.
+            <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+                <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B. UniProt domain annotations shown when available.</span>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> domain architecture</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> swap chains (top&harr;bottom)</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"></label>
             </div>
             <canvas id="contact-canvas"></canvas>
+            <div id="contact-count-text" style="font-size:0.8rem; color:#888; text-align:center; margin-top:4px;"></div>
             <div id="contact-domain-legend" style="margin-top:0.4rem; font-size:0.72rem; color:#666; display:flex; gap:0.8rem; flex-wrap:wrap;"></div>
         </div>
 
@@ -457,7 +461,7 @@
 <script src="js/livia-viewer.js?v=20260627"></script>
 <script src="js/livia-colors.js?v=20260627"></script>
 <script src="js/canvas2svg.js"></script>
-<script src="js/livia-maps.js?v=20260709"></script>
+<script src="js/livia-maps.js?v=20260715"></script>
 <script>
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (dimerPairResult) { generateAndDisplayScript(); buildDimerSequenceViewer(); buildDimerContactMap(); buildChordDiagram(); buildComparisonCharts(); updateViewer3d(); renderChainToggleBar(); } };
@@ -1071,12 +1075,20 @@ function buildDimerContactMap() {
     if (!v || !card || !canvas || !dimerCifText) { if (card) card.style.display = 'none'; return; }
     LiviaMaps.attachExportBar('contact-canvas', { name: 'linear_contact_map', svg: () => buildDimerContactMap(), png: true });
 
-    // Apply Min segment filter to both chains; cLIR restricted to filtered LIR
-    const lirI_f = filterSmallSegments(v.lirI);
-    const lirJ_f = filterSmallSegments(v.lirJ);
-    const clirI_f = new Set([...v.clirI].filter(r => lirI_f.has(r)));
-    const clirJ_f = new Set([...v.clirJ].filter(r => lirJ_f.has(r)));
-    if (clirI_f.size === 0 || clirJ_f.size === 0) { card.style.display = 'none'; return; }
+    // Panel options (parity with universal.html): swap chains, domain show/hide, adjustable x-ticks.
+    const swap = !!(document.getElementById('contact-swap-ab') && document.getElementById('contact-swap-ab').checked);
+    const showDomains = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;
+    window.__redrawDimerContact = () => buildDimerContactMap();
+    // Real filtered sets (chain i=A / j=B) — used for contact detection (never swapped)
+    const lirI_real = filterSmallSegments(v.lirI), lirJ_real = filterSmallSegments(v.lirJ);
+    const clirI_real = new Set([...v.clirI].filter(r => lirI_real.has(r)));
+    const clirJ_real = new Set([...v.clirJ].filter(r => lirJ_real.has(r)));
+    if (clirI_real.size === 0 || clirJ_real.size === 0) { card.style.display = 'none'; return; }
+    // Display sets (swap flips which chain is drawn on top); bars / ticks / domains use these
+    const lirI_f = swap ? lirJ_real : lirI_real, lirJ_f = swap ? lirI_real : lirJ_real;
+    const clirI_f = swap ? clirJ_real : clirI_real, clirJ_f = swap ? clirI_real : clirJ_real;
+    const lenI = swap ? v.lenJ : v.lenI, lenJ = swap ? v.lenI : v.lenJ;
+    const ciTop = swap ? v.cj : v.ci, cjBot = swap ? v.ci : v.cj;
 
     // Parse Cβ coordinates from CIF
     const coords = parseCifCoords(dimerCifText);
@@ -1090,13 +1102,13 @@ function buildDimerContactMap() {
     const coordB = chainCoordMap.get(v.cj);
     if (!coordA || !coordB) { card.style.display = 'none'; return; }
 
-    // Find contact pairs (use filtered sets)
+    // Find contact pairs — uses the REAL chain-A/B residues + coords (display swap applied later)
     const contactDist = 8;
     const contacts = [];
-    for (const resA of clirI_f) {
+    for (const resA of clirI_real) {
         const cA = coordA.get(resA);
         if (!cA) continue;
-        for (const resB of clirJ_f) {
+        for (const resB of clirJ_real) {
             const cB = coordB.get(resB);
             if (!cB) continue;
             const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
@@ -1108,26 +1120,29 @@ function buildDimerContactMap() {
     if (contacts.length === 0) { card.style.display = 'none'; return; }
     card.style.display = '';
 
-    const colors = {
+    let colors = {
         lir_a: document.getElementById('color-lir-a')?.value || '#80CBC4',
         clir_a: document.getElementById('color-clir-a')?.value || '#00897B',
         lir_b: document.getElementById('color-lir-b')?.value || '#FFAB91',
         clir_b: document.getElementById('color-clir-b')?.value || '#E64A19',
     };
+    if (swap) colors = { lir_a: colors.lir_b, clir_a: colors.clir_b, lir_b: colors.lir_a, clir_b: colors.clir_a };
+    const _dmA = showDomains ? (swap ? chainDomains.B : chainDomains.A) : [], _dmB = showDomains ? (swap ? chainDomains.A : chainDomains.B) : [];
+    const _tdA = showDomains ? (swap ? chainTedDomains.B : chainTedDomains.A) : [], _tdB = showDomains ? (swap ? chainTedDomains.A : chainTedDomains.B) : [];
 
     const S = 2;
-    const hasDomains = (chainDomains.A.length > 0 || chainDomains.B.length > 0);
-    const hasTed = (chainTedDomains.A.length > 0 || chainTedDomains.B.length > 0);
+    const hasDomains = (_dmA.length > 0 || _dmB.length > 0);
+    const hasTed = (_tdA.length > 0 || _tdB.length > 0);
     const domainRowH = hasDomains ? 20 : 0;
     const tedRowH = hasTed ? 20 : 0;
-    const topAnno = (chainDomains.A.length ? 20 : 0) + (chainTedDomains.A.length ? 20 : 0);   // chain-A rows (above the ticks)
-    const botAnno = (chainDomains.B.length ? 20 : 0) + (chainTedDomains.B.length ? 20 : 0);   // chain-B rows (below the ticks)
+    const topAnno = (_dmA.length ? 20 : 0) + (_tdA.length ? 20 : 0);   // top-chain rows (above the ticks)
+    const botAnno = (_dmB.length ? 20 : 0) + (_tdB.length ? 20 : 0);   // bottom-chain rows (below the ticks)
     const tickH = 14;                                    // room for residue-number ticks (kept off the ribbons)
     const width = Math.min(900, (card.clientWidth || 900) - 32);
     const barH = 12;                                     // compact bars (was 14)
     const barY_A = 10 + topAnno + tickH;                 // [margin][chain-A domains][ticks][bar]
     const barY_B = barY_A + barH + 60;                   // compact ribbon gap — ribbons only (was ~186)
-    const height = barY_B + barH + tickH + botAnno + 40; // dynamic; +40 clears the contact-count label
+    const height = barY_B + barH + tickH + botAnno + 8; // count text now lives in the HTML below, not the canvas
     const barRight = width - 20;
 
     canvas.width = width * S;
@@ -1145,12 +1160,12 @@ function buildDimerContactMap() {
     // Size the left margin to fit the chain labels so they aren't clipped off the left edge;
     // the font shrinks as a fallback for very long names when drawn.
     ctx.font = 'bold 13px sans-serif';
-    const labelA = `Chain ${v.ci}`, labelB = `Chain ${v.cj}`;
+    const labelA = `Chain ${ciTop}`, labelB = `Chain ${cjBot}`;
     const barLeft = Math.max(60, Math.min(170, Math.ceil(Math.max(ctx.measureText(labelA).width, ctx.measureText(labelB).width)) + 12));
     const barW = barRight - barLeft;
 
-    const xA = (res) => barLeft + ((res - 1) / Math.max(1, v.lenI - 1)) * barW;
-    const xB = (res) => barLeft + ((res - 1) / Math.max(1, v.lenJ - 1)) * barW;
+    const xA = (res) => barLeft + ((res - 1) / Math.max(1, lenI - 1)) * barW;
+    const xB = (res) => barLeft + ((res - 1) / Math.max(1, lenJ - 1)) * barW;
 
     // Paint contiguous LIR/cLIR runs as solid blocks (merged so adjacent residues don't
     // leave hairline gaps — the "lines between residues" barcode artifact).
@@ -1169,15 +1184,15 @@ function buildDimerContactMap() {
     // Chain A bar (filtered)
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_A, barW, barH);
-    paintBarRanges(barY_A, lirI_f, xA, v.lenI, colors.lir_a);
-    paintBarRanges(barY_A, clirI_f, xA, v.lenI, colors.clir_a);
+    paintBarRanges(barY_A, lirI_f, xA, lenI, colors.lir_a);
+    paintBarRanges(barY_A, clirI_f, xA, lenI, colors.clir_a);
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_A, barW, barH);
 
     // Chain B bar (filtered)
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(barLeft, barY_B, barW, barH);
-    paintBarRanges(barY_B, lirJ_f, xB, v.lenJ, colors.lir_b);
-    paintBarRanges(barY_B, clirJ_f, xB, v.lenJ, colors.clir_b);
+    paintBarRanges(barY_B, lirJ_f, xB, lenJ, colors.lir_b);
+    paintBarRanges(barY_B, clirJ_f, xB, lenJ, colors.clir_b);
     ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_B, barW, barH);
 
     // Labels — right-aligned in the left margin; shrink font to fit if the name is long.
@@ -1193,15 +1208,17 @@ function buildDimerContactMap() {
     // Ticks
     ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    for (const t of [1, Math.round(v.lenI/2), v.lenI]) ctx.fillText(t, xA(t), barY_A - 3);            // chain A ticks ABOVE its bar
+    const nTicks = Math.max(2, Math.min(30, parseInt(document.getElementById('contact-xticks')?.value) || 5));
+    const tickPos = (len) => { const n = Math.max(2, Math.min(nTicks, len)); const s = new Set(); for (let i = 0; i < n; i++) s.add(Math.max(1, Math.min(len, Math.round(1 + (len - 1) * i / (n - 1))))); return [...s]; };
+    for (const t of tickPos(lenI)) ctx.fillText(t, xA(t), barY_A - 3);            // top-bar ticks ABOVE
     ctx.textBaseline = 'top';
-    for (const t of [1, Math.round(v.lenJ/2), v.lenJ]) ctx.fillText(t, xB(t), barY_B + barH + 3);     // chain B ticks BELOW its bar
+    for (const t of tickPos(lenJ)) ctx.fillText(t, xB(t), barY_B + barH + 3);     // bottom-bar ticks BELOW
 
     // Connection lines
     const minDist = Math.min(...contacts.map(c => c.dist));
     const maxDist = Math.max(...contacts.map(c => c.dist));
     for (const c of contacts) {
-        const ax = xA(c.resA), bx = xB(c.resB);
+        const ax = xA(swap ? c.resB : c.resA), bx = xB(swap ? c.resA : c.resB);
         const t = maxDist > minDist ? 1 - (c.dist - minDist) / (maxDist - minDist) : 1;
         const alpha = 0.08 + t * 0.2;
         const midY = (barY_A + barH + barY_B) / 2;
@@ -1216,9 +1233,7 @@ function buildDimerContactMap() {
         ctx.stroke();
     }
 
-    ctx.fillStyle = '#888'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    const labelOffset = botAnno + 18;
-    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width/2, barY_B + barH + tickH + labelOffset);
+    { const _cc = document.getElementById('contact-count-text'); if (_cc) _cc.textContent = `${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`; }
 
     // Domain palettes (used for both canvas drawing and legend)
     const domPalette = [
@@ -1238,10 +1253,10 @@ function buildDimerContactMap() {
         const domGap = 2;
 
         // Chain A domains — above chain A bar
-        for (let di = 0; di < chainDomains.A.length; di++) {
-            const d = chainDomains.A[di];
+        for (let di = 0; di < _dmA.length; di++) {
+            const d = _dmA[di];
             const x1 = xA(Math.max(1, d.start));
-            const x2 = xA(Math.min(v.lenI, d.end));
+            const x2 = xA(Math.min(lenI, d.end));
             const dw = x2 - x1;
             const dy = barY_A - tickH - domGap - domBlockH;
             ctx.fillStyle = domPalette[di % domPalette.length];
@@ -1269,10 +1284,10 @@ function buildDimerContactMap() {
         }
 
         // Chain B domains — below chain B bar
-        for (let di = 0; di < chainDomains.B.length; di++) {
-            const d = chainDomains.B[di];
+        for (let di = 0; di < _dmB.length; di++) {
+            const d = _dmB[di];
             const x1 = xB(Math.max(1, d.start));
-            const x2 = xB(Math.min(v.lenJ, d.end));
+            const x2 = xB(Math.min(lenJ, d.end));
             const dw = x2 - x1;
             const dy = barY_B + barH + tickH + domGap;
             ctx.fillStyle = domPalette[di % domPalette.length];
@@ -1308,13 +1323,13 @@ function buildDimerContactMap() {
         const tedOffsetB = domainRowH; // TED row sits below UniProt row
 
         // Chain A TED domains — above UniProt domains (further above chain A bar)
-        for (let di = 0; di < chainTedDomains.A.length; di++) {
-            const d = chainTedDomains.A[di];
+        for (let di = 0; di < _tdA.length; di++) {
+            const d = _tdA[di];
             for (const seg of d.segments) {
                 const x1 = xA(Math.max(1, seg.start));
-                const x2 = xA(Math.min(v.lenI, seg.end));
+                const x2 = xA(Math.min(lenI, seg.end));
                 const dw = x2 - x1;
-                const dy = barY_A - tickH - tedGap - tedBlockH - (chainDomains.A.length ? tedBlockH + tedGap : 0);
+                const dy = barY_A - tickH - tedGap - tedBlockH - (_dmA.length ? tedBlockH + tedGap : 0);
                 ctx.fillStyle = TED_PALETTE[di % TED_PALETTE.length];
                 ctx.globalAlpha = 0.6;
                 ctx.fillRect(x1, dy, dw, tedBlockH);
@@ -1326,9 +1341,9 @@ function buildDimerContactMap() {
             // Label on the widest segment
             const mainSeg = d.segments.reduce((a, b) => (b.end - b.start > a.end - a.start ? b : a), d.segments[0]);
             const x1 = xA(Math.max(1, mainSeg.start));
-            const x2 = xA(Math.min(v.lenI, mainSeg.end));
+            const x2 = xA(Math.min(lenI, mainSeg.end));
             const dw = x2 - x1;
-            const dy = barY_A - tickH - tedGap - tedBlockH - (chainDomains.A.length ? tedBlockH + tedGap : 0);
+            const dy = barY_A - tickH - tedGap - tedBlockH - (_dmA.length ? tedBlockH + tedGap : 0);
             ctx.fillStyle = '#333'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             const label = d.cath ? d.cath : `D${d.tedNo}`;
             const labelW = ctx.measureText(label).width;
@@ -1337,13 +1352,13 @@ function buildDimerContactMap() {
         }
 
         // Chain B TED domains — below UniProt domains (further below chain B bar)
-        for (let di = 0; di < chainTedDomains.B.length; di++) {
-            const d = chainTedDomains.B[di];
+        for (let di = 0; di < _tdB.length; di++) {
+            const d = _tdB[di];
             for (const seg of d.segments) {
                 const x1 = xB(Math.max(1, seg.start));
-                const x2 = xB(Math.min(v.lenJ, seg.end));
+                const x2 = xB(Math.min(lenJ, seg.end));
                 const dw = x2 - x1;
-                const dy = barY_B + barH + tickH + tedGap + (chainDomains.B.length ? tedBlockH + tedGap : 0);
+                const dy = barY_B + barH + tickH + tedGap + (_dmB.length ? tedBlockH + tedGap : 0);
                 ctx.fillStyle = TED_PALETTE[di % TED_PALETTE.length];
                 ctx.globalAlpha = 0.6;
                 ctx.fillRect(x1, dy, dw, tedBlockH);
@@ -1354,9 +1369,9 @@ function buildDimerContactMap() {
             }
             const mainSeg = d.segments.reduce((a, b) => (b.end - b.start > a.end - a.start ? b : a), d.segments[0]);
             const x1 = xB(Math.max(1, mainSeg.start));
-            const x2 = xB(Math.min(v.lenJ, mainSeg.end));
+            const x2 = xB(Math.min(lenJ, mainSeg.end));
             const dw = x2 - x1;
-            const dy = barY_B + barH + tickH + tedGap + (chainDomains.B.length ? tedBlockH + tedGap : 0);
+            const dy = barY_B + barH + tickH + tedGap + (_dmB.length ? tedBlockH + tedGap : 0);
             ctx.fillStyle = '#333'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             const label = d.cath ? d.cath : `D${d.tedNo}`;
             const labelW = ctx.measureText(label).width;
@@ -1382,8 +1397,8 @@ function buildDimerContactMap() {
         const accB = accessions[1] || accessions[0] || '';
         const TED_PALETTE_LEG = ['#7E57C2', '#5C6BC0', '#26A69A', '#8D6E63', '#EC407A', '#42A5F5', '#AB47BC', '#66BB6A'];
         const chainLabels = [
-            { label: `${geneA} (${v.ci})`, domains: chainDomains.A, tedDomains: chainTedDomains.A, acc: accA },
-            { label: `${geneB} (${v.cj})`, domains: chainDomains.B, tedDomains: chainTedDomains.B, acc: accB },
+            { label: `${swap ? geneB : geneA} (${ciTop})`, domains: _dmA, tedDomains: _tdA, acc: swap ? accB : accA },
+            { label: `${swap ? geneA : geneB} (${cjBot})`, domains: _dmB, tedDomains: _tdB, acc: swap ? accA : accB },
         ];
         for (const cl of chainLabels) {
             if (cl.domains.length === 0 && cl.tedDomains.length === 0) continue;
@@ -2821,7 +2836,36 @@ function createMapPanel(parentEl, label, mapCanvas, displaySize, colorFn, vmin, 
     row.appendChild(cbarWrap);
 
     panel.appendChild(row);
+
+    // Single "↓ PNG" that downloads the map + colorbar + scale as ONE image (not two separate canvases)
+    const pngBtn = document.createElement('button');
+    pngBtn.type = 'button'; pngBtn.textContent = '↓ PNG';
+    pngBtn.style.cssText = 'display:block; margin:3px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;';
+    pngBtn.onclick = () => exportMapWithColorbar(mapCanvas, cbar, tickLabels, displaySize, label.toLowerCase() + '_map');
+    panel.appendChild(pngBtn);
+
     parentEl.appendChild(panel);
+}
+
+// Composite a heatmap canvas + its vertical colorbar + scale labels into a single PNG.
+function exportMapWithColorbar(mapCanvas, cbar, tickLabels, displaySize, name) {
+    const S = Math.max(1, Math.round(mapCanvas.height / (displaySize || mapCanvas.height)));
+    const pad = 6 * S, cbarW = cbar.width * S, gap = 8 * S, tickGap = 4 * S;
+    const meas = document.createElement('canvas').getContext('2d');
+    meas.font = `${11 * S}px sans-serif`;
+    let tickW = 0; for (const t of tickLabels) tickW = Math.max(tickW, meas.measureText(String(t)).width);
+    const W = mapCanvas.width + gap + cbarW + tickGap + Math.ceil(tickW) + pad;
+    const H = mapCanvas.height + pad;
+    const out = document.createElement('canvas'); out.width = W; out.height = H;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    ctx.drawImage(mapCanvas, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(cbar, 0, 0, cbar.width, cbar.height, mapCanvas.width + gap, 0, cbarW, mapCanvas.height);
+    ctx.fillStyle = '#888'; ctx.font = `${11 * S}px sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const tx = mapCanvas.width + gap + cbarW + tickGap, n = tickLabels.length;
+    tickLabels.forEach((t, i) => { const y = n <= 1 ? mapCanvas.height / 2 : (i / (n - 1)) * mapCanvas.height; ctx.fillText(String(t), tx, Math.max(7 * S, Math.min(mapCanvas.height - 7 * S, y))); });
+    const a = document.createElement('a'); a.href = out.toDataURL('image/png'); a.download = String(name).replace(/[^\w.-]+/g, '_') + '.png'; a.click();
 }
 
 function buildFullLisMap(pae, nTotal, paeCutoff) {
@@ -2891,7 +2935,7 @@ function drawAllMaps() {
     const clisCanvas = document.createElement('canvas');
     drawFullMapCanvas(clisCanvas, dilated, v.nTotal, v.chainSizes, v.chainNames, greensColor, 0, 1, displaySize);
     createMapPanel(container, 'cLIS', clisCanvas, displaySize, greensColor, 0, 1, ['1', '0.5', '0']);
-    LiviaMaps.attachChartPngButtons('maps-flex', 'map');
+    // (map + colorbar exported together via each panel's own ↓ PNG button — no per-canvas buttons)
 }
 
 // ============================================================================

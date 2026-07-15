@@ -247,10 +247,14 @@
                 <h2 style="margin-bottom:0;">Linear Contact Map</h2>
                 <div class="model-selector" id="contact-model-selector"></div>
             </div>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Per-rank structures fetched automatically.
+            <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+                <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Per-rank structures fetched automatically.</span>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="window.__redrawConn&&window.__redrawConn()"> domain architecture</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="window.__redrawConn&&window.__redrawConn()"> swap chains (top&harr;bottom)</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="window.__redrawConn&&window.__redrawConn()"></label>
             </div>
             <canvas id="connection-canvas"></canvas>
+            <div id="contact-count-text" style="font-size:0.8rem; color:#888; text-align:center; margin-top:4px;"></div>
             <div id="fly-domain-legend" style="margin-top:0.4rem; font-size:0.72rem; color:#666; display:flex; gap:0.8rem; flex-wrap:wrap;"></div>
         </div>
 
@@ -485,7 +489,7 @@
 <script src="js/livia-viewer.js?v=20260627"></script>
 <script src="js/livia-colors.js?v=20260627"></script>
 <script src="js/canvas2svg.js"></script>
-<script src="js/livia-maps.js?v=20260709"></script>
+<script src="js/livia-maps.js?v=20260715"></script>
 <script>
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (flyParsed && flyCurrentRank) { loadRank(flyCurrentRank); updateCombinedChord(); renderChainToggleBar(); } };
@@ -2361,12 +2365,21 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     const card = document.getElementById('connection-diagram-card');
     const canvas = document.getElementById('connection-canvas');
     if (!card || !canvas || !pdbText) { if (card) card.style.display = 'none'; return; }
-    LiviaMaps.attachExportBar('connection-canvas', { name: 'linear_contact_map', svg: () => buildConnectionDiagram(row, sym1, sym2, colors, pdbText), png: true });
+    // Panel options (parity with universal.html): swap chains, domain show/hide, adjustable x-ticks.
+    const swap = !!(document.getElementById('contact-swap-ab') && document.getElementById('contact-swap-ab').checked);
+    const showDomains = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;
+    const _xp = { row, sym1, sym2, colors, pdbText };
+    LiviaMaps.attachExportBar('connection-canvas', { name: 'linear_contact_map', svg: () => buildConnectionDiagram(_xp.row, _xp.sym1, _xp.sym2, _xp.colors, _xp.pdbText), png: true });
+    window.__redrawConn = () => buildConnectionDiagram(_xp.row, _xp.sym1, _xp.sym2, _xp.colors, _xp.pdbText);   // panel-control re-render
+    if (swap) { const _s = sym1; sym1 = sym2; sym2 = _s; colors = { lir_a: colors.lir_b, clir_a: colors.clir_b, lir_b: colors.lir_a, clir_b: colors.clir_a }; }
 
-    const cLIR_A = row._cLIR_A, cLIR_B = row._cLIR_B;
-    const LIR_A = row._LIR_A, LIR_B = row._LIR_B;
-    const lenA = parseInt(row['Len A'] || row['protein_1_size']) || 0;
-    const lenB = parseInt(row['Len B'] || row['protein_2_size']) || 0;
+    const cLIR_A = swap ? row._cLIR_B : row._cLIR_A, cLIR_B = swap ? row._cLIR_A : row._cLIR_B;
+    const LIR_A = swap ? row._LIR_B : row._LIR_A, LIR_B = swap ? row._LIR_A : row._LIR_B;
+    const lenA = parseInt((swap ? (row['Len B'] || row['protein_2_size']) : (row['Len A'] || row['protein_1_size']))) || 0;
+    const lenB = parseInt((swap ? (row['Len A'] || row['protein_1_size']) : (row['Len B'] || row['protein_2_size']))) || 0;
+    const _dmA = showDomains ? (swap ? flyDomains.B : flyDomains.A) : [], _dmB = showDomains ? (swap ? flyDomains.A : flyDomains.B) : [];
+    const _tdA = showDomains ? (swap ? flyTedDomains.B : flyTedDomains.A) : [], _tdB = showDomains ? (swap ? flyTedDomains.A : flyTedDomains.B) : [];
+    const _diA = showDomains ? (swap ? flyDomainInfo.B : flyDomainInfo.A) : null, _diB = showDomains ? (swap ? flyDomainInfo.A : flyDomainInfo.B) : null;
     if (lenA === 0 || lenB === 0 || cLIR_A.size === 0 || cLIR_B.size === 0) {
         card.style.display = 'none'; return;
     }
@@ -2378,10 +2391,10 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
 
     const contactDist = 8;
     const contacts = [];
-    for (const resA of cLIR_A) {
+    for (const resA of row._cLIR_A) {            // detection uses REAL chain-A/B residues + coords (display swap applied later)
         const cA = coordA.get(resA);
         if (!cA) continue;
-        for (const resB of cLIR_B) {
+        for (const resB of row._cLIR_B) {
             const cB = coordB.get(resB);
             if (!cB) continue;
             const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
@@ -2393,18 +2406,18 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     card.style.display = '';
 
     const S = 2;
-    const hasDomains = (flyDomains.A.length > 0 || flyDomains.B.length > 0);
-    const hasTed = (flyTedDomains.A.length > 0 || flyTedDomains.B.length > 0);
+    const hasDomains = (_dmA.length > 0 || _dmB.length > 0);
+    const hasTed = (_tdA.length > 0 || _tdB.length > 0);
     const domRowH = hasDomains ? 20 : 0;
     const tedRowH = hasTed ? 20 : 0;
-    const topAnno = (flyDomains.A.length ? 20 : 0) + (flyTedDomains.A.length ? 20 : 0);   // chain-A rows (above the ticks)
-    const botAnno = (flyDomains.B.length ? 20 : 0) + (flyTedDomains.B.length ? 20 : 0);   // chain-B rows (below the ticks)
+    const topAnno = (_dmA.length ? 20 : 0) + (_tdA.length ? 20 : 0);   // top-chain rows (above the ticks)
+    const botAnno = (_dmB.length ? 20 : 0) + (_tdB.length ? 20 : 0);   // bottom-chain rows (below the ticks)
     const tickH = 14;                                    // room for residue-number ticks (kept off the ribbons)
     const width = Math.min(900, (card.clientWidth || 900) - 32);
     const barH = 12;                                     // compact bars (was 14)
     const barY_A = 10 + topAnno + tickH;                   // [margin][domains][ticks][bar]
     const barY_B = barY_A + barH + 60;                   // compact ribbon gap — ribbons only (was ~186)
-    const height = barY_B + barH + tickH + botAnno + 40;   // dynamic; +40 clears the contact-count label
+    const height = barY_B + barH + tickH + botAnno + 8;   // count text now lives in the HTML below, not the canvas
     const barRight = width - 20;
 
     canvas.width = width * S; canvas.height = height * S;
@@ -2418,7 +2431,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     // Size the left margin to fit the (gene-symbol) chain labels so they aren't clipped
     // off the left edge; the font shrinks as a fallback for very long names when drawn.
     ctx.font = 'bold 13px sans-serif';
-    const labelA = `${sym1} (A)`, labelB = `${sym2} (B)`;
+    const labelA = `${sym1} (${swap ? 'B' : 'A'})`, labelB = `${sym2} (${swap ? 'A' : 'B'})`;
     const barLeft = Math.max(60, Math.min(170, Math.ceil(Math.max(ctx.measureText(labelA).width, ctx.measureText(labelB).width)) + 12));
     const barW = barRight - barLeft;
 
@@ -2464,9 +2477,11 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     // Residue ticks
     ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    for (const t of [1, Math.round(lenA/2), lenA]) ctx.fillText(t, xA(t), barY_A - 3);            // chain A ticks ABOVE its bar
+    const nTicks = Math.max(2, Math.min(30, parseInt(document.getElementById('contact-xticks')?.value) || 5));
+    const tickPos = (len) => { const n = Math.max(2, Math.min(nTicks, len)); const s = new Set(); for (let i = 0; i < n; i++) s.add(Math.max(1, Math.min(len, Math.round(1 + (len - 1) * i / (n - 1))))); return [...s]; };
+    for (const t of tickPos(lenA)) ctx.fillText(t, xA(t), barY_A - 3);            // top-bar ticks ABOVE
     ctx.textBaseline = 'top';
-    for (const t of [1, Math.round(lenB/2), lenB]) ctx.fillText(t, xB(t), barY_B + barH + 3);     // chain B ticks BELOW its bar
+    for (const t of tickPos(lenB)) ctx.fillText(t, xB(t), barY_B + barH + 3);     // bottom-bar ticks BELOW
 
     // Connection lines
     const minDist = Math.min(...contacts.map(c => c.dist));
@@ -2475,7 +2490,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     const colB = colors.clir_b || '#E64A19';
 
     for (const c of contacts) {
-        const ax = xA(c.resA); const bx = xB(c.resB);
+        const ax = xA(swap ? c.resB : c.resA); const bx = xB(swap ? c.resA : c.resB);
         const t = maxDist > minDist ? 1 - (c.dist - minDist) / (maxDist - minDist) : 1;
         const alpha = 0.08 + t * 0.2;
         ctx.beginPath(); ctx.moveTo(ax, barY_A + barH);
@@ -2487,17 +2502,15 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
         ctx.strokeStyle = grad; ctx.lineWidth = 1; ctx.stroke();
     }
 
-    ctx.fillStyle = '#888'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    const labelOffset = botAnno + 18;
-    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width / 2, barY_B + barH + tickH + labelOffset);
+    { const _cc = document.getElementById('contact-count-text'); if (_cc) _cc.textContent = `${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`; }
 
     // Domain annotations
     const domPalette = ['rgba(102,194,165,0.35)','rgba(252,141,98,0.35)','rgba(141,160,203,0.35)','rgba(231,138,195,0.35)','rgba(166,216,84,0.35)','rgba(255,217,47,0.35)','rgba(229,196,148,0.35)','rgba(179,179,179,0.35)'];
     const domBorderPalette = ['rgba(102,194,165,0.7)','rgba(252,141,98,0.7)','rgba(141,160,203,0.7)','rgba(231,138,195,0.7)','rgba(166,216,84,0.7)','rgba(255,217,47,0.7)','rgba(229,196,148,0.7)','rgba(179,179,179,0.7)'];
     if (hasDomains) {
         const domBlockH = 14, domGap = 2;
-        for (let di = 0; di < flyDomains.A.length; di++) {
-            const d = flyDomains.A[di];
+        for (let di = 0; di < _dmA.length; di++) {
+            const d = _dmA[di];
             const x1 = xA(Math.max(1, d.start)), x2 = xA(Math.min(lenA, d.end));
             const dw = x2 - x1, dy = barY_A - tickH - domGap - domBlockH;
             ctx.fillStyle = domPalette[di % domPalette.length]; ctx.fillRect(x1, dy, dw, domBlockH);
@@ -2507,8 +2520,8 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
             if (labelW < dw - 2) ctx.fillText(label, x1 + dw/2, dy + domBlockH/2);
             else { const abbr = label.length > 6 ? label.substring(0,5)+'..' : label; if (ctx.measureText(abbr).width < dw-2) ctx.fillText(abbr, x1+dw/2, dy+domBlockH/2); }
         }
-        for (let di = 0; di < flyDomains.B.length; di++) {
-            const d = flyDomains.B[di];
+        for (let di = 0; di < _dmB.length; di++) {
+            const d = _dmB[di];
             const x1 = xB(Math.max(1, d.start)), x2 = xB(Math.min(lenB, d.end));
             const dw = x2 - x1, dy = barY_B + barH + tickH + domGap;
             ctx.fillStyle = domPalette[di % domPalette.length]; ctx.fillRect(x1, dy, dw, domBlockH);
@@ -2526,12 +2539,12 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
         const tedBlockH = 14, tedGap = 2;
 
         // Chain A TED domains — above UniProt domains
-        for (let di = 0; di < flyTedDomains.A.length; di++) {
-            const d = flyTedDomains.A[di];
+        for (let di = 0; di < _tdA.length; di++) {
+            const d = _tdA[di];
             for (const seg of d.segments) {
                 const x1 = xA(Math.max(1, seg.start)), x2 = xA(Math.min(lenA, seg.end));
                 const dw = x2 - x1;
-                const dy = barY_A - tickH - tedGap - tedBlockH - (flyDomains.A.length ? tedBlockH + tedGap : 0);
+                const dy = barY_A - tickH - tedGap - tedBlockH - (_dmA.length ? tedBlockH + tedGap : 0);
                 ctx.fillStyle = TED_PALETTE[di % TED_PALETTE.length];
                 ctx.globalAlpha = 0.6;
                 ctx.fillRect(x1, dy, dw, tedBlockH);
@@ -2543,7 +2556,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
             const mainSeg = d.segments.reduce((a, b) => (b.end - b.start > a.end - a.start ? b : a), d.segments[0]);
             const x1 = xA(Math.max(1, mainSeg.start)), x2 = xA(Math.min(lenA, mainSeg.end));
             const dw = x2 - x1;
-            const dy = barY_A - tickH - tedGap - tedBlockH - (flyDomains.A.length ? tedBlockH + tedGap : 0);
+            const dy = barY_A - tickH - tedGap - tedBlockH - (_dmA.length ? tedBlockH + tedGap : 0);
             ctx.fillStyle = '#333'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             const label = d.cath ? d.cath : `D${d.tedNo}`;
             const labelW = ctx.measureText(label).width;
@@ -2552,12 +2565,12 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
         }
 
         // Chain B TED domains — below UniProt domains
-        for (let di = 0; di < flyTedDomains.B.length; di++) {
-            const d = flyTedDomains.B[di];
+        for (let di = 0; di < _tdB.length; di++) {
+            const d = _tdB[di];
             for (const seg of d.segments) {
                 const x1 = xB(Math.max(1, seg.start)), x2 = xB(Math.min(lenB, seg.end));
                 const dw = x2 - x1;
-                const dy = barY_B + barH + tickH + tedGap + (flyDomains.B.length ? tedBlockH + tedGap : 0);
+                const dy = barY_B + barH + tickH + tedGap + (_dmB.length ? tedBlockH + tedGap : 0);
                 ctx.fillStyle = TED_PALETTE[di % TED_PALETTE.length];
                 ctx.globalAlpha = 0.6;
                 ctx.fillRect(x1, dy, dw, tedBlockH);
@@ -2569,7 +2582,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
             const mainSeg = d.segments.reduce((a, b) => (b.end - b.start > a.end - a.start ? b : a), d.segments[0]);
             const x1 = xB(Math.max(1, mainSeg.start)), x2 = xB(Math.min(lenB, mainSeg.end));
             const dw = x2 - x1;
-            const dy = barY_B + barH + tickH + tedGap + (flyDomains.B.length ? tedBlockH + tedGap : 0);
+            const dy = barY_B + barH + tickH + tedGap + (_dmB.length ? tedBlockH + tedGap : 0);
             ctx.fillStyle = '#333'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             const label = d.cath ? d.cath : `D${d.tedNo}`;
             const labelW = ctx.measureText(label).width;
@@ -2588,8 +2601,8 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
         legendEl.style.gap = '0.3rem';
         const TED_PALETTE_LEG = ['#7E57C2', '#5C6BC0', '#26A69A', '#8D6E63', '#EC407A', '#42A5F5', '#AB47BC', '#66BB6A'];
         const chainLabels = [
-            { key: 'A', label: `${sym1} (A)`, domains: flyDomains.A, tedDomains: flyTedDomains.A, info: flyDomainInfo.A },
-            { key: 'B', label: `${sym2} (B)`, domains: flyDomains.B, tedDomains: flyTedDomains.B, info: flyDomainInfo.B },
+            { key: 'A', label: `${sym1} (${swap ? 'B' : 'A'})`, domains: _dmA, tedDomains: _tdA, info: _diA },
+            { key: 'B', label: `${sym2} (${swap ? 'A' : 'B'})`, domains: _dmB, tedDomains: _tdB, info: _diB },
         ];
         for (const cl of chainLabels) {
             if (cl.domains.length === 0 && cl.tedDomains.length === 0 && !cl.info) continue;
