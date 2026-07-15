@@ -18,15 +18,18 @@
     'use strict';
 
     let EXPORT_FONT = 1;   // font-size multiplier applied to the serialized SVG
-    let EXPORT_W = 0;      // target SVG width in px (0 = keep the drawn width)
+    let EXPORT_W = 0;      // target SVG width in px (0 = keep the drawn width / aspect from height)
+    let EXPORT_H = 0;      // target SVG height in px (0 = keep the drawn height / aspect from width)
 
     function setExportOpts(o) {
         if (!o) return;
         if (o.font != null) EXPORT_FONT = +o.font;
         if (o.width != null) EXPORT_W = +o.width;
+        if (o.height != null) EXPORT_H = +o.height;
     }
 
-    // Add a viewBox (canvas2svg omits it) and optionally rescale width/fonts for publication.
+    // Add a viewBox (canvas2svg omits it) and optionally rescale width/height/fonts for publication.
+    // Width and height each default to "auto": set one → the other follows aspect; set both → exact.
     function applyExportOpts(svg) {
         if (EXPORT_FONT && EXPORT_FONT !== 1) {
             svg = svg.replace(/font-size="([\d.]+)px"/g, (m, s) => 'font-size="' + (parseFloat(s) * EXPORT_FONT).toFixed(2) + 'px"');
@@ -35,9 +38,11 @@
         if (m) {
             const ow = parseFloat(m[1]), oh = parseFloat(m[2]);
             if (!/viewBox=/.test(svg)) svg = svg.replace(/<svg\b/, '<svg viewBox="0 0 ' + ow + ' ' + oh + '"');
-            if (EXPORT_W) {
-                const th = Math.round(oh * EXPORT_W / ow);
-                svg = svg.replace(/(<svg\b[^>]*?)\bwidth="[\d.]+"/, '$1width="' + EXPORT_W + '"')
+            if (EXPORT_W || EXPORT_H) {
+                let tw = EXPORT_W, th = EXPORT_H;
+                if (tw && !th) th = Math.round(oh * tw / ow);        // width set → height by aspect
+                else if (!tw && th) tw = Math.round(ow * th / oh);   // height set → width by aspect
+                svg = svg.replace(/(<svg\b[^>]*?)\bwidth="[\d.]+"/, '$1width="' + tw + '"')
                          .replace(/(<svg\b[^>]*?)\bheight="[\d.]+"/, '$1height="' + th + '"');
             }
         }

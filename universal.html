@@ -223,16 +223,6 @@
             </div>
         </div>
 
-        <!-- Figure export options (SVG) -->
-        <div class="card result-card" id="export-controls" style="display:none; padding:0.55rem 0.9rem;">
-            <span style="font-size:0.82rem; color:#555; font-weight:600;">SVG export:</span>
-            <span style="font-size:0.82rem; color:#888; margin-left:0.6rem;">font &times;
-                <select id="exp-font" onchange="setExp('font', this.value)" style="font-size:0.82rem; padding:1px 3px;"><option value="0.8">0.8</option><option value="1" selected>1.0</option><option value="1.25">1.25</option><option value="1.5">1.5</option><option value="2">2.0</option></select></span>
-            <span style="font-size:0.82rem; color:#888; margin-left:0.9rem;">width
-                <select id="exp-w" onchange="setExp('w', this.value)" style="font-size:0.82rem; padding:1px 3px;"><option value="0" selected>auto</option><option value="600">600</option><option value="900">900</option><option value="1200">1200</option><option value="1600">1600</option></select></span>
-            <span style="font-size:0.76rem; color:#aaa; margin-left:0.6rem;">(applies to every &darr; SVG; per-residue maps export as 2&times; PNG)</span>
-        </div>
-
         <!-- Chain identity (UniProt via sequence) -->
         <div class="card result-card" id="chain-identity-card" style="display:none;">
             <h2>Chain identity</h2>
@@ -246,8 +236,9 @@
         <!-- Score Matrix (iLIS / iLIA) -->
         <div class="card result-card" id="score-matrix-card" style="display:none;">
             <h2>Score Matrix</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                Lower-left <select id="mtx-lower" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS" selected>iLIS</option><option value="iLIA">iLIA</option><option value="iLISA">iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option></select> (Oranges) &middot; Upper-right <select id="mtx-upper" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS">iLIS</option><option value="iLIA" selected>iLIA</option><option value="iLISA">iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option></select> (Greens) &middot; Diagonal: self.
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+                <span>Lower-left <select id="mtx-lower" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS" selected>iLIS</option><option value="iLIA">iLIA</option><option value="iLISA">iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option></select> (Oranges) &middot; Upper-right <select id="mtx-upper" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS">iLIS</option><option value="iLIA" selected>iLIA</option><option value="iLISA">iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option></select> (Greens) &middot; Diagonal: self.</span>
+                <span style="margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:0.72rem; color:#888;">figure &middot; W <select id="mtx-exp-w" style="font-size:0.72rem; padding:0 2px"><option value="0" selected>auto</option><option value="600">600</option><option value="900">900</option><option value="1200">1200</option><option value="1600">1600</option></select> H <select id="mtx-exp-h" style="font-size:0.72rem; padding:0 2px"><option value="0" selected>auto</option><option value="400">400</option><option value="600">600</option><option value="800">800</option><option value="1200">1200</option></select> font &times; <select id="mtx-exp-font" style="font-size:0.72rem; padding:0 2px"><option value="0.8">0.8</option><option value="1" selected>1.0</option><option value="1.25">1.25</option><option value="1.5">1.5</option><option value="2">2.0</option></select></span>
             </div>
             <div class="map-row" id="score-matrix-row"></div>
         </div>
@@ -304,7 +295,7 @@
                 Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B.
             </div>
             <canvas id="contact-canvas"></canvas>
-            <div style="text-align:center; margin-top:2px;"><button type="button" onclick="downloadContactMapSVG()" style="font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600; padding:0 6px;">&darr; SVG</button><button type="button" onclick="downloadContactMapPNG()" style="font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600; padding:0 6px;">&darr; PNG</button></div>
+            <div id="contact-export" style="text-align:center; margin-top:2px;"></div>
         </div>
 
         <!-- Circular Contact Map (multi-chain) -->
@@ -3367,7 +3358,6 @@ function displayResults(results, jobName) {
     setupMultiChainColors();
     renderChainToggleBar();
     { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; if (typeof identifyChains === 'function') setTimeout(identifyChains, 0); } _cic.style.display = ''; } else { _cic.style.display = 'none'; } } }
-    { const _ec = document.getElementById('export-controls'); if (_ec) _ec.style.display = (uniState.chainNames && uniState.chainNames.length >= 2) ? '' : 'none'; }
     drawAllScoreMatrices();
     drawAllMaps();
     document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
@@ -4353,7 +4343,6 @@ function greensColor(value, vmin, vmax) {
     }
 }
 
-function setExp(k, v){ LiviaMaps.setExportOpts(k === 'font' ? { font: v } : { width: v }); }   // figure-export options
 function chainLabel(name){ const g = uniState.chainGenes && uniState.chainGenes[name]; return g ? g + ' (' + name + ')' : name; }   // 'A' -> 'TP53 (A)' once resolved
 const applyExportOpts = (svg) => LiviaMaps.applyExportOpts(svg);                    // shared: js/livia-maps.js
 // ---- vector SVG export: re-run any canvas draw fn against a canvas2svg context ----
@@ -4373,6 +4362,57 @@ function addSvgBtn(container, name, drawClosure){
     btn.style.cssText = 'display:block; margin:2px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;';
     btn.onclick = () => { try { downloadSVGFile(name.replace(/[^\w.-]+/g,'_') + '.svg', svgFromDraw(drawClosure)); } catch(e){ alert('SVG export failed: ' + e.message); } };
     container.appendChild(btn);
+}
+
+// Rescale a canvas bitmap to a target width/height (auto \u2192 aspect from the other; both auto \u2192 native) and download as PNG.
+function exportPngScaled(canvas, name, w, h){
+    if (!canvas) return;
+    const ow = canvas.width, oh = canvas.height;
+    let tw = w || 0, th = h || 0, out = canvas;
+    if (tw || th){
+        if (tw && !th) th = Math.round(oh * tw / ow);
+        else if (!tw && th) tw = Math.round(ow * th / oh);
+        const tc = document.createElement('canvas'); tc.width = tw; tc.height = th;
+        const cx = tc.getContext('2d'); cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+        cx.drawImage(canvas, 0, 0, tw, th); out = tc;
+    }
+    const a = document.createElement('a'); a.href = out.toDataURL('image/png'); a.download = name.replace(/[^\w.-]+/g,'_') + '.png'; a.click();
+}
+
+// Per-panel figure-export bar: \u2193 SVG \u00b7 \u2193 PNG plus width / height / font controls (each panel independent).
+// getCanvas() \u2192 the panel's <canvas> for PNG; svgGen() \u2192 the raw SVG string for that panel.
+// width/height default to "auto" (aspect-preserving); font (\u00d7) scales SVG text only.
+function addExportBar(container, name, getCanvas, svgGen){
+    const bar = document.createElement('div');
+    bar.className = 'export-bar';
+    bar.style.cssText = 'display:flex; flex-wrap:wrap; gap:5px 8px; align-items:center; justify-content:center; margin-top:4px; font-size:0.7rem; color:#888;';
+    const mkSel = (opts, def) => { const s = document.createElement('select'); s.style.cssText = 'font-size:0.7rem; padding:0 2px; color:#555;'; for (const o of opts){ const op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; if (o[0] === def) op.selected = true; s.appendChild(op); } return s; };
+    const dims = [['0','auto'],['600','600'],['900','900'],['1200','1200'],['1600','1600']];
+    const hdims = [['0','auto'],['400','400'],['600','600'],['800','800'],['1200','1200']];
+    const fonts = [['0.8','0.8'],['1','1.0'],['1.25','1.25'],['1.5','1.5'],['2','2.0']];
+    const wSel = mkSel(dims, '0'), hSel = mkSel(hdims, '0'), fSel = mkSel(fonts, '1');
+    const opts = () => ({ font: +fSel.value, width: +wSel.value, height: +hSel.value });
+    const mkBtn = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.style.cssText = 'font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600; padding:0 4px;'; b.onclick = fn; return b; };
+    const svgBtn = mkBtn('\u2193 SVG', () => { try { LiviaMaps.setExportOpts(opts()); downloadSVGFile(name.replace(/[^\w.-]+/g,'_') + '.svg', svgGen()); } catch(e){ alert('SVG export failed: ' + e.message); } });
+    const pngBtn = mkBtn('\u2193 PNG', () => { const o = opts(); exportPngScaled(getCanvas(), name, o.width, o.height); });
+    const lbl = (t) => { const s = document.createElement('span'); s.textContent = t; return s; };
+    bar.append(svgBtn, pngBtn, lbl('W'), wSel, lbl('H'), hSel, lbl('font \u00d7'), fSel);
+    container.appendChild(bar);
+}
+
+// Compact SVG/PNG buttons that read a SHARED set of W/H/font controls (ids #<prefix>-w/-h/-font).
+// Used where many small figures share one export setting (e.g. the per-model score matrices).
+function addSharedExport(container, name, getCanvas, svgGen, prefix){
+    const bar = document.createElement('div');
+    bar.style.cssText = 'display:flex; gap:10px; justify-content:center; margin-top:3px;';
+    const val = (k, d) => { const el = document.getElementById(prefix + '-' + k); return el ? +el.value : d; };
+    const opts = () => ({ font: val('font', 1), width: val('w', 0), height: val('h', 0) });
+    const mkBtn = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.style.cssText = 'font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600; padding:0 4px;'; b.onclick = fn; return b; };
+    bar.append(
+        mkBtn('\u2193 SVG', () => { try { LiviaMaps.setExportOpts(opts()); downloadSVGFile(name.replace(/[^\w.-]+/g,'_') + '.svg', svgGen()); } catch(e){ alert('SVG export failed: ' + e.message); } }),
+        mkBtn('\u2193 PNG', () => { const o = opts(); exportPngScaled(getCanvas(), name, o.width, o.height); })
+    );
+    container.appendChild(bar);
 }
 async function applyChainIdentity(chainName, query, source, rowEl){   // shared by manual override + BLAST
     const md = uniState.modelData[0];
@@ -4486,8 +4526,7 @@ function drawAllScoreMatrices() {
         const canvas = document.createElement('canvas');
         drawOneScoreMatrix(canvas, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), displaySize);
         wrap.appendChild(canvas);
-        addSvgBtn(wrap, 'score_matrix_' + (md.label || mi), (c) => drawOneScoreMatrix(c, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), displaySize));
-        addPngBtn(wrap, 'score_matrix_' + (md.label || mi), canvas);
+        addSharedExport(wrap, 'score_matrix_' + (md.label || mi), () => canvas, () => svgFromDraw((c) => drawOneScoreMatrix(c, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), displaySize)), 'mtx-exp');
         row.appendChild(wrap);
     }
 }
@@ -6141,6 +6180,12 @@ function buildContactMap(pairKey) {
     ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width / 2, barY_B + barH + 15 + botLane);
 
     ctx.restore();
+
+    // Per-panel figure export (\u2193 SVG/PNG + width/height/font), added once
+    const _ce = document.getElementById('contact-export');
+    if (_ce && !_ce.querySelector('.export-bar'))
+        addExportBar(_ce, 'linear_contact_map', () => document.getElementById('contact-canvas'),
+            () => svgFromFixedCanvas('contact-canvas', () => buildContactMap(uniState.currentPairKey)));
 }
 
 // Convert a Set of residue numbers into sorted contiguous [start, end] ranges.
@@ -6200,7 +6245,7 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
     const nc = chainNames.length;
     const S = 2;
     const cxC = size / 2, cyC = size / 2;
-    const outerR = size / 2 - 30, innerR = outerR - 18, chordR = innerR - 4;
+    const outerR = size / 2 - 48, innerR = outerR - 18, chordR = innerR - 4;   // wider margin for the larger labels
     ctx.clearRect(0, 0, size * S, size * S);
     ctx.save(); ctx.scale(S, S);
 
@@ -6255,11 +6300,11 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
         let textAngle = labelAngle + Math.PI / 2;
         const normA = ((textAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
         if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
-        ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+14), cyC + Math.sin(labelAngle) * (outerR+14));
-        ctx.rotate(textAngle); ctx.fillStyle = hidden ? '#bbb' : '#333'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+18), cyC + Math.sin(labelAngle) * (outerR+18));
+        ctx.rotate(textAngle); ctx.fillStyle = hidden ? '#bbb' : '#333'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(arc.type === 'ion' ? arc.displayName : chainLabel(arc.name), 0, 0); ctx.restore();
-        ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+24), cyC + Math.sin(labelAngle) * (outerR+24));
-        ctx.rotate(textAngle); ctx.fillStyle = '#bbb'; ctx.font = '7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+35), cyC + Math.sin(labelAngle) * (outerR+35));
+        ctx.rotate(textAngle); ctx.fillStyle = '#bbb'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`, 0, 0); ctx.restore();
     }
     ctx.restore();
@@ -6269,7 +6314,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
     const nc = chainNames.length;
     const S = 2;
     const cxC = size / 2, cyC = size / 2;
-    const outerR = size / 2 - 30;
+    const outerR = size / 2 - 48;   // wider outer margin so the (now larger) chain + residue labels fit
     const innerR = outerR - 18;
     const chordR = innerR - 4;
 
@@ -6307,7 +6352,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
 
         // Label (rotated along arc)
         const labelAngle = arc.mid;
-        const labelR = outerR + 14;
+        const labelR = outerR + 18;
         const lx = cxC + Math.cos(labelAngle) * labelR;
         const ly = cyC + Math.sin(labelAngle) * labelR;
         ctx.save();
@@ -6317,7 +6362,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
         if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
         ctx.rotate(textAngle);
         ctx.fillStyle = hidden ? '#bbb' : '#333';
-        ctx.font = 'bold 9px sans-serif';
+        ctx.font = 'bold 13px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(arc.type === 'ion' ? arc.displayName : chainLabel(arc.name), 0, 0);
@@ -6325,14 +6370,14 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
 
         // Secondary label (chain letter for ions, size for others)
         const sizeLabel = arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`;
-        const rangeR = outerR + 24;
+        const rangeR = outerR + 35;
         const rx = cxC + Math.cos(labelAngle) * rangeR;
         const ry = cyC + Math.sin(labelAngle) * rangeR;
         ctx.save();
         ctx.translate(rx, ry);
         ctx.rotate(textAngle);
         ctx.fillStyle = '#888';
-        ctx.font = '7px sans-serif';
+        ctx.font = '11px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(sizeLabel, 0, 0);
@@ -6478,7 +6523,7 @@ function buildChordDiagram() {
     }
 
     const S = 2;
-    const size = 350;
+    const size = 380;
 
     // --- Draw individual model chord ---
     const contactPairs = Object.values(results);
@@ -6490,7 +6535,7 @@ function buildChordDiagram() {
     canvas.style.height = size + 'px';
     drawChord(canvas.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors, selLIR, selCLIR, chainLightColors);
     window.__chordDraw = (c) => { c.width = size * S; c.height = size * S; drawChord(c.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors, selLIR, selCLIR, chainLightColors); };
-    if (canvas.parentElement && !document.getElementById('chord-svg-btn')){ const _cb = document.createElement('button'); _cb.id = 'chord-svg-btn'; _cb.type = 'button'; _cb.textContent = '\u2193 SVG'; _cb.style.cssText = 'display:block; margin:4px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;'; _cb.onclick = () => { try { downloadSVGFile('chord_diagram.svg', svgFromDraw(window.__chordDraw)); } catch(e){ alert('SVG export failed: ' + e.message); } }; canvas.parentElement.appendChild(_cb); addPngBtn(canvas.parentElement, 'chord_diagram', canvas); }
+    if (canvas.parentElement && !canvas.parentElement.querySelector('.export-bar')){ addExportBar(canvas.parentElement, 'chord_diagram', () => canvas, () => svgFromDraw(window.__chordDraw)); }
 
     // --- Draw combined all-models chord ---
     const hasMultipleModels = uniState.modelPairs && uniState.modelPairs.length > 1;
@@ -6565,7 +6610,7 @@ function buildChordDiagram() {
             canvasAll.style.height = size + 'px';
             drawChordFromContacts(canvasAll.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, allContacts, chainColors, allLIR, allCLIR, chainLightColors);
             window.__chordAllDraw = (c) => { c.width = size * S; c.height = size * S; drawChordFromContacts(c.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, allContacts, chainColors, allLIR, allCLIR, chainLightColors); };
-            if (canvasAll.parentElement && !document.getElementById('chord-all-svg-btn')){ const _cb = document.createElement('button'); _cb.id = 'chord-all-svg-btn'; _cb.type = 'button'; _cb.textContent = '\u2193 SVG'; _cb.style.cssText = 'display:block; margin:4px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;'; _cb.onclick = () => { try { downloadSVGFile('chord_diagram_all_models.svg', svgFromDraw(window.__chordAllDraw)); } catch(e){ alert('SVG export failed: ' + e.message); } }; canvasAll.parentElement.appendChild(_cb); addPngBtn(canvasAll.parentElement, 'chord_diagram_all_models', canvasAll); }
+            if (canvasAll.parentElement && !canvasAll.parentElement.querySelector('.export-bar')){ addExportBar(canvasAll.parentElement, 'chord_diagram_all_models', () => canvasAll, () => svgFromDraw(window.__chordAllDraw)); }
         }
     }
 }
