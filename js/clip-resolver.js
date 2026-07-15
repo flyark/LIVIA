@@ -290,6 +290,38 @@
     } catch (e) { return []; }
   }
 
+  // Pfam/InterPro domains (fallback when UniProt has no curated Domain features) → [{start, end, name}]
+  async function fetchPfam(acc) {
+    try {
+      const data = await _json(`https://www.ebi.ac.uk/interpro/api/entry/pfam/protein/uniprot/${acc}?format=json`);
+      const out = [];
+      for (const entry of (data.results || [])) {
+        const name = (entry.metadata && entry.metadata.name) || 'Pfam domain';
+        for (const prot of (entry.proteins || []))
+          for (const loc of (prot.entry_protein_locations || []))
+            for (const frag of (loc.fragments || []))
+              if (frag.start != null && frag.end != null) out.push({ name, start: +frag.start, end: +frag.end });
+      }
+      return out.sort((a, b) => a.start - b.start);
+    } catch (e) { return []; }
+  }
+
+  // TED structural domains from the AlphaFold DB → [{name, start, end, segments:[{start,end}], cath, tedNo}]
+  async function fetchTed(acc) {
+    try {
+      const data = await _json(`https://alphafold.ebi.ac.uk/api/domains/${acc}`);
+      const out = [];
+      for (const ann of (data.annotations || [])) {
+        const segments = (ann.segments || []).map((s) => ({ start: +s.af_start, end: +s.af_end })).filter((s) => s.start && s.end);
+        if (!segments.length) continue;
+        const start = Math.min(...segments.map((s) => s.start)), end = Math.max(...segments.map((s) => s.end));
+        const cath = ann.cath_label || '';
+        out.push({ name: cath ? `TED ${ann.ted_domain_no} (${cath})` : `TED ${ann.ted_domain_no}`, start, end, segments, cath, tedNo: ann.ted_domain_no });
+      }
+      return out.sort((a, b) => a.start - b.start);
+    } catch (e) { return []; }
+  }
+
   async function fetchAlphaMissense(acc) {
     try {
       const meta = await _json(`https://alphafold.ebi.ac.uk/api/prediction/${acc}`);
@@ -303,5 +335,5 @@
       return out.length ? out : null;
     } catch (e) { return null; }
   }
-  return { crc64, parseFastaToSeqMap, baitSequence, resolveStructure, parseFragmentRange, alignMap, nwAlign, fetchDomains, fetchAlphaMissense, SPECIES };
+  return { crc64, parseFastaToSeqMap, baitSequence, resolveStructure, parseFragmentRange, alignMap, nwAlign, fetchDomains, fetchPfam, fetchTed, fetchAlphaMissense, SPECIES };
 });

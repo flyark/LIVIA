@@ -104,7 +104,30 @@
         a.click();
     }
 
-    // Idempotent "↓ SVG · ↓ PNG" bar directly under a canvas.
+    // PNG at a custom width/height (blank/0 = native; one set → the other follows aspect).
+    function downloadCanvasPNGScaled(canvasId, name, w, h) {
+        const cv = document.getElementById(canvasId);
+        if (!cv) return;
+        let out = cv; const ow = cv.width, oh = cv.height; let tw = w || 0, th = h || 0;
+        if (tw || th) {
+            if (tw && !th) th = Math.round(oh * tw / ow); else if (!tw && th) tw = Math.round(ow * th / oh);
+            const tc = document.createElement('canvas'); tc.width = tw; tc.height = th;
+            const cx = tc.getContext('2d'); cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high'; cx.drawImage(cv, 0, 0, tw, th); out = tc;
+        }
+        const a = document.createElement('a'); a.href = out.toDataURL('image/png'); a.download = safeName(String(name).replace(/\.png$/i, '')) + '.png'; a.click();
+    }
+
+    // Shared datalists backing the export size widgets: "auto" + suggested values (custom typing allowed).
+    function ensureExportDatalists() {
+        if (typeof document === 'undefined' || document.getElementById('lm-exp-dim')) return;
+        const mk = (id, vals) => { const dl = document.createElement('datalist'); dl.id = id; dl.innerHTML = vals.map((v) => '<option value="' + v + '"></option>').join(''); document.body.appendChild(dl); };
+        mk('lm-exp-dim', ['auto', '600', '900', '1200', '1600']);
+        mk('lm-exp-font', ['1', '1.25', '1.5', '2', '0.8']);
+    }
+
+    // Idempotent "↓ SVG · ↓ PNG" bar (plus custom W / H / font× entry) directly under a canvas.
+    // Pass opts.dims === false to omit the size controls. W/H are px (blank = auto, aspect-preserving);
+    // font× is a free multiplier applied to the SVG text.
     function attachExportBar(canvasId, opts) {
         opts = opts || {};
         const cv = document.getElementById(canvasId);
@@ -112,9 +135,14 @@
         const barId = canvasId + '-export-bar';
         const existing = document.getElementById(barId);
         if (existing) existing.remove();          // rebuild so the redraw closure stays current
+        const showDims = opts.dims !== false;
         const bar = document.createElement('div');
         bar.id = barId;
-        bar.style.cssText = 'text-align:center; margin-top:3px;';
+        bar.style.cssText = showDims
+            ? 'display:flex; flex-wrap:wrap; gap:5px 8px; align-items:center; justify-content:center; margin-top:3px; font-size:0.7rem; color:#888;'
+            : 'text-align:center; margin-top:3px;';
+        let wIn, hIn, fIn;
+        const readOpts = () => ({ font: (fIn && +fIn.value) || 1, width: (wIn && +wIn.value) || 0, height: (hIn && +hIn.value) || 0 });
         const mk = (label, fn) => {
             const b = document.createElement('button');
             b.type = 'button'; b.textContent = label;
@@ -122,8 +150,15 @@
             b.onclick = fn;
             bar.appendChild(b);
         };
-        if (opts.svg) mk('↓ SVG', () => downloadSVGFromCanvas(canvasId, opts.name, opts.svg));
-        if (opts.png) mk('↓ PNG', () => downloadCanvasPNG(canvasId, opts.name));
+        if (opts.svg) mk('↓ SVG', () => { if (showDims) setExportOpts(readOpts()); downloadSVGFromCanvas(canvasId, opts.name, opts.svg); });
+        if (opts.png) mk('↓ PNG', () => { const o = showDims ? readOpts() : {}; downloadCanvasPNGScaled(canvasId, opts.name, o.width || 0, o.height || 0); });
+        if (showDims && bar.children.length) {
+            ensureExportDatalists();
+            const mkIn = (val, ph, list, w) => { const i = document.createElement('input'); i.type = 'text'; i.setAttribute('list', list); if (val) i.value = val; if (ph) i.placeholder = ph; i.style.cssText = 'width:' + w + 'px; font-size:0.7rem; padding:1px 3px; color:#555;'; return i; };
+            const lbl = (t) => { const s = document.createElement('span'); s.textContent = t; return s; };
+            wIn = mkIn('', 'auto', 'lm-exp-dim', 58); hIn = mkIn('', 'auto', 'lm-exp-dim', 58); fIn = mkIn('1', '', 'lm-exp-font', 52);
+            bar.append(lbl('W'), wIn, lbl('H'), hIn, lbl('font ×'), fIn);
+        }
         bar.__opts = opts;                        // exposed so callers/tests can reuse the redraw closure
         if (bar.children.length) cv.parentElement.appendChild(bar);
     }
