@@ -110,8 +110,8 @@
         }
     </style>
 <script src="js/canvas2svg.js"></script>
-<script src="js/livia-maps.js?v=20260709"></script>
-<script src="js/clip-resolver.js"></script>
+<script src="js/livia-maps.js?v=20260715"></script>
+<script src="js/clip-resolver.js?v=20260715"></script>
 </head>
 <body>
 
@@ -238,7 +238,7 @@
             <h2>Score Matrix</h2>
             <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 <span>Lower-left <select id="mtx-lower" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS" selected>iLIS</option><option value="iLIA">iLIA</option><option value="iLISA">iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option></select> (Oranges) &middot; Upper-right <select id="mtx-upper" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS">iLIS</option><option value="iLIA" selected>iLIA</option><option value="iLISA">iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option></select> (Greens) &middot; Diagonal: self.</span>
-                <span style="margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:0.72rem; color:#888;">figure &middot; W <select id="mtx-exp-w" style="font-size:0.72rem; padding:0 2px"><option value="0" selected>auto</option><option value="600">600</option><option value="900">900</option><option value="1200">1200</option><option value="1600">1600</option></select> H <select id="mtx-exp-h" style="font-size:0.72rem; padding:0 2px"><option value="0" selected>auto</option><option value="400">400</option><option value="600">600</option><option value="800">800</option><option value="1200">1200</option></select> font &times; <select id="mtx-exp-font" style="font-size:0.72rem; padding:0 2px"><option value="0.8">0.8</option><option value="1" selected>1.0</option><option value="1.25">1.25</option><option value="1.5">1.5</option><option value="2">2.0</option></select></span>
+                <span style="margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:0.72rem; color:#888;">figure &middot; W <input id="mtx-exp-w" type="text" list="exp-dim-list" placeholder="auto" style="width:58px; font-size:0.72rem; padding:0 2px"> H <input id="mtx-exp-h" type="text" list="exp-dim-list" placeholder="auto" style="width:58px; font-size:0.72rem; padding:0 2px"> font &times; <input id="mtx-exp-font" type="text" list="exp-font-list" value="1" style="width:52px; font-size:0.72rem; padding:0 2px"></span>
             </div>
             <div class="map-row" id="score-matrix-row"></div>
         </div>
@@ -291,11 +291,16 @@
                 <h2 style="margin-bottom:0;">Linear Contact Map</h2>
                 <div class="model-selector" id="contact-model-selector"></div>
             </div>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B.
+            <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+                <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B.</span>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> domain architecture</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> swap chains (top&harr;bottom)</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"></label>
             </div>
             <canvas id="contact-canvas"></canvas>
-            <div id="contact-export" style="text-align:center; margin-top:2px;"></div>
+            <div id="contact-count-text" style="font-size:0.8rem; color:#888; text-align:center; margin-top:4px;"></div>
+            <div id="contact-domain-legend" style="font-size:0.78rem; color:#555; margin-top:6px; line-height:1.7;"></div>
+            <div id="contact-export" style="text-align:center; margin-top:4px;"></div>
         </div>
 
         <!-- Circular Contact Map (multi-chain) -->
@@ -3357,7 +3362,7 @@ function displayResults(results, jobName) {
     document.getElementById('results').classList.add('active');
     setupMultiChainColors();
     renderChainToggleBar();
-    { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; if (typeof identifyChains === 'function') setTimeout(identifyChains, 0); } _cic.style.display = ''; } else { _cic.style.display = 'none'; } } }
+    { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; uniState.chainTedDomains = {}; uniState.chainDomainInfo = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; if (typeof identifyChains === 'function') setTimeout(identifyChains, 0); } _cic.style.display = ''; } else { _cic.style.display = 'none'; } } }
     drawAllScoreMatrices();
     drawAllMaps();
     document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
@@ -4382,21 +4387,30 @@ function exportPngScaled(canvas, name, w, h){
 // Per-panel figure-export bar: \u2193 SVG \u00b7 \u2193 PNG plus width / height / font controls (each panel independent).
 // getCanvas() \u2192 the panel's <canvas> for PNG; svgGen() \u2192 the raw SVG string for that panel.
 // width/height default to "auto" (aspect-preserving); font (\u00d7) scales SVG text only.
+// Export-size controls accept "auto" (blank = auto, aspect-preserving), any custom number, or a
+// suggested value from the dropdown. Shared datalists + parsers back every export widget.
+function ensureExportDatalists(){
+    if (document.getElementById('exp-dim-list')) return;
+    const mk = (id, vals) => { const dl = document.createElement('datalist'); dl.id = id; dl.innerHTML = vals.map(v => `<option value="${v}"></option>`).join(''); document.body.appendChild(dl); };
+    mk('exp-dim-list', ['auto', '600', '900', '1200', '1600']);
+    mk('exp-font-list', ['1', '1.25', '1.5', '2', '0.8']);
+}
+const parseExpDim = (v) => { v = String(v || '').trim().toLowerCase(); if (v === '' || v === 'auto') return 0; const n = parseFloat(v); return isNaN(n) ? 0 : Math.max(0, n); };
+const parseExpFont = (v) => { v = String(v || '').trim().toLowerCase(); if (v === '' || v === 'auto') return 1; const n = parseFloat(v); return isNaN(n) ? 1 : n; };
+
 function addExportBar(container, name, getCanvas, svgGen){
+    ensureExportDatalists();
     const bar = document.createElement('div');
     bar.className = 'export-bar';
     bar.style.cssText = 'display:flex; flex-wrap:wrap; gap:5px 8px; align-items:center; justify-content:center; margin-top:4px; font-size:0.7rem; color:#888;';
-    const mkSel = (opts, def) => { const s = document.createElement('select'); s.style.cssText = 'font-size:0.7rem; padding:0 2px; color:#555;'; for (const o of opts){ const op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; if (o[0] === def) op.selected = true; s.appendChild(op); } return s; };
-    const dims = [['0','auto'],['600','600'],['900','900'],['1200','1200'],['1600','1600']];
-    const hdims = [['0','auto'],['400','400'],['600','600'],['800','800'],['1200','1200']];
-    const fonts = [['0.8','0.8'],['1','1.0'],['1.25','1.25'],['1.5','1.5'],['2','2.0']];
-    const wSel = mkSel(dims, '0'), hSel = mkSel(hdims, '0'), fSel = mkSel(fonts, '1');
-    const opts = () => ({ font: +fSel.value, width: +wSel.value, height: +hSel.value });
+    const mkIn = (w, list, ph, val) => { const i = document.createElement('input'); i.type = 'text'; i.setAttribute('list', list); i.placeholder = ph; if (val) i.value = val; i.style.cssText = `width:${w}px; font-size:0.7rem; padding:1px 3px; color:#555;`; return i; };
+    const wIn = mkIn(58, 'exp-dim-list', 'auto', ''), hIn = mkIn(58, 'exp-dim-list', 'auto', ''), fIn = mkIn(52, 'exp-font-list', '1', '1');
+    const opts = () => ({ font: parseExpFont(fIn.value), width: parseExpDim(wIn.value), height: parseExpDim(hIn.value) });
     const mkBtn = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.style.cssText = 'font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600; padding:0 4px;'; b.onclick = fn; return b; };
     const svgBtn = mkBtn('\u2193 SVG', () => { try { LiviaMaps.setExportOpts(opts()); downloadSVGFile(name.replace(/[^\w.-]+/g,'_') + '.svg', svgGen()); } catch(e){ alert('SVG export failed: ' + e.message); } });
     const pngBtn = mkBtn('\u2193 PNG', () => { const o = opts(); exportPngScaled(getCanvas(), name, o.width, o.height); });
     const lbl = (t) => { const s = document.createElement('span'); s.textContent = t; return s; };
-    bar.append(svgBtn, pngBtn, lbl('W'), wSel, lbl('H'), hSel, lbl('font \u00d7'), fSel);
+    bar.append(svgBtn, pngBtn, lbl('W'), wIn, lbl('H'), hIn, lbl('font \u00d7'), fIn);
     container.appendChild(bar);
 }
 
@@ -4405,8 +4419,8 @@ function addExportBar(container, name, getCanvas, svgGen){
 function addSharedExport(container, name, getCanvas, svgGen, prefix){
     const bar = document.createElement('div');
     bar.style.cssText = 'display:flex; gap:10px; justify-content:center; margin-top:3px;';
-    const val = (k, d) => { const el = document.getElementById(prefix + '-' + k); return el ? +el.value : d; };
-    const opts = () => ({ font: val('font', 1), width: val('w', 0), height: val('h', 0) });
+    const val = (k, kind) => { const el = document.getElementById(prefix + '-' + k); const v = el ? el.value : ''; return kind === 'font' ? parseExpFont(v) : parseExpDim(v); };
+    const opts = () => ({ font: val('font', 'font'), width: val('w', 'dim'), height: val('h', 'dim') });
     const mkBtn = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.style.cssText = 'font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600; padding:0 4px;'; b.onclick = fn; return b; };
     bar.append(
         mkBtn('\u2193 SVG', () => { try { LiviaMaps.setExportOpts(opts()); downloadSVGFile(name.replace(/[^\w.-]+/g,'_') + '.svg', svgGen()); } catch(e){ alert('SVG export failed: ' + e.message); } }),
@@ -4414,6 +4428,25 @@ function addSharedExport(container, name, getCanvas, svgGen, prefix){
     );
     container.appendChild(bar);
 }
+// Fetch a chain's domain annotations (UniProt curated → Pfam fallback → TED), remapping canonical
+// coordinates onto this (possibly truncated) modeled chain. Returns {dom, ted, info}.
+async function resolveChainDomains(r, chainSeq){
+    let dom = await CLIPResolver.fetchDomains(r.accession).catch(() => []);
+    if (!dom.length) dom = await CLIPResolver.fetchPfam(r.accession).catch(() => []);
+    let ted = await CLIPResolver.fetchTed(r.accession).catch(() => []);
+    const full = r.structureSequence || '';
+    const info = { accession: r.accession, gene: r.gene || null, fullLength: full.length || null, isPartial: false, startInFull: null, endInFull: null };
+    if (full && chainSeq && chainSeq.length){
+        const al = CLIPResolver.alignMap(chainSeq, full); const map = (al && al.map) || [];   // map[i] = canonical pos of construct residue i+1
+        const mapped = map.filter(c => c != null);
+        if (mapped.length){ info.startInFull = Math.min(...mapped); info.endInFull = Math.max(...mapped); info.isPartial = chainSeq.length < full.length; }
+        const remapSpan = (s0, e0) => { let s = null, e = null; for (let i = 0; i < map.length; i++){ const c = map[i]; if (c != null && c >= s0 && c <= e0){ if (s == null) s = i + 1; e = i + 1; } } return s != null ? [s, e] : null; };
+        dom = dom.map(d => { const sp = remapSpan(d.start, d.end); return sp ? { name: d.name, start: sp[0], end: sp[1] } : null; }).filter(Boolean);
+        ted = ted.map(d => { const segs = (d.segments || []).map(sg => { const sp = remapSpan(sg.start, sg.end); return sp ? { start: sp[0], end: sp[1] } : null; }).filter(Boolean); if (!segs.length) return null; return { ...d, segments: segs, start: Math.min(...segs.map(s => s.start)), end: Math.max(...segs.map(s => s.end)) }; }).filter(Boolean);
+    }
+    return { dom, ted, info };
+}
+
 async function applyChainIdentity(chainName, query, source, rowEl){   // shared by manual override + BLAST
     const md = uniState.modelData[0];
     const seqs = uniState.structureFormat === 'pdb' ? parsePdbSequence(md.structText) : parseCifSequence(md.structText);
@@ -4421,12 +4454,11 @@ async function applyChainIdentity(chainName, query, source, rowEl){   // shared 
     const r = await CLIPResolver.resolveStructure({ gene: query, length: chainSeq.length });
     if (!r) throw new Error('Could not resolve "' + query + '" in UniProt.');
     uniState.chainGenes = uniState.chainGenes || {}; uniState.chainGenes[chainName] = r.gene || query;
-    let dom = await CLIPResolver.fetchDomains(r.accession).catch(() => []);
-    if (dom.length && r.structureSequence){          // remap canonical-numbered domains onto this (possibly truncated) chain
-        const al = CLIPResolver.alignMap(chainSeq, r.structureSequence); const map = (al && al.map) || [];
-        dom = dom.map(d => { let s = null, e = null; for (let i = 0; i < map.length; i++){ const c = map[i]; if (c != null && c >= d.start && c <= d.end){ if (s == null) s = i + 1; e = i + 1; } } return s != null ? { start: s, end: e, name: d.name } : null; }).filter(Boolean);
-    }
-    uniState.chainDomains = uniState.chainDomains || {}; if (dom.length) uniState.chainDomains[chainName] = dom;
+    const { dom, ted, info } = await resolveChainDomains(r, chainSeq);
+    uniState.chainDomains = uniState.chainDomains || {}; uniState.chainTedDomains = uniState.chainTedDomains || {}; uniState.chainDomainInfo = uniState.chainDomainInfo || {};
+    if (dom.length) uniState.chainDomains[chainName] = dom; else delete uniState.chainDomains[chainName];
+    if (ted.length) uniState.chainTedDomains[chainName] = ted; else delete uniState.chainTedDomains[chainName];
+    uniState.chainDomainInfo[chainName] = info;
     const pk = uniState.currentPairKey;              // re-render every figure with the new identity
     if (pk){ buildContactMap(pk); if (typeof buildPerResidueCharts === 'function') buildPerResidueCharts(pk); if (typeof buildSequenceViewer === 'function') buildSequenceViewer(pk); }
     if (typeof buildChordDiagram === 'function') buildChordDiagram();
@@ -4459,9 +4491,9 @@ async function identifyChains(){
     btn.disabled = true; btn.textContent = 'Identifying ' + uniq.size + ' sequence' + (uniq.size > 1 ? 's' : '') + '\u2026 (BLAST fallback may take ~20s)';
     const resolveOne = async (s) => {
         try { const r = await CLIPResolver.resolveStructure({ seq: s, length: s.length, blast: true });
-              const dom = r ? await CLIPResolver.fetchDomains(r.accession).catch(() => []) : [];
-              resolved.set(s, { r, dom }); }
-        catch(e){ resolved.set(s, resolved.get(s) || { r: null, dom: [] }); }
+              const dd = r ? await resolveChainDomains(r, s) : { dom: [], ted: [], info: null };
+              resolved.set(s, { r, dom: dd.dom, ted: dd.ted, info: dd.info }); }
+        catch(e){ resolved.set(s, resolved.get(s) || { r: null, dom: [], ted: [], info: null }); }
     };
     const resolved = new Map();
     await Promise.all([...uniq.keys()].map(resolveOne));          // resolve unique sequences in parallel (fast for multimers)
@@ -4481,8 +4513,8 @@ async function identifyChains(){
     }
     out.innerHTML = html + '</tbody></table>';
     out.onclick = (e) => { const btn = e.target.closest('.ovr-btn'); if (btn) overrideChain(btn.dataset.chain); };
-    uniState.chainDomains = {}; uniState.chainGenes = {};         // feed identities (gene + domains) to every figure
-    for (const n of names){ const e = resolved.get(seqOf(n)); if (e && e.r){ if (e.r.gene) uniState.chainGenes[n] = e.r.gene; if (e.r.lengthOk && e.dom && e.dom.length) uniState.chainDomains[n] = e.dom; } }
+    uniState.chainDomains = {}; uniState.chainGenes = {}; uniState.chainTedDomains = {}; uniState.chainDomainInfo = {};   // feed identities to every figure
+    for (const n of names){ const e = resolved.get(seqOf(n)); if (e && e.r){ if (e.r.gene) uniState.chainGenes[n] = e.r.gene; if (e.dom && e.dom.length) uniState.chainDomains[n] = e.dom; if (e.ted && e.ted.length) uniState.chainTedDomains[n] = e.ted; if (e.info) uniState.chainDomainInfo[n] = e.info; } }
     const _pk = uniState.currentPairKey;                          // re-render so chain labels + domains reflect the resolved identities
     if (_pk){ buildContactMap(_pk); if (typeof buildPerResidueCharts === 'function') buildPerResidueCharts(_pk); if (typeof buildSequenceViewer === 'function') buildSequenceViewer(_pk); }
     if (typeof buildChordDiagram === 'function') buildChordDiagram();
@@ -6064,128 +6096,142 @@ function buildContactMap(pairKey) {
     if (contacts.length === 0) { card.style.display = 'none'; return; }
     card.style.display = '';
 
-    // Get colors
+    // ── Panel options ──
+    const swap = !!(document.getElementById('contact-swap-ab') && document.getElementById('contact-swap-ab').checked);
+    const showDomains = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;
     const colors = getColorsForPair(v.ci, v.cj);
 
-    // Draw
-    const S = 2;
-    const domsA = (uniState.chainDomains && uniState.chainDomains[v.ci]) || [];
-    const domsB = (uniState.chainDomains && uniState.chainDomains[v.cj]) || [];
-    const laneH = 15, domBoxH = 13;
-    const assignLanes = (doms) => { const s = doms.slice().sort((a, b) => a.start - b.start); const ends = []; for (const d of s){ let k = 0; while (k < ends.length && ends[k] >= d.start) k++; d._lane = k; ends[k] = d.end; } return { list: s, n: ends.length }; };
-    const laA = domsA.length ? assignLanes(domsA) : null, laB = domsB.length ? assignLanes(domsB) : null;
-    const topLane = laA ? laA.n * laneH : 0, botLane = laB ? laB.n * laneH : 0;   // stacked domain rows
+    // Domain palettes — Set2 fills for UniProt/Pfam, CATH-ish solids for TED (match the legend swatches)
+    const DOM_FILL = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3'];
+    const TED_FILL = ['#7E57C2', '#5C6BC0', '#26A69A', '#8D6E63', '#EC407A', '#42A5F5', '#AB47BC', '#66BB6A'];
+
+    // Chain-i / chain-j roles; the A/B swap flips which one is drawn on top.
+    const mkRole = (name, lir, clir, len, lirCol, clirCol) => ({ name, lir, clir, len, lirCol, clirCol,
+        doms: (uniState.chainDomains && uniState.chainDomains[name]) || [],
+        ted:  (uniState.chainTedDomains && uniState.chainTedDomains[name]) || [],
+        info: (uniState.chainDomainInfo && uniState.chainDomainInfo[name]) || null });
+    const roleI = mkRole(v.ci, lirI_f, clirI_f, v.lenI, colors.lir_a, colors.clir_a);
+    const roleJ = mkRole(v.cj, lirJ_f, clirJ_f, v.lenJ, colors.lir_b, colors.clir_b);
+    const top = swap ? roleJ : roleI, bot = swap ? roleI : roleJ;
+
+    // ── Layout: reserve vertical space for domain tracks (UniProt/Pfam inner row + TED outer row) ──
+    const S = 2, laneH = 16, boxH = 13, trackGap = 4, tickBand = 15;   // tickBand reserves room for the residue-number ticks beside each bar
+    const assignLanes = (items) => { const s = items.slice().sort((a, b) => a.start - b.start); const ends = []; for (const d of s){ let k = 0; while (k < ends.length && ends[k] >= d.start) k++; d._lane = k; ends[k] = d.end; } return { list: s, n: Math.max(1, ends.length) }; };
+    const tracksOf = (role) => ({ dom: showDomains && role.doms.length ? assignLanes(role.doms) : null, ted: showDomains && role.ted.length ? assignLanes(role.ted) : null });
+    // Space beside a bar = the tick band (always) + stacked domain/TED lanes so nothing overlaps the ticks.
+    const spaceOf = (t) => { let h = tickBand; if (t.dom) h += t.dom.n * laneH; if (t.ted) h += t.ted.n * laneH; if (t.dom && t.ted) h += trackGap; return h; };
+    const topT = tracksOf(top), botT = tracksOf(bot), topSpace = spaceOf(topT), botSpace = spaceOf(botT);
+
     const width = Math.min(900, (card.clientWidth || 900) - 32);
     const barH = 12;
-    const barY_A = 22 + topLane;                          // room above for chain-A ticks (kept off the ribbons)
-    const barY_B = barY_A + barH + 60;                       // compact ribbon gap
-    const height = barY_B + barH + 15 + botLane + 15;
-    // barLeft / barW are computed below, once the context is ready (measures chain labels)
+    const barYtop = 10 + topSpace;
+    const barYbot = barYtop + barH + 60;
+    const countY = barYbot + barH + botSpace + 8;
 
-    canvas.width = width * S;
-    canvas.height = height * S;
-    // Responsive display: scale to fit the container (capped at the drawn width) so the
-    // map never overflows on narrow windows and rescales on resize.
-    canvas.style.width = '100%';
-    canvas.style.height = 'auto';
-    canvas.style.maxWidth = width + 'px';
     const ctx = canvas.getContext('2d');
+    const height = countY + 2;   // count line + domain legend live in the HTML below, not on the canvas
+
+    canvas.width = width * S; canvas.height = height * S;
+    canvas.style.width = '100%'; canvas.style.height = 'auto'; canvas.style.maxWidth = width + 'px';
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.save();
-    ctx.scale(S, S);
+    ctx.save(); ctx.scale(S, S);
 
-    ctx.font = 'bold 13px sans-serif';                       // size the left margin to fit the (possibly long) chain labels
-    const barLeft = Math.max(60, Math.ceil(Math.max(ctx.measureText(chainLabel(v.ci)).width, ctx.measureText(chainLabel(v.cj)).width)) + 12);
+    ctx.font = 'bold 13px sans-serif';                       // left margin fits the (possibly long) chain labels
+    const barLeft = Math.max(60, Math.ceil(Math.max(ctx.measureText(chainLabel(top.name)).width, ctx.measureText(chainLabel(bot.name)).width)) + 12);
     const barRight = width - 20, barW = barRight - barLeft;
-    const xA = (res) => barLeft + ((res - 1) / Math.max(1, v.lenI - 1)) * barW;
-    const xB = (res) => barLeft + ((res - 1) / Math.max(1, v.lenJ - 1)) * barW;
+    const xOf = (role) => (res) => barLeft + ((res - 1) / Math.max(1, role.len - 1)) * barW;
+    const xTop = xOf(top), xBot = xOf(bot);
 
-    // Paint contiguous LIR/cLIR runs as solid blocks. Drawing one rect per residue
-    // leaves hairline gray gaps between adjacent residues (the "lines between residues"
-    // barcode artifact); merging runs via setToRanges gives clean blocks like the chord map.
     function paintBarRanges(yBar, set, xFn, len, color) {
-        const resW = barW / Math.max(1, len - 1);
-        ctx.fillStyle = color;
-        for (const [s, e] of setToRanges(set)) {
-            const x0 = Math.max(barLeft, xFn(s) - resW / 2);
-            const x1 = Math.min(barRight, xFn(e) + resW / 2);
-            ctx.fillRect(x0, yBar, Math.max(1.5, x1 - x0), barH);
-        }
+        const resW = barW / Math.max(1, len - 1); ctx.fillStyle = color;
+        for (const [s, e] of setToRanges(set)) { const x0 = Math.max(barLeft, xFn(s) - resW / 2), x1 = Math.min(barRight, xFn(e) + resW / 2); ctx.fillRect(x0, yBar, Math.max(1.5, x1 - x0), barH); }
     }
+    const drawBar = (role, yBar, xFn) => { ctx.fillStyle = '#f0f0f0'; ctx.fillRect(barLeft, yBar, barW, barH); paintBarRanges(yBar, role.lir, xFn, role.len, role.lirCol); paintBarRanges(yBar, role.clir, xFn, role.len, role.clirCol); ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, yBar, barW, barH); };
+    drawBar(top, barYtop, xTop);
+    drawBar(bot, barYbot, xBot);
 
-    // Chain A bar (filtered) — contiguous LIR/cLIR runs merged into solid blocks (via
-    // setToRanges in paintBarRanges), matching the circular map. cLIR is NOT gap-filled,
-    // so it stays exact (no LIR-only region painted as cLIR).
-    ctx.fillStyle = '#f0f0f0';
-    ctx.fillRect(barLeft, barY_A, barW, barH);
-    paintBarRanges(barY_A, lirI_f, xA, v.lenI, colors.lir_a);
-    paintBarRanges(barY_A, clirI_f, xA, v.lenI, colors.clir_a);
-    ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_A, barW, barH);
-
-    // Chain B bar (filtered)
-    ctx.fillStyle = '#f0f0f0';
-    ctx.fillRect(barLeft, barY_B, barW, barH);
-    paintBarRanges(barY_B, lirJ_f, xB, v.lenJ, colors.lir_b);
-    paintBarRanges(barY_B, clirJ_f, xB, v.lenJ, colors.clir_b);
-    ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, barY_B, barW, barH);
-
-    // Labels
+    // Chain labels
     ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = colors.clir_a; ctx.fillText(chainLabel(v.ci), barLeft - 5, barY_A + barH / 2);
-    ctx.fillStyle = colors.clir_b; ctx.fillText(chainLabel(v.cj), barLeft - 5, barY_B + barH / 2);
+    ctx.fillStyle = top.clirCol; ctx.fillText(chainLabel(top.name), barLeft - 5, barYtop + barH / 2);
+    ctx.fillStyle = bot.clirCol; ctx.fillText(chainLabel(bot.name), barLeft - 5, barYbot + barH / 2);
 
-    // UniProt domain lanes (populated by "Identify chains"): chain A above its bar, chain B below
-    const drawDomLane = (la, xFn, len, baseY, dir) => {   // dir -1 = stack up (chain A), +1 = down (chain B)
-        for (const d of la.list){
-            const x0 = xFn(Math.max(1, d.start)), x1 = xFn(Math.min(len, d.end)), w = Math.max(2, x1 - x0);
-            const y = dir < 0 ? baseY - (d._lane + 1) * laneH : baseY + d._lane * laneH;
-            ctx.fillStyle = '#8e7cc3'; ctx.fillRect(x0, y, w, domBoxH);
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.8; ctx.strokeRect(x0, y, w, domBoxH);
-            if (w > 16){ ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                const cap = Math.max(3, Math.floor(w / 6.5)); const lab = d.name.length > cap ? d.name.slice(0, cap - 1) + '\u2026' : d.name;
-                ctx.fillText(lab, (x0 + x1) / 2, y + domBoxH / 2 + 0.5); }
+    // Domain tracks \u2014 dir -1 = above (top role), +1 = below (bottom role); UniProt/Pfam inner, TED outer.
+    const drawTracks = (role, tr, xFn, baseY, dir) => {
+        if (!showDomains) return;
+        const off = tickBand;   // clear the residue-tick band so domains never overlap the ticks
+        if (tr.dom) for (const d of tr.dom.list){
+            const x0 = xFn(Math.max(1, d.start)), x1 = xFn(Math.min(role.len, d.end)), w = Math.max(2, x1 - x0);
+            const laneY = dir < 0 ? baseY - off - (d._lane + 1) * laneH + (laneH - boxH) / 2 : baseY + off + d._lane * laneH;
+            const col = DOM_FILL[role.doms.indexOf(d) % DOM_FILL.length];
+            ctx.fillStyle = hexToRgba(col, 0.45); ctx.fillRect(x0, laneY, w, boxH);
+            ctx.strokeStyle = hexToRgba(col, 0.9); ctx.lineWidth = 0.8; ctx.strokeRect(x0, laneY, w, boxH);
+            if (w > 18){ ctx.fillStyle = '#333'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const cap = Math.max(3, Math.floor(w / 6)); ctx.fillText(d.name.length > cap ? d.name.slice(0, cap - 1) + '\u2026' : d.name, (x0 + x1) / 2, laneY + boxH / 2 + 0.5); }
+        }
+        if (tr.ted){
+            const tedBase = dir < 0 ? baseY - off - (tr.dom ? tr.dom.n * laneH + trackGap : 0) : baseY + off + (tr.dom ? tr.dom.n * laneH + trackGap : 0);
+            for (const d of tr.ted.list){
+                const col = TED_FILL[role.ted.indexOf(d) % TED_FILL.length];
+                const laneY = dir < 0 ? tedBase - (d._lane + 1) * laneH + (laneH - boxH) / 2 : tedBase + d._lane * laneH;
+                const segs = d.segments && d.segments.length ? d.segments : [{ start: d.start, end: d.end }];
+                for (const sg of segs){ const x0 = xFn(Math.max(1, sg.start)), x1 = xFn(Math.min(role.len, sg.end)), w = Math.max(2, x1 - x0); ctx.fillStyle = hexToRgba(col, 0.6); ctx.fillRect(x0, laneY, w, boxH); ctx.strokeStyle = hexToRgba(col, 0.95); ctx.lineWidth = 0.8; ctx.strokeRect(x0, laneY, w, boxH); }
+                const main = segs.reduce((a, b) => (b.end - b.start) > (a.end - a.start) ? b : a, segs[0]);
+                const mx0 = xFn(Math.max(1, main.start)), mx1 = xFn(Math.min(role.len, main.end)), mw = mx1 - mx0;
+                if (mw > 18){ ctx.fillStyle = '#fff'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const lab = d.cath || ('D' + d.tedNo); const cap = Math.max(3, Math.floor(mw / 6)); ctx.fillText(lab.length > cap ? lab.slice(0, cap - 1) + '\u2026' : lab, (mx0 + mx1) / 2, laneY + boxH / 2 + 0.5); }
+            }
         }
     };
-    if (laA) drawDomLane(laA, xA, v.lenI, barY_A - 12, -1);
-    if (laB) drawDomLane(laB, xB, v.lenJ, barY_B + barH + 15, +1);
+    drawTracks(top, topT, xTop, barYtop, -1);            // base = top edge of top bar, tracks go up
+    drawTracks(bot, botT, xBot, barYbot + barH, +1);     // base = bottom edge of bottom bar, tracks go down
 
-    // Ticks
+    // Ticks — count is user-adjustable (#contact-xticks); evenly spaced from 1..len
+    const nTicks = Math.max(2, Math.min(30, parseInt(document.getElementById('contact-xticks')?.value) || 5));
+    const tickPos = (len) => { const n = Math.max(2, Math.min(nTicks, len)); const s = new Set(); for (let i = 0; i < n; i++) s.add(Math.max(1, Math.min(len, Math.round(1 + (len - 1) * i / (n - 1))))); return [...s]; };
     ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    for (const t of [1, Math.round(v.lenI/2), v.lenI]) ctx.fillText(t, xA(t), barY_A - 3);
-    ctx.textBaseline = 'top';
-    for (const t of [1, Math.round(v.lenJ/2), v.lenJ]) ctx.fillText(t, xB(t), barY_B + barH + 3);
+    ctx.textBaseline = 'bottom'; for (const t of tickPos(top.len)) ctx.fillText(t, xTop(t), barYtop - 3);
+    ctx.textBaseline = 'top'; for (const t of tickPos(bot.len)) ctx.fillText(t, xBot(t), barYbot + barH + 3);
 
-    // Connection lines
-    const minDist = Math.min(...contacts.map(c => c.dist));
-    const maxDist = Math.max(...contacts.map(c => c.dist));
+    // Connection lines (top \u2192 bottom); contacts keyed by original chain i/j, mapped to top/bot.
+    const minDist = Math.min(...contacts.map(c => c.dist)), maxDist = Math.max(...contacts.map(c => c.dist));
     for (const c of contacts) {
-        const ax = xA(c.resA), bx = xB(c.resB);
+        const ax = xTop(swap ? c.resB : c.resA), bx = xBot(swap ? c.resA : c.resB);
         const t = maxDist > minDist ? 1 - (c.dist - minDist) / (maxDist - minDist) : 1;
-        const alpha = 0.08 + t * 0.2;
-        const midY = (barY_A + barH + barY_B) / 2;
-        ctx.beginPath();
-        ctx.moveTo(ax, barY_A + barH);
-        ctx.bezierCurveTo(ax, midY, bx, midY, bx, barY_B);
-        const grad = ctx.createLinearGradient(0, barY_A + barH, 0, barY_B);
-        grad.addColorStop(0, hexToRgba(colors.clir_a, alpha));
-        grad.addColorStop(1, hexToRgba(colors.clir_b, alpha));
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = 1;
-        ctx.stroke();
+        const alpha = 0.08 + t * 0.2, midY = (barYtop + barH + barYbot) / 2;
+        ctx.beginPath(); ctx.moveTo(ax, barYtop + barH); ctx.bezierCurveTo(ax, midY, bx, midY, bx, barYbot);
+        const grad = ctx.createLinearGradient(0, barYtop + barH, 0, barYbot); grad.addColorStop(0, hexToRgba(top.clirCol, alpha)); grad.addColorStop(1, hexToRgba(bot.clirCol, alpha));
+        ctx.strokeStyle = grad; ctx.lineWidth = 1; ctx.stroke();
     }
 
-    // Label
-    ctx.fillStyle = '#888'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText(`${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`, width / 2, barY_B + barH + 15 + botLane);
-
     ctx.restore();
+    // Contact-count line lives in the HTML below (kept out of the downloaded figure)
+    { const _cc = document.getElementById('contact-count-text'); if (_cc) _cc.textContent = `${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`; }
+    renderContactHtmlLegend([top, bot], DOM_FILL, TED_FILL);   // clickable HTML legend below (not baked into the figure)
 
     // Per-panel figure export (\u2193 SVG/PNG + width/height/font), added once
     const _ce = document.getElementById('contact-export');
     if (_ce && !_ce.querySelector('.export-bar'))
         addExportBar(_ce, 'linear_contact_map', () => document.getElementById('contact-canvas'),
             () => svgFromFixedCanvas('contact-canvas', () => buildContactMap(uniState.currentPairKey)));
+}
+
+// The clickable HTML twin of the canvas legend (UniProt links work here; the canvas legend is what
+// lands in the exported figure). Rendered into #contact-domain-legend below the map.
+function renderContactHtmlLegend(roles, DOM_FILL, TED_FILL){
+    const el = document.getElementById('contact-domain-legend'); if (!el) return;
+    const show = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;
+    const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const sw = (c) => `<span style="display:inline-block; width:10px; height:10px; background:${c}; border:1px solid rgba(0,0,0,0.25); vertical-align:middle; margin:0 3px 0 0; border-radius:2px;"></span>`;
+    const rows = [];
+    if (show) for (const role of roles){
+        if (!role.info && !role.doms.length && !role.ted.length) continue;
+        const parts = [];
+        role.doms.forEach((d,i) => parts.push(`${sw(DOM_FILL[i % DOM_FILL.length])}${esc(d.name)} (${d.start}–${d.end})`));
+        role.ted.forEach((d,i) => parts.push(`${sw(TED_FILL[i % TED_FILL.length])}${esc(d.name)} (${d.start}–${d.end})`));
+        let line = `<b style="color:${role.clirCol}">${esc(chainLabel(role.name))}:</b> ` + (parts.length ? parts.join(' &middot; ') : '<span style="color:#aaa;">no annotated domains</span>');
+        if (role.info && role.info.isPartial && role.info.startInFull) line += ` <span style="color:#c0392b; font-style:italic;">(partial: aa ${role.info.startInFull}–${role.info.endInFull} of ${role.info.fullLength})</span>`;
+        if (role.info && role.info.accession) line += ` <a href="https://www.uniprot.org/uniprotkb/${role.info.accession}" target="_blank" style="color:#2471A3; font-weight:600;">UniProt: ${role.info.accession}</a>`;
+        rows.push(`<div>${line}</div>`);
+    }
+    el.innerHTML = rows.join(''); el.style.display = rows.length ? '' : 'none';
 }
 
 // Convert a Set of residue numbers into sorted contiguous [start, end] ranges.
