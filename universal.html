@@ -5270,6 +5270,20 @@ function buildAllChainsCxc(overrideFilename, sel) {
         lines.push('');
     }
 
+    // \u2500\u2500 PTM / modified residues (phospho SEP/TPO/PTR, etc.): show as sticks, functional group by element \u2500\u2500
+    const ptmRes = uniState.ptmResidues || {};
+    const ptmSpecs = uniState.chainNames
+        .filter(c => (ptmRes[c] || []).length)
+        .map(c => `#1/${c}:${ptmRes[c].map(r => r.seq).join(',')}`);
+    if (ptmSpecs.length) {
+        lines.push('# \u2500\u2500 PTM / modified residues (functional group coloured by element) \u2500\u2500');
+        lines.push(`select ${ptmSpecs.join(' ')}`);
+        lines.push('show sel atoms');
+        lines.push('style sel ball');        // ball-and-stick
+        lines.push('color sel byhetero');    // heteroatoms by element (O red, P orange, N blue); carbon keeps the chain colour
+        lines.push('~select', '');
+    }
+
     lines.push('# \u2500\u2500 Final \u2500\u2500', 'view', 'lighting soft depthCue true', '');
     lines.push('# \u2500\u2500 Save figure \u2500\u2500');
     lines.push('# save all_chains_LIR.png transparentBackground true');
