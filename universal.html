@@ -538,7 +538,7 @@
 
 <script src="js/livia-core.js?v=20260627"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20260627"></script>
+<script src="js/livia-viewer.js?v=20260716b"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
 <script>
 // ── Callbacks for shared modules ──
@@ -828,6 +828,7 @@ async function handleInputFiles(fileList) {
     uniState.chainNames = null;
     uniState.chainSizes = null;
     uniState.chainTypes = null;
+    uniState.ptmResidues = null;
     uniState.nTotal = 0;
     uniState.structureContents = {};
     uniState.structureFilenames = {};
@@ -963,6 +964,7 @@ async function selectJob(jobName) {
     uniState.chainNames = null;
     uniState.chainSizes = null;
     uniState.chainTypes = null;
+    uniState.ptmResidues = null;
     uniState.nTotal = 0;
     uniState.structureContents = {};
     uniState.structureFilenames = {};
@@ -2471,6 +2473,7 @@ function getChainsFromCif(cifText) {
     let inAtomSite = false;
     const colNames = [];
     const seenResidues = new Set();
+    const ptm = new Map();   // chain -> Set of label_seq_id for modified/PTM residues (shown as sticks)
 
     for (const line of lines) {
         if (line.startsWith('_atom_site.')) {
@@ -2518,8 +2521,11 @@ function getChainsFromCif(cifText) {
                 // recognise it (CA backbone atom, or a known code) and keep the chain a cartoon.
                 // Only tag 'glycan' (ball-and-stick) when the chain has no polymer backbone.
                 counted = true;
-                if (atomName === 'CA' || MOD_AA.has(compId)) chainTypes.set(chain, 'protein');
-                else if (!chainTypes.has(chain)) chainTypes.set(chain, 'glycan');
+                if (atomName === 'CA' || MOD_AA.has(compId)) {
+                    chainTypes.set(chain, 'protein');
+                    const seq = parseInt(resSeq);
+                    if (!isNaN(seq)) { if (!ptm.has(chain)) ptm.set(chain, new Set()); ptm.get(chain).add(seq); }
+                } else if (!chainTypes.has(chain)) chainTypes.set(chain, 'glycan');
             }
             if (counted) {
                 if (!chainCounts.has(chain)) {
@@ -2530,7 +2536,10 @@ function getChainsFromCif(cifText) {
             }
         }
     }
-    return { names: chainOrder, sizes: chainOrder.map(c => chainCounts.get(c)), types: chainOrder.map(c => chainTypes.get(c) || 'protein') };
+    return {
+        names: chainOrder, sizes: chainOrder.map(c => chainCounts.get(c)), types: chainOrder.map(c => chainTypes.get(c) || 'protein'),
+        ptm: Object.fromEntries([...ptm].map(([c, s]) => [c, [...s].sort((a, b) => a - b)])),
+    };
 }
 
 function getChainsFromPdb(pdbText) {
@@ -2811,6 +2820,7 @@ async function processFiles() {
         uniState.chainNames = null;
         uniState.chainSizes = null;
         uniState.chainTypes = null;
+    uniState.ptmResidues = null;
         uniState.nTotal = 0;
         uniState.multiChainColors = null;
         uniState.hiddenChains = new Set();
@@ -3094,6 +3104,7 @@ async function processFiles() {
             uniState.nTotal = nTotal;
             uniState.chainSizes = sizes;
             if (!uniState.chainTypes) uniState.chainTypes = types;
+            if (!uniState.ptmResidues) uniState.ptmResidues = chainInfo.ptm || {};   // modified/PTM residues → shown as sticks in 3D
 
             uniState.modelData.push({
                 pae, lisMap, clisMap, ilisGrid, iliaGrid, iptmGrid, lirGrid, clirGrid, metricGrids: MG, nTotal, idx,
@@ -3779,6 +3790,16 @@ function buildColorComponents(v) {
             if (bf !== undefined) color = plddtColor(bf);
         }
         addComp(c, [{ start: 1, end: sz }], color);
+    }
+
+    // PTM / modified residues (phospho SEP/TPO/PTR, etc.) → ball-and-stick on top of the cartoon,
+    // so the modifying group is visible. Default element colouring (see _buildMvsStructureChildren).
+    const ptmRes = uniState.ptmResidues || {};
+    for (const chain of (uniState.chainNames || [])) {
+        if (uniState.hiddenChains?.has(chain)) continue;
+        const seqs = ptmRes[chain];
+        if (!seqs || !seqs.length) continue;
+        components.push({ chain, ranges: seqs.map(s => ({ start: s, end: s })), stick: true });
     }
 
     return components.filter(c => c.ranges.length > 0);

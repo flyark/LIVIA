@@ -93,6 +93,16 @@ function _buildMvsStructureChildren(colorComponents) {
             });
             continue;
         }
+        if (comp.stick) {
+            // PTM / modified residues (phospho, etc.): ball-and-stick on top of the chain cartoon,
+            // scoped to the specific residues. No explicit color → default element (CPK) colouring
+            // so the modifying group (e.g. phosphate) stands out.
+            const sel = comp.ranges.map(r => ({ label_asym_id: comp.chain, beg_label_seq_id: r.start, end_label_seq_id: r.end }));
+            const rep = { kind: 'representation', params: { type: 'ball_and_stick' } };
+            if (comp.color) rep.children = [{ kind: 'color', params: { color: comp.color } }];
+            structureChildren.push({ kind: 'component', params: { selector: sel.length === 1 ? sel[0] : sel }, children: [rep] });
+            continue;
+        }
         const selector = comp.ranges.map(r => ({
             label_asym_id: comp.chain,
             beg_label_seq_id: r.start,
