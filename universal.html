@@ -5478,6 +5478,22 @@ function buildAllChainsPml(overrideFilename) {
         }
     }
 
+    // PTM / modified residues: show sticks, functional group coloured by element.
+    // util.cnc colours non-carbon atoms by element (O red, P orange, N blue) and keeps carbon
+    // the chain colour — the PyMOL equivalent of ChimeraX `color byhetero`.
+    {
+        const ptmRes = uniState.ptmResidues || {};
+        const ptmSel = uniState.chainNames
+            .filter(c => (ptmRes[c] || []).length)
+            .map(c => `(chain ${c} and resi ${ptmRes[c].map(r => r.seq).join('+')})`)
+            .join(' or ');
+        if (ptmSel) {
+            lines.push('', '# PTM / modified residues (functional group colored by element)');
+            lines.push(`show sticks, ${ptmSel}`);
+            lines.push(`util.cnc (${ptmSel})`);
+        }
+    }
+
     lines.push('', 'orient', '');
     lines.push('# ray 2400, 2400');
     lines.push('# png all_chains_LIR.png, dpi=300');
