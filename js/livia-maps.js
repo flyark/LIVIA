@@ -230,11 +230,66 @@
         box.querySelectorAll('canvas').forEach((cv, i) => attachPngBtnFor(cv, (prefix || 'chart') + '_' + (i + 1)));
     }
 
+    // Parse a colour CSV. Two forms, auto-detected per row:
+    //   "<key>,<color>"          — key (chain/node/cluster) + colour
+    //   "<key>,<name>,<color>"   — key + display-label override + colour (chain relabel)
+    // Tolerant of an optional header, quotes, and comma/tab/semicolon separators. Colour = #RGB / #RRGGBB / CSS name.
+    function parseColorCSV(text) {
+        const out = [];
+        const isColor = (c) => /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(c) || /^[a-zA-Z]{3,20}$/.test(c);
+        for (const raw of String(text || '').split(/\r?\n/)) {
+            const line = raw.trim(); if (!line) continue;
+            const parts = line.split(/[,\t;]+/).map((s) => s.trim().replace(/^["']|["']$/g, ''));
+            if (parts.length < 2 || !parts[0]) continue;
+            if (/^(chain|node|protein|cluster|community|id|name|key|label)$/i.test(parts[0]) && parts.some((p) => /^colou?r$/i.test(p))) continue;   // header row
+            if (parts.length >= 3 && parts[2] && isColor(parts[2])) { out.push({ key: parts[0], name: parts[1] || '', color: parts[2] }); continue; }   // key,name,color
+            if (parts[1] && isColor(parts[1])) out.push({ key: parts[0], color: parts[1] });                                                            // key,color
+        }
+        return out;
+    }
+
+    // Compact "custom colours" widget: upload a CSV file, paste rows, apply, and download the current
+    // set (round-trip). opts = { label, keyHeader, currentRows: () => [{key,color}], apply: rows => appliedCount }.
+    function attachColorUpload(container, opts) {
+        opts = opts || {};
+        const kh = opts.keyHeader || 'chain';
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:0.75rem; color:#666; margin-top:6px;';
+        const mkBtn = (t) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = t; b.style.cssText = 'font-size:0.72rem; color:#2471A3; background:none; border:1px solid #ccd6e0; border-radius:5px; padding:2px 7px; cursor:pointer; font-weight:600;'; return b; };
+        const status = document.createElement('span'); status.style.cssText = 'font-size:0.72rem; color:#888;';
+        const setStatus = (m, err) => { status.textContent = m; status.style.color = err ? '#c0392b' : '#888'; };
+        const doApply = (text) => {
+            const rows = parseColorCSV(text);
+            if (!rows.length) { setStatus('no valid rows (need "' + kh + ',#hex")', true); return; }
+            let applied = 0; try { applied = opts.apply(rows) || 0; } catch (e) { setStatus('error: ' + e.message, true); return; }
+            setStatus('applied ' + applied + ' / ' + rows.length + (applied < rows.length ? ' (some keys not matched)' : ''), applied === 0);
+        };
+        const file = document.createElement('input'); file.type = 'file'; file.accept = '.csv,.txt'; file.style.display = 'none';
+        file.onchange = () => { const f = file.files && file.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => doApply(r.result); r.readAsText(f); file.value = ''; };
+        const upBtn = mkBtn('↑ CSV file'); upBtn.onclick = () => file.click();
+        const ta = document.createElement('textarea'); ta.placeholder = opts.placeholder || (kh + ',color\nA,#1f77b4\nB,#ff7f0e'); ta.rows = 2;
+        ta.style.cssText = 'display:none; font:inherit; font-size:0.72rem; width:180px; padding:2px 4px; border:1px solid #ccd6e0; border-radius:5px;';
+        const pasteBtn = mkBtn('paste'); pasteBtn.onclick = () => { ta.style.display = ta.style.display === 'none' ? 'inline-block' : 'none'; if (ta.style.display !== 'none') ta.focus(); };
+        const applyBtn = mkBtn('Apply'); applyBtn.onclick = () => { if (ta.value.trim()) doApply(ta.value); };
+        const dlBtn = mkBtn('↓ CSV'); dlBtn.onclick = () => {
+            const rows = (opts.currentRows && opts.currentRows()) || [];
+            const has3 = rows.some((r) => 'name' in r);
+            const csv = (has3 ? kh + ',name,color\n' : kh + ',color\n')
+                + rows.map((r) => has3 ? (r.key + ',' + (r.name || '') + ',' + r.color) : (r.key + ',' + r.color)).join('\n') + '\n';
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = kh + '_colors.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        };
+        const lbl = document.createElement('span'); lbl.textContent = '🎨 custom ' + (opts.label || 'colours') + ':'; lbl.style.fontWeight = '600';
+        wrap.append(lbl, upBtn, pasteBtn, ta, applyBtn, dlBtn, status);
+        container.appendChild(wrap);
+        return wrap;
+    }
+
     global.LiviaMaps = {
         setExportOpts, applyExportOpts,
         svgFromDraw, svgFromFixedCanvas,
         downloadSVGFile, downloadSVGFromCanvas, downloadCanvasPNG,
         attachExportBar, attachPngBtnFor, attachChartPngButtons,
         setToRanges, paintChordArcBand,
+        parseColorCSV, attachColorUpload,
     };
 })(window);

@@ -263,6 +263,7 @@
             <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
                 <h2 style="margin-bottom:0;">Circular Contact Map</h2>
                 <div class="model-selector" id="chord-model-selector"></div>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="orthoShowChordIDs=this.checked; window.__redrawOrthoChord&&window.__redrawOrthoChord();"> chain IDs</label>
             </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent chains (proportional to length). Lines connect cLIR residue pairs in physical contact.
@@ -488,8 +489,8 @@
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260627"></script>
 <script src="js/livia-colors.js?v=20260627"></script>
-<script src="js/canvas2svg.js"></script>
-<script src="js/livia-maps.js?v=20260715"></script>
+<script src="js/canvas2svg.js?v=20260716b"></script>
+<script src="js/livia-maps.js?v=20260716b"></script>
 <script>
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (flyParsed && flyCurrentRank) { loadRank(flyCurrentRank); updateCombinedChord(); renderChainToggleBar(); } };
@@ -2660,6 +2661,8 @@ const setToRanges = (set) => LiviaMaps.setToRanges(set);            // shared: j
 // (dark) on top, matching the LIR/cLIR shading in the seq viewer & linear contact map.
 const paintChordArcBand = (...args) => LiviaMaps.paintChordArcBand(...args);   // shared: js/livia-maps.js
 
+let orthoShowChordIDs = true;   // Circular Contact Map: include the chain-ID suffix "(A)" in arc labels (toggle in the header)
+const orthoChordLabel = (sym, id) => orthoShowChordIDs ? `${sym} (${id})` : sym;
 function drawChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coordA, coordB, skipDistFilter, LIR_A, LIR_B) {
     const S = 2, size = 350;
     canvas.width = size * S; canvas.height = size * S;
@@ -2737,7 +2740,7 @@ function drawChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coord
     }
 
     // Labels
-    for (const arc of [{mid:(startA+endA)/2, name:`${sym1} (A)`, size:lenA}, {mid:(startB+endB)/2, name:`${sym2} (B)`, size:lenB}]) {
+    for (const arc of [{mid:(startA+endA)/2, name:orthoChordLabel(sym1,'A'), size:lenA}, {mid:(startB+endB)/2, name:orthoChordLabel(sym2,'B'), size:lenB}]) {
         const labelR = outerR + 14;
         const lx = cx + Math.cos(arc.mid) * labelR;
         const ly = cy + Math.sin(arc.mid) * labelR;
@@ -2795,7 +2798,7 @@ function drawChordFromContacts(canvas, contacts, lenA, lenB, sym1, sym2, colors,
         paintChordArcBand(ctx, cx, cy, outerR, innerR, startB, endB, lenB, LIR_B, cLIR_B, lightB, colB);
     }
 
-    for (const arc of [{mid:(startA+endA)/2, name:`${sym1} (A)`, size:lenA}, {mid:(startB+endB)/2, name:`${sym2} (B)`, size:lenB}]) {
+    for (const arc of [{mid:(startA+endA)/2, name:orthoChordLabel(sym1,'A'), size:lenA}, {mid:(startB+endB)/2, name:orthoChordLabel(sym2,'B'), size:lenB}]) {
         let textAngle = arc.mid + Math.PI/2;
         const normA = ((textAngle%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
         if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
@@ -2815,6 +2818,7 @@ function buildChordDiagram(row, sym1, sym2, colors, pdbText) {
     const canvasAll = document.getElementById('chord-canvas-all');
     const chordAllWrap = document.getElementById('chord-all-wrap');
     if (!card || !canvas || !pdbText) { if (card) card.style.display = 'none'; return; }
+    window.__redrawOrthoChord = () => buildChordDiagram(row, sym1, sym2, colors, pdbText);   // chain-ID toggle re-render
     LiviaMaps.attachExportBar('chord-canvas', { name: 'chord_diagram', svg: () => buildChordDiagram(row, sym1, sym2, colors, pdbText), png: true });
     if (canvasAll) LiviaMaps.attachExportBar('chord-canvas-all', { name: 'chord_diagram_all_ranks', svg: () => buildChordDiagram(row, sym1, sym2, colors, pdbText), png: true });
 

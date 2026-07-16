@@ -6,8 +6,8 @@
 <title>LIVIA — cLIP</title>
 <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2/plotly.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
-<script src="js/canvas2svg.js"></script>
-<script src="js/livia-maps.js"></script>
+<script src="js/canvas2svg.js?v=20260716b"></script>
+<script src="js/livia-maps.js?v=20260716b"></script>
 <script src="js/livia-xlsx.js"></script>
 <script src="js/clip-clustering.js"></script>
 <script src="js/clip-pipeline.js"></script>
@@ -185,6 +185,7 @@
       <span style="font-weight:600; color:#1a5276">Cluster colors</span>
       <select id="palette" style="font-size:.9rem; padding:2px 6px"><option value="auto" selected>auto (scales with cluster count)</option><option value="tab10">tab10</option><option value="tab20">tab20</option><option value="tab20b">tab20b</option><option value="tab20c">tab20c</option><option value="distinct">distinct (60+, no repeats)</option></select>
       <span class="muted">&mdash; applies to all panels (heatmap, frequency, 3D, scatter)</span>
+      <div id="clustercolor-upload" style="flex-basis:100%"></div>
     </div>
 
     <div class="card">
@@ -285,9 +286,11 @@ const TAB20C = ['#3182bd','#6baed6','#9ecae1','#c6dbef','#e6550d','#fd8d3c','#fd
 const TAB60 = TAB20.concat(TAB20B, TAB20C);   // 60 distinct — 'auto' uses this beyond k=20
 const PALETTES = { tab10: TAB10, tab20: TAB20, tab20b: TAB20B, tab20c: TAB20C, distinct: TAB60 };
 let PALETTE = 'auto';   // default; 'auto' scales with k (tab10->tab20->tab60->HSL); fixed palettes extend with generated colors past their length
+let CLUSTER_OVERRIDE = {};   // per-cluster custom colour (cluster id -> hex); wins over the palette
 // golden-angle HSL so colors never collide when clusters exceed the curated palettes
 function hslDistinct(i){ const h = (i * 137.508) % 360, s = (62 + (i % 2) * 16)/100, l = (42 + (i % 3) * 13)/100, a = s * Math.min(l, 1-l); const f = (n) => { const k = (n + h/30) % 12, c = l - a * Math.max(-1, Math.min(k-3, 9-k, 1)); return Math.round(255*c).toString(16).padStart(2,'0'); }; return `#${f(0)}${f(8)}${f(4)}`; }
 function clusterColor(id, k){
+  if (CLUSTER_OVERRIDE[id]) return CLUSTER_OVERRIDE[id];                                     // user custom colour wins
   if (PALETTE === 'distinct') return id <= 60 ? TAB60[id - 1] : hslDistinct(id - 1);        // never cycles, any N
   if (PALETTE !== 'auto' && PALETTES[PALETTE]){ const p = PALETTES[PALETTE]; return id <= p.length ? p[id - 1] : hslDistinct(id - 1); }   // fixed palette, extends with generated colors past its length
   const pal = k <= 10 ? TAB10 : k <= 20 ? TAB20 : k <= 60 ? TAB60 : null;                    // auto: smallest curated palette that fits
@@ -846,6 +849,18 @@ function render(A){
   });
   $('am-cutoff').onchange = () => { AM_CUTOFF = +$('am-cutoff').value; if (LAST) recolor3D(LAST); };
   $('palette').onchange = () => { PALETTE = $('palette').value; if (LAST) redraw(LAST); };
+  // Custom cluster colours: upload/paste "cluster,#hex" (cluster = 1,2,… or C1,C2,…). Wins over the palette.
+  { const _cu = $('clustercolor-upload'); if (_cu && !_cu.dataset.wired) { _cu.dataset.wired = '1';
+    LiviaMaps.attachColorUpload(_cu, {
+      label: 'cluster colours', keyHeader: 'cluster',
+      currentRows: () => { if (!LAST || !LAST.cl) return []; const k = Math.max(0, ...LAST.cl.labels); const rows=[]; for (let c=1;c<=k;c++) rows.push({ key:'C'+c, color: clusterColor(c,k) }); return rows; },
+      apply: (rows) => {
+        let applied=0;
+        for (const {key,color} of rows){ const id = parseInt(String(key).replace(/^[Cc]/,''),10); if(!id) continue; CLUSTER_OVERRIDE[id]=color; applied++; }
+        if (applied && LAST) redraw(LAST);
+        return applied;
+      },
+    }); } }
 }
 
 function mergeRuns(fp){
@@ -1534,7 +1549,7 @@ $('export').onclick = async () => {
     const trimRow = (r) => { const o = {}; for (const k in r) if (DROP.indexOf(k) < 0) o[k] = r[k]; return o; };
     const P = LAST.pipe, slimP = { ...P, rows: (P.rows||[]).map(trimRow), allPredictions: (P.allPredictions||[]).map(trimRow), allPoints: (P.allPoints||[]).map(trimRow) };
     const slimLAST = { ...LAST, pipe: slimP };
-    const gz = fflate.gzipSync(fflate.strToU8(JSON.stringify({ LAST: slimLAST, PALETTE, COMMONALITY, MIN_CLUSTER, COLOR3D, AM_CUTOFF, ACTIVE: [...ACTIVE], badge: $('struct-badge').innerHTML, uniprot: $('query-uniprot').innerHTML })));
+    const gz = fflate.gzipSync(fflate.strToU8(JSON.stringify({ LAST: slimLAST, PALETTE, CLUSTER_OVERRIDE, COMMONALITY, MIN_CLUSTER, COLOR3D, AM_CUTOFF, ACTIVE: [...ACTIVE], badge: $('struct-badge').innerHTML, uniprot: $('query-uniprot').innerHTML })));
     let dataB64 = ''; for (let i = 0; i < gz.length; i += 0x8000) dataB64 += String.fromCharCode.apply(null, gz.subarray(i, i + 0x8000)); dataB64 = btoa(dataB64);
     out = out.replace('</head>', '<script>window.__CLIP_DATA__ = JSON.parse(fflate.strFromU8(fflate.gunzipSync(Uint8Array.from(atob("' + dataB64 + '"), c => c.charCodeAt(0)))));</scr' + 'ipt>\n</head>');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out], { type: 'text/html' })); a.download = 'clip_' + LAST.gene + '.html';
@@ -1544,7 +1559,7 @@ $('export').onclick = async () => {
 };
 function loadExportData(d){                           // reconstruct a bundled report — fully interactive, no upload/network (except Plotly/Mol* CDN)
   try {
-    PALETTE = d.PALETTE || 'tab20'; COMMONALITY = d.COMMONALITY != null ? d.COMMONALITY : 0.5;
+    PALETTE = d.PALETTE || 'tab20'; CLUSTER_OVERRIDE = d.CLUSTER_OVERRIDE || {}; COMMONALITY = d.COMMONALITY != null ? d.COMMONALITY : 0.5;
     COLOR3D = d.COLOR3D || 'cluster'; AM_CUTOFF = d.AM_CUTOFF != null ? d.AM_CUTOFF : 0; MIN_CLUSTER = d.MIN_CLUSTER != null ? d.MIN_CLUSTER : 5;
     LAST = d.LAST;
     const sv = (id, v) => { const el = $(id); if (el && v != null) el.value = String(v); };

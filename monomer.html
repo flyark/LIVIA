@@ -446,8 +446,8 @@
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260627"></script>
 <script src="js/livia-colors.js?v=20260627"></script>
-<script src="js/canvas2svg.js"></script>
-<script src="js/livia-maps.js?v=20260715"></script>
+<script src="js/canvas2svg.js?v=20260716b"></script>
+<script src="js/livia-maps.js?v=20260716b"></script>
 <script>
 // ── Callbacks for shared modules (monomer overrides most of these) ──
 onScriptTabSwitch = () => { /* handled by page-specific switchScriptTab override */ };
@@ -3100,8 +3100,7 @@ function drawMapCanvasSingle(canvas, map2d, n, colorFn, vmin, vmax, regions, ove
     canvas.style.height = (displaySize + topMargin + bottomMargin) + 'px';
 
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!ctx.getSerializedSvg) { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height); }   // white bg for screen/PNG only — SVG export stays transparent
 
     // Draw map pixels
     const imgData = ctx.createImageData(plotPx, plotPx);
@@ -3420,8 +3419,7 @@ function drawScoreMatrix(validRegions) {
     canvas.style.height = (cellSize * nc + bottomMargin) + 'px';
 
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!ctx.getSerializedSvg) { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height); }   // white bg for screen/PNG only — SVG export stays transparent
 
     // Build iLIS and iLIA grids
     const ilisGrid = Array.from({ length: nc }, () => Array(nc).fill(0));

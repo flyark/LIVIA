@@ -775,18 +775,12 @@
 
 
     /**
-     * "Clears" a canvas by just drawing a white rectangle in the current group.
+     * "Clears" a canvas. LIVIA patch: emit nothing so exported SVGs keep a TRANSPARENT background.
+     * (Upstream drew an opaque white rect here, which is why chord/contact/PAE SVGs came out white.)
+     * On a fresh export context there is nothing to erase, and SVG has no true "clear" primitive.
      */
     ctx.prototype.clearRect = function(x, y, width, height) {
-        var rect, parent = this.__closestGroupOrSvg();
-        rect = this.__createElement("rect", {
-            x : x,
-            y : y,
-            width : width,
-            height : height,
-            fill : "#FFFFFF"
-        }, true);
-        parent.appendChild(rect);
+        /* no-op — see note above */
     };
 
     /**

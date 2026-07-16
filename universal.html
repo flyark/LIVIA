@@ -109,8 +109,8 @@
             .colorbar-labels { width: 100%; max-width: 300px; }
         }
     </style>
-<script src="js/canvas2svg.js"></script>
-<script src="js/livia-maps.js?v=20260715"></script>
+<script src="js/canvas2svg.js?v=20260716b"></script>
+<script src="js/livia-maps.js?v=20260716b"></script>
 <script src="js/clip-resolver.js?v=20260715"></script>
 </head>
 <body>
@@ -308,6 +308,7 @@
             <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
                 <h2 style="margin-bottom:0;">Circular Contact Map</h2>
                 <div class="model-selector" id="chord-model-selector"></div>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="uniShowChordIDs=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> chain IDs</label>
             </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent chains. Lines connect cLIR residue pairs in physical contact across all chain pairs.
@@ -1407,6 +1408,37 @@ function setupMultiChainColors() {
     const shadeLabel = document.createElement('span'); shadeLabel.textContent = 'Shade:'; shadeLabel.style.cssText = 'font-size:0.78rem; color:#666; margin:0 2px 0 10px;';
     row.appendChild(shadeLabel);
     row.appendChild(modeWrap);
+
+    // Custom chain colours + labels: upload/paste a "chain,name,color" CSV (chain = ID like A/B/C/D;
+    // name = optional display label, blank keeps the current/gene label; also accepts plain "chain,color").
+    LiviaMaps.attachColorUpload(row, {
+        label: 'chain colours', keyHeader: 'chain',
+        placeholder: 'chain,name,color\nA,Akt1,#1f77b4\nB,foxo,#ff7f0e',
+        currentRows: () => (uniState.chainNames || []).map(n => ({ key: n, name: (uniState.chainGenes && uniState.chainGenes[n]) || '', color: uniState.multiChainColors[n] || '#888888' })),
+        apply: (rows) => {
+            let applied = 0;
+            for (const { key, name, color } of rows) {
+                const k = key.toLowerCase();
+                const cn = (uniState.chainNames || []).find(n => n.toLowerCase() === k || (((uniState.chainGenes && uniState.chainGenes[n]) || '').toLowerCase() === k));
+                if (!cn) continue;
+                uniState.multiChainColors[cn] = color;
+                if (name) { uniState.chainGenes = uniState.chainGenes || {}; uniState.chainGenes[cn] = name; }   // relabel this chain everywhere
+                applied++;
+            }
+            if (applied) {
+                uniState.multiChainColors._active = true;
+                uniState.multiChainColors._palette = null;
+                document.querySelectorAll('.palette-chip').forEach(c => c.classList.remove('active'));
+                renderChainToggleBar();
+                if (typeof buildChordDiagram === 'function') buildChordDiagram();
+                if (typeof drawAllScoreMatrices === 'function') drawAllScoreMatrices();
+                const sel = document.querySelector('#pairs-tbody tr.selected');
+                if (sel) sel.click();                                             // re-renders contact map + per-residue + ChimeraX title + 3D
+                else if (uniState.currentPairKey) buildContactMap(uniState.currentPairKey);
+            }
+            return applied;
+        },
+    });
 
     uniState.multiChainColors._active = true;
     uniState.multiChainColors._gradient = true;
@@ -4579,8 +4611,7 @@ function drawOneScoreMatrix(canvas, lowerG, upperG, nc, lowerMax, upperMax, lowe
     canvas.style.height = (cellSize * nc + bottomMargin) + 'px';
 
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!ctx.getSerializedSvg) { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height); }   // white bg for screen/PNG only — SVG export stays transparent
 
     for (let i = 0; i < nc; i++) {
         for (let j = 0; j < nc; j++) {
@@ -4674,8 +4705,7 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
     canvas.style.height = (displaySize + bottomMargin) + 'px';
 
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!ctx.getSerializedSvg) { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height); }   // white bg for screen/PNG only — SVG export stays transparent
 
     const imgData = ctx.createImageData(plotPx, plotPx);
     const data = imgData.data;
@@ -6286,6 +6316,14 @@ function paintChordArc(ctx, cxC, cyC, outerR, innerR, arc, hidden, arcLIR, arcCL
     donut(arc.start, arc.end); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
 }
 
+let uniShowChordIDs = true;   // Circular Contact Map: include the chain-ID suffix "(A)" in arc labels (toggle in the header)
+function chordArcLabel(arc) {
+    if (arc.type === 'ion') return arc.displayName;
+    if (uniShowChordIDs) return chainLabel(arc.name);                 // "gene (A)" or "A"
+    const g = uniState.chainGenes && uniState.chainGenes[arc.name];
+    return g ? g : arc.name;                                          // gene only, else the chain id
+}
+
 function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, contacts, chainColors, arcLIR, arcCLIR, arcLightColors) {
     // Draws pre-computed contacts without distance re-filtering
     const nc = chainNames.length;
@@ -6348,7 +6386,7 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
         if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
         ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+18), cyC + Math.sin(labelAngle) * (outerR+18));
         ctx.rotate(textAngle); ctx.fillStyle = hidden ? '#bbb' : '#333'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(arc.type === 'ion' ? arc.displayName : chainLabel(arc.name), 0, 0); ctx.restore();
+        ctx.fillText(chordArcLabel(arc), 0, 0); ctx.restore();
         ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+35), cyC + Math.sin(labelAngle) * (outerR+35));
         ctx.rotate(textAngle); ctx.fillStyle = '#bbb'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`, 0, 0); ctx.restore();
@@ -6411,7 +6449,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
         ctx.font = 'bold 13px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(arc.type === 'ion' ? arc.displayName : chainLabel(arc.name), 0, 0);
+        ctx.fillText(chordArcLabel(arc), 0, 0);
         ctx.restore();
 
         // Secondary label (chain letter for ions, size for others)

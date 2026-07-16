@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LIVIA — PPI Network</title>
 <script src="js/livia-xlsx.js"></script>
+<script src="js/livia-maps.js?v=20260716b"></script>
 <script src="js/clip-pipeline.js"></script>
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
@@ -162,6 +163,7 @@
     <span><label class="lb"><input type="checkbox" id="nborder" checked> node border</label> <input id="bcolor" type="color" value="#000000"></span>
     <span class="hint">· community colors: click a swatch in the module list →</span>
   </div>
+  <div id="nodecolor-upload" style="margin:0 2px 10px"></div>
 
   <div id="layerbar" class="hint hidden" style="margin:0 2px 10px; padding:7px 11px; background:#f0f6fb; border-radius:8px">Layer view from <b id="layer-root"></b> (Leiden colors kept) · layout <select id="layer-mode" style="font-size:12px; padding:1px 4px; border:1px solid var(--line); border-radius:5px"><option value="concentric">concentric shells</option><option value="tree">tree</option></select> · <a id="layer-reset" href="#" style="font-weight:600">⟳ back to force layout</a></div>
   <div class="statbar" id="stats"></div>
@@ -193,6 +195,7 @@ let FASTA_RAW = '';                 // concatenated FASTA text (paired or per-sy
 let NAME_OF = {};                  // resolved node id -> Set(original prediction names)  (for the hand-off filter)
 let FILECOUNT = 0, PYODIDE = null, NETWORK = null, NODES = null, EDGES = null, LAST = null;
 let META = null, META_COL = null, COMMCOLORS = {}, SUBSET = null, LAYER_ROOT = null;   // SUBSET: node ids to keep (tab 3); LAYER_ROOT: BFS-shell root or null
+let NODECOLORS = {};               // per-node custom colour override (node id -> hex); wins over the 'color by' mode
 let NET_HL = null;                 // node id currently highlighted by the search box (null = none)
 
 // ---------- helpers ----------
@@ -207,13 +210,17 @@ function gradient(x){   // 0..1 -> hex (light gray-blue -> LIVIA blue -> dark)
   const j=x<0.5?0:1, u=x<0.5?x*2:(x-0.5)*2, a=S[j], c=S[j+1], h=k=>Math.round(a[k]+(c[k]-a[k])*u).toString(16).padStart(2,'0');
   return `#${h(0)}${h(1)}${h(2)}`;
 }
-function nodeColors(disp){   // per-displayed-node fill based on the 'color by' mode
+function nodeColors(disp){   // per-displayed-node fill based on the 'color by' mode (custom overrides win)
   const mode=$('colorby').value, { nodes, membership, degree }=disp;
-  if (mode==='uniform'){ const c=$('unicolor').value; return nodes.map(()=>c); }
-  if (mode==='community') return nodes.map((s,i)=>commHex(membership[i]));
-  const vals = mode==='strength' ? nodes.map(s=>(LAST.strengthMap.get(s)||0)) : degree.slice();
-  const lo=Math.min(...vals), hi=Math.max(...vals);
-  return vals.map(v=>gradient(hi>lo?(v-lo)/(hi-lo):0.5));
+  let base;
+  if (mode==='uniform'){ const c=$('unicolor').value; base = nodes.map(()=>c); }
+  else if (mode==='community') base = nodes.map((s,i)=>commHex(membership[i]));
+  else {
+    const vals = mode==='strength' ? nodes.map(s=>(LAST.strengthMap.get(s)||0)) : degree.slice();
+    const lo=Math.min(...vals), hi=Math.max(...vals);
+    base = vals.map(v=>gradient(hi>lo?(v-lo)/(hi-lo):0.5));
+  }
+  return base.map((c,i)=> NODECOLORS[nodes[i]] || c);
 }
 function updateColorLegend(){
   const mode=$('colorby').value, el=$('colorlegend'); $('unicolor').classList.toggle('hidden', mode!=='uniform');
@@ -744,7 +751,7 @@ function exportGraphML(){ if(LAST) download('network.graphml', buildGraphML(), '
 const SETTING_IDS=['cutv','resv','objfn','seed','nsizev','mindegv','eminv','lbldegv','lblsizev','lblcolor','lblstroke','bcolor','colorby','unicolor','layout','layiter'];
 function collectSettings(){
   const s={}; SETTING_IDS.forEach(id=>{ const el=$(id); if(el) s[id]=el.value; });
-  s.nborder=$('nborder').checked; s.lbloutline=$('lbloutline').checked; s.commColors={...COMMCOLORS}; if(SUBSET) s.subset=[...SUBSET];
+  s.nborder=$('nborder').checked; s.lbloutline=$('lbloutline').checked; s.commColors={...COMMCOLORS}; s.nodeColors={...NODECOLORS}; if(SUBSET) s.subset=[...SUBSET];
   if (META && META_COL) s.labelby=META_COL;
   return s;
 }
@@ -756,6 +763,7 @@ async function importSettings(file){
   if (s.nborder!=null) $('nborder').checked=s.nborder;
   if (s.lbloutline!=null) $('lbloutline').checked=s.lbloutline;
   if (s.commColors) COMMCOLORS={...s.commColors};
+  if (s.nodeColors) NODECOLORS={...s.nodeColors};
   SUBSET = (s.subset&&s.subset.length) ? new Set(s.subset) : null; $('subclear').classList.toggle('hidden', !SUBSET);
   if (s.labelby){ META_COL=s.labelby; if($('labelby')) $('labelby').value=s.labelby; }
   $('unicolor').classList.toggle('hidden', $('colorby').value!=='uniform');
@@ -800,6 +808,19 @@ $('expset').addEventListener('click', exportSettings);
 $('impset-btn').addEventListener('click', ()=>$('impset').click());
 $('impset').addEventListener('change', e=>{ if(e.target.files[0]) importSettings(e.target.files[0]); });
 $('ni-x').addEventListener('click', hideNodeInfo);
+// Custom node colours: upload/paste "node,#hex" (node = protein id). Overrides win over the 'color by' mode.
+LiviaMaps.attachColorUpload($('nodecolor-upload'), {
+  label: 'node colours', keyHeader: 'node',
+  currentRows: () => { if (!LAST) return []; const disp=getDisplay(), fills=nodeColors(disp); return disp.nodes.map((n,i)=>({ key:n, color:fills[i] })); },
+  apply: (rows) => {
+    if (!LAST) return 0;
+    const byLc = new Map(LAST.nodes.map(n=>[n.toLowerCase(), n]));
+    let applied=0;
+    for (const {key,color} of rows){ const n=byLc.get(key.toLowerCase()); if(!n) continue; NODECOLORS[n]=color; applied++; }
+    if (applied) restyle();
+    return applied;
+  },
+});
 { const si=$('net-search-input');
   si.addEventListener('change', ()=>netFind(si.value));                                   // datalist pick / commit
   si.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); netFind(si.value); } });
