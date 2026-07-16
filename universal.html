@@ -538,7 +538,7 @@
 
 <script src="js/livia-core.js?v=20260627"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20260716c"></script>
+<script src="js/livia-viewer.js?v=20260716d"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
 <script>
 // ── Callbacks for shared modules ──
@@ -3534,7 +3534,7 @@ function buildColorComponents(v) {
     const addComp = (chain, ranges, color) => {
         if (uniState.hiddenChains?.has(chain)) return; // chain toggle bar: hidden chain → skip
         const t = types[uniState.chainNames?.indexOf(chain)];
-        components.push({ chain, ranges, color, isIon: BALLSTICK.has(t) });
+        components.push({ chain, ranges, color, isIon: BALLSTICK.has(t), cpk: (t === 'rna' || t === 'dna') });   // nucleic sticks → element (CPK) colouring
     };
 
     // Union LIR/cLIR across all pairs per chain (mistake #27 rule: per-chain UI

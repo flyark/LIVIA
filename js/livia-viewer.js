@@ -81,18 +81,19 @@ function _buildMvsStructureChildren(colorComponents) {
     const structureChildren = [];
     for (const comp of colorComponents) {
         if (comp.isIon) {
-            // Non-polymer chain (ion / ligand / glycan): one ball-and-stick component
-            // scoped to THIS chain's label_asym_id. Using the global 'ion'/'ligand'
-            // selectors here recolored every non-polymer atom in the structure, so
-            // with multiple ion/glycan chains the last color (red) won over all of
-            // them. Scoping by chain gives each its own chord/legend color.
+            // Non-polymer chain (ion / ligand / glycan / nucleic) → one ball-and-stick component
+            // scoped to THIS chain's label_asym_id. Scoping by chain (not global 'ion'/'ligand'
+            // selectors) gives each its own colour instead of the last one winning.
+            // Nucleic (comp.cpk) → element (CPK) colouring so the backbone/bases read clearly;
+            // ions/glycans/ligands keep their chord/legend colour.
+            const rep = { kind: 'representation', params: { type: 'ball_and_stick' },
+                children: comp.cpk
+                    ? ELEMENT_CPK.map(([el, col]) => ({ kind: 'color', params: { selector: { type_symbol: el }, color: col } }))
+                    : [{ kind: 'color', params: { color: comp.color } }] };
             structureChildren.push({
                 kind: 'component',
                 params: { selector: { label_asym_id: comp.chain } },
-                children: [
-                    { kind: 'representation', params: { type: 'ball_and_stick' },
-                      children: [{ kind: 'color', params: { color: comp.color } }] }
-                ]
+                children: [rep]
             });
             continue;
         }
