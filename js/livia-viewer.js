@@ -73,6 +73,9 @@ function plddtColor(b) {
     return '#FF7D45';
 }
 
+// Jmol/CPK element colours for atomic (ball-and-stick) representations of PTM/modified residues.
+const ELEMENT_CPK = [['C', '#909090'], ['N', '#3050F8'], ['O', '#FF0D0D'], ['P', '#FF8000'], ['S', '#FFFF30'], ['H', '#FFFFFF']];
+
 // ── Build the MVS structureChildren (per-component representations + colors) ──
 function _buildMvsStructureChildren(colorComponents) {
     const structureChildren = [];
@@ -95,11 +98,16 @@ function _buildMvsStructureChildren(colorComponents) {
         }
         if (comp.stick) {
             // PTM / modified residues (phospho, etc.): ball-and-stick on top of the chain cartoon,
-            // scoped to the specific residues. No explicit color → default element (CPK) colouring
-            // so the modifying group (e.g. phosphate) stands out.
+            // scoped to the specific residues. Coloured by element (CPK / Jmol convention) so the
+            // modifying group reads clearly — N blue, O red, P orange, S yellow, C grey.
             const sel = comp.ranges.map(r => ({ label_asym_id: comp.chain, beg_label_seq_id: r.start, end_label_seq_id: r.end }));
-            const rep = { kind: 'representation', params: { type: 'ball_and_stick' } };
-            if (comp.color) rep.children = [{ kind: 'color', params: { color: comp.color } }];
+            const rep = {
+                kind: 'representation',
+                params: { type: 'ball_and_stick' },
+                children: comp.color
+                    ? [{ kind: 'color', params: { color: comp.color } }]
+                    : ELEMENT_CPK.map(([el, col]) => ({ kind: 'color', params: { selector: { type_symbol: el }, color: col } })),
+            };
             structureChildren.push({ kind: 'component', params: { selector: sel.length === 1 ? sel[0] : sel }, children: [rep] });
             continue;
         }

@@ -538,7 +538,7 @@
 
 <script src="js/livia-core.js?v=20260627"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20260716b"></script>
+<script src="js/livia-viewer.js?v=20260716c"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
 <script>
 // ── Callbacks for shared modules ──
@@ -3529,7 +3529,7 @@ function buildColorComponents(v) {
     const components = [];
     const types = uniState.chainTypes || [];
     const NONPROTEIN = new Set(['ion', 'rna', 'dna', 'glycan', 'ligand']);
-    const BALLSTICK = new Set(['ion', 'glycan', 'ligand']); // ball-and-stick, not cartoon
+    const BALLSTICK = new Set(['ion', 'glycan', 'ligand', 'rna', 'dna']); // ball-and-stick, not cartoon (nucleic → stick)
     const isNonProteinChain = (ch) => NONPROTEIN.has(types[uniState.chainNames?.indexOf(ch)]);
     const addComp = (chain, ranges, color) => {
         if (uniState.hiddenChains?.has(chain)) return; // chain toggle bar: hidden chain → skip
@@ -3768,10 +3768,9 @@ function buildColorComponents(v) {
         }
     }
 
-    // Always show ALL non-protein chains (ion/glycan/ligand → ball-and-stick;
-    // rna/dna → cartoon). Color each by its own chord/legend color (getChainToggleColor)
-    // rather than a hardcoded red, and span the full chain so multi-residue nucleic
-    // chains render as a complete cartoon instead of a single red residue.
+    // Always show ALL non-protein chains as ball-and-stick (ion/glycan/ligand, and nucleic
+    // rna/dna → sticks). Color each by its own chord/legend color (getChainToggleColor) rather
+    // than a hardcoded red, and span the full chain so multi-residue nucleic chains render fully.
     const allChains = [v.ci, v.cj, ...otherChains];
     const npNames = uniState.chainNames || [];
     const npSizes = uniState.chainSizes || [];
