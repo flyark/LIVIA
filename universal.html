@@ -2512,11 +2512,14 @@ function getChainsFromCif(cifText) {
                     chainTypes.set(chain, 'ion');
                 }
             } else if (groupPDB === 'HETATM') {
-                // Glycan / ligand (non-ion HETATM): AlphaFold3 makes one token per
-                // atom, so count every atom (not deduped per residue) and tag the
-                // chain so it renders as ball-and-stick, not a protein cartoon.
-                chainTypes.set(chain, 'glycan');
+                // Non-ion HETATM. AlphaFold3 makes one token per atom, so count every atom
+                // (keeps sizes aligned with the per-atom PAE tokens). A modified amino acid
+                // (phospho SEP/TPO/PTR, MSE, …) is HETATM but part of the PROTEIN polymer —
+                // recognise it (CA backbone atom, or a known code) and keep the chain a cartoon.
+                // Only tag 'glycan' (ball-and-stick) when the chain has no polymer backbone.
                 counted = true;
+                if (atomName === 'CA' || MOD_AA.has(compId)) chainTypes.set(chain, 'protein');
+                else if (!chainTypes.has(chain)) chainTypes.set(chain, 'glycan');
             }
             if (counted) {
                 if (!chainCounts.has(chain)) {
@@ -5422,6 +5425,10 @@ function buildAllChainsPml(overrideFilename) {
 // ============================================================================
 const NT3TO1 = {DA:'A',DC:'C',DG:'G',DT:'T',A:'A',C:'C',G:'G',U:'U'};
 const ION_NAMES = new Set(['ZN','CA','MG','MN','FE','CU','NA','K','CL','NI','CO','CD']);
+// Modified / phosphorylated amino acids (CCD codes). AlphaFold3 writes these as HETATM, but they
+// are part of the protein polymer and must render as a cartoon (not ball-and-stick). Any HETATM
+// residue carrying a CA backbone atom is also treated as a modified amino acid (covers codes not listed).
+const MOD_AA = new Set(['SEP','TPO','PTR','MSE','SEC','HYP','CSO','CSD','CME','CSS','OCS','MLY','M3L','MLZ','ALY','KCX','PCA','CGU','NEP','HIC','SAC','MHO','CAS','DDZ','SNN','CXM','FME','CSX','CSP','TYS','SXE']);
 
 function parseCifSequence(cifText) {
     const chains = new Map();
