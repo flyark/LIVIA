@@ -371,6 +371,7 @@
                         </div>
                     </div>
                 </div>
+                <div id="chain-color-upload" style="margin-top:6px"></div>
                 <div style="display:flex; align-items:center; gap:0.8rem; margin-top:0.5rem;">
                     <div class="color-preview-strip" id="color-strip" style="flex:1; margin:0;">
                         <div style="background:#80CBC4"></div><div style="background:#00897B"></div><div style="background:#E64A19"></div><div style="background:#FFAB91"></div>
@@ -386,12 +387,6 @@
             </div>
 
             <div class="script-preview" id="script-preview"></div>
-            <div style="display:flex; align-items:center; gap:14px; margin-bottom:0.7rem; font-size:0.82rem; color:#555; flex-wrap:wrap;">
-                <span style="font-weight:600;">Script view:</span>
-                <label style="cursor:pointer;"><input type="radio" name="exportScope" value="pair" checked onchange="setExportScope('pair')"> This pair only</label>
-                <label style="cursor:pointer;"><input type="radio" name="exportScope" value="all" onchange="setExportScope('all')"> All subunits</label>
-                <span style="color:#999; font-size:0.75rem;">(script view only — the pair is highlighted; "All subunits" also shows the rest in gray. Both downloads keep every subunit.)</span>
-            </div>
             <div class="download-row">
                 <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy script</button>
             </div>
@@ -459,12 +454,13 @@
 <script src="js/livia-core.js?v=20260627"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260627"></script>
-<script src="js/livia-colors.js?v=20260627"></script>
+<script src="js/livia-colors.js?v=20260716b"></script>
 <script src="js/canvas2svg.js?v=20260716b"></script>
 <script src="js/livia-maps.js?v=20260716b"></script>
 <script>
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (dimerPairResult) { generateAndDisplayScript(); buildDimerSequenceViewer(); buildDimerContactMap(); buildChordDiagram(); buildComparisonCharts(); updateViewer3d(); renderChainToggleBar(); } };
+attachChainColorUpload(document.getElementById('chain-color-upload'), {});   // CSV/paste chain colours (A/B)
 onScriptTabSwitch = () => { if (dimerPairResult) generateAndDisplayScript(); };
 document.addEventListener('DOMContentLoaded', () => {
     initColorPickers();
@@ -2947,9 +2943,7 @@ function updateGapFill() {
 }
 
 // Remove LIR segments shorter than minSize residues
-// ── Export scope + confident-region structure trimming (ChimeraX / PyMOL) ──
-let exportScope = 'pair';   // 'pair' = the selected chain pair · 'all' = every subunit
-function setExportScope(s){ exportScope = s; generateAndDisplayScript(); }
+// ── Confident-region structure trimming (ChimeraX / PyMOL) ──
 // Distinct auth chains in a mmCIF's _atom_site loop.
 function cifChains(cifText){
   const lines = cifText.split('\n'), set = new Set();
@@ -3046,7 +3040,6 @@ function generateAndDisplayScript() {
         if (lirISpec) lines.push(`color #1${lirISpec} ${colors.lir_a}`);
         if (lirJSpec) lines.push(`color #1${lirJSpec} ${colors.lir_b}`);
     } else {
-        if (exportScope === 'all') lines.push('color #1 #D9D9D9');   // gray every subunit; the pair is colored below
         lines.push(`color #1/${v.ci} ${colors.lir_a}`, `color #1/${v.cj} ${colors.lir_b}`);
     }
     lines.push('hide atoms', 'hide cartoons', '');
@@ -3073,8 +3066,8 @@ function generateAndDisplayScript() {
     }
     lines.push('');
 
-    if (showComplete || exportScope === 'all') {
-        lines.push(exportScope === 'all' ? '# \u2500\u2500 Show all subunits \u2500\u2500' : '# \u2500\u2500 Show complete structure \u2500\u2500', 'show cartoons', '');
+    if (showComplete) {
+        lines.push('# \u2500\u2500 Show complete structure \u2500\u2500', 'show cartoons', '');
     } else {
         lines.push('# \u2500\u2500 Show LIR regions \u2500\u2500', `# LIR ${v.ci}: ${v.lirI.size} residues`);
         if (lirISpec) lines.push(`show #1${lirISpec} cartoons`);
@@ -3178,7 +3171,7 @@ function generatePml(v, structFilename, colors) {
         `hide everything, all`,
     ];
 
-    if (showComplete || exportScope === 'all') {
+    if (showComplete) {
         lines.push('show cartoon, all');
     } else {
         if (lirISpec) lines.push(`show cartoon, ${lirISpec}`);
@@ -3197,9 +3190,9 @@ function generatePml(v, structFilename, colors) {
     } else if (cxcColorMode === 'bychain' || cxcColorMode === 'bypolymer') {
         lines.push('util.cbc');
     } else {
-        if ((grayNonLir && showComplete) || exportScope === 'all') {
+        if (grayNonLir && showComplete) {
             lines.push(`set_color nonlir_gray, [0.69, 0.69, 0.69]`);
-            lines.push(`color nonlir_gray, all`);                       // gray every subunit; the pair is colored below
+            lines.push(`color nonlir_gray, all`);                       // gray non-LIR; the pair is colored below
         }
         if (lirISpec) lines.push(`color lir_i, ${lirISpec}`);
         if (lirJSpec) lines.push(`color lir_j, ${lirJSpec}`);

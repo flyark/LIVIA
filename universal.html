@@ -439,6 +439,7 @@
                             <div><div class="color-label">cLIR</div><div class="color-hex" id="hex-clir-b">#E64A19</div></div>
                         </div>
                     </div>
+                    <div id="chain-color-upload" style="margin-top:6px; flex-basis:100%"></div>
                 </div>
                 <div style="display:flex; align-items:center; gap:0.8rem; margin-top:0.5rem;">
                     <div class="color-preview-strip" id="color-strip" style="flex:1; margin:0;">
@@ -538,13 +539,16 @@
 <script src="js/livia-core.js?v=20260627"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260627"></script>
-<script src="js/livia-colors.js?v=20260627"></script>
+<script src="js/livia-colors.js?v=20260716b"></script>
 <script>
 // ── Callbacks for shared modules ──
 // selectPair calls renderChainToggleBar, and sel.click() flows through selectPair.
 onColorChange = () => { const sel = document.querySelector('#pairs-tbody tr.selected'); if (sel) sel.click(); };
 onScriptTabSwitch = () => { updateScriptPreview(); };
 document.addEventListener('DOMContentLoaded', initColorPickers);
+document.addEventListener('DOMContentLoaded', () => attachChainColorUpload(document.getElementById('chain-color-upload'), {   // CSV/paste chain colours (2-chain complexes)
+    geneOf: () => { try { const n = uniState.chainNames || []; const g = uniState.chainGenes || {}; return { A: g[n[0]], B: g[n[1]] }; } catch (e) { return {}; } },
+}));
 
 // ============================================================================
 // GLOBAL STATE

@@ -183,3 +183,55 @@ function swapColors() {
     const cb = document.getElementById('color-clir-b').value;
     applyPreset(lb, cb, la, ca, null);
 }
+
+// Lighten a colour toward white by amt (0..1) → the LIR (light) shade paired with a cLIR (dark) colour.
+function _lightenHex(hex, amt) {
+    const h = _normalizeHex(hex); if (!h) return hex;
+    const m = (c) => Math.round(c + (255 - c) * amt).toString(16).padStart(2, '0');
+    return '#' + m(parseInt(h.slice(1, 3), 16)) + m(parseInt(h.slice(3, 5), 16)) + m(parseInt(h.slice(5, 7), 16));
+}
+// Resolve any CSS colour (#hex, #rgb, or a name like "teal") to #rrggbb, or null if invalid.
+function _colorToHex(c) {
+    const norm = _normalizeHex(c); if (norm) return norm;
+    try {
+        const ctx = (_colorToHex._ctx || (_colorToHex._ctx = document.createElement('canvas').getContext('2d')));
+        ctx.fillStyle = '#000'; ctx.fillStyle = String(c); const r = ctx.fillStyle;
+        return /^#[0-9a-f]{6}$/i.test(r) ? r.toLowerCase() : null;
+    } catch (e) { return null; }
+}
+
+// CSV/paste colour upload for a 2-chain (A/B) figure. Accepts "chain,color" (also 3-col "chain,name,color";
+// the name is ignored here). Sets each chain's cLIR (main) colour and derives the light LIR shade, then
+// applies through applyPreset() (which re-renders on every page). Match by chain letter A/B (or 1/2), or an
+// optional gene name via opts.geneOf → { A:'sym1', B:'sym2' }.
+function attachChainColorUpload(container, opts) {
+    opts = opts || {};
+    if (!container || !window.LiviaMaps || container.dataset.ccu) return;
+    container.dataset.ccu = '1';
+    const geneOf = opts.geneOf || (() => ({}));
+    const val = (id) => (document.getElementById(id) || {}).value;
+    window.LiviaMaps.attachColorUpload(container, {
+        label: 'chain colours', keyHeader: 'chain',
+        placeholder: 'chain,color\nA,#00897B\nB,#E64A19',
+        currentRows: () => {
+            const g = geneOf();
+            return [
+                { key: g.A || 'A', color: val('color-clir-a') || '#00897B' },
+                { key: g.B || 'B', color: val('color-clir-b') || '#E64A19' },
+            ];
+        },
+        apply: (rows) => {
+            const g = geneOf();
+            let lirA = val('color-lir-a'), clirA = val('color-clir-a'), lirB = val('color-lir-b'), clirB = val('color-clir-b');
+            let applied = 0;
+            for (const { key, color } of rows) {
+                const hex = _colorToHex(color); if (!hex) continue;
+                const k = String(key).toLowerCase();
+                if (k === 'a' || k === '1' || k === String(g.A || '').toLowerCase()) { clirA = hex; lirA = _lightenHex(hex, 0.55); applied++; }
+                else if (k === 'b' || k === '2' || k === String(g.B || '').toLowerCase()) { clirB = hex; lirB = _lightenHex(hex, 0.55); applied++; }
+            }
+            if (applied) applyPreset(lirA, clirA, lirB, clirB, null);
+            return applied;
+        },
+    });
+}

@@ -399,6 +399,7 @@
                         </div>
                     </div>
                 </div>
+                <div id="chain-color-upload" style="margin-top:6px"></div>
                 <div style="display:flex; align-items:center; gap:0.8rem; margin-top:0.5rem;">
                     <div class="color-preview-strip" id="color-strip" style="flex:1; margin:0;">
                         <div style="background:#80CBC4"></div><div style="background:#00897B"></div><div style="background:#E64A19"></div><div style="background:#FFAB91"></div>
@@ -526,12 +527,15 @@
 <script src="js/livia-core.js?v=20260627"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260627"></script>
-<script src="js/livia-colors.js?v=20260627"></script>
+<script src="js/livia-colors.js?v=20260716b"></script>
 <script src="js/canvas2svg.js?v=20260716b"></script>
 <script src="js/livia-maps.js?v=20260716b"></script>
 <script>
 // Wire shared module callbacks
 onColorChange = () => { if (flyParsed && flyCurrentRank) { loadRank(flyCurrentRank); updateCombinedChord(); renderChainToggleBar(); } };
+attachChainColorUpload(document.getElementById('chain-color-upload'), {   // CSV/paste chain colours (A/B or gene symbol)
+    geneOf: () => { try { if (!flyParsed || !flyCurrentRank) return {}; const isAvg = flyCurrentRank === 'avg'; const t = isAvg ? flyAverageRow : (flyParsed.rows.find(r => parseInt(r['Rank']) === flyCurrentRank) || flyParsed.rows[0]); return t ? { A: t['Symbol 1'], B: t['Symbol 2'] } : {}; } catch (e) { return {}; } },
+});
 onScriptTabSwitch = () => { updateScriptPreview(); };
 // Initialize color pickers
 document.addEventListener('DOMContentLoaded', () => {
