@@ -538,7 +538,7 @@
 
 <script src="js/livia-core.js?v=20260627"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20260716d"></script>
+<script src="js/livia-viewer.js?v=20260716e"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
 <script>
 // ── Callbacks for shared modules ──
@@ -2473,7 +2473,7 @@ function getChainsFromCif(cifText) {
     let inAtomSite = false;
     const colNames = [];
     const seenResidues = new Set();
-    const ptm = new Map();   // chain -> Set of label_seq_id for modified/PTM residues (shown as sticks)
+    const ptm = new Map();   // "chain:seq" -> {chain, seq, atoms:[sidechain atom names]} for PTM residues (shown as sticks)
 
     for (const line of lines) {
         if (line.startsWith('_atom_site.')) {
@@ -2524,7 +2524,14 @@ function getChainsFromCif(cifText) {
                 if (atomName === 'CA' || MOD_AA.has(compId)) {
                     chainTypes.set(chain, 'protein');
                     const seq = parseInt(resSeq);
-                    if (!isNaN(seq)) { if (!ptm.has(chain)) ptm.set(chain, new Set()); ptm.get(chain).add(seq); }
+                    // Record the whole modified sidechain (non-backbone atoms) so the functional group
+                    // stays bonded to the chain when shown as sticks. Colouring (subunit vs highlighted
+                    // functional group) is decided in buildColorComponents.
+                    if (!isNaN(seq) && !BACKBONE_ATOMS.has(atomName)) {
+                        const rk = chain + ':' + seq;
+                        if (!ptm.has(rk)) ptm.set(rk, { chain, seq, atoms: [] });
+                        ptm.get(rk).atoms.push(atomName);
+                    }
                 } else if (!chainTypes.has(chain)) chainTypes.set(chain, 'glycan');
             }
             if (counted) {
@@ -2538,7 +2545,7 @@ function getChainsFromCif(cifText) {
     }
     return {
         names: chainOrder, sizes: chainOrder.map(c => chainCounts.get(c)), types: chainOrder.map(c => chainTypes.get(c) || 'protein'),
-        ptm: Object.fromEntries([...ptm].map(([c, s]) => [c, [...s].sort((a, b) => a - b)])),
+        ptm: (() => { const byChain = {}; for (const r of ptm.values()) { (byChain[r.chain] = byChain[r.chain] || []).push({ seq: r.seq, atoms: r.atoms }); } return byChain; })(),
     };
 }
 
@@ -3529,12 +3536,12 @@ function buildColorComponents(v) {
     const components = [];
     const types = uniState.chainTypes || [];
     const NONPROTEIN = new Set(['ion', 'rna', 'dna', 'glycan', 'ligand']);
-    const BALLSTICK = new Set(['ion', 'glycan', 'ligand', 'rna', 'dna']); // ball-and-stick, not cartoon (nucleic → stick)
+    const BALLSTICK = new Set(['ion', 'glycan', 'ligand']); // ball-and-stick, not cartoon (nucleic → cartoon)
     const isNonProteinChain = (ch) => NONPROTEIN.has(types[uniState.chainNames?.indexOf(ch)]);
     const addComp = (chain, ranges, color) => {
         if (uniState.hiddenChains?.has(chain)) return; // chain toggle bar: hidden chain → skip
         const t = types[uniState.chainNames?.indexOf(chain)];
-        components.push({ chain, ranges, color, isIon: BALLSTICK.has(t), cpk: (t === 'rna' || t === 'dna') });   // nucleic sticks → element (CPK) colouring
+        components.push({ chain, ranges, color, isIon: BALLSTICK.has(t) });
     };
 
     // Union LIR/cLIR across all pairs per chain (mistake #27 rule: per-chain UI
@@ -3768,9 +3775,9 @@ function buildColorComponents(v) {
         }
     }
 
-    // Always show ALL non-protein chains as ball-and-stick (ion/glycan/ligand, and nucleic
-    // rna/dna → sticks). Color each by its own chord/legend color (getChainToggleColor) rather
-    // than a hardcoded red, and span the full chain so multi-residue nucleic chains render fully.
+    // Always show ALL non-protein chains (ion/glycan/ligand → ball-and-stick; rna/dna → cartoon).
+    // Color each by its own chord/legend color (getChainToggleColor), spanning the full chain so
+    // multi-residue nucleic chains render as a complete cartoon.
     const allChains = [v.ci, v.cj, ...otherChains];
     const npNames = uniState.chainNames || [];
     const npSizes = uniState.chainSizes || [];
@@ -3791,17 +3798,29 @@ function buildColorComponents(v) {
         addComp(c, [{ start: 1, end: sz }], color);
     }
 
-    // PTM / modified residues (phospho SEP/TPO/PTR, etc.) → ball-and-stick on top of the cartoon,
-    // so the modifying group is visible. Default element colouring (see _buildMvsStructureChildren).
+    // PTM / modified residues (phospho SEP/TPO/PTR, etc.): show the whole modified sidechain as
+    // ball-and-stick over the cartoon so the functional group stays bonded to the backbone. The amino
+    // acid part keeps the subunit colour; only the functional group (phosphate) is element-highlighted.
     const ptmRes = uniState.ptmResidues || {};
     for (const chain of (uniState.chainNames || [])) {
         if (uniState.hiddenChains?.has(chain)) continue;
-        const seqs = ptmRes[chain];
-        if (!seqs || !seqs.length) continue;
-        components.push({ chain, ranges: seqs.map(s => ({ start: s, end: s })), stick: true });
+        const residues = ptmRes[chain];
+        if (!residues || !residues.length) continue;
+        const atoms = [], pAtoms = [], oAtoms = [];
+        for (const r of residues) for (const atom of r.atoms) {
+            const a = { chain, seq: r.seq, atom };
+            atoms.push(a);
+            if (atom === 'P') pAtoms.push(a);                            // phosphorus
+            else if (/^(OP[1-3]|O[1-3]P)$/.test(atom)) oAtoms.push(a);   // phosphate oxygens
+        }
+        if (!atoms.length) continue;
+        const highlights = [];
+        if (pAtoms.length) highlights.push({ atoms: pAtoms, color: '#FF8000' });   // P orange
+        if (oAtoms.length) highlights.push({ atoms: oAtoms, color: '#FF0D0D' });   // phosphate O red
+        components.push({ stick: true, atoms, baseColor: getChainToggleColor(chain), highlights });
     }
 
-    return components.filter(c => c.ranges.length > 0);
+    return components.filter(c => (c.ranges && c.ranges.length > 0) || (c.atoms && c.atoms.length > 0));
 }
 
 // parseBfactorsPerResidue is defined in livia-viewer.js (shared, supports PDB+CIF+HETATM)
@@ -5239,6 +5258,18 @@ function buildAllChainsCxc(overrideFilename, sel) {
         lines.push('');
     }
 
+    // DNA/RNA \u2192 nucleic stick style (cartoon in Mol*; sticks in ChimeraX per request)
+    const nucleicChains = uniState.chainNames.filter((n, i) => types[i] === 'rna' || types[i] === 'dna');
+    if (nucleicChains.length > 0) {
+        lines.push('# \u2500\u2500 Show DNA/RNA as sticks \u2500\u2500');
+        lines.push('style nucleic stick');
+        for (const c of nucleicChains) {
+            lines.push(`show #1/${c} atoms`);
+            lines.push(`color #1/${c} ${getChainToggleColor(c)}`);
+        }
+        lines.push('');
+    }
+
     lines.push('# \u2500\u2500 Final \u2500\u2500', 'view', 'lighting soft depthCue true', '');
     lines.push('# \u2500\u2500 Save figure \u2500\u2500');
     lines.push('# save all_chains_LIR.png transparentBackground true');
@@ -5449,6 +5480,11 @@ const ION_NAMES = new Set(['ZN','CA','MG','MN','FE','CU','NA','K','CL','NI','CO'
 // are part of the protein polymer and must render as a cartoon (not ball-and-stick). Any HETATM
 // residue carrying a CA backbone atom is also treated as a modified amino acid (covers codes not listed).
 const MOD_AA = new Set(['SEP','TPO','PTR','MSE','SEC','HYP','CSO','CSD','CME','CSS','OCS','MLY','M3L','MLZ','ALY','KCX','PCA','CGU','NEP','HIC','SAC','MHO','CAS','DDZ','SNN','CXM','FME','CSX','CSP','TYS','SXE']);
+// Backbone atoms excluded from the PTM sticks. CA is kept so the sidechain's CB–CA bond renders and
+// anchors the sticks to the backbone cartoon (otherwise the sidechain floats just off the ribbon).
+// The whole modified sidechain (+CA) is shown as sticks in the subunit colour; only the functional
+// group (phosphate) is element-highlighted (see buildColorComponents).
+const BACKBONE_ATOMS = new Set(['N', 'C', 'O', 'OXT']);
 
 function parseCifSequence(cifText) {
     const chains = new Map();

@@ -82,33 +82,37 @@ function _buildMvsStructureChildren(colorComponents) {
     for (const comp of colorComponents) {
         if (comp.isIon) {
             // Non-polymer chain (ion / ligand / glycan / nucleic) → one ball-and-stick component
-            // scoped to THIS chain's label_asym_id. Scoping by chain (not global 'ion'/'ligand'
-            // selectors) gives each its own colour instead of the last one winning.
-            // Nucleic (comp.cpk) → element (CPK) colouring so the backbone/bases read clearly;
-            // ions/glycans/ligands keep their chord/legend colour.
-            const rep = { kind: 'representation', params: { type: 'ball_and_stick' },
-                children: comp.cpk
-                    ? ELEMENT_CPK.map(([el, col]) => ({ kind: 'color', params: { selector: { type_symbol: el }, color: col } }))
-                    : [{ kind: 'color', params: { color: comp.color } }] };
+            // scoped to THIS chain's label_asym_id, coloured by its own chord/legend colour.
+            // (Scoping by chain avoids the global 'ion'/'ligand' selectors letting the last colour win.)
             structureChildren.push({
                 kind: 'component',
                 params: { selector: { label_asym_id: comp.chain } },
-                children: [rep]
+                children: [
+                    { kind: 'representation', params: { type: 'ball_and_stick' },
+                      children: [{ kind: 'color', params: { color: comp.color } }] }
+                ]
             });
             continue;
         }
         if (comp.stick) {
-            // PTM / modified residues (phospho, etc.): ball-and-stick on top of the chain cartoon,
-            // scoped to the specific residues. Coloured by element (CPK / Jmol convention) so the
-            // modifying group reads clearly — N blue, O red, P orange, S yellow, C grey.
-            const sel = comp.ranges.map(r => ({ label_asym_id: comp.chain, beg_label_seq_id: r.start, end_label_seq_id: r.end }));
-            const rep = {
-                kind: 'representation',
-                params: { type: 'ball_and_stick' },
-                children: comp.color
-                    ? [{ kind: 'color', params: { color: comp.color } }]
-                    : ELEMENT_CPK.map(([el, col]) => ({ kind: 'color', params: { selector: { type_symbol: el }, color: col } })),
-            };
+            // PTM / modified residues: show the modified sidechain as ball-and-stick over the cartoon
+            // (backbone stays cartoon) so the functional group stays bonded to the chain. baseColor =
+            // the subunit colour for the amino acid part; highlights = per-atom overrides for the
+            // functional group (phosphate: P orange, O red). Falls back to CPK if neither is given.
+            const oneSel = (a) => ({ label_asym_id: a.chain, label_seq_id: a.seq, label_atom_id: a.atom });
+            const sel = comp.atoms.map(oneSel);
+            let children;
+            if (comp.baseColor || comp.highlights) {
+                children = [];
+                if (comp.baseColor) children.push({ kind: 'color', params: { color: comp.baseColor } });
+                for (const h of (comp.highlights || [])) {
+                    const hs = h.atoms.map(oneSel);
+                    children.push({ kind: 'color', params: { selector: hs.length === 1 ? hs[0] : hs, color: h.color } });
+                }
+            } else {
+                children = ELEMENT_CPK.map(([el, col]) => ({ kind: 'color', params: { selector: { type_symbol: el }, color: col } }));
+            }
+            const rep = { kind: 'representation', params: { type: 'ball_and_stick' }, children };
             structureChildren.push({ kind: 'component', params: { selector: sel.length === 1 ? sel[0] : sel }, children: [rep] });
             continue;
         }
