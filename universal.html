@@ -7,7 +7,7 @@
     <title>LIVIA — Prediction Analysis</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <!-- Mol* loaded inside iframe, not here -->
-    <link rel="stylesheet" href="css/livia.css?v=20260604">
+    <link rel="stylesheet" href="css/livia.css?v=20260717">
     <style>
         /* ── Page-specific styles for Universal ── */
         .step-link { color: #2471A3; text-decoration: none; }
@@ -110,7 +110,7 @@
         }
     </style>
 <script src="js/canvas2svg.js?v=20260716b"></script>
-<script src="js/livia-maps.js?v=20260716b"></script>
+<script src="js/livia-maps.js?v=20260717"></script>
 <script src="js/clip-resolver.js?v=20260715"></script>
 </head>
 <body>
@@ -6042,9 +6042,6 @@ function buildSequenceViewer(pairKey) {
 
     const colors = getColorsForPair(v.ci, v.cj);
 
-    let tooltip = document.querySelector('.seq-tooltip');
-    if (!tooltip) { tooltip = document.createElement('div'); tooltip.className = 'seq-tooltip'; document.body.appendChild(tooltip); }
-
     const chainConfigs = [];
     const selectedChains = [v.ci, v.cj];
     chainConfigs.push({ name: v.ci, seq: chainSeqs.get(v.ci) || [], lir: allLIR[v.ci], clir: allCLIR[v.ci], clirColor: colors.clir_a });
@@ -6093,46 +6090,14 @@ function buildSequenceViewer(pairKey) {
         label.textContent = `Chain ${cc.name} (${unitLabel})` + (isSelected ? ` \u2014 selected pair` : '');
         container.appendChild(label);
 
-        const perRow = 80;
-        for (let rowStart = 0; rowStart < cc.seq.length; rowStart += perRow) {
-            const row = document.createElement('div');
-            row.className = 'seq-row';
-            const numLabel = document.createElement('span');
-            numLabel.className = 'seq-num';
-            numLabel.textContent = cc.seq[rowStart].resnum;
-            row.appendChild(numLabel);
-
-            const blocks = document.createElement('span');
-            blocks.className = 'seq-blocks';
-            const rowEnd = Math.min(rowStart + perRow, cc.seq.length);
-            for (let i = rowStart; i < rowEnd; i++) {
-                const res = cc.seq[i];
-                const isClir = cc.clir.has(res.resnum);
-                const isLir = cc.lir.has(res.resnum);
-                const el = document.createElement('span');
-                el.className = 'seq-res' + (isClir ? ' clir' : '');
-                el.style.background = isClir ? cc.clirColor : isLir ? lightenColor(cc.clirColor.replace('#',''), 0.4) : grayNonLir ? '#D5D5D5' : 'transparent';
-                if (i > rowStart && (i - rowStart) % 10 === 0) el.style.marginLeft = '3px';
-                el.textContent = res.aa;
-                el.addEventListener('mouseenter', (e) => {
-                    tooltip.textContent = `${res.aa}${res.resnum}` + (isClir ? ' (cLIR)' : isLir ? ' (LIR)' : '');
-                    tooltip.style.display = '';
-                    tooltip.style.left = (e.clientX + 8) + 'px';
-                    tooltip.style.top = (e.clientY - 20) + 'px';
-                });
-                el.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
-                blocks.appendChild(el);
-            }
-            row.appendChild(blocks);
-
-            const endLabel = document.createElement('span');
-            endLabel.className = 'seq-num';
-            endLabel.style.textAlign = 'left';
-            endLabel.style.paddingLeft = '3px';
-            endLabel.textContent = cc.seq[rowEnd - 1].resnum;
-            row.appendChild(endLabel);
-            container.appendChild(row);
-        }
+        container.appendChild(LiviaMaps.seqFlow(cc.seq, (res) => {
+            const isClir = cc.clir.has(res.resnum), isLir = cc.lir.has(res.resnum);
+            return {
+                bg: isClir ? cc.clirColor : isLir ? lightenColor(cc.clirColor.replace('#',''), 0.4) : grayNonLir ? '#D5D5D5' : null,
+                clir: isClir,
+                tip: `${res.aa}${res.resnum}` + (isClir ? ' (cLIR)' : isLir ? ' (LIR)' : ''),
+            };
+        }));
     }
 }
 

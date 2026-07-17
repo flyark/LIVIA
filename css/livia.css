@@ -314,9 +314,17 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
 .preset-chip.active { border-color: #2471A3; background: #eaf2f8; color: #1a5276; font-weight: 600; }
 
 /* ── Sequence viewer ── */
+/* Continuous reflowing sequence (LiviaMaps.seqFlow). The 10-residue gap is this
+   margin and the ruler number is generated content, so neither puts a character
+   into the text — find-in-page matches motifs across the gaps and across line
+   wraps. .seq-g must stay nowrap: the <wbr> between blocks is the only legal
+   break point, which is what keeps each group of 10 intact. */
+.seq-flow { font-family:'SF Mono','Fira Code',monospace; font-size:0.82rem; line-height:2.5; letter-spacing:0.5px; color:#333; overflow-wrap:break-word; }
+.seq-flow .seq-g { position:relative; white-space:nowrap; margin-right:0.75em; }
+.seq-flow .seq-pad { display:inline-block; }
+.seq-flow .seq-g::before { content:attr(data-n); position:absolute; top:-1.05em; right:0.05em; font-size:0.6rem; line-height:1; color:#8a93a0; font-weight:400; letter-spacing:0; }
+
 .seq-row { display:flex; align-items:center; margin-bottom:0; }
-.seq-num { font-size:0.72rem; color:#888; width:36px; text-align:right; padding-right:4px; flex-shrink:0; font-family:'SF Mono','Fira Code',monospace; }
-.seq-blocks { display:inline-block; white-space:nowrap; font-family:'SF Mono','Fira Code',monospace; font-size:0.82rem; line-height:1.4; letter-spacing:0.5px; }
 .seq-res { display:inline; cursor:default; color:#333; }
 .seq-res.clir { color:white; font-weight:700; }
 .seq-chain-label { font-size:0.88rem; font-weight:700; color:#1a5276; margin-top:0.5rem; margin-bottom:0.2rem; }
@@ -346,8 +354,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
     .data-table th, .data-table td { white-space: nowrap; padding: 0.3rem 0.5rem; font-size: 0.75rem; }
     #viewer3d-frame { height: 400px !important; }
     .script-preview { font-size: 0.68rem; max-height: 250px; overflow-x: auto; }
-    .seq-blocks { font-size: 0.68rem; }
-    .seq-num { font-size: 0.62rem; width: 28px; }
+    .seq-flow { font-size: 0.68rem; }
     .download-row { flex-direction: column; }
     .btn-download { width: 100%; text-align: center; }
     .colorbar-labels { width: 100%; max-width: 300px; }

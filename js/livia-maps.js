@@ -284,6 +284,147 @@
         return wrap;
     }
 
+    // ── Sequence viewer ──────────────────────────────────────────────────────
+    //
+    // Renders residues as ONE continuous, reflowing string so that find-in-page
+    // (Cmd-F) matches a motif even where it spans a line break, and so the
+    // sequence re-wraps to whatever width the card happens to have.
+    //
+    // The rule that makes this work: nothing but residues may enter the text
+    // stream. Element boundaries are fine — browsers match straight through
+    // inline elements — but a single stray character breaks a match. So each of
+    // the three things a sequence viewer normally interleaves with the residues
+    // is moved out of the text:
+    //
+    //   gap every 10   -> CSS margin on .seq-g   (not a space)
+    //   line break     -> <wbr>                  (a zero-width break opportunity)
+    //   position label -> .seq-g::before { content: attr(data-n) }  (generated)
+    //
+    // The predecessor chunked residues into fixed 80-column rows with the start
+    // and end numbers as real text nodes, which put digits mid-sequence and made
+    // any motif crossing a row boundary unfindable.
+    //
+    //   residues  [{ aa, resnum }, ...]  (aa may be a multi-letter ion label)
+    //   decorate  (res, i) -> { bg, clir, tip } | null
+    //             bg   background colour, or null/undefined for none
+    //             clir true for the bold/white cLIR treatment
+    //             tip  hover text; omit for no tooltip on that residue
+    //   opts      { group: 10 }
+    //
+    // Returns a <div class="seq-flow">. Tooltips are delegated from that div, so
+    // a 9-chain complex costs two listeners rather than thousands.
+    // Size a sequence host to the largest whole number of residue blocks that fit,
+    // then centre it. Measured from the live box rather than computed from font
+    // metrics: letter-spacing, the ch unit and the inter-block margin all feed the
+    // real block pitch, and guessing any of them puts the grid one block out.
+    function fitSeqHost(host) {
+        if (!host) return;
+        host.style.width = '';
+        host.style.marginInline = '';
+        const gs = host.querySelectorAll('.seq-g');
+        if (gs.length < 2) return;                  // one block: nothing to align to
+
+        // Let it lay out naturally, then read how many blocks the browser actually put
+        // on the first line, and the real pitch between two of them. Deriving this from
+        // font metrics does not work: blockWidth + marginRight underestimates what a
+        // line costs, because Chrome charges the trailing margin-right of the LAST box
+        // on a line too. That arithmetic sized the host to fit 10 blocks when only 9
+        // fit, leaving exactly enough slack for a short trailing group to squeeze in -
+        // the ragged line this whole thing exists to prevent. Measure, do not derive.
+        const top0 = gs[0].getBoundingClientRect().top;
+        const first = [];
+        for (const g of gs) {
+            if (Math.abs(g.getBoundingClientRect().top - top0) > 1) break;
+            first.push(g);
+        }
+        const n = first.length;
+        if (n < 2) return;
+        const pitch = first[1].getBoundingClientRect().left - first[0].getBoundingClientRect().left;
+        if (!(pitch > 0)) return;
+
+        const w = Math.ceil(n * pitch);             // n blocks INCLUDING the nth trailing gap
+        const avail = host.clientWidth;
+        if (w > 0 && w <= avail) { host.style.width = w + 'px'; host.style.marginInline = 'auto'; }
+    }
+
+    const _seqObserved = new WeakSet();
+    function observeSeqHost(host) {
+        if (!host || !host.parentElement || _seqObserved.has(host)) return;
+        _seqObserved.add(host);
+        // Watch the PARENT: the host's own width is what we set, so observing it
+        // would retrigger on our own write and loop.
+        const ro = new ResizeObserver(() => requestAnimationFrame(() => fitSeqHost(host)));
+        ro.observe(host.parentElement);
+    }
+
+    function seqFlow(residues, decorate, opts) {
+        opts = opts || {};
+        const group = opts.group || 10;
+        const div = document.createElement('div');
+        div.className = 'seq-flow';
+        if (!residues || !residues.length) return div;
+
+        let block = null;
+        residues.forEach((res, i) => {
+            if (i % group === 0) {
+                if (block) div.appendChild(document.createElement('wbr'));
+                block = document.createElement('span');
+                block.className = 'seq-g';
+                // Ruler reads the LAST residue number in the block, so it stays
+                // correct for constructs that do not start at 1. A trailing group of
+                // one or two residues sits so close to the previous marker that the
+                // two numbers collide, and the chain length is already in the label.
+                const last = Math.min(i + group, residues.length) - 1;
+                if (i === 0 || last - i + 1 >= 3) block.dataset.n = residues[last].resnum;
+                div.appendChild(block);
+            }
+            const d = (decorate && decorate(res, i)) || {};
+            const el = document.createElement('span');
+            el.className = 'seq-res' + (d.clir ? ' clir' : '');
+            if (d.bg) el.style.background = d.bg;
+            if (d.tip) el.dataset.t = d.tip;
+            el.textContent = res.aa;
+            block.appendChild(el);
+        });
+
+        // Pad a short trailing group out to a full group's width. Without this it is
+        // narrower than the rest and squeezes onto a line that is otherwise full, so
+        // the sequence runs past the right margin instead of wrapping - a 205-residue
+        // chain put residues 201-205 beyond the edge of an otherwise 10-block grid.
+        // The pad is a sibling (so the group's ruler stays over its real last residue)
+        // and carries no text, so find-in-page is unaffected. There is no <wbr> before
+        // it, so it cannot be separated from the group it belongs to.
+        const rem = residues.length % group;
+        if (rem) {
+            const pad = document.createElement('span');
+            pad.className = 'seq-pad';
+            pad.style.width = (group - rem) + 'ch';
+            div.appendChild(pad);
+        }
+
+        // Centre the grid, keep the residues left-aligned inside it. Sizing the host
+        // to a whole number of blocks is what makes both true at once: the leftover
+        // slack moves to the margins instead of piling up on the right, and every
+        // chain keeps the same left edge because they share the host. Sizing each
+        // chain to its own content instead would centre a short chain differently
+        // from a long one and they would stop lining up.
+        requestAnimationFrame(() => fitSeqHost(div.parentElement));
+        if (!opts.noObserve && div.parentElement && typeof ResizeObserver !== 'undefined') observeSeqHost(div.parentElement);
+
+        let tip = document.querySelector('.seq-tooltip');
+        if (!tip) { tip = document.createElement('div'); tip.className = 'seq-tooltip'; document.body.appendChild(tip); }
+        div.addEventListener('mouseover', (e) => {
+            const t = e.target.closest && e.target.closest('.seq-res');
+            if (!t || !t.dataset.t) { tip.style.display = 'none'; return; }
+            tip.textContent = t.dataset.t;
+            tip.style.display = '';
+            tip.style.left = (e.clientX + 8) + 'px';
+            tip.style.top = (e.clientY - 20) + 'px';
+        });
+        div.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+        return div;
+    }
+
     global.LiviaMaps = {
         setExportOpts, applyExportOpts,
         svgFromDraw, svgFromFixedCanvas,
@@ -291,5 +432,6 @@
         attachExportBar, attachPngBtnFor, attachChartPngButtons,
         setToRanges, paintChordArcBand,
         parseColorCSV, attachColorUpload,
+        seqFlow, fitSeqHost,
     };
 })(window);

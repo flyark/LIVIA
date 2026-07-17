@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <title>LIVIA — Ortholog Interactome</title>
-    <link rel="stylesheet" href="css/livia.css?v=20260604">
+    <link rel="stylesheet" href="css/livia.css?v=20260717">
     <style>
         /* ── Page-specific styles for Ortholog Predictome ── */
         .step-link { color: #2471A3; text-decoration: none; }
@@ -491,7 +491,7 @@
 <script src="js/livia-viewer.js?v=20260716e"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
 <script src="js/canvas2svg.js?v=20260716b"></script>
-<script src="js/livia-maps.js?v=20260716b"></script>
+<script src="js/livia-maps.js?v=20260717"></script>
 <script>
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (flyParsed && flyCurrentRank) { loadRank(flyCurrentRank); updateCombinedChord(); renderChainToggleBar(); } };
@@ -2886,9 +2886,6 @@ function buildSeqViewer(row, sym1, sym2, colors, chainSeqs) {
     card.style.display = '';
     container.innerHTML = '';
 
-    let tooltip = document.querySelector('.seq-tooltip');
-    if (!tooltip) { tooltip = document.createElement('div'); tooltip.className = 'seq-tooltip'; document.body.appendChild(tooltip); }
-
     const seqA = chainSeqs ? (chainSeqs.get('A') || chainSeqs.get(chainSeqs.keys().next().value)) : null;
     const seqB = chainSeqs ? (chainSeqs.get('B') || (chainSeqs.size > 1 ? chainSeqs.get([...chainSeqs.keys()][1]) : null)) : null;
 
@@ -2913,49 +2910,18 @@ function buildSeqViewer(row, sym1, sym2, colors, chainSeqs) {
         label.innerHTML = labelHtml;
         container.appendChild(label);
 
+        // With no sequence resolved, fall back to positional residues so the LIR/cLIR
+        // track still renders — unchanged behaviour, the letters are simply absent.
         const hasSeq = cc.seq && cc.seq.length > 0;
-        const perRow = 80;
-        const totalRes = hasSeq ? cc.seq.length : cc.len;
-
-        for (let rowStart = 0; rowStart < totalRes; rowStart += perRow) {
-            const rowDiv = document.createElement('div');
-            rowDiv.className = 'seq-row';
-            const startNum = hasSeq ? cc.seq[rowStart].resnum : rowStart + 1;
-            const numLabel = document.createElement('span');
-            numLabel.className = 'seq-num';
-            numLabel.textContent = startNum;
-            rowDiv.appendChild(numLabel);
-            const blocks = document.createElement('span');
-            blocks.className = 'seq-blocks';
-            const rowEnd = Math.min(rowStart + perRow, totalRes);
-            for (let i = rowStart; i < rowEnd; i++) {
-                const resnum = hasSeq ? cc.seq[i].resnum : i + 1;
-                const aa = hasSeq ? cc.seq[i].aa : null;
-                const isClir = cc.clir.has(resnum);
-                const isLir = cc.lir.has(resnum);
-                const el = document.createElement('span');
-                el.className = 'seq-res' + (isClir ? ' clir' : '');
-                el.style.background = isClir ? cc.clirColor : isLir ? lightenColor(cc.clirColor.replace('#',''), 0.4) : grayNonLir ? '#D5D5D5' : 'transparent';
-                if (i > rowStart && (i - rowStart) % 10 === 0) el.style.marginLeft = '3px';
-                if (aa) el.textContent = aa;
-                el.addEventListener('mouseenter', (e) => {
-                    tooltip.textContent = (aa ? `${aa}${resnum}` : `Res ${resnum}`) + (isClir ? ' (cLIR)' : isLir ? ' (LIR)' : '');
-                    tooltip.style.display = '';
-                    tooltip.style.left = (e.clientX + 8) + 'px';
-                    tooltip.style.top = (e.clientY - 20) + 'px';
-                });
-                el.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
-                blocks.appendChild(el);
-            }
-            rowDiv.appendChild(blocks);
-            const endLabel = document.createElement('span');
-            endLabel.className = 'seq-num';
-            endLabel.style.textAlign = 'left';
-            endLabel.style.paddingLeft = '3px';
-            endLabel.textContent = rowEnd;
-            rowDiv.appendChild(endLabel);
-            container.appendChild(rowDiv);
-        }
+        const residues = hasSeq ? cc.seq : Array.from({ length: cc.len }, (_, i) => ({ aa: '', resnum: i + 1 }));
+        container.appendChild(LiviaMaps.seqFlow(residues, (res) => {
+            const isClir = cc.clir.has(res.resnum), isLir = cc.lir.has(res.resnum);
+            return {
+                bg: isClir ? cc.clirColor : isLir ? lightenColor(cc.clirColor.replace('#',''), 0.4) : grayNonLir ? '#D5D5D5' : null,
+                clir: isClir,
+                tip: (res.aa ? `${res.aa}${res.resnum}` : `Res ${res.resnum}`) + (isClir ? ' (cLIR)' : isLir ? ' (LIR)' : ''),
+            };
+        }));
     }
 }
 
