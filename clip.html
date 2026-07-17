@@ -1540,14 +1540,25 @@ $('export').onclick = async () => {
     const navBase = location.origin + location.pathname.replace(/[^/]*$/, '');   // downloaded nav points back at the live site
     out = out.replace(/href="(?!https?:|#|mailto:)([^"]+\.html[^"]*)"/g, 'href="' + navBase + '$1"');
     const locals = ['js/canvas2svg.js', 'js/livia-maps.js', 'js/livia-xlsx.js', 'js/clip-clustering.js', 'js/clip-pipeline.js', 'js/clip-resolver.js', 'js/livia-viewer.js'];
-    for (const f of locals){ const js = await (await fetch(f)).text(); out = out.replace('<script src="' + f + '"><\/script>', '<script src="data:text/javascript;base64,' + b64(js) + '"></scr' + 'ipt>'); }
+    // Match the tag with a pattern, not a literal: these <script src> carry ?v= cache-busts,
+    // and a literal target stops matching the moment a module is bumped — which silently
+    // dropped that module from the downloaded report with no error.
+    const tagRe = (f) => new RegExp('<script src="' + f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:\\?v=[^"]*)?"><\\/script>');
+    for (const f of locals){ const js = await (await fetch(f)).text(); out = out.replace(tagRe(f), '<script src="data:text/javascript;base64,' + b64(js) + '"></scr' + 'ipt>'); }
     try { const ff = await (await fetch('https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js')).text(); out = out.replace('<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"><\/script>', '<script src="data:text/javascript;base64,' + b64(ff) + '"></scr' + 'ipt>'); } catch(e){}
-    try { const css = await (await fetch('css/livia.css')).text(); out = out.replace('<link rel="stylesheet" href="css/livia.css">', '<style>\n' + css + '\n</style>'); } catch(e){}
-    // slim the bundled data: drop per-row residue-index / path columns not used for rendering
-    // (fingerprints already hold the cLIR data; the scatter/table only need metrics + names + counts)
-    const DROP = ['cLIR_indice_A', 'cLIR_indice_B', 'LIR_indice_A', 'LIR_indice_B', 'structure_file', 'pae_plot'];
-    const trimRow = (r) => { const o = {}; for (const k in r) if (DROP.indexOf(k) < 0) o[k] = r[k]; return o; };
-    const P = LAST.pipe, slimP = { ...P, rows: (P.rows||[]).map(trimRow), allPredictions: (P.allPredictions||[]).map(trimRow), allPoints: (P.allPoints||[]).map(trimRow) };
+    try { const css = await (await fetch('css/livia.css')).text(); out = out.replace(/<link rel="stylesheet" href="css\/livia\.css(?:\?v=[^"]*)?">/, '<style>\n' + css + '\n</style>'); } catch(e){}
+    // Slim the bundled data. structure_file / pae_plot are path strings no view reads,
+    // so drop them everywhere. The LIR/cLIR residue indices ARE read — by the sequence
+    // viewer and the interface map — but only off `rows` (via allRanksFor /
+    // bestRowPerPartner). The scatter reads allPredictions / allPoints and needs no
+    // indices, and that is where the weight sits (≈450 KB there vs ≈80 KB on rows), so
+    // keep dropping them there and keep them on rows. Dropping indices off rows too was
+    // a bug: it left the downloaded report's sequence viewer with no highlights and its
+    // interface map blank, since those views had nothing to plot.
+    const DROP_ALL = ['structure_file', 'pae_plot'];
+    const DROP_BIG = DROP_ALL.concat(['cLIR_indice_A', 'cLIR_indice_B', 'LIR_indice_A', 'LIR_indice_B']);
+    const trim = (drop) => (r) => { const o = {}; for (const k in r) if (drop.indexOf(k) < 0) o[k] = r[k]; return o; };
+    const P = LAST.pipe, slimP = { ...P, rows: (P.rows||[]).map(trim(DROP_ALL)), allPredictions: (P.allPredictions||[]).map(trim(DROP_BIG)), allPoints: (P.allPoints||[]).map(trim(DROP_BIG)) };
     const slimLAST = { ...LAST, pipe: slimP };
     const gz = fflate.gzipSync(fflate.strToU8(JSON.stringify({ LAST: slimLAST, PALETTE, CLUSTER_OVERRIDE, COMMONALITY, MIN_CLUSTER, COLOR3D, AM_CUTOFF, ACTIVE: [...ACTIVE], badge: $('struct-badge').innerHTML, uniprot: $('query-uniprot').innerHTML })));
     let dataB64 = ''; for (let i = 0; i < gz.length; i += 0x8000) dataB64 += String.fromCharCode.apply(null, gz.subarray(i, i + 0x8000)); dataB64 = btoa(dataB64);
