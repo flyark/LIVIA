@@ -413,9 +413,9 @@
                 <div class="presets-row" id="multichain-presets" style="display:none"></div>
                 <label style="margin-top:0.5rem">Presets &mdash; coloring modes</label>
                 <div class="presets-row">
-                    <div class="preset-chip" onclick="applyCxcPreset('plddt',this)"><div class="preset-strip"><span style="background:#0053D6"></span><span style="background:#65CBF3"></span><span style="background:#FFDB13"></span><span style="background:#FF7D45"></span></div>pLDDT</div>
-                    <div class="preset-chip" onclick="applyCxcPreset('bychain',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#90EE90"></span><span style="background:#DDA0DD"></span></div>bychain</div>
-                    <div class="preset-chip" onclick="applyCxcPreset('bypolymer',this)"><div class="preset-strip"><span style="background:#87CEEB"></span><span style="background:#FFA07A"></span><span style="background:#98FB98"></span><span style="background:#DDA0DD"></span></div>bypolymer</div>
+                    <div class="preset-chip cxc-chip" onclick="applyCxcPreset('plddt',this)"><div class="preset-strip"><span style="background:#0053D6"></span><span style="background:#65CBF3"></span><span style="background:#FFDB13"></span><span style="background:#FF7D45"></span></div>pLDDT</div>
+                    <div class="preset-chip cxc-chip" onclick="applyCxcPreset('bychain',this)"><div class="preset-strip"><span style="background:#6495ED"></span><span style="background:#FF6347"></span><span style="background:#90EE90"></span><span style="background:#DDA0DD"></span></div>bychain</div>
+                    <div class="preset-chip cxc-chip" onclick="applyCxcPreset('bypolymer',this)"><div class="preset-strip"><span style="background:#87CEEB"></span><span style="background:#FFA07A"></span><span style="background:#98FB98"></span><span style="background:#DDA0DD"></span></div>bypolymer</div>
                 </div>
                 <label style="margin-top:1rem" id="two-chain-colors-label">Color Scheme</label>
                 <div class="color-section" id="two-chain-colors">
@@ -1279,7 +1279,8 @@ function applyPreset(la, ca, lb, cb, el) {
 
 function applyCxcPreset(mode, el) {
     uniState.cxcColorMode = mode;
-    document.querySelectorAll('.preset-chip').forEach(p => p.classList.remove('active'));
+    if (uniState.multiChainColors) uniState.multiChainColors._active = false;   // a coloring mode overrides the palette; the two are mutually exclusive
+    document.querySelectorAll('.preset-chip').forEach(p => p.classList.remove('active'));   // clears palette + shade chips too
     if (el) el.classList.add('active');
     const sel = document.querySelector('#pairs-tbody tr.selected');
     if (sel) sel.click();
@@ -1365,6 +1366,9 @@ function setupMultiChainColors() {
             applyColors(palName);
             document.querySelectorAll('.palette-chip').forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
+            uniState.multiChainColors._active = true;                                    // palette is now the active colouring
+            uniState.cxcColorMode = '';                                                  // clear any coloring mode (pLDDT/bychain/…)
+            document.querySelectorAll('.cxc-chip').forEach(c => c.classList.remove('active'));
             rebuildModeChips();
             const sel = document.querySelector('#pairs-tbody tr.selected');
             if (sel) sel.click();
@@ -1391,8 +1395,9 @@ function setupMultiChainColors() {
         chip.onclick = () => {
             uniState.multiChainColors._active = true;
             uniState.multiChainColors._gradient = (mode === 'gradient');
-            uniState.cxcColorMode = '';
+            uniState.cxcColorMode = '';                                                  // shade implies the palette approach; clear any coloring mode
             document.querySelectorAll('.mode-chip').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.cxc-chip').forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
             const sel = document.querySelector('#pairs-tbody tr.selected');
             if (sel) sel.click();
