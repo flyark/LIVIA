@@ -250,6 +250,7 @@
             <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Per-rank structures fetched automatically.</span>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="window.__redrawConn&&window.__redrawConn()"> domain architecture</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="window.showConnIDs=this.checked; window.__redrawConn&&window.__redrawConn()"> chain IDs</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="window.__redrawConn&&window.__redrawConn()"> swap chains (top&harr;bottom)</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="window.__redrawConn&&window.__redrawConn()"></label>
             </div>
@@ -2436,7 +2437,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     // Size the left margin to fit the (gene-symbol) chain labels so they aren't clipped
     // off the left edge; the font shrinks as a fallback for very long names when drawn.
     ctx.font = 'bold 13px sans-serif';
-    const labelA = `${sym1} (${swap ? 'B' : 'A'})`, labelB = `${sym2} (${swap ? 'A' : 'B'})`;
+    const labelA = `${sym1}${window.showConnIDs !== false ? ` (${swap ? 'B' : 'A'})` : ''}`, labelB = `${sym2}${window.showConnIDs !== false ? ` (${swap ? 'A' : 'B'})` : ''}`;
     const barLeft = Math.max(60, Math.min(170, Math.ceil(Math.max(ctx.measureText(labelA).width, ctx.measureText(labelB).width)) + 12));
     const barW = barRight - barLeft;
 

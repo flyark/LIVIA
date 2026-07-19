@@ -238,6 +238,7 @@
             <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B. UniProt domain annotations shown when available.</span>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> domain architecture</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="window.showConnIDs=this.checked; window.__redrawDimerContact&&window.__redrawDimerContact()"> chain IDs</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> swap chains (top&harr;bottom)</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"></label>
             </div>
@@ -1156,7 +1157,12 @@ function buildDimerContactMap() {
     // Size the left margin to fit the chain labels so they aren't clipped off the left edge;
     // the font shrinks as a fallback for very long names when drawn.
     ctx.font = 'bold 13px sans-serif';
-    const labelA = `Chain ${ciTop}`, labelB = `Chain ${cjBot}`;
+    // Use the resolved gene names (same as the domain legend) — "gene (A)" — not "Chain A";
+    // the chain-ID suffix follows the header "chain IDs" toggle.
+    const _genes = (typeof selectedDimer !== 'undefined' && selectedDimer && selectedDimer.gene) || [];
+    const _geneA = _genes[0] || v.ci, _geneB = _genes[1] || _genes[0] || v.cj;
+    const labelA = `${swap ? _geneB : _geneA}${window.showConnIDs !== false ? ` (${ciTop})` : ''}`,
+          labelB = `${swap ? _geneA : _geneB}${window.showConnIDs !== false ? ` (${cjBot})` : ''}`;
     const barLeft = Math.max(60, Math.min(170, Math.ceil(Math.max(ctx.measureText(labelA).width, ctx.measureText(labelB).width)) + 12));
     const barW = barRight - barLeft;
 

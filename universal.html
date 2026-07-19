@@ -294,6 +294,7 @@
             <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B.</span>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> domain architecture</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="uniShowLinearIDs=this.checked; buildLinearContactMaps();"> chain IDs</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> swap chains (top&harr;bottom)</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"></label>
             </div>
@@ -4453,6 +4454,8 @@ function greensColor(value, vmin, vmax) {
 }
 
 function chainLabel(name){ const g = uniState.chainGenes && uniState.chainGenes[name]; return g ? g + ' (' + name + ')' : name; }   // 'A' -> 'TP53 (A)' once resolved
+let uniShowLinearIDs = true;   // Linear Contact Map: include the chain-ID suffix "(A)" in labels (its own header toggle)
+function linearChainLabel(name){ if (uniShowLinearIDs) return chainLabel(name); const g = uniState.chainGenes && uniState.chainGenes[name]; return g ? g : name; }
 const applyExportOpts = (svg) => LiviaMaps.applyExportOpts(svg);                    // shared: js/livia-maps.js
 // ---- vector SVG export: re-run any canvas draw fn against a canvas2svg context ----
 const svgFromDraw = (drawClosure) => LiviaMaps.svgFromDraw(drawClosure);
@@ -6251,7 +6254,7 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
     ctx.save(); ctx.scale(S, S);
 
     ctx.font = 'bold 13px sans-serif';                       // left margin fits the (possibly long) chain labels
-    const barLeft = Math.max(60, Math.ceil(Math.max(ctx.measureText(chainLabel(top.name)).width, ctx.measureText(chainLabel(bot.name)).width)) + 12);
+    const barLeft = Math.max(60, Math.ceil(Math.max(ctx.measureText(linearChainLabel(top.name)).width, ctx.measureText(linearChainLabel(bot.name)).width)) + 12);
     const barRight = width - 20, barW = barRight - barLeft;
     const xOf = (role) => (res) => barLeft + ((res - 1) / Math.max(1, role.len - 1)) * barW;
     const xTop = xOf(top), xBot = xOf(bot);
@@ -6266,8 +6269,8 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
 
     // Chain labels
     ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = top.clirCol; ctx.fillText(chainLabel(top.name), barLeft - 5, barYtop + barH / 2);
-    ctx.fillStyle = bot.clirCol; ctx.fillText(chainLabel(bot.name), barLeft - 5, barYbot + barH / 2);
+    ctx.fillStyle = top.clirCol; ctx.fillText(linearChainLabel(top.name), barLeft - 5, barYtop + barH / 2);
+    ctx.fillStyle = bot.clirCol; ctx.fillText(linearChainLabel(bot.name), barLeft - 5, barYbot + barH / 2);
 
     // Domain tracks \u2014 dir -1 = above (top role), +1 = below (bottom role); UniProt/Pfam inner, TED outer.
     const drawTracks = (role, tr, xFn, baseY, dir) => {
@@ -6392,7 +6395,11 @@ function buildLinearContactMaps() {
         block.style.cssText = 'margin:0 auto 1.4rem; max-width:900px;';
         const title = document.createElement('div');
         title.style.cssText = 'font-weight:600; color:#1a5276; font-size:0.9rem; margin-bottom:0.2rem;';
-        title.textContent = `${chainLabel(v.ci)} — ${chainLabel(v.cj)}`;
+        title.textContent = `${linearChainLabel(v.ci)} — ${linearChainLabel(v.cj)}`;
+        const score = document.createElement('span');    // pair scores, so stacked maps are identifiable without the table
+        score.style.cssText = 'font-weight:400; color:#888; font-size:0.82rem; margin-left:0.5rem;';
+        score.textContent = `iLIS ${(+v.iLIS || 0).toFixed(3)} · ipTM ${(+v.ipTM || 0).toFixed(2)}`;
+        title.appendChild(score);
         const canvas = document.createElement('canvas');
         const count = document.createElement('div'); count.style.cssText = 'font-size:0.8rem; color:#888; text-align:center; margin-top:4px;';
         const legend = document.createElement('div'); legend.style.cssText = 'font-size:0.78rem; color:#555; margin-top:6px; line-height:1.7;';
