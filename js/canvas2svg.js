@@ -419,6 +419,13 @@
             }
         }
 
+        // LIVIA patch: canvas2svg writes coordinates at full float64 precision
+        // (e.g. x1="206.81982118917182px"), which is ~14 decimals where 2 is already
+        // sub-pixel. Round every decimal literal to 2 places — coordinates, sizes and
+        // alpha; hex colours and ids have no decimals so they are untouched. Cuts
+        // roughly a quarter off every exported SVG with no visible change.
+        serialized = serialized.replace(/-?\d+\.\d+/g, function(n){ return String(Math.round(parseFloat(n) * 100) / 100); });
+
         return serialized;
     };
 

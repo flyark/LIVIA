@@ -284,6 +284,28 @@
         return wrap;
     }
 
+    // ── Two-colour contact curves ─────────────────────────────────────────────
+    //
+    // A contact line fades smoothly from strokeA at one end to strokeB at the other
+    // via a canvas linear gradient — the look users expect. Caller passes ready
+    // stroke styles (usually hexToRgba(col, alpha)) so the colour logic stays at the
+    // call site, where it differs per figure. In the SVG export canvas2svg emits one
+    // <linearGradient> per line; the coordinate rounding in canvas2svg.js keeps each
+    // compact. A follow-up
+    // pass can consolidate the per-line defs into a few shared ones if size matters.
+    function strokeFadeQuad(ctx, ax, ay, cx, cy, bx, by, strokeA, strokeB, lw) {
+        const g = ctx.createLinearGradient(ax, ay, bx, by);
+        g.addColorStop(0, strokeA); g.addColorStop(1, strokeB);
+        ctx.strokeStyle = g; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(cx, cy, bx, by); ctx.stroke();
+    }
+    function strokeFadeCubic(ctx, ax, ay, c1x, c1y, c2x, c2y, bx, by, strokeA, strokeB, lw) {
+        const g = ctx.createLinearGradient(ax, ay, bx, by);
+        g.addColorStop(0, strokeA); g.addColorStop(1, strokeB);
+        ctx.strokeStyle = g; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.bezierCurveTo(c1x, c1y, c2x, c2y, bx, by); ctx.stroke();
+    }
+
     // ── Sequence viewer ──────────────────────────────────────────────────────
     //
     // Renders residues as ONE continuous, reflowing string so that find-in-page
@@ -433,5 +455,6 @@
         setToRanges, paintChordArcBand,
         parseColorCSV, attachColorUpload,
         seqFlow, fitSeqHost,
+        strokeFadeQuad, strokeFadeCubic,
     };
 })(window);

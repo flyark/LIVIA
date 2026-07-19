@@ -528,8 +528,8 @@
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260716e"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
-<script src="js/canvas2svg.js?v=20260716b"></script>
-<script src="js/livia-maps.js?v=20260717"></script>
+<script src="js/canvas2svg.js?v=20260718"></script>
+<script src="js/livia-maps.js?v=20260718b"></script>
 <script>
 // Wire shared module callbacks
 onColorChange = () => { if (flyParsed && flyCurrentRank) { loadRank(flyCurrentRank); updateCombinedChord(); renderChainToggleBar(); } };
@@ -2988,18 +2988,8 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
         const t = maxDist > minDist ? 1 - (c.dist - minDist) / (maxDist - minDist) : 1;
         const alpha = 0.08 + t * 0.2;
 
-        ctx.beginPath();
-        ctx.moveTo(ax, barY_A + barH);
         const midY = (barY_A + barH + barY_B) / 2;
-        ctx.bezierCurveTo(ax, midY, bx, midY, bx, barY_B);
-
-        // Gradient from chain A color to chain B color
-        const grad = ctx.createLinearGradient(0, barY_A + barH, 0, barY_B);
-        grad.addColorStop(0, hexToRgba(colA, alpha));
-        grad.addColorStop(1, hexToRgba(colB, alpha));
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = 1;
-        ctx.stroke();
+        LiviaMaps.strokeFadeCubic(ctx, ax, barY_A + barH, ax, midY, bx, midY, bx, barY_B, hexToRgba(colA, alpha), hexToRgba(colB, alpha), 1);
     }
 
     // Contact-count line moved to the HTML below (kept out of the exported figure)
@@ -3222,15 +3212,7 @@ function drawFlyChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, co
                 const aA = resAngleA(resA), aB = resAngleB(resB);
                 const xA = cx + Math.cos(aA) * chordR, yA = cy + Math.sin(aA) * chordR;
                 const xB = cx + Math.cos(aB) * chordR, yB = cy + Math.sin(aB) * chordR;
-                ctx.beginPath();
-                ctx.moveTo(xA, yA);
-                ctx.quadraticCurveTo(cx, cy, xB, yB);
-                const grad = ctx.createLinearGradient(xA, yA, xB, yB);
-                grad.addColorStop(0, hexToRgba(colA, 0.12));
-                grad.addColorStop(1, hexToRgba(colB, 0.12));
-                ctx.strokeStyle = grad;
-                ctx.lineWidth = 1;
-                ctx.stroke();
+                LiviaMaps.strokeFadeQuad(ctx, xA, yA, cx, cy, xB, yB, hexToRgba(colA, 0.12), hexToRgba(colB, 0.12), 1);
             }
         }
     } else {
@@ -3255,15 +3237,7 @@ function drawFlyChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, co
             const pB = { x: cx + Math.cos(aB) * chordR, y: cy + Math.sin(aB) * chordR };
             const t = maxDist > minDist ? 1 - (c.dist - minDist) / (maxDist - minDist) : 1;
             const alpha = 0.08 + t * 0.2;
-            const grad = ctx.createLinearGradient(pA.x, pA.y, pB.x, pB.y);
-            grad.addColorStop(0, hexToRgba(colA, alpha));
-            grad.addColorStop(1, hexToRgba(colB, alpha));
-            ctx.beginPath();
-            ctx.moveTo(pA.x, pA.y);
-            ctx.quadraticCurveTo(cx, cy, pB.x, pB.y);
-            ctx.strokeStyle = grad;
-            ctx.lineWidth = 1.2;
-            ctx.stroke();
+            LiviaMaps.strokeFadeQuad(ctx, pA.x, pA.y, cx, cy, pB.x, pB.y, hexToRgba(colA, alpha), hexToRgba(colB, alpha), 1.2);
         }
     }
 
@@ -3335,12 +3309,7 @@ function drawFlyChordFromContacts(canvas, contacts, lenA, lenB, sym1, sym2, colo
         const pB = {x: cx+Math.cos(aB)*chordR, y: cy+Math.sin(aB)*chordR};
         const t = maxDist > minDist ? 1-(c.dist-minDist)/(maxDist-minDist) : 1;
         const alpha = 0.08 + t*0.2;
-        const grad = ctx.createLinearGradient(pA.x, pA.y, pB.x, pB.y);
-        grad.addColorStop(0, hexToRgba(colA, alpha));
-        grad.addColorStop(1, hexToRgba(colB, alpha));
-        ctx.beginPath(); ctx.moveTo(pA.x, pA.y);
-        ctx.quadraticCurveTo(cx, cy, pB.x, pB.y);
-        ctx.strokeStyle = grad; ctx.lineWidth = 1.2; ctx.stroke();
+        LiviaMaps.strokeFadeQuad(ctx, pA.x, pA.y, cx, cy, pB.x, pB.y, hexToRgba(colA, alpha), hexToRgba(colB, alpha), 1.2);
     }
 
     // Arcs (gray base + LIR light + cLIR dark)
