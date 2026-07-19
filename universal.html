@@ -109,8 +109,8 @@
             .colorbar-labels { width: 100%; max-width: 300px; }
         }
     </style>
-<script src="js/canvas2svg.js?v=20260716b"></script>
-<script src="js/livia-maps.js?v=20260717"></script>
+<script src="js/canvas2svg.js?v=20260718"></script>
+<script src="js/livia-maps.js?v=20260718b"></script>
 <script src="js/clip-resolver.js?v=20260715"></script>
 </head>
 <body>
@@ -297,10 +297,8 @@
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> swap chains (top&harr;bottom)</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"></label>
             </div>
-            <canvas id="contact-canvas"></canvas>
-            <div id="contact-count-text" style="font-size:0.8rem; color:#888; text-align:center; margin-top:4px;"></div>
-            <div id="contact-domain-legend" style="font-size:0.78rem; color:#555; margin-top:6px; line-height:1.7;"></div>
-            <div id="contact-export" style="text-align:center; margin-top:4px;"></div>
+            <div id="contact-chain-chips" style="display:none; align-items:center; gap:0.25rem; flex-wrap:wrap; margin-bottom:0.6rem;"></div>
+            <div id="contact-maps"></div>
         </div>
 
         <!-- Circular Contact Map (multi-chain) -->
@@ -308,11 +306,14 @@
             <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
                 <h2 style="margin-bottom:0;">Circular Contact Map</h2>
                 <div class="model-selector" id="chord-model-selector"></div>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-labels" checked onchange="uniShowChordLabels=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> labels</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="uniShowChordIDs=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> chain IDs</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="uniShowChordLength=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> length</label>
             </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent chains. Lines connect cLIR residue pairs in physical contact across all chain pairs.
             </div>
+            <div id="chord-chain-chips" style="display:none; align-items:center; gap:0.25rem; flex-wrap:wrap; margin-bottom:0.6rem;"></div>
             <div style="display:flex; justify-content:center; gap:2rem; flex-wrap:wrap;">
                 <div style="text-align:center;">
                     <canvas id="chord-canvas"></canvas>
@@ -573,6 +574,7 @@ let uniState = {
     multiChainColors: null,
     cxcColorMode: '',
     hiddenChains: new Set(), // chain names toggled off — hides them in 3D viewer + chord
+    linearChains: new Set(), // Linear Contact Map: its OWN chain selection (independent of hiddenChains/currentPairKey)
 };
 let viewer3dBlobUrl = null;  // blob URL for current iframe page
 let viewer3dStructText = null;  // cached structure text — postMessage fast-path detection
@@ -1456,19 +1458,40 @@ function setupMultiChainColors() {
 function renderChainToggleBar() {
     const bar = document.getElementById('chain-toggle-bar');
     const btnHolder = document.getElementById('chain-toggle-buttons');
-    if (!bar || !btnHolder) return;
-    const chainNames = uniState.chainNames || [];
-    if (chainNames.length < 2) { bar.style.display = 'none'; return; }
-    bar.style.display = 'flex';
-    btnHolder.innerHTML = '';
-    for (const name of chainNames) {
-        const btn = document.createElement('button');
-        btn.dataset.chain = name;
-        btn.textContent = name;
-        btn.onclick = () => toggleChainVisibility(name);
-        applyChainToggleStyle(btn, !uniState.hiddenChains.has(name));
-        btnHolder.appendChild(btn);
+    if (bar && btnHolder) {
+        const chainNames = uniState.chainNames || [];
+        if (chainNames.length < 2) { bar.style.display = 'none'; }
+        else {
+            bar.style.display = 'flex';
+            btnHolder.innerHTML = '';
+            for (const name of chainNames) btnHolder.appendChild(makeChainVisChip(name));
+        }
     }
+    renderChordChainBar();   // the Circular Contact Map mirrors the same selection
+}
+// A chain-visibility chip (drives hiddenChains) — shared by the 3D-viewer bar and the chord bar.
+function makeChainVisChip(name) {
+    const btn = document.createElement('button');
+    btn.dataset.chain = name; btn.textContent = name;
+    btn.onclick = () => toggleChainVisibility(name);
+    applyChainToggleStyle(btn, !uniState.hiddenChains.has(name));
+    return btn;
+}
+// Mirror of "Chains shown in 3D & chord", placed on the Circular Contact Map card and
+// synced with it: both drive hiddenChains, so toggling on either updates both bars,
+// the 3D viewer, and the chord together. (This is separate from the Linear map's own
+// #contact-chain-chips, which drives the independent linearChains.)
+function renderChordChainBar() {
+    const holder = document.getElementById('chord-chain-chips');
+    if (!holder) return;
+    const chainNames = uniState.chainNames || [];
+    holder.innerHTML = '';
+    if (chainNames.length < 2) { holder.style.display = 'none'; return; }
+    holder.style.display = 'flex';
+    const lbl = document.createElement('span');
+    lbl.textContent = 'Chains shown:'; lbl.style.cssText = 'font-size:0.8rem; color:#555; margin-right:0.15rem;';
+    holder.appendChild(lbl);
+    for (const name of chainNames) holder.appendChild(makeChainVisChip(name));
 }
 function getChainToggleColor(chainName) {
     // Multi-chain palette active (Tab10/Tab20 chip in Visualization Script)
@@ -1500,15 +1523,18 @@ function toggleChainVisibility(name) {
     if (!uniState.hiddenChains) uniState.hiddenChains = new Set();
     if (uniState.hiddenChains.has(name)) uniState.hiddenChains.delete(name);
     else uniState.hiddenChains.add(name);
-    const btn = document.querySelector(`#chain-toggle-buttons button[data-chain="${name}"]`);
-    if (btn) applyChainToggleStyle(btn, !uniState.hiddenChains.has(name));
+    // Restyle this chain's chip in BOTH visibility bars (3D + chord) — not the Linear
+    // map's own chips, which are a different selection.
+    for (const id of ['chain-toggle-buttons', 'chord-chain-chips']) {
+        const b = document.querySelector(`#${id} button[data-chain="${name}"]`);
+        if (b) applyChainToggleStyle(b, !uniState.hiddenChains.has(name));
+    }
     refreshChainVisibilityViews();
 }
 function resetChainVisibility() {
     if (!uniState.hiddenChains || uniState.hiddenChains.size === 0) return;
     uniState.hiddenChains = new Set();
-    const buttons = document.querySelectorAll('#chain-toggle-buttons button');
-    buttons.forEach(b => applyChainToggleStyle(b, true));
+    document.querySelectorAll('#chain-toggle-buttons button, #chord-chain-chips button').forEach(b => applyChainToggleStyle(b, true));
     refreshChainVisibilityViews();
 }
 function refreshChainVisibilityViews() {
@@ -6136,18 +6162,18 @@ function makeSortable(table) {
     });
 }
 
-function buildContactMap(pairKey) {
-    // Get the selected pair result
+// Draw ONE pair's linear contact map into the given canvas + count/legend elements.
+// Returns true if a map was drawn, false if the pair has no contacts (caller skips an
+// empty panel). buildLinearContactMaps() owns which pairs render and manages the card.
+function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
     const v = uniState.results[pairKey];
-    const card = document.getElementById('contact-map-card');
-    const canvas = document.getElementById('contact-canvas');
-    if (!v || !card || !canvas) { if (card) card.style.display = 'none'; return; }
+    if (!v || !canvas) return false;
 
     // Get structure coordinates
     const seedVal = document.getElementById('seed-select')?.value || '0';
     const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
     const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
-    if (!structText) { card.style.display = 'none'; return; }
+    if (!structText) return false;
 
     const coords = parseStructureCoords(structText, uniState.structureFormat);
     // Build per-chain coordinate maps
@@ -6165,10 +6191,7 @@ function buildContactMap(pairKey) {
     const lirJ_f = filterSmallSegments(v.lirJ);
     const clirI_f = new Set([...v.clirI].filter(r => lirI_f.has(r)));
     const clirJ_f = new Set([...v.clirJ].filter(r => lirJ_f.has(r)));
-    if (!coordA || !coordB || clirI_f.size === 0 || clirJ_f.size === 0) {
-        card.style.display = 'none';
-        return;
-    }
+    if (!coordA || !coordB || clirI_f.size === 0 || clirJ_f.size === 0) return false;
 
     // Find contact pairs (cLIR_A near cLIR_B within 8 Angstrom)
     const contactDist = 8;
@@ -6185,8 +6208,7 @@ function buildContactMap(pairKey) {
         }
     }
 
-    if (contacts.length === 0) { card.style.display = 'none'; return; }
-    card.style.display = '';
+    if (contacts.length === 0) return false;
 
     // ── Panel options ──
     const swap = !!(document.getElementById('contact-swap-ab') && document.getElementById('contact-swap-ab').checked);
@@ -6214,7 +6236,7 @@ function buildContactMap(pairKey) {
     const spaceOf = (t) => { let h = tickBand; if (t.dom) h += t.dom.n * laneH; if (t.ted) h += t.ted.n * laneH; if (t.dom && t.ted) h += trackGap; return h; };
     const topT = tracksOf(top), botT = tracksOf(bot), topSpace = spaceOf(topT), botSpace = spaceOf(botT);
 
-    const width = Math.min(900, (card.clientWidth || 900) - 32);
+    const width = Math.min(900, ((canvas.parentElement && canvas.parentElement.clientWidth) || 900) - 32);
     const barH = 12;
     const barYtop = 10 + topSpace;
     const barYbot = barYtop + barH + 60;
@@ -6288,27 +6310,115 @@ function buildContactMap(pairKey) {
         const ax = xTop(swap ? c.resB : c.resA), bx = xBot(swap ? c.resA : c.resB);
         const t = maxDist > minDist ? 1 - (c.dist - minDist) / (maxDist - minDist) : 1;
         const alpha = 0.08 + t * 0.2, midY = (barYtop + barH + barYbot) / 2;
-        ctx.beginPath(); ctx.moveTo(ax, barYtop + barH); ctx.bezierCurveTo(ax, midY, bx, midY, bx, barYbot);
-        const grad = ctx.createLinearGradient(0, barYtop + barH, 0, barYbot); grad.addColorStop(0, hexToRgba(top.clirCol, alpha)); grad.addColorStop(1, hexToRgba(bot.clirCol, alpha));
-        ctx.strokeStyle = grad; ctx.lineWidth = 1; ctx.stroke();
+        LiviaMaps.strokeFadeCubic(ctx, ax, barYtop + barH, ax, midY, bx, midY, bx, barYbot, hexToRgba(top.clirCol, alpha), hexToRgba(bot.clirCol, alpha), 1);
     }
 
     ctx.restore();
-    // Contact-count line lives in the HTML below (kept out of the downloaded figure)
-    { const _cc = document.getElementById('contact-count-text'); if (_cc) _cc.textContent = `${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`; }
-    renderContactHtmlLegend([top, bot], DOM_FILL, TED_FILL);   // clickable HTML legend below (not baked into the figure)
-
-    // Per-panel figure export (\u2193 SVG/PNG + width/height/font), added once
-    const _ce = document.getElementById('contact-export');
-    if (_ce && !_ce.querySelector('.export-bar'))
-        addExportBar(_ce, 'linear_contact_map', () => document.getElementById('contact-canvas'),
-            () => svgFromFixedCanvas('contact-canvas', () => buildContactMap(uniState.currentPairKey)));
+    if (countEl) countEl.textContent = `${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`;
+    renderContactHtmlLegend([top, bot], DOM_FILL, TED_FILL, legendEl);   // clickable HTML legend below
+    return true;
 }
 
+// ── Linear Contact Map: independent chain multi-select ──────────────────────
+// The linear map has its OWN chain selection (uniState.linearChains), independent of
+// the 3D viewer / chord (hiddenChains) and of the table's selected pair. Pick 2 chains
+// (the default) → one pair; pick N → every pairwise combination that has a predicted
+// interaction — so you review which pairs to show right here, without the table.
+
+// Result + key for an unordered chain pair, or null if that pair was not predicted.
+function findPairResult(ci, cj) {
+    for (const [key, v] of Object.entries(uniState.results || {})) {
+        if ((v.ci === ci && v.cj === cj) || (v.ci === cj && v.cj === ci)) return { key, v };
+    }
+    return null;
+}
+
+function renderLinearChipBar() {
+    const bar = document.getElementById('contact-chain-chips');
+    if (!bar) return;
+    const names = uniState.chainNames || [];
+    bar.innerHTML = '';
+    if (names.length < 2) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    const lbl = document.createElement('span');
+    lbl.textContent = 'Chains in maps:'; lbl.style.cssText = 'font-size:0.8rem; color:#555;';
+    bar.appendChild(lbl);
+    for (const name of names) {
+        const btn = document.createElement('button');
+        btn.dataset.chain = name; btn.textContent = name;
+        applyChainToggleStyle(btn, uniState.linearChains.has(name));
+        btn.onclick = () => {
+            if (uniState.linearChains.has(name)) uniState.linearChains.delete(name);
+            else uniState.linearChains.add(name);
+            buildLinearContactMaps();
+        };
+        bar.appendChild(btn);
+    }
+}
+
+// Controller: one linear contact map per pairwise combination of the selected chains.
+function buildLinearContactMaps() {
+    const card = document.getElementById('contact-map-card');
+    const holder = document.getElementById('contact-maps');
+    if (!card || !holder || !uniState.results) { if (card) card.style.display = 'none'; return; }
+
+    if (!uniState.linearChains) uniState.linearChains = new Set();
+    // Drop any chains left over from a previous complex, then seed to the current
+    // pair's two chains if fewer than two valid ones remain (default / re-upload).
+    uniState.linearChains = new Set((uniState.chainNames || []).filter(n => uniState.linearChains.has(n)));
+    if (uniState.linearChains.size < 2) {
+        const v = uniState.currentPairKey && uniState.results[uniState.currentPairKey];
+        const seed = v || Object.values(uniState.results)[0];
+        if (seed) uniState.linearChains = new Set([seed.ci, seed.cj]);
+    }
+    renderLinearChipBar();
+
+    const sel = (uniState.chainNames || []).filter(n => uniState.linearChains.has(n));   // keep chain order
+    const pairs = [];
+    for (let i = 0; i < sel.length; i++) for (let j = i + 1; j < sel.length; j++) {
+        const pr = findPairResult(sel[i], sel[j]);
+        if (pr) pairs.push(pr);
+    }
+
+    card.style.display = '';
+    holder.innerHTML = '';
+    if (!pairs.length) {
+        holder.innerHTML = '<div style="color:#999; font-size:0.85rem; text-align:center; padding:1rem;">Select at least two chains that have a predicted interaction.</div>';
+        return;
+    }
+
+    for (const { key, v } of pairs) {
+        const block = document.createElement('div');
+        block.style.cssText = 'margin:0 auto 1.4rem; max-width:900px;';
+        const title = document.createElement('div');
+        title.style.cssText = 'font-weight:600; color:#1a5276; font-size:0.9rem; margin-bottom:0.2rem;';
+        title.textContent = `${chainLabel(v.ci)} — ${chainLabel(v.cj)}`;
+        const canvas = document.createElement('canvas');
+        const count = document.createElement('div'); count.style.cssText = 'font-size:0.8rem; color:#888; text-align:center; margin-top:4px;';
+        const legend = document.createElement('div'); legend.style.cssText = 'font-size:0.78rem; color:#555; margin-top:6px; line-height:1.7;';
+        const exp = document.createElement('div'); exp.style.cssText = 'text-align:center; margin-top:4px;';
+        block.append(title, canvas, count, legend, exp);
+        holder.appendChild(block);
+
+        canvas.id = 'contact-canvas-' + key.replace(/[^A-Za-z0-9]/g, '_');
+        const drawn = drawContactMapInto(key, canvas, count, legend);
+        if (!drawn) { block.remove(); continue; }
+        addExportBar(exp, `linear_contact_map_${v.ci}_${v.cj}`, () => canvas,
+            () => svgFromFixedCanvas(canvas.id, () => drawContactMapInto(key, canvas, count, legend)));
+    }
+    if (!holder.children.length) {
+        holder.innerHTML = '<div style="color:#999; font-size:0.85rem; text-align:center; padding:1rem;">No cLIR contacts to show for the selected chains.</div>';
+    }
+}
+
+// Back-compat shim: existing call sites call buildContactMap(pairKey). The linear maps
+// are now driven by their own chip selection, so this just (re)renders them.
+function buildContactMap(_pairKey) { buildLinearContactMaps(); }
+
 // The clickable HTML twin of the canvas legend (UniProt links work here; the canvas legend is what
-// lands in the exported figure). Rendered into #contact-domain-legend below the map.
-function renderContactHtmlLegend(roles, DOM_FILL, TED_FILL){
-    const el = document.getElementById('contact-domain-legend'); if (!el) return;
+// lands in the exported figure). Rendered into the map's legend element below it.
+function renderContactHtmlLegend(roles, DOM_FILL, TED_FILL, legendEl){
+    const el = legendEl || document.getElementById('contact-domain-legend'); if (!el) return;
     const show = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;
     const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const sw = (c) => `<span style="display:inline-block; width:10px; height:10px; background:${c}; border:1px solid rgba(0,0,0,0.25); vertical-align:middle; margin:0 3px 0 0; border-radius:2px;"></span>`;
@@ -6379,6 +6489,8 @@ function paintChordArc(ctx, cxC, cyC, outerR, innerR, arc, hidden, arcLIR, arcCL
 }
 
 let uniShowChordIDs = true;   // Circular Contact Map: include the chain-ID suffix "(A)" in arc labels (toggle in the header)
+let uniShowChordLabels = true;   // Circular Contact Map: draw the chain-name label at all
+let uniShowChordLength = true;   // Circular Contact Map: draw the residue-count number
 function chordArcLabel(arc) {
     if (arc.type === 'ion') return arc.displayName;
     if (uniShowChordIDs) return chainLabel(arc.name);                 // "gene (A)" or "A"
@@ -6430,12 +6542,7 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
         const xB = cxC + Math.cos(angB) * chordR, yB = cyC + Math.sin(angB) * chordR;
         const t = maxDist > minDist ? 1 - ((c.dist || 0) - minDist) / (maxDist - minDist) : 1;
         const alpha = 0.08 + t * 0.2;
-        ctx.beginPath(); ctx.moveTo(xA, yA);
-        ctx.quadraticCurveTo(cxC, cyC, xB, yB);
-        const grad = ctx.createLinearGradient(xA, yA, xB, yB);
-        grad.addColorStop(0, hexToRgba(colI, alpha));
-        grad.addColorStop(1, hexToRgba(colJ, alpha));
-        ctx.strokeStyle = grad; ctx.lineWidth = 1.2; ctx.stroke();
+        LiviaMaps.strokeFadeQuad(ctx, xA, yA, cxC, cyC, xB, yB, hexToRgba(colI, alpha), hexToRgba(colJ, alpha), 1.2);
     }
 
     // Draw arcs and labels (same as drawChord; hidden chains drawn as muted placeholder)
@@ -6446,12 +6553,16 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
         let textAngle = labelAngle + Math.PI / 2;
         const normA = ((textAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
         if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
-        ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+18), cyC + Math.sin(labelAngle) * (outerR+18));
-        ctx.rotate(textAngle); ctx.fillStyle = hidden ? '#bbb' : '#333'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(chordArcLabel(arc), 0, 0); ctx.restore();
-        ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+35), cyC + Math.sin(labelAngle) * (outerR+35));
-        ctx.rotate(textAngle); ctx.fillStyle = '#bbb'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`, 0, 0); ctx.restore();
+        if (uniShowChordLabels) {
+            ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+18), cyC + Math.sin(labelAngle) * (outerR+18));
+            ctx.rotate(textAngle); ctx.fillStyle = hidden ? '#bbb' : '#333'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(chordArcLabel(arc), 0, 0); ctx.restore();
+        }
+        if (uniShowChordLength) {
+            ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+35), cyC + Math.sin(labelAngle) * (outerR+35));
+            ctx.rotate(textAngle); ctx.fillStyle = '#bbb'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`, 0, 0); ctx.restore();
+        }
     }
     ctx.restore();
 }
@@ -6496,38 +6607,35 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
         const hidden = hiddenSet.has(arc.name);
         paintChordArc(ctx, cxC, cyC, outerR, innerR, arc, hidden, arcLIR, arcCLIR, chainColors, arcLightColors);
 
-        // Label (rotated along arc)
+        // Label geometry (shared by the name label and the length number)
         const labelAngle = arc.mid;
-        const labelR = outerR + 18;
-        const lx = cxC + Math.cos(labelAngle) * labelR;
-        const ly = cyC + Math.sin(labelAngle) * labelR;
-        ctx.save();
-        ctx.translate(lx, ly);
         let textAngle = labelAngle + Math.PI / 2;
         const normA = ((textAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
         if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
-        ctx.rotate(textAngle);
-        ctx.fillStyle = hidden ? '#bbb' : '#333';
-        ctx.font = 'bold 13px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(chordArcLabel(arc), 0, 0);
-        ctx.restore();
 
-        // Secondary label (chain letter for ions, size for others)
-        const sizeLabel = arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`;
-        const rangeR = outerR + 35;
-        const rx = cxC + Math.cos(labelAngle) * rangeR;
-        const ry = cyC + Math.sin(labelAngle) * rangeR;
-        ctx.save();
-        ctx.translate(rx, ry);
-        ctx.rotate(textAngle);
-        ctx.fillStyle = '#888';
-        ctx.font = '11px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(sizeLabel, 0, 0);
-        ctx.restore();
+        if (uniShowChordLabels) {                     // chain-name label (header "labels" toggle)
+            ctx.save();
+            ctx.translate(cxC + Math.cos(labelAngle) * (outerR + 18), cyC + Math.sin(labelAngle) * (outerR + 18));
+            ctx.rotate(textAngle);
+            ctx.fillStyle = hidden ? '#bbb' : '#333';
+            ctx.font = 'bold 13px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(chordArcLabel(arc), 0, 0);
+            ctx.restore();
+        }
+        if (uniShowChordLength) {                      // residue-count number (header "length" toggle)
+            const sizeLabel = arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`;
+            ctx.save();
+            ctx.translate(cxC + Math.cos(labelAngle) * (outerR + 35), cyC + Math.sin(labelAngle) * (outerR + 35));
+            ctx.rotate(textAngle);
+            ctx.fillStyle = '#888';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(sizeLabel, 0, 0);
+            ctx.restore();
+        }
     }
 
     // Helper: residue to angle
@@ -6582,15 +6690,9 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
                 const t = 1 - dist / contactDist;
                 const alpha = 0.08 + t * 0.2;
 
-                ctx.beginPath();
-                ctx.moveTo(xA, yA);
-                ctx.quadraticCurveTo(cxC, cyC, xB, yB);
-                const grad = ctx.createLinearGradient(xA, yA, xB, yB);
-                grad.addColorStop(0, hexToRgba(colI, alpha));
-                grad.addColorStop(1, hexToRgba(colJ, alpha));
-                ctx.strokeStyle = grad;
-                ctx.lineWidth = 1.2;
-                ctx.stroke();
+                // Two solid half-curves instead of a per-line gradient — same two-tone
+                // read, but no <linearGradient> bloating the SVG export (js/livia-maps.js).
+                LiviaMaps.strokeFadeQuad(ctx, xA, yA, cxC, cyC, xB, yB, hexToRgba(colI, alpha), hexToRgba(colJ, alpha), 1.2);
             }
         }
     }
@@ -6604,6 +6706,7 @@ function buildChordDiagram() {
     const canvasAll = document.getElementById('chord-canvas-all');
     const chordAllWrap = document.getElementById('chord-all-wrap');
     if (!card || !canvas) return;
+    renderChordChainBar();   // synced chain-visibility chips on the chord card
 
     const chainNames = uniState.chainNames || [];
     const chainSizes = uniState.chainSizes || [];
