@@ -23,5 +23,5 @@ screenshots/fix_*.py
 screenshots/[a-z]*_raw.png
 
 # Cloudflare Worker — local-only artifacts
-cloudflare-worker/.wrangler/
+tools/cloudflare-worker/.wrangler/
 icon-preview.html
