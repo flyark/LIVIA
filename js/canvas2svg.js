@@ -76,6 +76,19 @@
         return mapping[textBaseline] || mapping.alphabetic;
     }
 
+    // Offset (in em) from a canvas textBaseline to the alphabetic baseline. We render
+    // SVG text on the alphabetic baseline — the SVG default, and the ONLY vertical
+    // alignment every renderer agrees on — and bake this offset into the y coordinate.
+    // dominant-baseline is honoured by browsers and librsvg but IGNORED by Adobe
+    // Illustrator and other figure editors, which silently drop text to the alphabetic
+    // baseline; a "middle"-aligned label then jumps ~0.32em toward whatever it ringed.
+    // Values measured against Chrome's canvas metrics for sans-serif (see the loop's
+    // svgexport gate, which re-checks them each run).
+    function getBaselineDyEm(textBaseline) {
+        var mapping = {"alphabetic": 0, "ideographic": -0.23, "bottom": -0.18, "middle": 0.32, "hanging": 0.74, "top": 0.82};
+        return mapping.hasOwnProperty(textBaseline) ? mapping[textBaseline] : 0;
+    }
+
     // Unpack entities lookup where the numbers are in radix 32 to reduce the size
     // entity mapping courtesy of tinymce
     namedEntities = createNamedToNumberedLookup(
@@ -882,18 +895,25 @@
      */
     ctx.prototype.__applyText = function(text, x, y, action) {
         var font = this.__parseFont(),
-            parent = this.__closestGroupOrSvg(),
-            textElement = this.__createElement("text", {
+            parent = this.__closestGroupOrSvg();
+        // Bake the textBaseline into y on the alphabetic baseline so the text lands
+        // identically in every renderer (Illustrator included). Fall back to
+        // dominant-baseline only when the font size is not in px (never, in LIVIA).
+        var pxMatch = /^([\d.]+)px$/.exec(font.size),
+            yy = y, useDominant = true;
+        if (pxMatch) { yy = y + getBaselineDyEm(this.textBaseline) * parseFloat(pxMatch[1]); useDominant = false; }
+        var attrs = {
                 "font-family" : font.family,
                 "font-size" : font.size,
                 "font-style" : font.style,
                 "font-weight" : font.weight,
                 "text-decoration" : font.decoration,
                 "x" : x,
-                "y" : y,
-                "text-anchor": getTextAnchor(this.textAlign),
-                "dominant-baseline": getDominantBaseline(this.textBaseline)
-            }, true);
+                "y" : yy,
+                "text-anchor": getTextAnchor(this.textAlign)
+            };
+        if (useDominant) { attrs["dominant-baseline"] = getDominantBaseline(this.textBaseline); }
+        var textElement = this.__createElement("text", attrs, true);
 
         textElement.appendChild(this.__document.createTextNode(text));
         this.__currentElement = textElement;
