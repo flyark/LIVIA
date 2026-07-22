@@ -1454,7 +1454,7 @@ function populateAxes(A){
     s.innerHTML=''; for (const m of metrics){ const o=document.createElement('option'); o.value=m; o.textContent=LABEL[m]||m; s.appendChild(o); }
     s.value = metrics.includes(cur) ? cur : def; };
   fill('scatter-y', metrics.includes('iLIS') ? 'iLIS' : metrics[0]);
-  fill('scatter-x', metrics.includes('iLIA') ? 'iLIA' : (metrics[1] || metrics[0]));
+  fill('scatter-x', metrics.includes('iLISA') ? 'iLISA' : (metrics[1] || metrics[0]));
 }
 function spearman(xs, ys){
   const n = xs.length; if (n < 3) return NaN;
@@ -1473,7 +1473,7 @@ function pearson(xs, ys){
 function renderScatter(A){
   const { pipe, cl } = A, k = cl.optimalK;
   const cutoff = (A.opts && A.opts.ilisCutoff) || 0.223;
-  const xKey = ($('scatter-x') && $('scatter-x').value) || 'iLIA';
+  const xKey = ($('scatter-x') && $('scatter-x').value) || 'iLISA';
   const yKey = ($('scatter-y') && $('scatter-y').value) || 'iLIS';
   const pointsMode = ($('scatter-points') && $('scatter-points').value) || 'all';   // every prediction vs rank-1 per pair
   const pk = (p) => p.Symbol_2 + '\u0001' + p.Rank;
