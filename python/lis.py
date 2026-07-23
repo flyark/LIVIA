@@ -342,6 +342,17 @@ def detect_platform(filenames, read_fn):
         if _has_struct and _has_pae:
             return 'esmfold2_native'
 
+    # Local AF3 (official google-deepmind/alphafold3 output): name-prefixed, no _N index, e.g.
+    #   job/job_model.cif + job_confidences.json (PAE) + job_summary_confidences.json + job_data.json (input),
+    #   plus per-sample job/seed-S_sample-M/job_seed-S_sample-M_confidences.json subdirs. The indexed
+    #   ('_model_N.cif') and bare ('seed-N_sample-M/model.cif') detectors miss it. Placed LAST, so it only
+    #   upgrades a folder that every other platform rejected — it can never re-classify one that already works.
+    has_local_conf = any(b.endswith('_confidences.json') and not b.endswith('_summary_confidences.json') for b in basenames)
+    has_local_summary = any(b.endswith('_summary_confidences.json') for b in basenames)
+    has_local_model = any(b.endswith('_model.cif') for b in basenames)
+    if has_local_conf and has_local_summary and has_local_model:
+        return 'alphafold3'
+
     return 'generic'
 
 
@@ -373,7 +384,12 @@ def find_models(filenames, platform, read_fn):
     if platform == 'colabfold':
         yield from _find_colabfold(filenames, basenames_map)
     elif platform in ('alphafold3', 'openfold3'):
-        yield from _find_af3(filenames, basenames_map)
+        got = False
+        for t in _find_af3(filenames, basenames_map):
+            got = True
+            yield t
+        if not got:                      # official local AlphaFold 3 output (name-prefixed, no _N index)
+            yield from _find_af3_local(filenames, basenames_map)
     elif platform == 'alphapulldown':
         yield from _find_alphapulldown(filenames, basenames_map, read_fn)
     elif platform == 'esmfold2':
@@ -385,7 +401,7 @@ def find_models(filenames, platform, read_fn):
     elif platform == 'chai':
         yield from _find_chai(filenames, basenames_map)
     else:
-        yield from _find_generic(filenames, basenames_map)
+        yield from _find_generic(filenames, basenames_map, read_fn)
 
 
 def _find_colabfold(filenames, basenames_map):
@@ -504,6 +520,41 @@ def _find_af3(filenames, basenames_map):
         rank = f'{seed_idx}_{sample_idx}'
         if conf_path:
             yield (pred_name, rank, base, name, conf_path, summary_path or conf_path, 'cif')
+
+
+def _find_af3_local(filenames, basenames_map):
+    """Official local AlphaFold 3 output (github.com/google-deepmind/alphafold3).
+
+    Files are name-prefixed with no _N index, which the indexed ('_model_N.cif') and
+    the bare ('seed-N_sample-M/model.cif') AF3 finders both miss:
+        job/job_model.cif                 job/job_confidences.json          (PAE: 'pae' key)
+        job/job_summary_confidences.json  job/job_data.json                 (input; no PAE)
+        job/seed-S_sample-M/job_seed-S_sample-M_model.cif  (+ _confidences.json, _summary_confidences.json)
+
+    Prefers the per-sample ensemble (one rank each); the top-level model is a copy of
+    the best sample, so it is used only when no seed-S_sample-M subdirs are present.
+    """
+    filenames_set = set(filenames)
+    seed_models, top_models = [], []
+    for name in filenames:
+        base = os.path.basename(name)
+        if not base.endswith('_model.cif'):
+            continue
+        prefix = base[:-len('_model.cif')]                       # 'job' or 'job_seed-S_sample-M'
+        dirpath = os.path.dirname(name)
+        conf = os.path.join(dirpath, f'{prefix}_confidences.json')
+        if conf not in filenames_set:                            # a PAE sibling is required
+            continue
+        summ = os.path.join(dirpath, f'{prefix}_summary_confidences.json')
+        summ = summ if summ in filenames_set else conf
+        m = re.search(r'seed-(\d+)_sample-(\d+)', prefix) or re.search(r'seed-(\d+)_sample-(\d+)', dirpath)
+        pred = re.sub(r'_seed-\d+_sample-\d+$', '', prefix) or _get_toplevel_name(name) or 'af3_prediction'
+        if m:
+            seed_models.append((pred, f'{m.group(1)}_{m.group(2)}', base, name, conf, summ))
+        else:
+            top_models.append((pred, '0', base, name, conf, summ))
+    for pred, rank, base, name, conf, summ in (seed_models or top_models):
+        yield (pred, rank, base, name, conf, summ, 'cif')
 
 
 def _find_alphapulldown(filenames, basenames_map, read_fn):
@@ -845,48 +896,179 @@ def _find_esmfold2_native(filenames, basenames_map):
             yield (pred_name, rank, os.path.basename(sp), sp, pp, jp, fmt)
 
 
-def _find_generic(filenames, basenames_map):
-    """Generic: any .pdb/.cif + matching .json or .npz"""
+def _find_generic(filenames, basenames_map, read_fn=None):
+    """Generic: any .pdb/.cif + a JSON/NPZ carrying PAE.
+
+    Keeps the original name -> index -> positional pairing (so folders that already work
+    are untouched), with two additions: obvious non-PAE JSONs (AF3 '*_data.json' input,
+    ranking/summary/config files) are dropped from the candidate pool so they cannot
+    shadow the real PAE file, and if the chosen file still has no readable PAE the
+    remaining candidates are scanned for one that does. Both only ever rescue a case that
+    used to fail; a previously-correct pick is left exactly as before.
+    """
     struct_files = sorted(
         [f for f in filenames if f.endswith('.cif') or f.endswith('.pdb')],
         key=lambda f: os.path.basename(f)
     )
-    json_files = [f for f in filenames if f.endswith('.json')]
+    all_json = [f for f in filenames if f.endswith('.json')]
     npz_files = [f for f in filenames if f.endswith('.npz')]
+
+    def is_non_pae(f):
+        b = os.path.basename(f).lower()
+        return any(k in b for k in (
+            '_data.json', 'ranking_scores', 'ranking_debug', 'config',
+            '_summary_confidences.json', 'summary_confidence', 'metrics.json'))
+    # Drop obvious non-PAE JSONs, but keep original order and never end up with nothing.
+    json_files = [f for f in all_json if not is_non_pae(f)] or all_json
 
     for i, sf in enumerate(struct_files):
         struct_base = os.path.basename(sf)
         fmt = 'cif' if sf.endswith('.cif') else 'pdb'
         name_prefix = re.sub(r'\.(cif|pdb)$', '', struct_base)
-
-        pae_source = None
         idx_match = re.search(r'(\d+)', name_prefix)
         idx = idx_match.group(1) if idx_match else None
 
-        for jf in json_files:
+        pae_source = None
+        for jf in json_files:                       # (1) shares the structure's base name
             if name_prefix in os.path.basename(jf):
                 pae_source = jf
                 break
-        if not pae_source and idx:
+        if not pae_source and idx:                  # (2) shares the numeric index
             for jf in json_files:
                 fb = os.path.basename(jf)
                 if idx in fb and 'aggregated' not in fb:
                     pae_source = jf
                     break
-        if not pae_source:
+        if not pae_source:                          # (3) positional
             pae_source = json_files[i] if i < len(json_files) else (json_files[0] if json_files else None)
         if not pae_source and npz_files:
             pae_source = npz_files[i] if i < len(npz_files) else npz_files[0]
 
+        # Generosity: only if the chosen file has no readable PAE, look for one that does.
+        if read_fn is not None and pae_source is not None and extract_pae(pae_source, read_fn) is None:
+            for cf in json_files + npz_files:
+                if cf == pae_source:
+                    continue
+                try:
+                    if extract_pae(cf, read_fn) is not None:
+                        pae_source = cf
+                        break
+                except Exception:
+                    continue
+
         yield ('generic', str(i), struct_base, sf, pae_source, pae_source, fmt)
+
+
+# ============================================================================
+# Manifest — the explicit "declare your data" escape hatch
+# ============================================================================
+
+def load_manifest(filenames, read_fn, manifest_arg=None):
+    """Load an optional lis.json manifest for layouts auto-detection doesn't recognise.
+
+    Looked up from --manifest, else a lis.json / lis_manifest.json among the inputs.
+    Returns the parsed dict (with '_dir' = the manifest's directory, for resolving relative
+    paths) or None. Every field is optional:
+        platform   force the finder (same as --platform)
+        structure  glob for structure files            pae      glob for the PAE file
+        pae_key    JSON key holding the PAE matrix      summary  glob for the scores file
+        models     [ {name, structure, pae, summary} ] explicit per-prediction mapping
+    """
+    content, src = None, None
+    if manifest_arg:
+        try:
+            content, src = open(manifest_arg).read(), manifest_arg
+        except OSError:
+            return None
+    else:
+        for f in filenames:
+            if os.path.basename(f).lower() in ('lis.json', 'lis_manifest.json'):
+                content, src = read_fn(f), f
+                break
+    if not isinstance(content, str):
+        return None
+    try:
+        m = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(m, dict):
+        return None
+    m['_dir'] = os.path.dirname(src)
+    return m
+
+
+def manifest_has_layout(manifest):
+    """True if the manifest says how to find models (not merely which platform)."""
+    return bool(manifest) and bool(manifest.get('models') or manifest.get('pae'))
+
+
+def _find_from_manifest(manifest, filenames):
+    """Yield model tuples from a manifest. Two modes: an explicit 'models' list, or globs
+    (structure/pae/summary) paired per structure. Carries pae_key as an 8th tuple element
+    when declared, so extract_pae can read a non-standard PAE key."""
+    import fnmatch
+    base = manifest.get('_dir', '')
+    pae_key = manifest.get('pae_key')
+
+    def resolve(pattern):
+        if not pattern:
+            return []
+        for cand in ([f'{base}/{pattern}'] if base else []) + [pattern]:
+            if cand in filenames:
+                return [cand]
+        bn = os.path.basename(pattern)                       # glob on basename, in file order
+        return [f for f in filenames if fnmatch.fnmatch(os.path.basename(f), bn)]
+
+    def emit(name, rank, s, p, sm):
+        fmt = 'cif' if s.endswith('.cif') else 'pdb'
+        t = (name, str(rank), os.path.basename(s), s, p, sm or p, fmt)
+        return t + (pae_key,) if pae_key else t
+
+    if manifest.get('models'):
+        for i, e in enumerate(manifest['models']):
+            s = resolve(e.get('structure'))
+            p = resolve(e.get('pae') or e.get('structure'))
+            if not s or not p:
+                continue
+            sm = resolve(e.get('summary'))
+            yield emit(e.get('name', f'model_{i}'), e.get('rank', i), s[0], p[0], sm[0] if sm else None)
+        return
+
+    structs = sorted(resolve(manifest.get('structure')) or
+                     [f for f in filenames if f.endswith(('.cif', '.pdb'))], key=os.path.basename)
+    pae_all = resolve(manifest.get('pae'))
+    summ_all = resolve(manifest.get('summary'))
+
+    def sibling(files, sdir, sname, i):
+        if not files:
+            return None
+        same = [f for f in files if os.path.dirname(f) == sdir]
+        for pool in (same, files):
+            for f in pool:
+                if sname in os.path.basename(f):
+                    return f
+        return (same or files)[i] if i < len(same or files) else (same or files)[0]
+
+    for i, s in enumerate(structs):
+        sdir = os.path.dirname(s)
+        sname = re.sub(r'\.(cif|pdb)$', '', os.path.basename(s))
+        yield emit(sname, i, s, sibling(pae_all, sdir, sname, i), sibling(summ_all, sdir, sname, i))
 
 
 # ============================================================================
 # PAE Extraction
 # ============================================================================
 
-def extract_pae(pae_source, read_fn):
-    """Extract PAE matrix from a file. Returns 2D numpy array or None."""
+def extract_pae(pae_source, read_fn, pae_key=None, allow_pickle=False):
+    """Extract PAE matrix from a file. Returns 2D numpy array or None.
+
+    pae_key, if given (from a lis.json manifest), is tried first so a non-standard JSON
+    key can be read; otherwise the usual keys (pae / predicted_aligned_error / ...) apply.
+
+    allow_pickle enables reading PAE from a .pkl/.pickle (raw AlphaFold2/-Multimer
+    result_*.pkl). Off by default because unpickling executes arbitrary code; it is only
+    reachable via an explicit manifest 'pae' entry plus the --allow-pickle flag.
+    """
     if not pae_source:
         return None
     content = read_fn(pae_source)
@@ -924,6 +1106,42 @@ def extract_pae(pae_source, read_fn):
             arr = arr[0]
         return arr.astype(np.float32)
 
+    # .pkl / .pickle (raw AlphaFold2 / AlphaFold-Multimer result_*.pkl, which stores the
+    # PAE under 'predicted_aligned_error'). Unpickling runs arbitrary code, so this path is
+    # gated behind allow_pickle (--allow-pickle) and only reached via an explicit manifest
+    # 'pae' entry — auto-detection never selects a pickle.
+    if basename.endswith(('.pkl', '.pickle')):
+        if not allow_pickle:
+            return None  # caller emits a --allow-pickle hint
+        if isinstance(content, str):
+            content = content.encode('latin-1')
+        import pickle
+        try:
+            obj = pickle.loads(content)
+        except Exception:
+            return None
+        # Usually the AF2 result dict; occasionally just the bare array.
+        candidates = []
+        if isinstance(obj, dict):
+            if pae_key and pae_key in obj:
+                candidates.append(obj[pae_key])
+            for k in ('predicted_aligned_error', 'pae', 'pae_matrix',
+                      'predicted_aligned_error_matrix'):
+                if k in obj:
+                    candidates.append(obj[k])
+        else:
+            candidates.append(obj)
+        for v in candidates:
+            try:
+                arr = np.asarray(v, dtype=np.float32)
+            except (ValueError, TypeError):
+                continue
+            if arr.ndim == 3:
+                arr = arr[0]
+            if arr.ndim == 2 and arr.shape[0] == arr.shape[1] and arr.shape[0] > 0:
+                return arr
+        return None
+
     # JSON file
     if not isinstance(content, str):
         return None
@@ -931,6 +1149,16 @@ def extract_pae(pae_source, read_fn):
         data = json.loads(content)
     except json.JSONDecodeError:
         return None
+
+    # Manifest-declared PAE key wins (lets a non-standard key be read).
+    if pae_key and isinstance(data, dict) and pae_key in data:
+        v = data[pae_key]
+        if isinstance(v, list) and v:
+            if isinstance(v[0], list):
+                return np.array(v, dtype=np.float32)
+            n = int(round(math.sqrt(len(v))))
+            if n * n == len(v):
+                return np.array(v, dtype=np.float32).reshape(n, n)
 
     # AF3 full_data: {pae: [[...]]}
     if 'pae' in data and isinstance(data['pae'], list):
@@ -2013,17 +2241,22 @@ def _extract_alphapulldown_scalars(struct_path, model_label, read_fn):
     return out
 
 
-def _do_process(model_tuple, read_fn, detected, pae_cutoff, cb_cutoff, verbose=False):
+def _do_process(model_tuple, read_fn, detected, pae_cutoff, cb_cutoff, verbose=False, allow_pickle=False):
     """Process a single model. Returns (name, rank, rows, error_msg) tuple."""
-    name, rank, model_label, struct_path, pae_path, scores_path, fmt = model_tuple
+    name, rank, model_label, struct_path, pae_path, scores_path, fmt = model_tuple[:7]
+    pae_key = model_tuple[7] if len(model_tuple) > 7 else None   # optional, from a lis.json manifest
 
     struct_text = read_fn(struct_path)
     if not struct_text or not isinstance(struct_text, str):
         return name, rank, None, f'structure file unreadable: {struct_path}'
 
-    pae = extract_pae(pae_path, read_fn)
+    pae = extract_pae(pae_path, read_fn, pae_key, allow_pickle=allow_pickle)
     if pae is None:
-        return name, rank, None, f'PAE not found or unreadable: {pae_path}'
+        if pae_path and os.path.basename(pae_path).endswith(('.pkl', '.pickle')) and not allow_pickle:
+            return name, rank, None, (f'PAE is a pickle ({os.path.basename(pae_path)}); re-run with '
+                                      f'--allow-pickle to load it (only for files you trust).')
+        return name, rank, None, (f'PAE not found or unreadable: {pae_path}. If this layout is '
+                                  f'unrecognised, declare it in a lis.json manifest (pae / pae_key) or pass --manifest.')
     pae = np.nan_to_num(pae, nan=31.0)
 
     scores = extract_confidence_scores(scores_path, read_fn)
@@ -2052,16 +2285,16 @@ def _do_process(model_tuple, read_fn, detected, pae_cutoff, cb_cutoff, verbose=F
     return name, rank, rows, None
 
 
-def _process_one_sequential(model_tuple, read_fn, detected, pae_cutoff, cb_cutoff, verbose=False):
+def _process_one_sequential(model_tuple, read_fn, detected, pae_cutoff, cb_cutoff, verbose=False, allow_pickle=False):
     """Sequential wrapper."""
-    return _do_process(model_tuple, read_fn, detected, pae_cutoff, cb_cutoff, verbose)
+    return _do_process(model_tuple, read_fn, detected, pae_cutoff, cb_cutoff, verbose, allow_pickle)
 
 
 def _mp_worker(args):
     """Multiprocessing worker — creates its own read_fn from file_map."""
-    model_tuple, detected, pae_cutoff, cb_cutoff, file_map, verbose = args
+    model_tuple, detected, pae_cutoff, cb_cutoff, file_map, verbose, allow_pickle = args
     read_fn = _make_dir_reader(file_map)
-    return _do_process(model_tuple, read_fn, detected, pae_cutoff, cb_cutoff, verbose)
+    return _do_process(model_tuple, read_fn, detected, pae_cutoff, cb_cutoff, verbose, allow_pickle)
 
 
 def _sort_csv(filepath):
@@ -2100,7 +2333,8 @@ PLATFORM_LABELS = {
 
 
 def run(path, output=None, output_dir=None, pae_cutoff=12, cb_cutoff=8,
-        platform=None, skip_existing=True, workers=1, verbose=False):
+        platform=None, skip_existing=True, workers=1, verbose=False, manifest_path=None,
+        allow_pickle=False):
     """Run the LIS analysis pipeline.
 
     Processes each model independently, one at a time, appending CSV rows
@@ -2115,20 +2349,30 @@ def run(path, output=None, output_dir=None, pae_cutoff=12, cb_cutoff=8,
         print('[LIS] ERROR: No files found', file=sys.stderr)
         sys.exit(1)
 
-    # Detect platform
-    if platform:
-        detected = platform
+    # An optional lis.json manifest is the explicit override for layouts detection cannot
+    # parse. It may declare the models outright (or via globs), or just force the platform.
+    manifest = load_manifest(filenames, read_fn, manifest_path)
+    if manifest and manifest_has_layout(manifest):
+        detected = manifest.get('platform') or 'manifest'
+        print(f'[LIS] Platform: {PLATFORM_LABELS.get(detected, detected)} (from lis.json manifest)')
+        models = list(_find_from_manifest(manifest, filenames))
     else:
-        detected = detect_platform(filenames, read_fn)
-    print(f'[LIS] Platform: {PLATFORM_LABELS.get(detected, detected)}')
-
-    # Find all models
-    models = list(find_models(filenames, detected, read_fn))
+        if manifest and manifest.get('platform') and not platform:
+            platform = manifest['platform']
+        if platform:
+            detected = platform
+        else:
+            detected = detect_platform(filenames, read_fn)
+        print(f'[LIS] Platform: {PLATFORM_LABELS.get(detected, detected)}')
+        models = list(find_models(filenames, detected, read_fn))
     # Filter macOS resource forks
     models = [m for m in models if not m[0].startswith('._')]
 
     if not models:
         print('[LIS] ERROR: No prediction models found', file=sys.stderr)
+        if not (manifest and manifest_has_layout(manifest)):
+            print('[LIS]   Unrecognised layout? Add a lis.json manifest (or pass --manifest)\n'
+                  '[LIS]   declaring "structure"/"pae"/"pae_key", or an explicit "models" list.', file=sys.stderr)
         sys.exit(1)
 
     print(f'[LIS] {len(models)} model(s) found')
@@ -2196,8 +2440,11 @@ def run(path, output=None, output_dir=None, pae_cutoff=12, cb_cutoff=8,
         bar = '█' * filled + '░' * (bar_len - filled)
         status = 'OK' if ok else 'FAIL'
         print(f'\r[LIS] {bar} {pct}% ({n}/{total}) {elapsed_str} elapsed, ETA {eta_str} | {name} {status}      ', end='', flush=True)
-        if not ok and err_msg and verbose:
-            print(f'\n      >> {err_msg}', flush=True)
+        if not ok and err_msg:
+            # Always surface failures so the bad-file path (and hints like --allow-pickle)
+            # land in the log, not just under --verbose. stderr stays visible even when
+            # stdout is captured by a progress collector.
+            print(f'\n[LIS] FAIL {name} rank={rank}: {err_msg}', file=sys.stderr, flush=True)
 
     # Check if input is a folder (needed for multiprocessing — zip read_fn can't be pickled)
     is_folder = os.path.isdir(path)
@@ -2207,7 +2454,7 @@ def run(path, output=None, output_dir=None, pae_cutoff=12, cb_cutoff=8,
 
         # file_map is picklable (dict of str → str for folders)
         task_args = [
-            (m, detected, pae_cutoff, cb_cutoff, file_map, verbose)
+            (m, detected, pae_cutoff, cb_cutoff, file_map, verbose, allow_pickle)
             for m in models_todo
         ]
 
@@ -2223,7 +2470,7 @@ def run(path, output=None, output_dir=None, pae_cutoff=12, cb_cutoff=8,
         for gi, model_tuple in enumerate(models_todo):
             name, rank = model_tuple[0], model_tuple[1]
             name, rank, result_rows, err_msg = _process_one_sequential(
-                model_tuple, read_fn, detected, pae_cutoff, cb_cutoff, verbose)
+                model_tuple, read_fn, detected, pae_cutoff, cb_cutoff, verbose, allow_pickle)
             if result_rows:
                 with open(output, 'a') as f:
                     f.write('\n'.join(result_rows) + '\n')
@@ -2290,12 +2537,19 @@ Examples:
     parser.add_argument('--platform', default=None,
                         choices=['alphafold3', 'alphapulldown', 'colabfold', 'boltz', 'chai', 'openfold3', 'generic'],
                         help='Force platform detection (default: auto-detect)')
+    parser.add_argument('--manifest', default=None,
+                        help='Path to a lis.json manifest declaring the data (structure/pae/pae_key/summary '
+                             'globs, or an explicit models list) — an override for unrecognised layouts')
     parser.add_argument('--workers', '-w', type=int, default=1,
                         help='Number of parallel workers (default: 1)')
     parser.add_argument('--no-skip-existing', action='store_true',
                         help='Reprocess all predictions even if already in the output CSV')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='Show error details for failed predictions')
+    parser.add_argument('--allow-pickle', action='store_true',
+                        help='Permit reading PAE from a .pkl/.pickle file declared in a manifest '
+                             '(e.g. a raw AlphaFold2/-Multimer result_*.pkl). Unpickling executes '
+                             'arbitrary code — only use on files you trust.')
     args = parser.parse_args()
 
     if not os.path.exists(args.path):
@@ -2304,9 +2558,9 @@ Examples:
 
     run(args.path, output=args.output, output_dir=args.output_dir,
         pae_cutoff=args.pae_cutoff, cb_cutoff=args.cb_cutoff,
-        platform=args.platform,
+        platform=args.platform, manifest_path=args.manifest,
         skip_existing=not args.no_skip_existing,
-        workers=args.workers, verbose=args.verbose)
+        workers=args.workers, verbose=args.verbose, allow_pickle=args.allow_pickle)
 
 
 if __name__ == '__main__':
