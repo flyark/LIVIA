@@ -22,6 +22,11 @@ const ALLOWED_TARGET_HOSTS = [
   // AFDB already sends CORS headers, so direct fetch works without the proxy.
   // Listed here as a resilience fallback only.
   'alphafold.ebi.ac.uk',
+  // OSF-hosted prediction bundles (FlyPredictome cluster structures) — OSF sends no CORS header, so LIVIA
+  // (universal.html?data=<osf_url>) must fetch them through this proxy. fetch() follows the OSF 302 to the file.
+  'osf.io',
+  'files.osf.io',
+  'files.us.osf.io',
 ];
 
 function pickAllowOrigin(reqOrigin) {

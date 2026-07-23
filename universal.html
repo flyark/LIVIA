@@ -6884,6 +6884,25 @@ function copyScript() {
         setTimeout(() => { btn.textContent = 'Copy to Clipboard'; }, 1500);
     });
 }
+
+// ── URL deep-link: universal.html?data=<zip-url>[&name=<label>] — fetch a hosted prediction bundle and load it.
+// Lets external sites (e.g. FlyPredictome-network cluster selection) open a higher-order complex directly.
+(function(){
+  const p = new URLSearchParams(location.search);
+  const url = p.get('data'); if (!url) return;
+  const go = async () => {
+    try {
+      setStatus('Loading ' + (p.get('name') || 'structure') + '…', 'loading');
+      let resp = await fetch(url).catch(() => null);                              // same-origin / CORS-enabled host
+      if (!resp || !resp.ok) resp = await fetch('https://livia-proxy.flyark.workers.dev/?url=' + encodeURIComponent(url)); // else proxy
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const blob = await resp.blob();
+      const fname = p.get('name') ? p.get('name') + '.zip' : (url.split('/').pop() || 'data.zip');
+      await handleInputFiles([new File([blob], fname, { type: 'application/zip' })]);
+    } catch (e) { setStatus('Could not load ?data= URL: ' + e.message, 'error'); }
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+})();
 </script>
 <script data-goatcounter="https://livia.goatcounter.com/count"
         async src="https://gc.zgo.at/count.js"></script>
