@@ -165,7 +165,7 @@
     <div class="card" id="regions-card" style="display:none;">
         <div class="step-header">Define Regions</div>
 
-        <!-- Top row: Regions+Settings (left) | iLIS/iLIA Matrix (right) -->
+        <!-- Top row: Regions+Settings (left) | iLIS/iLISA Matrix (right) -->
         <div style="display:flex; gap:1.5rem; align-items:flex-start; flex-wrap:wrap;">
             <!-- Left: Regions, buttons, settings -->
             <div style="flex:1; min-width:280px;">
@@ -199,9 +199,9 @@
                     <div style="margin-top:0.3rem; color:#999; font-size:0.72rem;">Default: min length 15, merge LIS 0.35, pLDDT 50, boundary margin 2. Boundary margin excludes N residues at each region edge from iLIS calculation.</div>
                 </div>
             </div>
-            <!-- Right: iLIS / iLIA Matrix -->
+            <!-- Right: iLIS / iLISA Matrix -->
             <div id="score-matrix-inline" style="display:none; text-align:center; max-width:55%; overflow:auto;">
-                <div class="map-label">iLIS / iLIA Matrix</div>
+                <div class="map-label">iLIS / iLISA Matrix</div>
                 <canvas id="score-matrix-canvas"></canvas>
                 <div style="display:flex; justify-content:center; gap:1rem; margin-top:0.3rem; font-size:0.7rem;">
                     <div style="display:flex; align-items:center; gap:0.3rem;">
@@ -210,7 +210,7 @@
                     </div>
                     <div style="display:flex; align-items:center; gap:0.3rem;">
                         <canvas id="colorbar-clir" width="60" height="8"></canvas>
-                        <span style="color:#888;">iLIA</span>
+                        <span style="color:#888;">iLISA</span>
                     </div>
                 </div>
             </div>
@@ -3372,27 +3372,27 @@ function drawScoreMatrix(validRegions) {
     const ctx = canvas.getContext('2d');
     if (!ctx.getSerializedSvg) { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height); }   // white bg for screen/PNG only — SVG export stays transparent
 
-    // Build iLIS and iLIA grids
+    // Build iLIS and iLISA grids
     const ilisGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
-    const iliaGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
+    const ilisaGrid = Array.from({ length: nc }, () => Array(nc).fill(0));
     for (const v of monPairResults) {
         const i = findRegionIdx(v.ri, validRegions);
         const j = findRegionIdx(v.rj, validRegions);
         if (i >= 0 && j >= 0) {
             ilisGrid[i][j] = v.iLIS;
             ilisGrid[j][i] = v.iLIS;
-            iliaGrid[i][j] = v.iLIA;
-            iliaGrid[j][i] = v.iLIA;
+            ilisaGrid[i][j] = v.iLISA;
+            ilisaGrid[j][i] = v.iLISA;
         }
     }
 
-    // Find max iLIA for color scaling
-    let maxIlia = 1;
+    // Find max iLISA for color scaling
+    let maxIlisa = 1;
     for (let i = 0; i < nc; i++)
         for (let j = 0; j < nc; j++)
-            if (i !== j && iliaGrid[i][j] > maxIlia) maxIlia = iliaGrid[i][j];
+            if (i !== j && ilisaGrid[i][j] > maxIlisa) maxIlisa = ilisaGrid[i][j];
 
-    // Draw cells: bottom-left = iLIS (Oranges), top-right = cLIR (Greens), diagonal = gray
+    // Draw cells: bottom-left = iLIS (Oranges), top-right = iLISA (Greens), diagonal = gray
     for (let i = 0; i < nc; i++) {
         for (let j = 0; j < nc; j++) {
             const x = leftPx + j * cPx;
@@ -3420,12 +3420,12 @@ function drawScoreMatrix(validRegions) {
                 ctx.fillStyle = val > 0.5 ? 'white' : '#333';
                 ctx.fillText(val.toFixed(3), x + cPx / 2, y + cPx / 2);
             } else {
-                // Top-right triangle: iLIA (white → strong green, 0 = pure white)
-                const val = iliaGrid[i][j];
+                // Top-right triangle: iLISA (white → strong green, 0 = pure white)
+                const val = ilisaGrid[i][j];
                 if (val === 0) {
                     ctx.fillStyle = '#ffffff';
                 } else {
-                    const t = maxIlia > 0 ? Math.min(1, val / maxIlia) : 0;
+                    const t = maxIlisa > 0 ? Math.min(1, val / maxIlisa) : 0;
                     const r2 = Math.round(255 * (1 - t));
                     const g2 = Math.round(255 - t * 85);
                     const b2 = Math.round(255 * (1 - t));
@@ -3437,9 +3437,9 @@ function drawScoreMatrix(validRegions) {
                 ctx.font = `bold ${fontSize}px sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                const t = maxIlia > 0 ? val / maxIlia : 0;
+                const t = maxIlisa > 0 ? val / maxIlisa : 0;
                 ctx.fillStyle = t > 0.6 ? 'white' : '#333';
-                ctx.fillText(val.toFixed(1), x + cPx / 2, y + cPx / 2);
+                ctx.fillText(val.toFixed(0), x + cPx / 2, y + cPx / 2);
             }
         }
     }
@@ -3452,7 +3452,7 @@ function drawScoreMatrix(validRegions) {
         ctx.beginPath(); ctx.moveTo(leftPx + i * cPx, 0); ctx.lineTo(leftPx + i * cPx, nc * cPx); ctx.stroke();
     }
 
-    // Diagonal line to separate iLIS / iLIA
+    // Diagonal line to separate iLIS / iLISA
     ctx.strokeStyle = '#999';
     ctx.lineWidth = 1.5 * HIRES;
     ctx.beginPath();
