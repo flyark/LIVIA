@@ -273,11 +273,11 @@
             </div>
         </div>
 
-        <!-- PAE Image (precomputed / lightweight bundles — a static plot in place of the numeric maps) -->
+        <!-- PAE Images (precomputed / lightweight bundles — static plots in place of the numeric maps) -->
         <div class="card result-card" id="pae-image-card" style="display:none;">
-            <h2>Predicted Aligned Error (PAE) Plot</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">Static PAE image supplied with this precomputed bundle (numeric PAE was dropped to reduce size; scores were precomputed by lis.py).</div>
-            <div style="text-align:center;"><img id="pae-image" alt="PAE plot" style="max-width:100%; height:auto; border:1px solid #eee; border-radius:6px;"></div>
+            <h2>Predicted Aligned Error (PAE)</h2>
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">Static PAE plot(s) supplied with this precomputed bundle (numeric PAE was dropped to reduce size; scores were precomputed by lis.py).</div>
+            <div class="map-row" id="pae-image-row"></div>
         </div>
 
         <!-- Sequence Viewer -->
@@ -3420,28 +3420,49 @@ function buildMetricGridsFromPairs(pairs, chainNames) {
     return MG;
 }
 
-function showPaeImageCard(url) {
+function hidePaeImageCard() {
     const card = document.getElementById('pae-image-card');
-    const img = document.getElementById('pae-image');
-    if (!card || !img) return;
-    if (url) { img.src = url; card.style.display = ''; }
-    else { img.removeAttribute('src'); card.style.display = 'none'; }
+    if (card) card.style.display = 'none';
+    const row = document.getElementById('pae-image-row');
+    if (row) row.innerHTML = '';
 }
 
-// Lightweight bundles may ship a PAE image per model; show the selected model's (falling back
-// to the representative image, then hiding if none). No-op for non-lightweight loads.
-function updateLightweightPaeForModel(modelIdx) {
+// Render the lightweight bundle's static PAE plot(s) as a labelled row — one per model when the
+// manifest ships `pae_images`, mirroring the full-load "PAE Maps" card; otherwise the single
+// representative image. Hides the card if the bundle shipped no PAE image.
+function renderLightweightPaeImages() {
     const lw = uniState.lightweight;
-    if (!lw) return;
+    const card = document.getElementById('pae-image-card');
+    const row = document.getElementById('pae-image-row');
+    if (!lw || !card || !row) { hidePaeImageCard(); return; }
+    row.innerHTML = '';
     const byModel = lw.paeByModel || {};
-    let url = lw.paeImageUrl;                              // representative fallback
-    if (modelIdx != null && modelIdx !== 'avg') {
-        const md = uniState.modelData && uniState.modelData[parseInt(modelIdx)];
-        const key = md ? String(md.idx) : String(modelIdx);   // array index → model key
-        if (byModel[key]) url = byModel[key];
-        else if (byModel[String(modelIdx)]) url = byModel[String(modelIdx)];
+    const items = [];
+    if (Object.keys(byModel).length) {
+        for (const md of (uniState.modelData || [])) {
+            const u = byModel[String(md.idx)];
+            if (u) items.push({ label: md.label || ('model_' + md.idx), url: u });
+        }
     }
-    showPaeImageCard(url);
+    if (!items.length && lw.paeImageUrl) items.push({ label: '', url: lw.paeImageUrl });
+    if (!items.length) { hidePaeImageCard(); return; }
+    for (const it of items) {
+        const item = document.createElement('div');
+        item.className = 'map-item';
+        if (it.label) {
+            const lab = document.createElement('div');
+            lab.className = 'map-label';
+            lab.textContent = it.label;
+            item.appendChild(lab);
+        }
+        const img = document.createElement('img');
+        img.src = it.url;
+        img.alt = 'PAE ' + (it.label || '');
+        img.style.cssText = 'max-width:100%; height:auto; border:1px solid #eee; border-radius:6px;';
+        item.appendChild(img);
+        row.appendChild(item);
+    }
+    card.style.display = '';
 }
 
 // Render a precomputed lightweight bundle: read scores + interface residues from the lis.py
@@ -3825,12 +3846,12 @@ function displayResults(results, jobName) {
     drawAllScoreMatrices();
     if (uniState.lightweight) {
         // Lightweight bundle has no numeric PAE — hide the PAE/LIS/cLIS heatmap cards and
-        // show the static PAE image supplied with the bundle instead.
+        // show the static PAE plot(s) supplied with the bundle (one per model when provided).
         ['pae-maps-card', 'lis-maps-card', 'clis-maps-card'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
-        showPaeImageCard(uniState.lightweight.paeImageUrl);
+        renderLightweightPaeImages();
     } else {
         ['pae-maps-card', 'lis-maps-card', 'clis-maps-card'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; });
-        showPaeImageCard(null);
+        hidePaeImageCard();
         drawAllMaps();
     }
     document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
@@ -3848,7 +3869,6 @@ function selectRow(pairKey, modelIdx, trEl) {
     } else {
         uniState.results = symmetrizePairs(uniState.modelPairs[parseInt(modelIdx)] || uniState.modelPairs[0]);
     }
-    if (uniState.lightweight) updateLightweightPaeForModel(modelIdx);
     document.querySelectorAll('#pairs-tbody tr').forEach(tr => tr.classList.remove('selected'));
     if (trEl) trEl.classList.add('selected');
 
