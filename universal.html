@@ -850,6 +850,7 @@ async function handleInputFiles(fileList) {
     if (uniState.loadedImages) { for (const u of Object.values(uniState.loadedImages)) { try { URL.revokeObjectURL(u); } catch (e) {} } }
     uniState.loadedImages = {};
     uniState.lightweight = null;
+    uniState.manifestChains = null;
     pendingJobs = null;
     // Clear drop-zone label so a fresh drop overwrites the previous folder name
     const fnEl = document.getElementById('file-name');
@@ -3555,6 +3556,7 @@ async function processPrecomputedBundle() {
     const cg = {};
     if (lw.chains && typeof lw.chains === 'object') for (const n of chainNames) if (lw.chains[n]) cg[n] = lw.chains[n];
     uniState.chainGenes = cg;
+    uniState.manifestChains = Object.assign({}, cg);   // kept as a fallback if a UniProt re-identify misses a chain
 
     setStatus('Computing results…', 'loading');
     await sleep(10);
@@ -3842,7 +3844,7 @@ function displayResults(results, jobName) {
     document.getElementById('results').classList.add('active');
     setupMultiChainColors();
     renderChainToggleBar();
-    { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; uniState.chainTedDomains = {}; uniState.chainDomainInfo = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; if (!(uniState.lightweight && uniState.chainGenes && Object.keys(uniState.chainGenes).length) && typeof identifyChains === 'function') setTimeout(identifyChains, 0); } _cic.style.display = ''; } else { _cic.style.display = 'none'; } } }
+    { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; uniState.chainTedDomains = {}; uniState.chainDomainInfo = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; if (typeof identifyChains === 'function') setTimeout(identifyChains, 0); } _cic.style.display = ''; } else { _cic.style.display = 'none'; } } }
     drawAllScoreMatrices();
     if (uniState.lightweight) {
         // Lightweight bundle has no numeric PAE — hide the PAE/LIS/cLIS heatmap cards and
@@ -5025,7 +5027,7 @@ async function identifyChains(){
     }
     out.innerHTML = html + '</tbody></table>';
     out.onclick = (e) => { const btn = e.target.closest('.ovr-btn'); if (btn) overrideChain(btn.dataset.chain); };
-    uniState.chainDomains = {}; uniState.chainGenes = {}; uniState.chainTedDomains = {}; uniState.chainDomainInfo = {};   // feed identities to every figure
+    uniState.chainDomains = {}; uniState.chainGenes = Object.assign({}, uniState.manifestChains || {}); uniState.chainTedDomains = {}; uniState.chainDomainInfo = {};   // feed identities to every figure (manifest genes as fallback)
     for (const n of names){ const e = resolved.get(seqOf(n)); if (e && e.r){ if (e.r.gene) uniState.chainGenes[n] = e.r.gene; if (e.dom && e.dom.length) uniState.chainDomains[n] = e.dom; if (e.ted && e.ted.length) uniState.chainTedDomains[n] = e.ted; if (e.info) uniState.chainDomainInfo[n] = e.info; } }
     const _pk = uniState.currentPairKey;                          // re-render so chain labels + domains reflect the resolved identities
     if (_pk){ buildContactMap(_pk); if (typeof buildPerResidueCharts === 'function') buildPerResidueCharts(_pk); if (typeof buildSequenceViewer === 'function') buildSequenceViewer(_pk); }
@@ -6906,14 +6908,19 @@ function paintChordArc(ctx, cxC, cyC, outerR, innerR, arc, hidden, arcLIR, arcCL
     donut(arc.start, arc.end); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
 }
 
-let uniShowChordIDs = true;   // Circular Contact Map: include the chain-ID suffix "(A)" in arc labels (toggle in the header)
-let uniShowChordLabels = true;   // Circular Contact Map: draw the chain-name label at all
+let uniShowChordIDs = true;   // Circular Contact Map: show the chain ID (A/B/C) in arc labels — independent of "labels"
+let uniShowChordLabels = true;   // Circular Contact Map: show the gene/protein name in arc labels — independent of "chain IDs"
 let uniShowChordLength = true;   // Circular Contact Map: draw the residue-count number
 function chordArcLabel(arc) {
     if (arc.type === 'ion') return arc.displayName;
-    if (uniShowChordIDs) return chainLabel(arc.name);                 // "gene (A)" or "A"
-    const g = uniState.chainGenes && uniState.chainGenes[arc.name];
-    return g ? g : arc.name;                                          // gene only, else the chain id
+    // "labels" = gene/protein name, "chain IDs" = A/B/C — fully independent toggles.
+    const g = (uniState.chainGenes && uniState.chainGenes[arc.name]) || '';
+    const gene = uniShowChordLabels ? g : '';
+    const id = arc.name;
+    if (gene && uniShowChordIDs) return gene + ' (' + id + ')';       // both → "gene (A)"
+    if (gene) return gene;                                            // gene only → "gene"
+    if (uniShowChordIDs) return id;                                   // chain ID only → "A"
+    return uniShowChordLabels ? id : '';                             // labels on but no gene → fall back to the id
 }
 
 function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, contacts, chainColors, arcLIR, arcCLIR, arcLightColors) {
@@ -6971,7 +6978,7 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
         let textAngle = labelAngle + Math.PI / 2;
         const normA = ((textAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
         if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
-        if (uniShowChordLabels) {
+        if (uniShowChordLabels || uniShowChordIDs) {
             ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR+18), cyC + Math.sin(labelAngle) * (outerR+18));
             ctx.rotate(textAngle); ctx.fillStyle = hidden ? '#bbb' : '#333'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(chordArcLabel(arc), 0, 0); ctx.restore();
@@ -7031,7 +7038,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
         const normA = ((textAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
         if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
 
-        if (uniShowChordLabels) {                     // chain-name label (header "labels" toggle)
+        if (uniShowChordLabels || uniShowChordIDs) {  // arc label: gene name (labels) and/or chain ID
             ctx.save();
             ctx.translate(cxC + Math.cos(labelAngle) * (outerR + 18), cyC + Math.sin(labelAngle) * (outerR + 18));
             ctx.rotate(textAngle);
