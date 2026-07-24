@@ -244,7 +244,7 @@
         </div>
 
         <!-- PAE Maps -->
-        <div class="card result-card">
+        <div class="card result-card" id="pae-maps-card">
             <h2>Predicted Aligned Error (PAE) Maps</h2>
             <div class="map-row" id="pae-row"></div>
             <div class="colorbar-row">
@@ -254,7 +254,7 @@
         </div>
 
         <!-- LIS Maps -->
-        <div class="card result-card">
+        <div class="card result-card" id="lis-maps-card">
             <h2>Local Interaction Score (LIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#888;">(PAE &le; 12 &Aring;)</span></h2>
             <div class="map-row" id="lis-row"></div>
             <div class="colorbar-row">
@@ -264,13 +264,20 @@
         </div>
 
         <!-- cLIS Maps -->
-        <div class="card result-card">
+        <div class="card result-card" id="clis-maps-card">
             <h2>contact Local Interaction Score (cLIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#888;">(PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</span></h2>
             <div class="map-row" id="clis-row"></div>
             <div class="colorbar-row">
                 <canvas id="colorbar-clis" width="300" height="14"></canvas>
                 <div class="colorbar-labels"><span>0</span><span>contact Local Interaction Score (cLIS)</span><span>1</span></div>
             </div>
+        </div>
+
+        <!-- PAE Image (precomputed / lightweight bundles — a static plot in place of the numeric maps) -->
+        <div class="card result-card" id="pae-image-card" style="display:none;">
+            <h2>Predicted Aligned Error (PAE) Plot</h2>
+            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">Static PAE image supplied with this precomputed bundle (numeric PAE was dropped to reduce size; scores were precomputed by lis.py).</div>
+            <div style="text-align:center;"><img id="pae-image" alt="PAE plot" style="max-width:100%; height:auto; border:1px solid #eee; border-radius:6px;"></div>
         </div>
 
         <!-- Sequence Viewer -->
@@ -840,6 +847,9 @@ async function handleInputFiles(fileList) {
     uniState.currentPairResult = null;
     uniState.hiddenChains = new Set();
     uniState.ipTMIsRankingScore = false;
+    if (uniState.loadedImages) { for (const u of Object.values(uniState.loadedImages)) { try { URL.revokeObjectURL(u); } catch (e) {} } }
+    uniState.loadedImages = {};
+    uniState.lightweight = null;
     pendingJobs = null;
     // Clear drop-zone label so a fresh drop overwrites the previous folder name
     const fnEl = document.getElementById('file-name');
@@ -891,6 +901,19 @@ async function handleInputFiles(fileList) {
 
     // Single job — load directly
     await loadFilesIntoState(files, isFolder, folderName);
+
+    // Precomputed lightweight bundle (lis.py CSV + one structure + optional PAE image)?
+    // Fires only for a genuine lightweight bundle (manifest or signature CSV, and NO
+    // numeric PAE present) — a normal prediction falls straight through to the compute path.
+    uniState.lightweight = detectLightweightBundle();
+    if (uniState.lightweight) {
+        uniState.platform = 'lightweight';
+        showPlatformBadge('lightweight');
+        document.getElementById('btn-process').disabled = false;
+        setStatus('Detected precomputed LIVIA bundle. Rendering…');
+        processFiles();
+        return;
+    }
 
     // Auto-detect platform
     const platform = detectPlatform();
@@ -992,6 +1015,7 @@ async function selectJob(jobName) {
 }
 
 async function loadFilesIntoState(files, isFolder, folderName) {
+    if (!uniState.loadedImages) uniState.loadedImages = {};
     // Check if all files are zips
     const zipFiles = files.filter(f => f.name.endsWith('.zip'));
     const nonZipFiles = files.filter(f => !f.name.endsWith('.zip') && !f.name.endsWith('.md'));
@@ -1008,6 +1032,24 @@ async function loadFilesIntoState(files, isFolder, folderName) {
                     uniState.loadedFiles[path] = await entry.async('string');
                 } else if (fname.endsWith('.npz') || fname.endsWith('.npy')) {
                     uniState.loadedFiles[path] = await entry.async('arraybuffer');
+                } else if (fname.endsWith('.png')) {
+                    uniState.loadedImages[path] = URL.createObjectURL(await entry.async('blob'));
+                } else if (fname.endsWith('.gz')) {
+                    // gzipped entry inside a bundle zip (e.g. a lightweight bundle's model_N.cif.gz)
+                    try {
+                        const buf = await entry.async('arraybuffer');
+                        const ds = new DecompressionStream('gzip');
+                        const decompressedBuf = await new Response(new Blob([buf]).stream().pipeThrough(ds)).arrayBuffer();
+                        const innerPath = path.replace(/\.gz$/i, '');
+                        const innerBase = innerPath.split('/').pop();
+                        if (/\.(cif|pdb|json|csv|txt)$/i.test(innerBase)) {
+                            uniState.loadedFiles[innerPath] = new TextDecoder().decode(decompressedBuf);
+                        } else if (/\.(npz|npy)$/i.test(innerBase)) {
+                            uniState.loadedFiles[innerPath] = decompressedBuf;
+                        } else if (/\.png$/i.test(innerBase)) {
+                            uniState.loadedImages[innerPath] = URL.createObjectURL(new Blob([decompressedBuf]));
+                        }
+                    } catch (e) { console.warn('Could not decompress .gz inside bundle zip:', path, e); }
                 }
             }
         }
@@ -1023,6 +1065,8 @@ async function loadFilesIntoState(files, isFolder, folderName) {
                 uniState.loadedFiles[path] = await file.text();
             } else if (file.name.endsWith('.npz') || file.name.endsWith('.npy')) {
                 uniState.loadedFiles[path] = await file.arrayBuffer();
+            } else if (file.name.endsWith('.png')) {
+                uniState.loadedImages[path] = URL.createObjectURL(file);
             } else if (file.name.endsWith('.gz')) {
                 try {
                     const ds = new DecompressionStream('gzip');
@@ -1079,6 +1123,10 @@ async function loadFilesIntoState(files, isFolder, folderName) {
                         uniState.loadedFiles[zpath] = await entry.async('string');
                     } else if (zname.endsWith('.npz') || zname.endsWith('.npy')) {
                         uniState.loadedFiles[zpath] = await entry.async('arraybuffer');
+                    } else if (zname.endsWith('.csv') || zname.endsWith('.txt')) {
+                        uniState.loadedFiles[zpath] = await entry.async('string');
+                    } else if (zname.endsWith('.png')) {
+                        uniState.loadedImages[zpath] = URL.createObjectURL(await entry.async('blob'));
                     } else if (zname.endsWith('.gz')) {
                         // gzipped entry inside the zip — decompress and store under inner path
                         try {
@@ -1239,6 +1287,7 @@ function platformLabel(p) {
         'protenix-v2': 'Protenix-v2',
         esmfold2: 'ESMFold2',
         esmfold2_native: 'ESMFold2',
+        lightweight: 'Precomputed (lis.py)',
         generic: 'Generic'
     };
     return labels[p] || p;
@@ -2818,6 +2867,11 @@ async function processFiles() {
     document.getElementById('error-msg').classList.remove('active');
 
     try {
+        if (uniState.lightweight) {
+            await processPrecomputedBundle();
+            document.getElementById('btn-process').disabled = false;
+            return;
+        }
         setStatus('Discovering prediction files...', 'loading');
         const predictions = discoverPredictions();
         const predNames = Object.keys(predictions);
@@ -3060,8 +3114,11 @@ async function processFiles() {
                     let actifptm = 0;
                     try { actifptm = calcActifpTM(pae, contact, nCoords, si, Math.min(ei, nTotal), sj, Math.min(ej, nTotal), cbCutoff); } catch(e) { }
 
-                    const liaCount = lisCountAB;
-                    const cliaCount = clisCountAB;
+                    // LIA/cLIA count BOTH PAE directions (i→j and j→i), matching lis.py
+                    // (lia_count = ab + ba) and the AFM-LIS reference. The per-entry comment
+                    // above states this intent; using only lisCountAB halved iLIA/iLISA.
+                    const liaCount = lisCountAB + lisCountBA;
+                    const cliaCount = clisCountAB + clisCountBA;
                     const ilia = Math.sqrt(liaCount * cliaCount);
                     const ilisa = ilis * ilia;
 
@@ -3173,6 +3230,319 @@ async function processFiles() {
         console.error(e);
     }
     document.getElementById('btn-process').disabled = false;
+}
+
+// ============================================================================
+// LIGHTWEIGHT PRECOMPUTED BUNDLE  (lis.py CSV + one structure + a PAE image)
+// A hosted higher-order complex is huge mostly because of the numeric PAE. universal.html
+// only uses PAE to derive the LIS metrics + interface residues — and lis.py already writes
+// both to its CSV — so a CSV + one structure + a static PAE image renders every figure at
+// full fidelity, at a fraction of the size. See docs/lightweight-bundle.md for the format.
+// ============================================================================
+
+// Decide whether the loaded files are a lightweight bundle. Returns a descriptor or null.
+function detectLightweightBundle() {
+    const files = uniState.loadedFiles || {};
+    const images = uniState.loadedImages || {};
+    const keys = Object.keys(files);
+    // Basename with any .gz/.xz stripped — gzipped entries decompress to their inner name.
+    const norm = (n) => (n || '').split('/').pop().replace(/\.(gz|xz)$/i, '');
+    const structKey = () => keys.find(k => /\.(pdb|cif)$/i.test(k));
+    const sigCsvKey = () => keys.find(k => /\.csv$/i.test(k) && (files[k] || '').includes('cLIR_indices_i'));
+
+    // All structures, keyed by normalized basename (e.g. "model_0.cif"); likewise PAE images.
+    const allStructs = {};
+    for (const k of keys) if (/\.(pdb|cif)$/i.test(k)) allStructs[norm(k)] = { text: files[k], format: /\.pdb$/i.test(k) ? 'pdb' : 'cif', name: norm(k) };
+    const imgByBase = {};
+    for (const k of Object.keys(images)) imgByBase[norm(k)] = images[k];
+    const pickImage = (preferName) => {
+        if (preferName && imgByBase[norm(preferName)]) return imgByBase[norm(preferName)];
+        const bk = Object.keys(imgByBase); if (!bk.length) return null;
+        const pae = bk.find(b => /pae/i.test(b)); return imgByBase[pae || bk[0]];
+    };
+
+    const build = (csvKey, repBase, manifest) => {
+        const rep = allStructs[repBase];
+        if (!csvKey || !rep) return null;
+        // Per-model structure map from the manifest ({model: filename}) — how a bundle whose CSV
+        // structure_file names don't match the shipped (renamed/gzipped) files bridges them.
+        const structsByModel = {};
+        if (manifest && manifest.structures) for (const [m, fn] of Object.entries(manifest.structures)) { const b = norm(fn); if (allStructs[b]) structsByModel[String(m)] = allStructs[b]; }
+        // Per-model PAE image map from the manifest.
+        const paeByModel = {};
+        if (manifest && manifest.pae_images) for (const [m, fn] of Object.entries(manifest.pae_images)) { const u = pickImage(fn); if (u) paeByModel[String(m)] = u; }
+        return {
+            csvPath: csvKey, csvText: files[csvKey],
+            structText: rep.text, structName: rep.name, structFormat: rep.format,
+            structsByBase: allStructs, structsByModel,
+            paeImageUrl: pickImage(manifest && manifest.pae_image), paeByModel,
+            manifest: manifest || null,
+            name: (manifest && manifest.name) || null,
+            chains: (manifest && manifest.chains) || null,
+        };
+    };
+
+    // 1) Explicit manifest (the robust path — see docs/lightweight-bundle.md)
+    const manifestKey = keys.find(k => k.split('/').pop() === 'manifest.json');
+    if (manifestKey) {
+        try {
+            const mf = JSON.parse(files[manifestKey]);
+            if (mf && mf.livia_bundle) {
+                const csvKey = (mf.scores && keys.find(k => norm(k) === norm(mf.scores))) || sigCsvKey();
+                const repBase = (mf.structure && allStructs[norm(mf.structure)]) ? norm(mf.structure) : (structKey() && norm(structKey()));
+                const lw = build(csvKey, repBase, mf);
+                if (lw) return lw;
+            }
+        } catch (e) { /* malformed manifest → fall through to auto-detect */ }
+    }
+
+    // 2) Auto-detect: a lis.py-signature CSV + a structure, and NO numeric PAE present.
+    //    The numeric-PAE guard keeps a FULL bundle that happens to ship a sibling *_lis.csv
+    //    (e.g. a Boltz export) on the normal compute path instead of hijacking it here.
+    const csvKey = sigCsvKey();
+    if (!csvKey) return null;
+    const stKey = structKey();
+    if (!stKey) return null;
+    const hasNumericPae = keys.some(k => /\.(npz|npy)$/i.test(k))
+        || keys.some(k => /\.json$/i.test(k) && /(predicted_aligned_error|"pae")/.test(files[k] || ''));
+    if (hasNumericPae) return null;
+    return build(csvKey, norm(stKey), null);
+}
+
+// Parse a lis.py CSV. Fields may be double-quoted and contain commas (the "[1-4,10-11,13]"
+// residue-range strings), so this respects quotes. Returns an array of row objects.
+function parseLisCsv(text) {
+    const rows = [];
+    const lines = String(text).split(/\r?\n/).filter(l => l.length > 0);
+    if (!lines.length) return rows;
+    const parseLine = (line) => {
+        const out = []; let cur = ''; let q = false;
+        for (let i = 0; i < line.length; i++) {
+            const c = line[i];
+            if (q) {
+                if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+                else cur += c;
+            } else {
+                if (c === '"') q = true;
+                else if (c === ',') { out.push(cur); cur = ''; }
+                else cur += c;
+            }
+        }
+        out.push(cur);
+        return out;
+    };
+    const header = parseLine(lines[0]);
+    for (let li = 1; li < lines.length; li++) {
+        const cells = parseLine(lines[li]);
+        if (cells.length === 1 && cells[0] === '') continue;
+        const obj = {};
+        for (let ci = 0; ci < header.length; ci++) obj[header[ci]] = cells[ci] !== undefined ? cells[ci] : '';
+        rows.push(obj);
+    }
+    return rows;
+}
+
+// Expand a lis.py residue-range string ("[1-4,10-11,13]" / "1-4,10" / "") → Set of ints.
+function parseIndexRanges(s) {
+    const out = new Set();
+    if (!s) return out;
+    const str = String(s).trim().replace(/^\[|\]$/g, '').trim();
+    if (!str) return out;
+    for (const part of str.split(',')) {
+        const p = part.trim();
+        if (!p) continue;
+        if (p.indexOf('-') > 0) {
+            const [a, b] = p.split('-').map(x => parseInt(x, 10));
+            if (Number.isFinite(a) && Number.isFinite(b)) for (let k = a; k <= b; k++) out.add(k);
+        } else {
+            const n = parseInt(p, 10);
+            if (Number.isFinite(n)) out.add(n);
+        }
+    }
+    return out;
+}
+
+// Build one directed pair object from a CSV row. swap=true yields the reverse (j,i)
+// direction: lis.py's row values are already symmetrized, so the scalars are the same in
+// both directions and only the per-chain (i/j) fields swap. Feeding both directions into
+// averageModels() reproduces exactly the shape/semantics of the full compute path.
+function pairFromCsvRow(r, swap) {
+    const num = (x) => { const v = parseFloat(x); return isNaN(v) ? 0 : v; };
+    const nanNum = (x) => { if (x === '' || x == null) return NaN; const v = parseFloat(x); return isNaN(v) ? NaN : v; };
+    const A = swap ? 'j' : 'i', B = swap ? 'i' : 'j';
+    return {
+        ci: swap ? r.chain_j : r.chain_i,
+        cj: swap ? r.chain_i : r.chain_j,
+        LIS: num(r.LIS), cLIS: num(r.cLIS),
+        iLIS: num(r.iLIS), iLIA: num(r.iLIA), iLISA: num(r.iLISA),
+        ipTM: num(r.ipTM), ipSAE: num(r.ipSAE), actifpTM: num(r.actifpTM),
+        LIA: num(r.LIA), cLIA: num(r.cLIA),
+        LIpLDDT_i: nanNum(r['LIpLDDT_' + A]), LIpLDDT_j: nanNum(r['LIpLDDT_' + B]),
+        cLIpLDDT_i: nanNum(r['cLIpLDDT_' + A]), cLIpLDDT_j: nanNum(r['cLIpLDDT_' + B]),
+        lirI: parseIndexRanges(r['LIR_indices_' + A]), lirJ: parseIndexRanges(r['LIR_indices_' + B]),
+        clirI: parseIndexRanges(r['cLIR_indices_' + A]), clirJ: parseIndexRanges(r['cLIR_indices_' + B]),
+        lenI: swap ? num(r.len_j) : num(r.len_i),
+        lenJ: swap ? num(r.len_i) : num(r.len_j),
+    };
+}
+
+// Build the per-metric chain×chain grids the Score Matrix reads, from a directed-pairs
+// dict. Mirrors the inline grid build in processFiles (no numeric PAE needed).
+function buildMetricGridsFromPairs(pairs, chainNames) {
+    const nc = chainNames.length;
+    const MKEYS = ['iLIS', 'iLIA', 'iLISA', 'ipTM', 'ipSAE', 'actifpTM', 'LIS', 'cLIS', 'LIR', 'cLIR'];
+    const MG = {};
+    for (const mk of MKEYS) MG[mk] = Array.from({ length: nc }, () => Array(nc).fill(0));
+    for (let i = 0; i < nc; i++) {
+        for (let j = 0; j < nc; j++) {
+            if (i === j) continue;
+            const fwd = pairs[`${chainNames[i]},${chainNames[j]}`];
+            const rev = pairs[`${chainNames[j]},${chainNames[i]}`];
+            if (fwd && rev) {
+                const avgLIS = (fwd.LIS + rev.LIS) / 2, avgCLIS = (fwd.cLIS + rev.cLIS) / 2;
+                const avgLIA = (fwd.LIA + rev.LIA) / 2, avgCLIA = (fwd.cLIA + rev.cLIA) / 2;
+                MG.iLIS[i][j] = Math.sqrt(avgLIS * avgCLIS);
+                MG.iLIA[i][j] = Math.sqrt(avgLIA * avgCLIA);
+                MG.iLISA[i][j] = MG.iLIS[i][j] * MG.iLIA[i][j];
+                MG.ipTM[i][j] = (fwd.ipTM + rev.ipTM) / 2;
+                MG.ipSAE[i][j] = ((fwd.ipSAE || 0) + (rev.ipSAE || 0)) / 2;
+                MG.actifpTM[i][j] = ((fwd.actifpTM || 0) + (rev.actifpTM || 0)) / 2;
+                MG.LIS[i][j] = avgLIS; MG.cLIS[i][j] = avgCLIS;
+                MG.LIR[i][j] = fwd.lirI.size; MG.cLIR[i][j] = fwd.clirI.size;
+            } else if (fwd) {
+                MG.iLIS[i][j] = fwd.iLIS; MG.iLIA[i][j] = fwd.iLIA; MG.iLISA[i][j] = fwd.iLISA || 0;
+                MG.ipTM[i][j] = fwd.ipTM; MG.ipSAE[i][j] = fwd.ipSAE || 0; MG.actifpTM[i][j] = fwd.actifpTM || 0;
+                MG.LIS[i][j] = fwd.LIS; MG.cLIS[i][j] = fwd.cLIS;
+                MG.LIR[i][j] = fwd.lirI.size; MG.cLIR[i][j] = fwd.clirI.size;
+            }
+        }
+    }
+    return MG;
+}
+
+function showPaeImageCard(url) {
+    const card = document.getElementById('pae-image-card');
+    const img = document.getElementById('pae-image');
+    if (!card || !img) return;
+    if (url) { img.src = url; card.style.display = ''; }
+    else { img.removeAttribute('src'); card.style.display = 'none'; }
+}
+
+// Lightweight bundles may ship a PAE image per model; show the selected model's (falling back
+// to the representative image, then hiding if none). No-op for non-lightweight loads.
+function updateLightweightPaeForModel(modelIdx) {
+    const lw = uniState.lightweight;
+    if (!lw) return;
+    const byModel = lw.paeByModel || {};
+    let url = lw.paeImageUrl;                              // representative fallback
+    if (modelIdx != null && modelIdx !== 'avg') {
+        const md = uniState.modelData && uniState.modelData[parseInt(modelIdx)];
+        const key = md ? String(md.idx) : String(modelIdx);   // array index → model key
+        if (byModel[key]) url = byModel[key];
+        else if (byModel[String(modelIdx)]) url = byModel[String(modelIdx)];
+    }
+    showPaeImageCard(url);
+}
+
+// Render a precomputed lightweight bundle: read scores + interface residues from the lis.py
+// CSV instead of computing them from a numeric PAE. Populates the same uniState structures as
+// processFiles so every downstream figure (3D, chord, contact map, score matrix, sequence
+// viewer) is unchanged; the numeric PAE/LIS/cLIS maps are replaced by the static PAE image.
+async function processPrecomputedBundle() {
+    const lw = uniState.lightweight;
+    setStatus('Reading precomputed bundle…', 'loading');
+    await sleep(10);
+
+    // Reset per-run state (mirror processFiles)
+    const allPairs = [];
+    uniState.modelData = [];
+    uniState.modelPairs = [];
+    uniState.structureContents = {};
+    uniState.structureFilenames = {};
+    uniState.chainNames = null;
+    uniState.chainSizes = null;
+    uniState.chainTypes = null;
+    uniState.ptmResidues = null;
+    uniState.nTotal = 0;
+    uniState.multiChainColors = null;
+    uniState.hiddenChains = new Set();
+    uniState.ipTMIsRankingScore = false;
+    viewer3dStructText = null;
+    if (!isMolstarFrameWarmedUp('viewer3d-frame')) {
+        if (viewer3dBlobUrl) { URL.revokeObjectURL(viewer3dBlobUrl); viewer3dBlobUrl = null; }
+        const v3frame = document.getElementById('viewer3d-frame');
+        if (v3frame) v3frame.src = 'about:blank';
+    }
+
+    // Chain layout from the representative structure (chains are identical across models).
+    const structText = lw.structText;
+    const fmt = lw.structFormat;
+    const structsByBase = lw.structsByBase || {};
+    const structsByModel = lw.structsByModel || {};
+    const chainInfo = getChainsFromStructure(structText, fmt);
+    const chainNames = chainInfo.names;
+    const sizes = chainInfo.sizes;
+    const types = chainInfo.types || chainNames.map(() => 'protein');
+    const nTotal = sizes.reduce((a, b) => a + b, 0);
+
+    // Parse CSV → group rows by model
+    const rows = parseLisCsv(lw.csvText);
+    if (!rows.length) throw new Error('Precomputed bundle: CSV has no data rows.');
+    const byModel = new Map();
+    for (const r of rows) {
+        const mk = (r.model && r.model !== '') ? r.model : (r.structure_file || r.rank || '0');
+        if (!byModel.has(mk)) byModel.set(mk, []);
+        byModel.get(mk).push(r);
+    }
+    const modelKeys = [...byModel.keys()].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+
+    for (let mi = 0; mi < modelKeys.length; mi++) {
+        const mk = modelKeys[mi];
+        const mrows = byModel.get(mk);
+        const pairs = {};
+        for (const r of mrows) {
+            if (!r.chain_i || !r.chain_j || r.chain_i === r.chain_j) continue;
+            pairs[`${r.chain_i},${r.chain_j}`] = pairFromCsvRow(r, false);
+            pairs[`${r.chain_j},${r.chain_i}`] = pairFromCsvRow(r, true);
+        }
+        // This model's own structure. Priority: manifest per-model map → CSV structure_file
+        // (basename, .gz/.xz stripped) → the shared representative structure.
+        const sf = ((mrows[0] && mrows[0].structure_file) || '').split('/').pop().replace(/\.(gz|xz)$/i, '');
+        const st = structsByModel[mk] || (sf && structsByBase[sf]) || { text: structText, format: fmt, name: lw.structName };
+        const MG = buildMetricGridsFromPairs(pairs, chainNames);
+        allPairs.push(pairs);
+        uniState.modelPairs.push(pairs);
+        uniState.structureContents[mk] = st.text;
+        uniState.structureFilenames[mk] = st.name || 'model';
+        uniState.modelData.push({
+            pae: null, lisMap: null, clisMap: null,
+            ilisGrid: MG.iLIS, iliaGrid: MG.iLIA, iptmGrid: MG.ipTM, lirGrid: MG.LIR, clirGrid: MG.cLIR,
+            metricGrids: MG, nTotal, idx: mk,
+            label: modelKeys.length > 1 ? `model_${mk}` : 'model',
+            scores: {}, structText: st.text, structFormat: st.format,
+        });
+    }
+
+    uniState.chainNames = chainNames;
+    uniState.chainSizes = sizes;
+    uniState.chainTypes = types;
+    uniState.nTotal = nTotal;
+    uniState.ptmResidues = chainInfo.ptm || {};
+    uniState.structureFormat = fmt;
+    uniState.confidenceScores = {};
+    // Gene labels from the manifest `chains` map (optional) — surfaced everywhere via chainLabel().
+    const cg = {};
+    if (lw.chains && typeof lw.chains === 'object') for (const n of chainNames) if (lw.chains[n]) cg[n] = lw.chains[n];
+    uniState.chainGenes = cg;
+
+    setStatus('Computing results…', 'loading');
+    await sleep(10);
+    uniState.results = averageModels(allPairs);
+    uniState.avgResults = uniState.results;
+
+    const label = lw.name || (lw.structName ? lw.structName.replace(/\.(pdb|cif)$/i, '') : 'Precomputed bundle');
+    setStatus(`Done! Processed precomputed bundle — ${chainNames.length} chains, ${modelKeys.length} model${modelKeys.length > 1 ? 's' : ''} (scores from lis.py).`, 'success');
+    displayResults(uniState.results, label + ' (precomputed)');
 }
 
 // ============================================================================
@@ -3451,9 +3821,18 @@ function displayResults(results, jobName) {
     document.getElementById('results').classList.add('active');
     setupMultiChainColors();
     renderChainToggleBar();
-    { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; uniState.chainTedDomains = {}; uniState.chainDomainInfo = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; if (typeof identifyChains === 'function') setTimeout(identifyChains, 0); } _cic.style.display = ''; } else { _cic.style.display = 'none'; } } }
+    { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; uniState.chainTedDomains = {}; uniState.chainDomainInfo = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; if (!(uniState.lightweight && uniState.chainGenes && Object.keys(uniState.chainGenes).length) && typeof identifyChains === 'function') setTimeout(identifyChains, 0); } _cic.style.display = ''; } else { _cic.style.display = 'none'; } } }
     drawAllScoreMatrices();
-    drawAllMaps();
+    if (uniState.lightweight) {
+        // Lightweight bundle has no numeric PAE — hide the PAE/LIS/cLIS heatmap cards and
+        // show the static PAE image supplied with the bundle instead.
+        ['pae-maps-card', 'lis-maps-card', 'clis-maps-card'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        showPaeImageCard(uniState.lightweight.paeImageUrl);
+    } else {
+        ['pae-maps-card', 'lis-maps-card', 'clis-maps-card'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; });
+        showPaeImageCard(null);
+        drawAllMaps();
+    }
     document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
 
     // Trigger data load for auto-selected first pair
@@ -3469,6 +3848,7 @@ function selectRow(pairKey, modelIdx, trEl) {
     } else {
         uniState.results = symmetrizePairs(uniState.modelPairs[parseInt(modelIdx)] || uniState.modelPairs[0]);
     }
+    if (uniState.lightweight) updateLightweightPaeForModel(modelIdx);
     document.querySelectorAll('#pairs-tbody tr').forEach(tr => tr.classList.remove('selected'));
     if (trEl) trEl.classList.add('selected');
 
@@ -5678,7 +6058,7 @@ function buildPerResidueCharts(pairKey) {
         const models = [];
         for (const md of uniState.modelData) {
             const pae = md.pae;
-            const nTotal = md.nTotal || pae.length;
+            const nTotal = md.nTotal || (pae ? pae.length : 0);
             const structText = md.structText;
             const format = md.structFormat || uniState.structureFormat;
 
@@ -5695,7 +6075,7 @@ function buildPerResidueCharts(pairKey) {
             for (let r = 0; r < chainLen; r++) {
                 const ri = offset + r;
                 let lisSum = 0;
-                if (ri < nTotal) {
+                if (pae && ri < nTotal) {
                     for (let j = 0; j < chainLen; j++) {
                         if (j === r) continue;
                         const rj = offset + j;
