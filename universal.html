@@ -5159,14 +5159,20 @@ function purplesColor(value, vmin, vmax) {
 }
 
 function calcMapDisplaySize() {
-    const card = document.querySelector("#pae-row")?.closest(".card") || document.querySelector(".container"); const containerW = (card ? card.clientWidth : 1100) - 64;
+    // Prefer the PAE-maps card, but it is hidden for lightweight bundles (clientWidth 0) — fall
+    // back to the score-matrix card (visible during a matrix render) or the page container, so
+    // a re-render (Identify chains, metric dropdown, model switch) doesn't get a bad width.
+    let card = document.querySelector("#pae-row")?.closest(".card");
+    if (!card || card.clientWidth <= 0) card = document.querySelector("#score-matrix-card");
+    if (!card || card.clientWidth <= 0) card = document.querySelector(".container");
+    const containerW = ((card && card.clientWidth > 0) ? card.clientWidth : 1100) - 64;
     const leftMargin = 20;
     const nMaps = uniState.modelData.length || 1;
     const gap = 6;
     const totalGaps = gap * (nMaps - 1);
     const totalMargins = leftMargin * nMaps;
     const raw = Math.floor((containerW - totalGaps - totalMargins) / nMaps);
-    return Math.min(raw, 350); // cap at 350px per map
+    return Math.max(80, Math.min(raw, 350)); // clamp: >= 80px, cap 350px per map
 }
 
 function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, vmax) {
