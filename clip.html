@@ -51,6 +51,11 @@
   .muted { color:#889; font-size:.82rem; }
   .hidden { display:none; }
   #status { font-size:.85rem; color:#667; margin-left:.5rem; }
+  @media (max-width:768px){
+    .seq-flow { font-size:0.68rem; }                 /* match universal.html — fit 4 blocks/line, no wasted right gap */
+    #ptable { width:auto; min-width:640px; }          /* wide partner table overflows its wrapper (overflow:auto) → scrolls sideways */
+    #ptable th, #ptable td { white-space:nowrap; }    /* keep numeric columns on one line instead of squishing */
+  }
 </style>
 </head>
 <body>
@@ -296,7 +301,7 @@
     </div>
 
     <div class="card">
-      <h2>Partners <input id="ptable-search" type="search" list="ptable-list" placeholder="🔍 filter partner…" autocomplete="off" spellcheck="false" style="font:inherit; font-size:.8rem; font-weight:400; padding:2px 8px; width:150px; border:1px solid #ccd6e0; border-radius:6px; vertical-align:middle"><span id="ptable-count" class="muted" style="font-size:.72rem; font-weight:400; margin-left:.4rem"></span> <button id="export" class="ghost" style="float:right">⬇ Download report HTML</button><datalist id="ptable-list"></datalist></h2>
+      <h2 style="display:flex; align-items:center; gap:.4rem; flex-wrap:wrap;">Partners <input id="ptable-search" type="search" list="ptable-list" placeholder="🔍 filter partner…" autocomplete="off" spellcheck="false" style="font:inherit; font-size:.8rem; font-weight:400; padding:2px 8px; width:150px; border:1px solid #ccd6e0; border-radius:6px; vertical-align:middle"><span id="ptable-count" class="muted" style="font-size:.72rem; font-weight:400"></span> <button id="export" class="ghost" style="margin-left:auto">⬇ Download report HTML</button><datalist id="ptable-list"></datalist></h2>
       <div style="max-height:360px; overflow:auto"><table id="ptable"></table></div>
     </div>
   </div>

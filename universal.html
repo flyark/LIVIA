@@ -104,7 +104,7 @@
         .preset:hover { background: #f0f0f0; }
 
         @media (max-width: 768px) {
-            .map-row { flex-wrap: wrap; justify-content: center; }
+            .map-row { flex-wrap: wrap; justify-content: center; flex-direction: column; align-items: center; }
             canvas { max-width: 100%; height: auto; }
             .colorbar-labels { width: 100%; max-width: 300px; }
         }
@@ -5169,7 +5169,9 @@ function calcMapDisplaySize() {
     if (!card || card.clientWidth <= 0) card = document.querySelector(".container");
     const containerW = ((card && card.clientWidth > 0) ? card.clientWidth : 1100) - 64;
     const leftMargin = 20;
-    const nMaps = uniState.modelData.length || 1;
+    // On phones the maps stack one-per-row (mobile .map-row rule), so each uses the full width
+    // rather than being divided across all models (which shrank them to an unreadable ~80px).
+    const nMaps = (typeof window !== 'undefined' && window.innerWidth <= 768) ? 1 : (uniState.modelData.length || 1);
     const gap = 6;
     const totalGaps = gap * (nMaps - 1);
     const totalMargins = leftMargin * nMaps;
@@ -5384,8 +5386,15 @@ function downloadCSV() {
         return cp;
     }
 
-    const header = 'name,model,chain_i,chain_j,iLIS,iLIA,iLISA,ipSAE,actifpTM,LIS,cLIS,LIA,cLIA,ipTM,pLDDT_i,pLDDT_j,pTM,LIR_i,LIR_j,cLIR_i,cLIR_j,LIpLDDT_i,LIpLDDT_j,cLIpLDDT_i,cLIpLDDT_j,len_i,len_j,LIR_indices_i,LIR_indices_j,cLIR_indices_i,cLIR_indices_j';
+    const header = 'name,model,chain_i,chain_j,iLIS,iLIA,iLISA,ipSAE,actifpTM,LIS,cLIS,LIA,cLIA,ipTM,pLDDT_i,pLDDT_j,pLDDT,pTM,LIR_i,LIR_j,cLIR_i,cLIR_j,LIpLDDT_i,LIpLDDT_j,LIpLDDT,cLIpLDDT_i,cLIpLDDT_j,cLIpLDDT,len_i,len_j,LIR_indices_i,LIR_indices_j,cLIR_indices_i,cLIR_indices_j';
     const rows = [header];
+    // Per-pair pLDDT columns (match lis.py): length/count-weighted mean of the two chains'
+    // pLDDT — weighted by chain length (pLDDT) or interface-residue count (LIpLDDT/cLIpLDDT).
+    const wmeanPlddt = (vi, vj, wi, wj) => {
+        vi = +vi; vj = +vj; wi = +wi; wj = +wj;
+        if (!isFinite(vi) || !isFinite(vj) || !((wi + wj) > 0)) return '';
+        return ((wi * vi + wj * vj) / (wi + wj)).toFixed(1);
+    };
     const platform = platformLabel(uniState.platform);
 
     for (let mi = 0; mi < uniState.modelPairs.length; mi++) {
@@ -5394,20 +5403,24 @@ function downloadCSV() {
         const chainPlddt = computeChainPlddt(md.structText, md.structFormat);
         const sym = symmetrizePairs(uniState.modelPairs[mi]);
         for (const [key, v] of Object.entries(sym)) {
-            const plddtI = chainPlddt[v.ci] != null ? chainPlddt[v.ci].toFixed(1) : (ms.pLDDT != null ? ms.pLDDT.toFixed(1) : '');
-            const plddtJ = chainPlddt[v.cj] != null ? chainPlddt[v.cj].toFixed(1) : (ms.pLDDT != null ? ms.pLDDT.toFixed(1) : '');
+            const pi = chainPlddt[v.ci] != null ? chainPlddt[v.ci] : (ms.pLDDT != null ? ms.pLDDT : NaN);
+            const pj = chainPlddt[v.cj] != null ? chainPlddt[v.cj] : (ms.pLDDT != null ? ms.pLDDT : NaN);
+            const plddtI = isNaN(pi) ? '' : pi.toFixed(1);
+            const plddtJ = isNaN(pj) ? '' : pj.toFixed(1);
             rows.push([
                 jobName, `model_${mi}`, v.ci, v.cj,
                 v.iLIS.toFixed(6), (v.iLIA||0).toFixed(1), (v.iLISA||0).toFixed(1), (v.ipSAE||0).toFixed(6), (v.actifpTM||0).toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
                 (v.LIA||0).toFixed(1), (v.cLIA||0).toFixed(1),
                 v.ipTM.toFixed(6),
-                plddtI, plddtJ,
+                plddtI, plddtJ, wmeanPlddt(pi, pj, v.lenI, v.lenJ),
                 ms.pTM != null ? ms.pTM.toFixed(3) : '',
                 v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
                 isNaN(v.LIpLDDT_i) ? '' : v.LIpLDDT_i.toFixed(1),
                 isNaN(v.LIpLDDT_j) ? '' : v.LIpLDDT_j.toFixed(1),
+                wmeanPlddt(v.LIpLDDT_i, v.LIpLDDT_j, v.lirI.size, v.lirJ.size),
                 isNaN(v.cLIpLDDT_i) ? '' : v.cLIpLDDT_i.toFixed(1),
                 isNaN(v.cLIpLDDT_j) ? '' : v.cLIpLDDT_j.toFixed(1),
+                wmeanPlddt(v.cLIpLDDT_i, v.cLIpLDDT_j, v.clirI.size, v.clirJ.size),
                 v.lenI, v.lenJ,
                 `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
                 `"[${[...v.lirJ].sort((a,b)=>a-b).join(', ')}]"`,
@@ -5438,20 +5451,24 @@ function downloadCSV() {
         }
 
         for (const [key, v] of Object.entries(uniState.avgResults)) {
-            const plddtI = avgChainPlddt[v.ci] != null ? avgChainPlddt[v.ci].toFixed(1) : '';
-            const plddtJ = avgChainPlddt[v.cj] != null ? avgChainPlddt[v.cj].toFixed(1) : '';
+            const pi = avgChainPlddt[v.ci] != null ? avgChainPlddt[v.ci] : NaN;
+            const pj = avgChainPlddt[v.cj] != null ? avgChainPlddt[v.cj] : NaN;
+            const plddtI = isNaN(pi) ? '' : pi.toFixed(1);
+            const plddtJ = isNaN(pj) ? '' : pj.toFixed(1);
             rows.push([
                 jobName, 'average', v.ci, v.cj,
                 v.iLIS.toFixed(6), (v.iLIA||0).toFixed(1), (v.iLISA||0).toFixed(1), (v.ipSAE||0).toFixed(6), (v.actifpTM||0).toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
                 (v.LIA||0).toFixed(1), (v.cLIA||0).toFixed(1),
                 v.ipTM.toFixed(6),
-                plddtI, plddtJ,
+                plddtI, plddtJ, wmeanPlddt(pi, pj, v.lenI, v.lenJ),
                 avgPtmVal != null ? avgPtmVal.toFixed(3) : '',
                 v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
                 isNaN(v.LIpLDDT_i) ? '' : v.LIpLDDT_i.toFixed(1),
                 isNaN(v.LIpLDDT_j) ? '' : v.LIpLDDT_j.toFixed(1),
+                wmeanPlddt(v.LIpLDDT_i, v.LIpLDDT_j, v.lirI.size, v.lirJ.size),
                 isNaN(v.cLIpLDDT_i) ? '' : v.cLIpLDDT_i.toFixed(1),
                 isNaN(v.cLIpLDDT_j) ? '' : v.cLIpLDDT_j.toFixed(1),
+                wmeanPlddt(v.cLIpLDDT_i, v.cLIpLDDT_j, v.clirI.size, v.clirJ.size),
                 v.lenI, v.lenJ,
                 `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
                 `"[${[...v.lirJ].sort((a,b)=>a-b).join(', ')}]"`,
