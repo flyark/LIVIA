@@ -88,6 +88,25 @@
   const num = (x) => { const v = parseFloat(x); return isNaN(v) ? null : v; };
   const DEFAULT_EXCL = ['phospho', 'mutant'];
 
+  // Some inputs carry LIA/cLIA but not the derived iLIA/iLISA (a collaborator .xlsx, or an older
+  // lis.py export). Recover them in place with lis.py's own formulas — iLIA = sqrt(LIA*cLIA),
+  // iLISA = iLIS*iLIA — so iLISA doesn't collapse to 0. Runs on the raw hits before they split
+  // into rows / allPoints / allPredictions, so the scatter (which reads allPredictions) sees them
+  // too, not just the deduped table rows. Idempotent: only fills a value that is missing.
+  function deriveDerivedMetrics(rows) {
+    for (const x of rows) {
+      if ((x.iLIA == null || x.iLIA === '') && x.LIA != null && x.cLIA != null) {
+        const lia = num(x.LIA), clia = num(x.cLIA);
+        if (lia != null && clia != null && lia >= 0 && clia >= 0) x.iLIA = Math.sqrt(lia * clia);
+      }
+      if ((x.iLISA == null || x.iLISA === '') && x.iLIS != null && x.iLIA != null) {
+        const il = num(x.iLIS), ia = num(x.iLIA);
+        if (il != null && ia != null) x.iLISA = il * ia;
+      }
+    }
+    return rows;
+  }
+
   // ---- filter_and_deduplicate ----
   function filterAndDedup(rows, opts) {
     opts = opts || {};
@@ -96,7 +115,7 @@
     const sortBy = opts.sortBy || 'iLIS';
     const topN = opts.topN == null ? 50 : opts.topN;
 
-    let r = rows.map((x) => Object.assign({}, x));
+    let r = deriveDerivedMetrics(rows.map((x) => Object.assign({}, x)));   // safety net; hits are already derived in the pipeline
     for (const x of r) { for (const c of ['iLIS', 'iLIA', 'iLISA', 'ipTM', 'Rank']) if (c in x) x['_' + c] = num(x[c]); }
     r.forEach((x) => { x._iLISxiLIA = x._iLISA != null ? x._iLISA : (x._iLIS || 0); });
 
@@ -216,7 +235,7 @@
   // ---- pipeline on already-parsed+converted rows (fast path — parse once, reuse) ----
   function runPipelineRows(rows, gene, opts) {
     opts = opts || {};
-    const hits = orient(searchGene(rows, gene), gene);
+    const hits = deriveDerivedMetrics(orient(searchGene(rows, gene), gene));   // fill iLIA/iLISA once, before the row set splits
     const allPoints = bestPerPartner(hits);               // background: every partner
     const filt = filterAndDedup(hits, opts);              // (clones rows — safe to mutate below)
     const norm = normalizeConstructs(filt, gene, opts.fastaParse, opts.alignMap);   // unify mixed full/partial constructs onto one frame
