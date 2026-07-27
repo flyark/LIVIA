@@ -203,6 +203,44 @@
         donut(sA, eA); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
     }
 
+    // Nice-number major-tick spacing (1/2/5 × 10^k) aiming for ~5 major ticks across the span.
+    function chordRulerStep(span) {
+        const raw = span / 5, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag;
+        return Math.max(1, (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * mag);
+    }
+    // Circos-style residue ruler around one arc spanning [sA,eA] over `len` residues: minor + major
+    // ticks radiating outward from outerR, radial numbers at the majors (at nice round residue
+    // coordinates). Same ctx as the display canvas AND the canvas2svg export, so it exports too.
+    // opts: {muted, type, minResidues, offset, color, textColor, font}. `offset` shifts the printed
+    // number to an absolute coordinate (residue = within-arc index + offset) — 0 for a full chain,
+    // start-1 for a subdomain. Short (< minResidues, default 20) or non-polymer arcs get no ruler.
+    function drawChordRuler(ctx, cx, cy, outerR, sA, eA, len, opts) {
+        opts = opts || {};
+        if (opts.muted || len < (opts.minResidues || 20)) return;
+        const t = opts.type; if (t === 'ion' || t === 'glycan' || t === 'ligand') return;
+        const off = opts.offset || 0, lo = off + 1, hi = off + len;     // absolute residue range on this arc
+        const angOf = abs => sA + ((abs - off - 1) / Math.max(1, len - 1)) * (eA - sA);
+        const major = chordRulerStep(len), minor = Math.max(1, Math.round(major / 5));
+        ctx.save();
+        ctx.strokeStyle = opts.color || '#9aa3ac'; ctx.lineWidth = 0.8;
+        for (let a = Math.ceil(lo / minor) * minor; a <= hi; a += minor) {   // minor ticks at round coords (skip majors)
+            if (major && a % major === 0) continue;
+            const ang = angOf(a), c = Math.cos(ang), s = Math.sin(ang);
+            ctx.beginPath(); ctx.moveTo(cx + c * outerR, cy + s * outerR); ctx.lineTo(cx + c * (outerR + 3), cy + s * (outerR + 3)); ctx.stroke();
+        }
+        ctx.fillStyle = opts.textColor || '#666'; ctx.font = opts.font || '9px sans-serif'; ctx.textBaseline = 'middle';
+        for (let a = Math.ceil(lo / major) * major; a <= hi; a += major) {   // major ticks + radial numbers
+            const ang = angOf(a), c = Math.cos(ang), s = Math.sin(ang);
+            ctx.beginPath(); ctx.moveTo(cx + c * outerR, cy + s * outerR); ctx.lineTo(cx + c * (outerR + 6), cy + s * (outerR + 6)); ctx.stroke();
+            ctx.save();
+            ctx.translate(cx + c * (outerR + 8), cy + s * (outerR + 8));
+            if (c < 0) { ctx.rotate(ang + Math.PI); ctx.textAlign = 'right'; } else { ctx.rotate(ang); ctx.textAlign = 'left'; }
+            ctx.fillText(String(a), 0, 0);
+            ctx.restore();
+        }
+        ctx.restore();
+    }
+
     // PNG bar for a canvas ELEMENT (charts are built inside a container and carry no id).
     function attachPngBtnFor(cv, name) {
         if (!cv || !cv.parentElement) return;
@@ -452,7 +490,7 @@
         svgFromDraw, svgFromFixedCanvas,
         downloadSVGFile, downloadSVGFromCanvas, downloadCanvasPNG,
         attachExportBar, attachPngBtnFor, attachChartPngButtons,
-        setToRanges, paintChordArcBand,
+        setToRanges, paintChordArcBand, drawChordRuler,
         parseColorCSV, attachColorUpload,
         seqFlow, fitSeqHost,
         strokeFadeQuad, strokeFadeCubic,

@@ -253,6 +253,9 @@
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent chains (proportional to length). Lines connect cLIR residue pairs in physical contact.
             </div>
+            <div style="margin-bottom:0.5rem;">
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Circos-style residue-position ruler around each arc"><input type="checkbox" id="chord-show-ticks" checked onchange="dimerShowChordTicks=this.checked; buildChordDiagram();"> ticks</label>
+            </div>
             <div style="text-align:center;">
                 <canvas id="chord-canvas"></canvas>
             </div>
@@ -457,7 +460,7 @@
 <script src="js/livia-viewer.js?v=20260716e"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260718b"></script>
+<script src="js/livia-maps.js?v=20260727"></script>
 <script>
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (dimerPairResult) { generateAndDisplayScript(); buildDimerSequenceViewer(); buildDimerContactMap(); buildChordDiagram(); buildComparisonCharts(); updateViewer3d(); renderChainToggleBar(); } };
@@ -1435,6 +1438,7 @@ const setToRanges = (set) => LiviaMaps.setToRanges(set);            // shared: j
 // Paint one chain's chord-ring arc: gray base → LIR residues (light) → cLIR residues
 // (dark) on top, matching the LIR/cLIR shading in the seq viewer & linear contact map.
 const paintChordArcBand = (...args) => LiviaMaps.paintChordArcBand(...args);   // shared: js/livia-maps.js
+let dimerShowChordTicks = true;   // Circular Contact Map: residue-position ruler around each arc (default on)
 
 function buildChordDiagram() {
     const v = dimerPairResult;
@@ -1499,7 +1503,7 @@ function buildChordDiagram() {
     ctx.scale(S, S);
 
     const cx = size / 2, cy = size / 2;
-    const outerR = size / 2 - 30, innerR = outerR - 18, chordR = innerR - 4;
+    const outerR = size / 2 - (dimerShowChordTicks ? 62 : 48), innerR = outerR - 18, chordR = innerR - 4;
     const gap = 0.04;
     const totalLen = lenA + lenB;
     const totalAngle = 2 * Math.PI - 2 * gap;
@@ -1533,6 +1537,10 @@ function buildChordDiagram() {
         const lightA = colors.lir_a || colA, lightB = colors.lir_b || colB;
         paintChordArcBand(ctx, cx, cy, outerR, innerR, startA, endA, lenA, lirI_f, clirI_f, lightA, colA);
         paintChordArcBand(ctx, cx, cy, outerR, innerR, startB, endB, lenB, lirJ_f, clirJ_f, lightB, colB);
+        if (dimerShowChordTicks) {   // Circos-style residue ruler around each arc
+            LiviaMaps.drawChordRuler(ctx, cx, cy, outerR, startA, endA, lenA, {});
+            LiviaMaps.drawChordRuler(ctx, cx, cy, outerR, startB, endB, lenB, {});
+        }
     }
 
     // Labels — rotated along arc (matching subdomain interaction map style)
@@ -1542,7 +1550,7 @@ function buildChordDiagram() {
     ];
     for (const arc of chainArcs) {
         const labelAngle = arc.mid;
-        const labelR = outerR + 14;
+        const labelR = outerR + (dimerShowChordTicks ? 34 : 18);
         const lx = cx + Math.cos(labelAngle) * labelR;
         const ly = cy + Math.sin(labelAngle) * labelR;
         ctx.save();
@@ -1552,21 +1560,21 @@ function buildChordDiagram() {
         if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
         ctx.rotate(textAngle);
         ctx.fillStyle = '#333';
-        ctx.font = 'bold 9px sans-serif';
+        ctx.font = 'bold 13px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(arc.name, 0, 0);
         ctx.restore();
 
         // Residue count label (smaller, below name)
-        const rangeR = outerR + 24;
+        const rangeR = outerR + (dimerShowChordTicks ? 50 : 35);
         const rx = cx + Math.cos(labelAngle) * rangeR;
         const ry = cy + Math.sin(labelAngle) * rangeR;
         ctx.save();
         ctx.translate(rx, ry);
         ctx.rotate(textAngle);
         ctx.fillStyle = '#888';
-        ctx.font = '7px sans-serif';
+        ctx.font = '11px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(`${arc.size}`, 0, 0);
@@ -2846,7 +2854,7 @@ function drawAllMaps() {
     const mapsCard = document.getElementById('maps-flex')?.closest('.card');
     const containerEl = document.querySelector('.container');
     const cardW = (mapsCard && mapsCard.clientWidth > 100 ? mapsCard.clientWidth : containerEl ? containerEl.clientWidth : 1052) - 48;
-    const nPanels = 3, panelOverhead = 65, panelGap = 6;
+    const nPanels = 3, panelOverhead = 84, panelGap = 6;   // colorbar + tick labels + gaps (measured ~75); buffer so 3 panels never overflow the card (was 65 → cLIS clipped)
     const horizSize = Math.floor((cardW - panelGap * (nPanels - 1)) / nPanels - panelOverhead);
     const stackVertical = window.innerWidth <= 768 || horizSize < 150;
     const displaySize = stackVertical
