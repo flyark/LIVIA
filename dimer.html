@@ -253,7 +253,8 @@
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent chains (proportional to length). Lines connect cLIR residue pairs in physical contact.
             </div>
-            <div style="margin-bottom:0.5rem;">
+            <div style="margin-bottom:0.5rem; display:flex; gap:0.9rem; flex-wrap:wrap;">
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="dimerShowChordIDs=this.checked; buildChordDiagram();"> chain IDs</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Circos-style residue-position ruler around each arc"><input type="checkbox" id="chord-show-ticks" checked onchange="dimerShowChordTicks=this.checked; buildChordDiagram();"> ticks</label>
             </div>
             <div style="text-align:center;">
@@ -1439,6 +1440,7 @@ const setToRanges = (set) => LiviaMaps.setToRanges(set);            // shared: j
 // (dark) on top, matching the LIR/cLIR shading in the seq viewer & linear contact map.
 const paintChordArcBand = (...args) => LiviaMaps.paintChordArcBand(...args);   // shared: js/livia-maps.js
 let dimerShowChordTicks = true;   // Circular Contact Map: residue-position ruler around each arc (default on)
+let dimerShowChordIDs = true;   // Circular Contact Map: append the chain ID (A/B) to the gene name (matches the linear map)
 
 function buildChordDiagram() {
     const v = dimerPairResult;
@@ -1464,6 +1466,8 @@ function buildChordDiagram() {
     const colB = colors.clir_b;
 
     const lenA = v.lenI, lenB = v.lenJ;
+    const _cgenes = (typeof selectedDimer !== 'undefined' && selectedDimer && selectedDimer.gene) || [];
+    const geneA = _cgenes[0] || v.ci, geneB = _cgenes[1] || _cgenes[0] || v.cj;   // resolved gene names — same source as the linear map
 
     // Parse Cβ coordinates
     const coords = parseCifCoords(dimerCifText);
@@ -1545,8 +1549,8 @@ function buildChordDiagram() {
 
     // Labels — rotated along arc (matching subdomain interaction map style)
     const chainArcs = [
-        { mid: (startA + endA) / 2, name: v.ci, size: lenA },
-        { mid: (startB + endB) / 2, name: v.cj, size: lenB }
+        { mid: (startA + endA) / 2, name: dimerShowChordIDs ? `${geneA} (${v.ci})` : geneA, size: lenA },
+        { mid: (startB + endB) / 2, name: dimerShowChordIDs ? `${geneB} (${v.cj})` : geneB, size: lenB }
     ];
     for (const arc of chainArcs) {
         const labelAngle = arc.mid;
