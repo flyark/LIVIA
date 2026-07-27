@@ -3517,6 +3517,13 @@ async function processPrecomputedBundle() {
         byModel.get(mk).push(r);
     }
     const modelKeys = [...byModel.keys()].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+    // Label rows by RANK when the CSV carries one. The PAE images a bundle ships are named by
+    // rank (ColabFold writes rank_1…rank_5), so labelling the score table by model index put
+    // "model_5" beside "rank_1" for the same prediction. Rank also orders best-first.
+    const rankOf = (mk) => { const r = (byModel.get(mk)[0] || {}).rank; return (r === undefined || r === '' || isNaN(+r)) ? null : +r; };
+    const useRank = modelKeys.length > 1 && modelKeys.every(mk => rankOf(mk) !== null)
+                    && new Set(modelKeys.map(rankOf)).size === modelKeys.length;
+    if (useRank) modelKeys.sort((a, b) => rankOf(a) - rankOf(b));
 
     for (let mi = 0; mi < modelKeys.length; mi++) {
         const mk = modelKeys[mi];
@@ -3540,7 +3547,7 @@ async function processPrecomputedBundle() {
             pae: null, lisMap: null, clisMap: null,
             ilisGrid: MG.iLIS, iliaGrid: MG.iLIA, iptmGrid: MG.ipTM, lirGrid: MG.LIR, clirGrid: MG.cLIR,
             metricGrids: MG, nTotal, idx: mk,
-            label: modelKeys.length > 1 ? `model_${mk}` : 'model',
+            label: useRank ? `rank_${rankOf(mk)}` : (modelKeys.length > 1 ? `model_${mk}` : 'model'),
             scores: {}, structText: st.text, structFormat: st.format,
         });
     }
