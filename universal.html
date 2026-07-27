@@ -3542,8 +3542,13 @@ async function processPrecomputedBundle() {
         const MG = buildMetricGridsFromPairs(pairs, chainNames);
         allPairs.push(pairs);
         uniState.modelPairs.push(pairs);
-        uniState.structureContents[mk] = st.text;
-        uniState.structureFilenames[mk] = st.name || 'model';
+        // Key POSITIONALLY (mi), not by model id (mk) — every consumer looks these up with the
+        // selected model's *index*. The full-load path already keys by idx. When a platform's
+        // model ids are not 0..N-1 in display order — ColabFold ranks 1..5 map to model ids in a
+        // different order — keying by mk made the Circular Contact Map, the interface script and
+        // the 3D download silently use ANOTHER model's structure (or fall back to the first).
+        uniState.structureContents[mi] = st.text;
+        uniState.structureFilenames[mi] = st.name || 'model';
         uniState.modelData.push({
             pae: null, lisMap: null, clisMap: null,
             ilisGrid: MG.iLIS, iliaGrid: MG.iLIA, iptmGrid: MG.ipTM, lirGrid: MG.LIR, clirGrid: MG.cLIR,
