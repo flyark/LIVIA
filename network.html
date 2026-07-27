@@ -19,7 +19,7 @@
   .dz:hover,.dz.drag{ border-color:var(--accent); background:#eef5fb; color:var(--accent); }
   .dz b{ color:var(--accent); }
   .hint a{ color:var(--accent); }   /* match clip.html tone — was inheriting the vivid browser-default link blue */
-  .zones3{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; align-items:start; }
+  .zones3{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; align-items:start; }
   .zones3 #loaded{ grid-column:1/-1; }
   .zonehdr{ font-weight:600; font-size:.85rem; color:#556; margin-bottom:6px; }
   .zonehdr .opt{ font-weight:400; font-size:.76rem; color:#9aa; }
@@ -64,7 +64,8 @@
   .hint code{ background:#f0f0f0; padding:.1rem .3rem; border-radius:4px; }
   .hidden{ display:none!important; }
   @media(max-width:1000px){ .main{ grid-template-columns:1fr; } #modules{ max-height:none; } }
-  @media(max-width:760px){ .zones3{ grid-template-columns:1fr; } }
+  @media(max-width:1100px){ .zones3{ grid-template-columns:1fr 1fr; } }
+  @media(max-width:560px){ .zones3{ grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
