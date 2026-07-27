@@ -231,7 +231,9 @@
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent subdomains (proportional to length). Lines connect cLIR residue pairs in physical contact.
             </div>
-            <div style="margin-bottom:0.5rem;">
+            <div style="margin-bottom:0.5rem; display:flex; gap:0.9rem; flex-wrap:wrap;">
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-labels" checked onchange="monShowChordLabels=this.checked; if(monLastRegions) drawChordDiagram(monLastRegions);"> labels</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="monShowChordLength=this.checked; if(monLastRegions) drawChordDiagram(monLastRegions);"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Residue-position ruler (absolute coordinates) around each subdomain arc"><input type="checkbox" id="chord-show-ticks" checked onchange="monShowChordTicks=this.checked; if(monLastRegions) drawChordDiagram(monLastRegions);"> ticks</label>
             </div>
             <div style="text-align:center;">
@@ -3179,6 +3181,8 @@ function drawMapCanvasSingle(canvas, map2d, n, colorFn, vmin, vmax, regions, ove
 }
 
 let monShowChordTicks = true, monLastRegions = null;   // Subdomain map: residue-position ruler (default on)
+let monShowChordLabels = true;   // Subdomain map: show the subdomain name
+let monShowChordLength = true;   // Subdomain map: show the residue range
 function drawChordDiagram(validRegions) {
     monLastRegions = validRegions;
     const container = document.getElementById('chord-diagram-container');
@@ -3271,7 +3275,7 @@ function drawChordDiagram(validRegions) {
         ctx.font = 'bold 13px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(`${arc.region.name}`, 0, 0);
+        ctx.fillText(monShowChordLabels ? `${arc.region.name}` : '', 0, 0);
         ctx.restore();
 
         // Residue range label (smaller)
@@ -3285,7 +3289,7 @@ function drawChordDiagram(validRegions) {
         ctx.font = '11px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(`${arc.region.start}-${arc.region.end}`, 0, 0);
+        ctx.fillText(monShowChordLength ? `${arc.region.start}-${arc.region.end}` : '', 0, 0);
         ctx.restore();
     }
 

@@ -264,7 +264,9 @@
             <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
                 <h2 style="margin-bottom:0;">Circular Contact Map</h2>
                 <div class="model-selector" id="chord-model-selector"></div>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-labels" checked onchange="orthoShowChordLabels=this.checked; window.__redrawOrthoChord&&window.__redrawOrthoChord();"> labels</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="orthoShowChordIDs=this.checked; window.__redrawOrthoChord&&window.__redrawOrthoChord();"> chain IDs</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="orthoShowChordLength=this.checked; window.__redrawOrthoChord&&window.__redrawOrthoChord();"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Circos-style residue-position ruler around each arc"><input type="checkbox" id="chord-show-ticks" checked onchange="orthoShowChordTicks=this.checked; window.__redrawOrthoChord&&window.__redrawOrthoChord();"> ticks</label>
             </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
@@ -2663,8 +2665,10 @@ const setToRanges = (set) => LiviaMaps.setToRanges(set);            // shared: j
 const paintChordArcBand = (...args) => LiviaMaps.paintChordArcBand(...args);   // shared: js/livia-maps.js
 
 let orthoShowChordIDs = true;
-let orthoShowChordTicks = true;   // Circular Contact Map: residue-position ruler around each arc (default on)   // Circular Contact Map: include the chain-ID suffix "(A)" in arc labels (toggle in the header)
-const orthoChordLabel = (sym, id) => orthoShowChordIDs ? `${sym} (${id})` : sym;
+let orthoShowChordTicks = true;   // Circular Contact Map: residue-position ruler around each arc (default on)
+let orthoShowChordLabels = true;   // Circular Contact Map: show the gene name
+let orthoShowChordLength = true;   // Circular Contact Map: show the residue-count number   // Circular Contact Map: include the chain-ID suffix "(A)" in arc labels (toggle in the header)
+const orthoChordLabel = (sym, id) => { const g = orthoShowChordLabels ? sym : ''; if (g && orthoShowChordIDs) return `${g} (${id})`; if (g) return g; if (orthoShowChordIDs) return id; return orthoShowChordLabels ? id : ''; };
 function drawChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coordA, coordB, skipDistFilter, LIR_A, LIR_B) {
     const S = 2, size = 350;
     canvas.width = size * S; canvas.height = size * S;
@@ -2745,7 +2749,7 @@ function drawChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coord
         ctx.fillText(arc.name, 0, 0); ctx.restore();
         ctx.save(); ctx.translate(cx+Math.cos(arc.mid)*(outerR+(orthoShowChordTicks?50:35)), cy+Math.sin(arc.mid)*(outerR+(orthoShowChordTicks?50:35)));
         ctx.rotate(textAngle); ctx.fillStyle = '#888'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(`${arc.size}`, 0, 0); ctx.restore();
+        ctx.fillText(orthoShowChordLength ? `${arc.size}` : '', 0, 0); ctx.restore();
     }
     ctx.restore();
 }
@@ -2796,7 +2800,7 @@ function drawChordFromContacts(canvas, contacts, lenA, lenB, sym1, sym2, colors,
         ctx.fillText(arc.name, 0, 0); ctx.restore();
         ctx.save(); ctx.translate(cx+Math.cos(arc.mid)*(outerR+(orthoShowChordTicks?50:35)), cy+Math.sin(arc.mid)*(outerR+(orthoShowChordTicks?50:35)));
         ctx.rotate(textAngle); ctx.fillStyle='#888'; ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText(`${arc.size}`, 0, 0); ctx.restore();
+        ctx.fillText(orthoShowChordLength ? `${arc.size}` : '', 0, 0); ctx.restore();
     }
     ctx.restore();
 }

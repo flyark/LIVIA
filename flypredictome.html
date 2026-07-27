@@ -302,7 +302,9 @@
             <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
                 <h2 style="margin-bottom:0;">Circular Contact Map</h2>
                 <div class="model-selector" id="chord-model-selector"></div>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-labels" checked onchange="flyShowChordLabels=this.checked; window.__redrawFlyChord&&window.__redrawFlyChord();"> labels</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="flyShowChordIDs=this.checked; window.__redrawFlyChord&&window.__redrawFlyChord();"> chain IDs</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="flyShowChordLength=this.checked; window.__redrawFlyChord&&window.__redrawFlyChord();"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Circos-style residue-position ruler around each arc"><input type="checkbox" id="chord-show-ticks" checked onchange="flyShowChordTicks=this.checked; window.__redrawFlyChord&&window.__redrawFlyChord();"> ticks</label>
             </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
@@ -3176,8 +3178,10 @@ const setToRanges = (set) => LiviaMaps.setToRanges(set);            // shared: j
 const paintChordArcBand = (...args) => LiviaMaps.paintChordArcBand(...args);   // shared: js/livia-maps.js
 
 let flyShowChordIDs = true;
-let flyShowChordTicks = true;   // Circular Contact Map: residue-position ruler around each arc (default on)   // Circular Contact Map: include the chain-ID suffix "(A)" in arc labels (toggle in the header)
-const flyChordLabel = (sym, id) => flyShowChordIDs ? `${sym} (${id})` : sym;
+let flyShowChordTicks = true;   // Circular Contact Map: residue-position ruler around each arc (default on)
+let flyShowChordLabels = true;   // Circular Contact Map: show the gene name
+let flyShowChordLength = true;   // Circular Contact Map: show the residue-count number   // Circular Contact Map: include the chain-ID suffix "(A)" in arc labels (toggle in the header)
+const flyChordLabel = (sym, id) => { const g = flyShowChordLabels ? sym : ''; if (g && flyShowChordIDs) return `${g} (${id})`; if (g) return g; if (flyShowChordIDs) return id; return flyShowChordLabels ? id : ''; };
 function drawFlyChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coordA, coordB, skipDistFilter, LIR_A, LIR_B) {
     const S = 2;
     const size = 350;
@@ -3279,7 +3283,7 @@ function drawFlyChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, co
         ctx.font = '11px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(`${arc.size}`, 0, 0);
+        ctx.fillText(flyShowChordLength ? `${arc.size}` : '', 0, 0);
         ctx.restore();
     }
     ctx.restore();
@@ -3332,7 +3336,7 @@ function drawFlyChordFromContacts(canvas, contacts, lenA, lenB, sym1, sym2, colo
         ctx.fillText(arc.name, 0, 0); ctx.restore();
         ctx.save(); ctx.translate(cx+Math.cos(arc.mid)*(outerR+(flyShowChordTicks?50:35)), cy+Math.sin(arc.mid)*(outerR+(flyShowChordTicks?50:35)));
         ctx.rotate(textAngle); ctx.fillStyle='#888'; ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText(`${arc.size}`, 0, 0); ctx.restore();
+        ctx.fillText(flyShowChordLength ? `${arc.size}` : '', 0, 0); ctx.restore();
     }
     ctx.restore();
 }

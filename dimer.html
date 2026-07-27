@@ -254,7 +254,9 @@
                 Arcs represent chains (proportional to length). Lines connect cLIR residue pairs in physical contact.
             </div>
             <div style="margin-bottom:0.5rem; display:flex; gap:0.9rem; flex-wrap:wrap;">
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-labels" checked onchange="dimerShowChordLabels=this.checked; buildChordDiagram();"> labels</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="dimerShowChordIDs=this.checked; buildChordDiagram();"> chain IDs</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="dimerShowChordLength=this.checked; buildChordDiagram();"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Circos-style residue-position ruler around each arc"><input type="checkbox" id="chord-show-ticks" checked onchange="dimerShowChordTicks=this.checked; buildChordDiagram();"> ticks</label>
             </div>
             <div style="text-align:center;">
@@ -1441,6 +1443,16 @@ const setToRanges = (set) => LiviaMaps.setToRanges(set);            // shared: j
 const paintChordArcBand = (...args) => LiviaMaps.paintChordArcBand(...args);   // shared: js/livia-maps.js
 let dimerShowChordTicks = true;   // Circular Contact Map: residue-position ruler around each arc (default on)
 let dimerShowChordIDs = true;   // Circular Contact Map: append the chain ID (A/B) to the gene name (matches the linear map)
+let dimerShowChordLabels = true;   // Circular Contact Map: show the gene name
+let dimerShowChordLength = true;   // Circular Contact Map: show the residue-count number
+// Combine gene name + chain ID per the "labels"/"chain IDs" toggles (mirrors universal's chordArcLabel).
+function dimerChordLabel(gene, id) {
+    const g = dimerShowChordLabels ? gene : '';
+    if (g && dimerShowChordIDs) return `${g} (${id})`;
+    if (g) return g;
+    if (dimerShowChordIDs) return id;
+    return dimerShowChordLabels ? id : '';
+}
 
 function buildChordDiagram() {
     const v = dimerPairResult;
@@ -1549,8 +1561,8 @@ function buildChordDiagram() {
 
     // Labels — rotated along arc (matching subdomain interaction map style)
     const chainArcs = [
-        { mid: (startA + endA) / 2, name: dimerShowChordIDs ? `${geneA} (${v.ci})` : geneA, size: lenA },
-        { mid: (startB + endB) / 2, name: dimerShowChordIDs ? `${geneB} (${v.cj})` : geneB, size: lenB }
+        { mid: (startA + endA) / 2, gene: geneA, id: v.ci, size: lenA },
+        { mid: (startB + endB) / 2, gene: geneB, id: v.cj, size: lenB }
     ];
     for (const arc of chainArcs) {
         const labelAngle = arc.mid;
@@ -1567,22 +1579,23 @@ function buildChordDiagram() {
         ctx.font = 'bold 13px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(arc.name, 0, 0);
+        ctx.fillText(dimerChordLabel(arc.gene, arc.id), 0, 0);
         ctx.restore();
 
-        // Residue count label (smaller, below name)
-        const rangeR = outerR + (dimerShowChordTicks ? 50 : 35);
-        const rx = cx + Math.cos(labelAngle) * rangeR;
-        const ry = cy + Math.sin(labelAngle) * rangeR;
-        ctx.save();
-        ctx.translate(rx, ry);
-        ctx.rotate(textAngle);
-        ctx.fillStyle = '#888';
-        ctx.font = '11px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(`${arc.size}`, 0, 0);
-        ctx.restore();
+        if (dimerShowChordLength) {   // Residue count label (smaller, below name)
+            const rangeR = outerR + (dimerShowChordTicks ? 50 : 35);
+            const rx = cx + Math.cos(labelAngle) * rangeR;
+            const ry = cy + Math.sin(labelAngle) * rangeR;
+            ctx.save();
+            ctx.translate(rx, ry);
+            ctx.rotate(textAngle);
+            ctx.fillStyle = '#888';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${arc.size}`, 0, 0);
+            ctx.restore();
+        }
     }
 
     ctx.restore();
