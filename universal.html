@@ -4880,9 +4880,12 @@ function greensColor(value, vmin, vmax) {
     }
 }
 
-function chainLabel(name){ const g = uniState.chainGenes && uniState.chainGenes[name]; return g ? g + ' (' + name + ')' : name; }   // 'A' -> 'TP53 (A)' once resolved
+// Strip a FlyBase-style species prefix ("Dmel\CG12725" -> "CG12725", also "Dmel/…") so the
+// ring / linear-map / legend labels aren't cluttered with the redundant single-species code.
+function stripSpeciesPrefix(g){ return typeof g === 'string' ? g.replace(/^[A-Za-z][A-Za-z0-9]{1,5}[\\/]/, '') : g; }
+function chainLabel(name){ const g = stripSpeciesPrefix(uniState.chainGenes && uniState.chainGenes[name]); return g ? g + ' (' + name + ')' : name; }   // 'A' -> 'TP53 (A)' once resolved
 let uniShowLinearIDs = true;   // Linear Contact Map: include the chain-ID suffix "(A)" in labels (its own header toggle)
-function linearChainLabel(name){ if (uniShowLinearIDs) return chainLabel(name); const g = uniState.chainGenes && uniState.chainGenes[name]; return g ? g : name; }
+function linearChainLabel(name){ if (uniShowLinearIDs) return chainLabel(name); const g = stripSpeciesPrefix(uniState.chainGenes && uniState.chainGenes[name]); return g ? g : name; }
 const applyExportOpts = (svg) => LiviaMaps.applyExportOpts(svg);                    // shared: js/livia-maps.js
 // ---- vector SVG export: re-run any canvas draw fn against a canvas2svg context ----
 const svgFromDraw = (drawClosure) => LiviaMaps.svgFromDraw(drawClosure);
@@ -6964,7 +6967,7 @@ let uniShowChordTicks = true;   // Circular Contact Map: Circos-style residue-po
 function chordArcLabel(arc) {
     if (arc.type === 'ion') return arc.displayName;
     // "labels" = gene/protein name, "chain IDs" = A/B/C — fully independent toggles.
-    const g = (uniState.chainGenes && uniState.chainGenes[arc.name]) || '';
+    const g = stripSpeciesPrefix((uniState.chainGenes && uniState.chainGenes[arc.name]) || '');
     const gene = uniShowChordLabels ? g : '';
     const id = arc.name;
     if (gene && uniShowChordIDs) return gene + ' (' + id + ')';       // both → "gene (A)"
