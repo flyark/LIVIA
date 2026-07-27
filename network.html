@@ -19,7 +19,8 @@
   .dz:hover,.dz.drag{ border-color:var(--accent); background:#eef5fb; color:var(--accent); }
   .dz b{ color:var(--accent); }
   .hint a{ color:var(--accent); }   /* match clip.html tone — was inheriting the vivid browser-default link blue */
-  .zones3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; align-items:start; }
+  .zones3{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; align-items:start; }
+  .zones3 #loaded{ grid-column:1/-1; }
   .zonehdr{ font-weight:600; font-size:.85rem; color:#556; margin-bottom:6px; }
   .zonehdr .opt{ font-weight:400; font-size:.76rem; color:#9aa; }
   .ctrlbar{ background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.08); padding:.8rem 1.2rem; margin-bottom:1rem; display:flex; flex-wrap:wrap; align-items:center; gap:16px; }
@@ -124,6 +125,15 @@
         </div>
         <div class="hint" style="margin-top:6px"><a id="subtmpl" href="#" style="font-weight:600">↓ current nodes</a> template · <a id="subclear" href="#" class="hidden" style="color:#c0392b; font-weight:600">✕ clear</a></div>
       </div>
+      <div class="zonecol">
+        <div class="zonehdr">④ Cluster map <span class="opt">optional</span></div>
+        <div class="dz" id="dzclust">
+          <div style="font-size:14.5px"><b>Use your own clusters</b></div>
+          <div class="hint" style="margin-top:3px"><code>node,cluster</code> per row · overrides Leiden · unlisted nodes dropped</div>
+          <input id="inclust" type="file" accept=".csv,.txt,.tsv" multiple class="hidden">
+        </div>
+        <div class="hint" style="margin-top:6px"><a id="clusttmpl" href="#" style="font-weight:600">↓ current nodes</a> template · <a id="clustclear" href="#" class="hidden" style="color:#c0392b; font-weight:600">✕ clear</a></div>
+      </div>
     <div id="loaded" class="hint" style="margin-top:12px">No files loaded.</div>
   </div>
 
@@ -131,6 +141,7 @@
     <span><label class="lb">iLIS &ge;</label> <input id="cut" type="range" min="0" max="0.9" step="0.001" value="0.223"> <input id="cutv" type="number" min="0" max="1" step="0.001" value="0.223" style="width:78px"></span>
     <span><label class="lb">resolution</label> <input id="res" type="range" min="0.1" max="5" step="0.05" value="1.0"> <input id="resv" type="number" min="0" max="50" step="0.05" value="1.0" style="width:62px"></span>
     <span><label class="lb">objective</label> <select id="objfn" title="modularity: standard (resolution ~0.5–3). CPM: resolution-limit-free — finds small communities; use a lower resolution near the iLIS scale (~0.2–0.5)."><option value="modularity">modularity</option><option value="CPM">CPM</option></select></span>
+    <span id="clustmode-wrap" class="hidden"><label class="lb">clustering</label> <select id="clustmode" title="user-defined: color + group by your uploaded cluster map (Leiden not run). Leiden: ignore the map and detect communities."><option value="user">user-defined</option><option value="leiden">Leiden (auto)</option></select></span>
     <span><label class="lb">seed</label> <input id="seed" type="number" min="0" step="1" value="1" style="width:56px"></span>
     <span id="labelby-wrap" class="hidden"><label class="lb">Label by</label> <select id="labelby"></select></span>
     <button id="build" disabled>Build network</button>
@@ -195,6 +206,7 @@ let FASTA_RAW = '';                 // concatenated FASTA text (paired or per-sy
 let NAME_OF = {};                  // resolved node id -> Set(original prediction names)  (for the hand-off filter)
 let FILECOUNT = 0, PYODIDE = null, NETWORK = null, NODES = null, EDGES = null, LAST = null;
 let META = null, META_COL = null, COMMCOLORS = {}, SUBSET = null, LAYER_ROOT = null;   // SUBSET: node ids to keep (tab 3); LAYER_ROOT: BFS-shell root or null
+let USERCLUST = null;              // user-supplied node id -> cluster label (Map); overrides Leiden, drops unlisted nodes
 let NODECOLORS = {};               // per-node custom colour override (node id -> hex); wins over the 'color by' mode
 let NET_HL = null;                 // node id currently highlighted by the search box (null = none)
 
@@ -205,6 +217,26 @@ function commColor(i){
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 const commHex = c => COMMCOLORS[c] || commColor(c);
+// user-defined clustering: a loaded cluster map is used unless the toggle says Leiden
+function userClusterMode(){ return !!(USERCLUST && USERCLUST.size && (!$('clustmode') || $('clustmode').value === 'user')); }
+// display name for a community index: the user's label if any (a bare number → "Community N"), else "Community N"
+function commLabel(c){ const nm = LAST && LAST.commNames && LAST.commNames[c]; if (nm == null) return 'Community ' + c; return /^\d+$/.test(nm) ? 'Community ' + nm : nm; }
+// value written to exports for a community index: the user's raw label if any, else the index
+const commOut = c => (LAST && LAST.commNames && LAST.commNames[c] != null) ? LAST.commNames[c] : c;
+// membership from the user's cluster map: distinct labels → indices ordered by size (largest first, matches Leiden)
+function userMembership(nodes){
+  const labelOf = nodes.map(s => USERCLUST.get(s));
+  const freq = new Map(); for (const l of labelOf) freq.set(l, (freq.get(l) || 0) + 1);
+  const order = [...freq.keys()].sort((a, b) => (freq.get(b) - freq.get(a)) || (a < b ? -1 : a > b ? 1 : 0));
+  const idx = new Map(order.map((l, i) => [l, i]));
+  return { membership: labelOf.map(l => idx.get(l)), commNames: order.map(String) };
+}
+// degree = incident unique-pair edges (what igraph g.degree() returns), for the Leiden-free path
+function degreesOf(nodes, edges){
+  const d = new Map(nodes.map(s => [s, 0]));
+  for (const e of edges){ d.set(e.a, (d.get(e.a) || 0) + 1); d.set(e.b, (d.get(e.b) || 0) + 1); }
+  return nodes.map(s => d.get(s) || 0);
+}
 function gradient(x){   // 0..1 -> hex (light gray-blue -> LIVIA blue -> dark)
   x=Math.max(0,Math.min(1,x)); const S=[[237,242,247],[93,156,214],[26,58,92]];
   const j=x<0.5?0:1, u=x<0.5?x*2:(x-0.5)*2, a=S[j], c=S[j+1], h=k=>Math.round(a[k]+(c[k]-a[k])*u).toString(16).padStart(2,'0');
@@ -343,6 +375,27 @@ async function routeSubset(list){                       // tab 3: a plain list o
   updateLoaded(); rebuildIfBuilt();
 }
 function clearSubset(){ SUBSET=null; $('subclear').classList.add('hidden'); updateLoaded(); rebuildIfBuilt(); }
+function parseClusterMap(text){                          // node -> cluster label; auto-detects LIVIA's own network_communities.csv (Symbol,community)
+  const rows = CLIPPipeline.parseCSV(text).rows; if(!rows || !rows.length) return null;
+  const ks = Object.keys(rows[0]);
+  const nodeK = ks.find(k=>/^(node|name|symbol|id|protein|gene)$/i.test(k)) || ks[0];
+  const clK = ks.find(k=>/^(cluster|community|module|group|class|label)$/i.test(k)) || ks.find(k=>k!==nodeK) || ks[1];
+  if(!clK) return null;
+  const m = new Map();
+  for (const r of rows){ const n=String(r[nodeK]!=null?r[nodeK]:'').trim(), c=String(r[clK]!=null?r[clK]:'').trim(); if(n && c!=='') m.set(n,c); }
+  return m.size ? m : null;
+}
+async function routeCluster(list){                       // tab 4: node -> cluster label; overrides Leiden, drops unlisted nodes
+  const f=[...list].filter(x=>/\.(csv|txt|tsv)$/i.test(x.name))[0]; if(!f) return;
+  try { USERCLUST = parseClusterMap(await f.text()); } catch(e){ USERCLUST=null; }
+  const on = !!(USERCLUST && USERCLUST.size);
+  if(!on) setStatus('Cluster map: no node,cluster rows found — check the header (node,cluster or Symbol,community).');
+  $('clustmode-wrap').classList.toggle('hidden', !on);
+  $('clustclear').classList.toggle('hidden', !on);
+  if(on && $('clustmode')) $('clustmode').value='user';
+  updateLoaded(); rebuildIfBuilt();
+}
+function clearCluster(){ USERCLUST=null; $('clustmode-wrap').classList.add('hidden'); $('clustclear').classList.add('hidden'); updateLoaded(); rebuildIfBuilt(); }
 async function convertViaMyGene(){   // node names/IDs -> official symbols: mygene.info (symbol/alias/entrez/FBgn/accession) + UniProt fallback (GENE_SPECIES entry names)
   if (!RAWPAIRS.size){ setStatus('Load lis.py CSVs first.'); return; }
   const ids = [...new Set([...RAWPAIRS.values()].flatMap(r=>[r.s1, r.s2]).filter(Boolean))];
@@ -393,7 +446,7 @@ function rawIdFor(resolvedId){   // a raw split-symbol that resolves to this nod
 function updateLoaded(){
   const nP = new Set(); for (const r of RAWPAIRS.values()){ nP.add(resolveId(r.name,r.ci,r.s1)); nP.add(resolveId(r.name,r.cj,r.s2)); }
   $('loaded').innerHTML = FILECOUNT
-    ? `✓ ${FILECOUNT} file(s) · <b>${RAWPAIRS.size.toLocaleString()}</b> predictions · <b>${nP.size.toLocaleString()}</b> proteins${META?` · identity map ✓ (${META.mode==='lookup'?'lookup':'name+chain'}, ${META.cols.length} cols)`:''}${SUBSET?` · <b>subset ${SUBSET.size.toLocaleString()} nodes</b>`:''}`
+    ? `✓ ${FILECOUNT} file(s) · <b>${RAWPAIRS.size.toLocaleString()}</b> predictions · <b>${nP.size.toLocaleString()}</b> proteins${META?` · identity map ✓ (${META.mode==='lookup'?'lookup':'name+chain'}, ${META.cols.length} cols)`:''}${SUBSET?` · <b>subset ${SUBSET.size.toLocaleString()} nodes</b>`:''}${(USERCLUST&&USERCLUST.size)?` · <b>cluster map ${USERCLUST.size.toLocaleString()} nodes</b>`:''}`
     : 'No files loaded.';
   $('build').disabled = !RAWPAIRS.size;
   $('tmpl-wrap').classList.toggle('hidden', !RAWPAIRS.size);
@@ -431,37 +484,49 @@ json.dumps({'membership':[remap[m] for m in part.membership], 'degree':g.degree(
 
 // ---------- build ----------
 function buildEdges(cut){                               // resolve identities, best iLIS per resolved pair, index original names for the hand-off
-  const best=new Map(); NAME_OF={}; let dup=0;
+  const best=new Map(); NAME_OF={}; let dup=0; const useUser=userClusterMode(), dropped=new Set();
   for (const r of RAWPAIRS.values()){
     const a=resolveId(r.name,r.ci,r.s1), b=resolveId(r.name,r.cj,r.s2);
     if(a){ (NAME_OF[a]=NAME_OF[a]||new Set()).add(r.name); } if(b){ (NAME_OF[b]=NAME_OF[b]||new Set()).add(r.name); }
     if(!a||!b||a===b||!(r.iLIS>=cut)) continue;
     if(SUBSET && (!SUBSET.has(a) || !SUBSET.has(b))) continue;   // node-subset filter (tab 3)
+    if(useUser){                                        // user clusters: keep only nodes present in the map (unlisted dropped)
+      if(!USERCLUST.has(a)) dropped.add(a); if(!USERCLUST.has(b)) dropped.add(b);
+      if(!USERCLUST.has(a) || !USERCLUST.has(b)) continue;
+    }
     const key=a<b?a+'\x01'+b:b+'\x01'+a, prev=best.get(key);
     if(prev) dup++;                                     // same protein pair seen again -> keep the higher iLIS
     if(!prev||r.iLIS>prev.iLIS) best.set(key,{a,b,iLIS:r.iLIS,ipTM:r.ipTM});
   }
-  return { edges:[...best.values()], dup };
+  return { edges:[...best.values()], dup, dropped:dropped.size };
 }
 async function build(){
   if (!RAWPAIRS.size) return;
   $('build').disabled = true;
   try {
-    await ensurePyodide();
+    const useUser = userClusterMode();
     const cut=+$('cutv').value, res=+$('resv').value, obj=$('objfn').value, seed=+$('seed').value||1;
-    const { edges, dup } = buildEdges(cut);
-    if(!edges.length){ setStatus(SUBSET?'No edges among the subset at this cutoff.':'No edges above this iLIS cutoff — lower the slider.'); $('build').disabled=false; return; }
+    const { edges, dup, dropped } = buildEdges(cut);
+    if(!edges.length){ setStatus(useUser?'No edges among the mapped nodes at this cutoff.':SUBSET?'No edges among the subset at this cutoff.':'No edges above this iLIS cutoff — lower the slider.'); $('build').disabled=false; return; }
     const nodeSet=new Set(); edges.forEach(e=>{nodeSet.add(e.a);nodeSet.add(e.b);});
     const nodes=[...nodeSet];
-    setStatus(`Running Leiden on ${nodes.length} nodes / ${edges.length} edges…`);
     const t0=performance.now();
-    const { membership, degree } = await leiden(nodes, edges, res, obj, seed);
+    let membership, degree, commNames=null;
+    if (useUser){                                        // user-defined clusters — no Pyodide/Leiden needed
+      setStatus(`Applying your cluster map to ${nodes.length} nodes…`);
+      ({ membership, commNames } = userMembership(nodes));
+      degree = degreesOf(nodes, edges);
+    } else {
+      await ensurePyodide();
+      setStatus(`Running Leiden on ${nodes.length} nodes / ${edges.length} edges…`);
+      ({ membership, degree } = await leiden(nodes, edges, res, obj, seed));
+    }
     const strengthMap=new Map(nodes.map(s=>[s,0])); edges.forEach(e=>{ strengthMap.set(e.a,strengthMap.get(e.a)+e.iLIS); strengthMap.set(e.b,strengthMap.get(e.b)+e.iLIS); });
-    LAST = { nodes, edges, membership, degree, strengthMap };
+    LAST = { nodes, edges, membership, degree, strengthMap, commNames };
     render(getDisplay());
     renderModules(LAST); updateColorLegend();
     const nComm = Math.max(...membership)+1;
-    $('stats').innerHTML = [['proteins',nodes.length],['edges',edges.length],['communities',nComm],['iLIS &ge;',cut.toFixed(3)],['Leiden',Math.round(performance.now()-t0)+' ms'], dup?['duplicate pairs',dup+' → max iLIS']:null, SUBSET?['subset','on']:null]
+    $('stats').innerHTML = [['proteins',nodes.length],['edges',edges.length],['communities',nComm],['iLIS &ge;',cut.toFixed(3)], useUser?['clusters','user-defined']:['Leiden',Math.round(performance.now()-t0)+' ms'], dup?['duplicate pairs',dup+' → max iLIS']:null, (useUser&&dropped)?['dropped',dropped+' unmapped']:null, SUBSET?['subset','on']:null]
       .filter(Boolean).map(([k,v])=>`<span class="s">${k}<br><b>${v}</b></span>`).join('');
     $('display').classList.remove('hidden'); $('expsvg').classList.remove('hidden'); $('expsvgall').classList.remove('hidden'); $('expcsv').classList.remove('hidden'); $('expcyto').classList.remove('hidden');
     populateNetSearch();
@@ -488,7 +553,7 @@ function render({ nodes, edges, membership, degree }){
     size: nodeRadius(degree[i],dmax,nsize),
     color:{ background: fills[i], border: bcolor },
     borderWidth: border?1.5:0, font:{ size:lblsize, color:lblcolor, strokeWidth:outline?2.5:0, strokeColor:lblstroke },
-    title:`${nodeLabel(s)} · community ${membership[i]} · ${degree[i]} partners`
+    title:`${nodeLabel(s)} · ${commLabel(membership[i])} · ${degree[i]} partners`
   })));
   EDGES = new vis.DataSet(edges.map((e,i)=>{ const intra=cIdx.get(e.a)===cIdx.get(e.b);
     return { id:i, from:e.a, to:e.b, width:edgeWidth(e.iLIS,imin,imax,emin),
@@ -509,7 +574,7 @@ function restyle(){
   const nsize=+$('nsizev').value, emin=+$('eminv').value, lbldeg=+$('lbldegv').value, border=$('nborder').checked, bcolor=$('bcolor').value, lblsize=+$('lblsizev').value, outline=$('lbloutline').checked, lblcolor=$('lblcolor').value, lblstroke=$('lblstroke').value;
   const cIdx=new Map(nodes.map((s,i)=>[s,membership[i]])), fills=nodeColors({nodes, membership, degree});
   NODES.update(nodes.map((s,i)=>({ id:s, label: degree[i]>=lbldeg?nodeLabel(s):'', size:nodeRadius(degree[i],dmax,nsize),
-    color:{ background:fills[i], border:bcolor }, borderWidth:border?1.5:0, font:{ size:lblsize, color:lblcolor, strokeWidth:outline?2.5:0, strokeColor:lblstroke }, title:`${nodeLabel(s)} · community ${membership[i]} · ${degree[i]} partners` })));
+    color:{ background:fills[i], border:bcolor }, borderWidth:border?1.5:0, font:{ size:lblsize, color:lblcolor, strokeWidth:outline?2.5:0, strokeColor:lblstroke }, title:`${nodeLabel(s)} · ${commLabel(membership[i])} · ${degree[i]} partners` })));
   EDGES.update(edges.map((e,i)=>{ const intra=cIdx.get(e.a)===cIdx.get(e.b);
     return { id:i, width:edgeWidth(e.iLIS,imin,imax,emin), color:{ color:intra?commHex(cIdx.get(e.a)):'#c7ced6', opacity:intra?0.75:0.3 } }; }));
 }
@@ -529,7 +594,7 @@ function renderModules({ nodes, edges, membership, degree }){
     mods.map(m=>{
       const top=m.members[0], mem=m.members.slice(0,24).map(nodeLabel).join(', ')+(m.members.length>24?` … +${m.members.length-24}`:'');
       return `<div class="mod">
-        <div class="hd"><input type="color" value="${commHex(m.c)}" data-c="${m.c}" title="community color">Community ${m.c}
+        <div class="hd"><input type="color" value="${commHex(m.c)}" data-c="${m.c}" title="community color">${esc(commLabel(m.c))}
           <span class="clipbtn" data-sym="${esc(top)}" title="open the hub in cLIP">${esc(nodeLabel(top))} → cLIP</span></div>
         <div class="st">${m.n} proteins · ${m.e} edges · mean iLIS ${m.mean.toFixed(3)}</div>
         <div class="mem">${esc(mem)}</div></div>`;
@@ -542,7 +607,7 @@ function renderModules({ nodes, edges, membership, degree }){
 function showNodeInfo(sym){
   const i = LAST.nodes.indexOf(sym); if(i<0) return;
   $('ni-name').textContent = nodeLabel(sym);
-  $('ni-meta').textContent = `community ${LAST.membership[i]} · ${LAST.degree[i]} partners`;
+  $('ni-meta').textContent = `${commLabel(LAST.membership[i])} · ${LAST.degree[i]} partners`;
   $('ni-clip').onclick = ()=>openInClip(sym);
   $('ni-layer').onclick = ()=>layerLayout(sym);
   $('nodeinfo').classList.remove('hidden');
@@ -635,7 +700,7 @@ function layerLayout(root){
   }
   const cIdx=new Map(disp.nodes.map((s,i)=>[s,disp.membership[i]])), degMap=new Map(disp.nodes.map((s,i)=>[s,disp.degree[i]]));
   NODES.update(disp.nodes.map(n=>({ id:n, x:pos[n].x, y:pos[n].y, fixed:{x:true,y:true},
-    title:`${nodeLabel(n)} · community ${cIdx.get(n)} · ${degMap.get(n)} partners · layer ${layer.get(n)>reach?'\u221e':layer.get(n)}` })));
+    title:`${nodeLabel(n)} · ${commLabel(cIdx.get(n))} · ${degMap.get(n)} partners · layer ${layer.get(n)>reach?'\u221e':layer.get(n)}` })));
   NETWORK.setOptions({ physics:false });
   NETWORK.fit({ animation:{ duration:600 } });
   LAYER_ROOT=root; $('layer-root').textContent=nodeLabel(root); $('layerbar').classList.remove('hidden'); hideNodeInfo();
@@ -727,11 +792,16 @@ function buildSubsetTemplate(){   // node-subset skeleton: the current network's
   return 'node\n'+nodes.map(csvq).join('\n');
 }
 function downloadSubset(){ download('node_subset_template.csv', buildSubsetTemplate()); }
+function buildClusterTemplate(){   // node,cluster skeleton prefilled with the current nodes (blank cluster to fill in)
+  const nodes = LAST ? LAST.nodes.slice() : [...new Set([...RAWPAIRS.values()].flatMap(r=>[resolveId(r.name,r.ci,r.s1),resolveId(r.name,r.cj,r.s2)]).filter(Boolean))];
+  return 'node,cluster\n'+nodes.map(n=>csvq(n)+',').join('\n');
+}
+function downloadCluster(){ download('cluster_map_template.csv', buildClusterTemplate()); }
 function exportCSVs(){
   if (!LAST) return; const { nodes, edges, membership, degree } = LAST;
   const cIdx=new Map(nodes.map((s,i)=>[s,membership[i]])), fills=nodeColors({nodes, membership, degree});
-  download('network_edges.csv','Symbol_1,Symbol_2,iLIS,ipTM,intra_community\n'+edges.map(e=>[csvq(nodeLabel(e.a)),csvq(nodeLabel(e.b)),e.iLIS.toFixed(4),e.ipTM.toFixed(3),cIdx.get(e.a)===cIdx.get(e.b)?cIdx.get(e.a):''].join(',')).join('\n'));
-  download('network_communities.csv','Symbol,community,degree\n'+nodes.map((s,i)=>[csvq(nodeLabel(s)),membership[i],degree[i]].join(',')).join('\n'));
+  download('network_edges.csv','Symbol_1,Symbol_2,iLIS,ipTM,intra_community\n'+edges.map(e=>[csvq(nodeLabel(e.a)),csvq(nodeLabel(e.b)),e.iLIS.toFixed(4),e.ipTM.toFixed(3),cIdx.get(e.a)===cIdx.get(e.b)?csvq(commOut(cIdx.get(e.a))):''].join(',')).join('\n'));
+  download('network_communities.csv','Symbol,community,degree\n'+nodes.map((s,i)=>[csvq(nodeLabel(s)),csvq(commOut(membership[i])),degree[i]].join(',')).join('\n'));   // 'community' carries the user label when set → re-importable
 }
 function buildGraphML(){   // Cytoscape-importable GraphML: node name/community/degree/x/y + edge iLIS/ipTM/intra_community
   if (!LAST) return '';
@@ -740,10 +810,10 @@ function buildGraphML(){   // Cytoscape-importable GraphML: node name/community/
   const pos = NETWORK ? NETWORK.getPositions() : {};
   const xe=s=>String(s).replace(/[<&>"]/g,c=>({'<':'&lt;','&':'&amp;','>':'&gt;','"':'&quot;'}[c]));
   let g='<?xml version="1.0" encoding="UTF-8"?>\n<graphml xmlns="http://graphml.graphdrawing.org/xmlns">\n'
-    +'<key id="label" for="node" attr.name="name" attr.type="string"/><key id="comm" for="node" attr.name="community" attr.type="int"/><key id="deg" for="node" attr.name="degree" attr.type="int"/><key id="x" for="node" attr.name="x" attr.type="double"/><key id="y" for="node" attr.name="y" attr.type="double"/>\n'
+    +'<key id="label" for="node" attr.name="name" attr.type="string"/><key id="comm" for="node" attr.name="community" attr.type="int"/><key id="commname" for="node" attr.name="community_name" attr.type="string"/><key id="deg" for="node" attr.name="degree" attr.type="int"/><key id="x" for="node" attr.name="x" attr.type="double"/><key id="y" for="node" attr.name="y" attr.type="double"/>\n'
     +'<key id="ilis" for="edge" attr.name="iLIS" attr.type="double"/><key id="iptm" for="edge" attr.name="ipTM" attr.type="double"/><key id="intra" for="edge" attr.name="intra_community" attr.type="int"/>\n'
     +'<graph edgedefault="undirected">\n';
-  nodes.forEach((s,i)=>{ const p=pos[s]||{x:0,y:0}; g+=`<node id="n${i}"><data key="label">${xe(nodeLabel(s))}</data><data key="comm">${membership[i]}</data><data key="deg">${degree[i]}</data><data key="x">${p.x.toFixed(1)}</data><data key="y">${p.y.toFixed(1)}</data></node>\n`; });
+  nodes.forEach((s,i)=>{ const p=pos[s]||{x:0,y:0}; g+=`<node id="n${i}"><data key="label">${xe(nodeLabel(s))}</data><data key="comm">${membership[i]}</data><data key="commname">${xe(commLabel(membership[i]))}</data><data key="deg">${degree[i]}</data><data key="x">${p.x.toFixed(1)}</data><data key="y">${p.y.toFixed(1)}</data></node>\n`; });
   edges.forEach(e=>{ const intra=cIdx.get(e.a)===cIdx.get(e.b); g+=`<edge source="${rid.get(e.a)}" target="${rid.get(e.b)}"><data key="ilis">${e.iLIS.toFixed(4)}</data><data key="iptm">${e.ipTM.toFixed(3)}</data><data key="intra">${intra?cIdx.get(e.a):-1}</data></edge>\n`; });
   return g+'</graph>\n</graphml>\n';
 }
@@ -753,6 +823,7 @@ function collectSettings(){
   const s={}; SETTING_IDS.forEach(id=>{ const el=$(id); if(el) s[id]=el.value; });
   s.nborder=$('nborder').checked; s.lbloutline=$('lbloutline').checked; s.commColors={...COMMCOLORS}; s.nodeColors={...NODECOLORS}; if(SUBSET) s.subset=[...SUBSET];
   if (META && META_COL) s.labelby=META_COL;
+  if (USERCLUST && USERCLUST.size){ s.clusters=[...USERCLUST.entries()]; s.clustmode=$('clustmode')?$('clustmode').value:'user'; }
   return s;
 }
 function exportSettings(){ download('network_settings.json', JSON.stringify(collectSettings(),null,2), 'application/json'); }
@@ -765,6 +836,9 @@ async function importSettings(file){
   if (s.commColors) COMMCOLORS={...s.commColors};
   if (s.nodeColors) NODECOLORS={...s.nodeColors};
   SUBSET = (s.subset&&s.subset.length) ? new Set(s.subset) : null; $('subclear').classList.toggle('hidden', !SUBSET);
+  USERCLUST = (s.clusters&&s.clusters.length) ? new Map(s.clusters) : null;
+  $('clustmode-wrap').classList.toggle('hidden', !USERCLUST); $('clustclear').classList.toggle('hidden', !USERCLUST);
+  if (USERCLUST && $('clustmode')) $('clustmode').value = s.clustmode || 'user';
   if (s.labelby){ META_COL=s.labelby; if($('labelby')) $('labelby').value=s.labelby; }
   $('unicolor').classList.toggle('hidden', $('colorby').value!=='uniform');
   if (RAWPAIRS.size){ await build(); await applyLayout($('layout').value); }
@@ -780,7 +854,8 @@ function wireZone(dzId, inId, handler){
   dz.addEventListener('drop', e=>{ e.preventDefault(); dz.classList.remove('drag'); handler(e.dataTransfer.files); });
   inp.addEventListener('change', e=>handler(e.target.files));
 }
-wireZone('dz','in',routeFiles); wireZone('dzmeta','inmeta',routeMeta); wireZone('dzsub','insub',routeSubset);
+wireZone('dz','in',routeFiles); wireZone('dzmeta','inmeta',routeMeta); wireZone('dzsub','insub',routeSubset); wireZone('dzclust','inclust',routeCluster);
+$('clustmode').addEventListener('change', rebuildIfBuilt);
 function linkSlider(sId, nId, effect){ const s=$(sId), n=$(nId);   // slider + typed number stay in sync; the number is authoritative (allows custom values)
   s.addEventListener('input', ()=>{ n.value=s.value; if(effect) effect(); });
   n.addEventListener('input', ()=>{ if(n.value==='') return; s.value=Math.max(+s.min, Math.min(+s.max, +n.value)); if(effect) effect(); });
@@ -830,6 +905,8 @@ LiviaMaps.attachColorUpload($('nodecolor-upload'), {
 $('tmpl').addEventListener('click', e=>{ e.preventDefault(); downloadTemplate(); });
 $('subtmpl').addEventListener('click', e=>{ e.preventDefault(); downloadSubset(); });
 $('subclear').addEventListener('click', e=>{ e.preventDefault(); clearSubset(); });
+$('clusttmpl').addEventListener('click', e=>{ e.preventDefault(); downloadCluster(); });
+$('clustclear').addEventListener('click', e=>{ e.preventDefault(); clearCluster(); });
 $('mg-convert').addEventListener('click', e=>{ e.preventDefault(); convertViaMyGene(); });
 $('layer-reset').addEventListener('click', e=>{ e.preventDefault(); resetLayout(); });
 $('layer-mode').addEventListener('change', ()=>{ if(LAYER_ROOT) layerLayout(LAYER_ROOT); });
