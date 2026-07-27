@@ -3522,8 +3522,15 @@ async function processPrecomputedBundle() {
     // rank (ColabFold writes rank_1…rank_5), so labelling the score table by model index put
     // "model_5" beside "rank_1" for the same prediction. Rank also orders best-first.
     const rankOf = (mk) => { const r = (byModel.get(mk)[0] || {}).rank; return (r === undefined || r === '' || isNaN(+r)) ? null : +r; };
-    const useRank = modelKeys.length > 1 && modelKeys.every(mk => rankOf(mk) !== null)
-                    && new Set(modelKeys.map(rankOf)).size === modelKeys.length;
+    const modelOf = (mk) => { const m = (byModel.get(mk)[0] || {}).model; return (m === undefined || m === '' || isNaN(+m)) ? null : +m; };
+    // Label by RANK only for a GENUINE ranking. ColabFold (rank_1…5) / native AF-Multimer reorder
+    // the models by confidence, so the rank differs from the model id. AF3 has no rank — its CSV
+    // "rank" just mirrors the 0-based model index (rank == model), so it must read "model_N", not
+    // "rank_N" (an AF3 bundle would otherwise show "rank_0…rank_4", which is wrong).
+    const ranks = modelKeys.map(rankOf);
+    const useRank = modelKeys.length > 1 && ranks.every(r => r !== null)
+                    && new Set(ranks).size === modelKeys.length
+                    && modelKeys.some(mk => rankOf(mk) !== modelOf(mk));
     if (useRank) modelKeys.sort((a, b) => rankOf(a) - rankOf(b));
 
     for (let mi = 0; mi < modelKeys.length; mi++) {
