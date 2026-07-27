@@ -152,12 +152,12 @@ def render_pae_png(pae, out_png, chain_lengths=None, max_pae=30):
     fig, ax = plt.subplots(figsize=(5, 5), dpi=100)
     im = ax.imshow(pae, cmap='bwr', vmin=0, vmax=max_pae,
                    interpolation='nearest', origin='upper')          # blue = low PAE (confident) → red = high; matches LIVIA's PAE maps
-    if chain_lengths:                                                # optional: white chain-boundary lines
-        b = 0
+    if chain_lengths:                                                # optional: BLACK chain-boundary lines
+        b = 0                                                        # (white vanishes into bwr's PAE-15 midpoint — see §11.2)
         for L in chain_lengths[:-1]:
             b += L
-            ax.axhline(b - 0.5, color='white', lw=0.8)
-            ax.axvline(b - 0.5, color='white', lw=0.8)
+            ax.axhline(b - 0.5, color='black', lw=0.8)
+            ax.axvline(b - 0.5, color='black', lw=0.8)
     ax.set_xlabel('Scored residue'); ax.set_ylabel('Aligned residue')
     cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     cb.set_label('Predicted aligned error (Å)')
@@ -293,3 +293,200 @@ clause in step 2 is where you pick single-structure (default) vs. one-structure-
 >
 > Never put a numeric PAE file (`*_full_data_*.json`, `*.npz`, `*.npy`) in the zip. Report the
 > final zip path, its size, and how many models/structures it contains.
+
+---
+
+## 11. House style — how the FlyPredictome catalogue actually builds these
+
+Sections 1–10 describe the *format*. This section describes the **conventions the published
+FlyPredictome catalogue follows**, so a bundle built elsewhere is visually and semantically
+indistinguishable from the 467 already live. Reference implementation:
+`~/bioinformatics/claude/assembly_phase_PPIs_2/scripts/build_lightweight_bundles.py`
+(owned by the ASM session; see its `SESSION_EXCHANGE.md`).
+
+Where this section disagrees with the generic code in §4, **this section wins** for anything
+that will sit alongside the FlyPredictome bundles.
+
+### 11.1 Naming: never ship the internal job name
+
+A bundle is named by the **viewer's cluster label** (`C16-4-2`), never by the prediction/job
+name (`fold_d_002`). The job name is a versioned pipeline identifier that carries submission
+history and must not go public. It leaks from **four** places, and all four are scrubbed at
+build time — scrubbing after the fact is how it gets missed:
+
+| # | where | before | after |
+|---|---|---|---|
+| 1 | zip filename | `<job>.zip` | `<label>.zip` |
+| 2 | `manifest.json` `name` | `<job>` | `<label>` |
+| 3 | `lis.csv` `name` column | `fold_<job>` | `<label>` |
+| 4 | `lis.csv` `structure_file` | `fold_<job>_model_0.cif` | `model_0.cif` |
+
+Item 4 is not only privacy: the files shipped in the bundle **are** `model_<m>.cif`, so
+rewriting the column is what makes per-model geometry resolve at all.
+
+Scrub `lis.csv` by **raw-string replace on the file text, not a CSV re-parse** — several columns
+hold quoted residue-range strings that a round-trip through a CSV writer will re-quote
+differently, and the byte diff then shows up as a spurious change in every bundle.
+
+The `data_` / `_entry.id` token inside `model_*.cif` is an opaque AF3 content hash, not a job
+name. Leave it alone.
+
+Finish every build with an assertion, per bundle: the job-name string must not appear in
+`lis.csv` or `manifest.json`. Treat a hit as a build failure, not a warning.
+
+**Label derivation.** `label = findPath(members)` — a byte-for-byte port of the network viewer's
+own function (`FlyPredictome-network/index.html`, `findPath`), read from its gzip+base64 `D.cl`
+blob so the two can never drift. It returns the lowest common ancestor: a complex whose members
+sit in one sub-subcluster gets `C16-4-2`, one that spans several gets `C16-4`, one spanning
+sub-clusters gets `C16`. Where several structures resolve to the same label (eIF3, CCT, ORC,
+exosome variants), append `_N` ordered by size descending — `C9-8_3`.
+
+### 11.2 PAE image: the exact settings
+
+The generic §4 renderer produces a different-looking plot. The catalogue's is:
+
+```python
+def render_pae(pae, bounds, m, out):
+    """bounds = cumulative chain-boundary indices, e.g. [300, 450, 540] for chains of 300/150/90."""
+    if pae.ndim == 3: pae = pae[0]
+    N = pae.shape[0]
+    fig, ax = plt.subplots(figsize=(4.4, 3.8), dpi=150)          # 150 dpi so the chain letters stay crisp
+    im = ax.imshow(pae, cmap='bwr', vmin=0, vmax=30, interpolation='nearest')
+    for b in bounds:                                              # BLACK boundaries, not white
+        ax.axhline(b - .5, color='black', lw=0.8)
+        ax.axvline(b - .5, color='black', lw=0.8)
+    starts = [0] + [int(b) for b in bounds]
+    ends   = [int(b) for b in bounds] + [N]
+    centers = [(s + e) / 2 for s, e in zip(starts, ends)]
+    labels  = [chr(ord('A') + i) for i in range(len(centers))]    # chain letters ON the axes
+    fs = max(6, min(13, int(128 / max(len(centers), 1))))         # auto-shrink when many subunits crowd the axis
+    ax.set_xticks(centers); ax.set_xticklabels(labels, fontsize=fs); ax.tick_params(length=0)
+    ax.set_yticks(centers); ax.set_yticklabels(labels, fontsize=fs)
+    # NO title — LIVIA already prints "model_0, model_1, …" above each plot
+    cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, ticks=[0, 15, 30])
+    cb.ax.tick_params(labelsize=10)
+    fig.tight_layout(); fig.savefig(out, dpi=150, bbox_inches='tight'); plt.close(fig)
+```
+
+Differences from §4, each deliberate:
+
+- **No title.** LIVIA labels every model above its plot; a title duplicates it and eats height.
+- **No `Scored residue` / `Aligned residue` axis labels.** At bundle size the axes carry chain
+  identity, which is what a reader of a 10-subunit complex needs; residue indices are not
+  readable at this scale anyway.
+- **Chain letters as tick labels**, centred on each chain's span, auto-shrinking past ~10 chains.
+- **Black boundary lines**, because `bwr` puts white at PAE 15 and a white line vanishes into
+  every moderately-confident region.
+- **Colorbar ticks fixed at `[0, 15, 30]`, no colorbar label.** The fixed ticks make the white
+  midpoint explicit; the label is dropped for space and because §4's own text already fixes the
+  units. **`vmin=0, vmax=30` is not negotiable** — bundles are read side by side, and a
+  per-bundle autoscale makes two complexes with different PAE ranges look identical.
+- **figsize (4.4, 3.8) at dpi 150**, not (5, 5) at dpi 100.
+
+### 11.3 Models, compression, cutoffs
+
+- Ship **all 5 AF3 models**, `model_0.cif … model_4.cif` + `pae_0.png … pae_4.png`. One model is
+  not a prediction; per [[af3_judge_best_of_seeds]] the assembly verdict is best-of-seeds, and a
+  reader needs to see the spread.
+- **Plain `.cif` inside the zip, not `.cif.gz`.** LIVIA *can* load `.cif.gz` — every loader path,
+  including the `?data=` deep-link (it funnels the download through the same `handleInputFiles`),
+  decompresses it — so this is about size, not correctness. The zip's own DEFLATE already gives the
+  gzip ratio, and DEFLATE can't shrink already-gzipped bytes, so gzipping first buys nothing and
+  only adds a decompress step.
+- `zipfile.ZIP_DEFLATED, compresslevel=6`. JSZip decompresses it transparently.
+- `pae_cutoff: 12`, `cb_cutoff: 8` in the manifest — these are the pinned lis.py defaults.
+  **Do not change them**; every score in the catalogue was computed at these values and a bundle
+  built at other cutoffs is not comparable to its neighbours.
+- Keep the singular `structure` / `pae_image` / `structure_model` keys pointing at the best model
+  alongside the plural `structures` / `pae_images` maps, so a single-model loader still works.
+
+### 11.4 Catalogue manifest
+
+`cluster_available.json` is keyed by **label**, and each entry carries `job = <label>` (not the
+real job) plus `url = <label>.zip`. The viewer matches its experimental-evidence popup on
+`e.job`, so a real job name there both leaks and fails to match.
+
+### 11.5 Before publishing
+
+Beyond §8's checklist:
+
+- grep every text entry of every zip for the job name — expect zero hits
+- confirm `n_models` equals the number of `model_*.cif` actually present
+- confirm no `.cif.gz` anywhere
+- confirm each `pae_<m>.png` exists for each `model_<m>.cif`
+- open two bundles of very different complex size side by side and check the colour scale reads
+  the same — that is the check that catches an accidental autoscale
+
+---
+
+## 12. `make_lightweight_bundle.py` — one command instead of §2–5
+
+`python/make_lightweight_bundle.py` does §2 through §5 in one call, following §11 exactly. It exists so
+that nobody has to keep a 70 MB prediction just to be able to look at it later.
+
+```bash
+python make_lightweight_bundle.py fold_mycomplex.zip -o bundles/
+python make_lightweight_bundle.py af3_out/ --name PRC2 -o bundles/     # publish under a chosen name
+python make_lightweight_bundle.py preds/*.zip -o bundles/              # many at once, with a total
+python make_lightweight_bundle.py --check bundles/PRC2.zip             # verify one you already have
+```
+
+Everything comes from `lis.py`: `scan_files` → `detect_platform` → `find_models` → `extract_pae`, so it
+reads whatever lis.py reads — AlphaFold 3 (server and local), ColabFold, AlphaPulldown/AF-Multimer,
+Boltz, Chai-1, OpenFold3, ESMFold2, and the generic structure+PAE layout.
+
+**Verified against production.** For the same prediction, the tool's bundle and the catalogue's
+hand-built bundle have the same file set, byte-identical `model_*.cif`, and a **byte-identical
+`pae_0.png`** (344,556 bytes both). The only manifest difference is `chains`: the catalogue writes gene
+symbols from its own database, the tool writes chain-id → residue count from the structure. Overwrite it
+if you have real names.
+
+### What it costs you
+
+The numeric PAE is gone, so you cannot re-score at a different `--pae-cutoff`, and you cannot compute
+anything `lis.py` does not already compute. For a prediction where that is a live possibility, pass
+`--keep-pae` (stores float16 `.npz`, larger bundle) or keep that one prediction intact.
+
+### Reclaiming the space: `--delete-original`
+
+Deleting the source is **opt-in**, never automatic. The safe habit is to build first, look at what you
+got, then re-run with the flag — but passing it directly is also fine, because it only ever deletes a
+source whose bundle it has just verified:
+
+```bash
+python make_lightweight_bundle.py preds/*.zip -o bundles/                    # build
+python make_lightweight_bundle.py preds/*.zip -o bundles/ --delete-original  # build + reclaim
+```
+
+It refuses, per prediction and with the reason printed, when:
+
+- the bundle does not pass `--check` (missing member, broken `structure_file`, name mismatch)
+- `--models` was used, so the bundle holds fewer models than the source — deleting would lose the rest
+- the source sits inside the output directory
+
+A refusal is never silenced by `-q`: it explains why something you asked for did not happen. The run
+ends with how much was actually freed, which is `0` if everything was refused.
+
+### Options
+
+| flag | effect |
+|---|---|
+| `--name LABEL` | public name. Defaults to the prediction's own name, which is often an internal job id |
+| `--keep-pae` | also store numeric PAE as float16 `.npz` |
+| `--models 0,2` | keep only these model indices (also subsets `lis.csv`, so the bundle stays self-consistent) |
+| `--delete-original` | delete the source after the bundle passes every check — irreversible, opt-in |
+| `--check` | verify existing bundles instead of building |
+
+`--name` also triggers a scrub-and-assert: the original name is removed from `lis.csv` and
+`manifest.json`, and the build **fails** rather than writing a bundle if any trace survives.
+
+### Two traps it already handles, worth knowing if you write your own
+
+- `lis.py -o` is a **filename**, `-d` is the directory. Passing a full path to `-o` alone drops `lis.csv`
+  beside the input — bad when the prediction store is shared or read-only.
+- `lis.csv` rewriting must collapse `<name>_model_` **before** the bare `<name>`, by plain string
+  replacement. A regex with `\S*?` between them spans commas and eats the whole
+  `name,…,structure_file` range, leaving `name = "model_0.cif"`. Nothing errors; the bundle is just wrong.
+- `lis.get_chains_from_structure` returns `{'names': [...], 'sizes': [...]}`, not a list of records.
+  Treating it as a list fails silently: the bundle still builds, the PAE images just lose their chain
+  boundary lines and nobody notices.
