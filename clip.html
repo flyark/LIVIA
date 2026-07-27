@@ -192,6 +192,11 @@
       <a href="#" id="subset-dl-fasta" style="color:#2471A3; font-weight:600">↓ FASTA (selected)</a>
       <div id="subset-list" style="margin-top:.4rem; max-height:150px; overflow:auto; display:flex; flex-wrap:wrap; gap:.3rem .8rem;"></div>
     </div>
+    <div id="clip-clust-wrap" class="hidden" style="margin-top:.5rem; font-size:.85rem; color:#556;">
+      🎨 Cluster assignment: <span id="clip-clust-stat">fingerprint clustering (automatic)</span>
+      &nbsp;·&nbsp;<label style="color:#2471A3; font-weight:600; cursor:pointer">↑ upload <code>partner,cluster</code><input type="file" id="clip-clust-ul" accept=".csv,.tsv,.txt" class="hidden"></label>
+      <span id="clip-clust-mode-wrap" class="hidden">&nbsp;·&nbsp;<select id="clip-clustmode" style="font-size:.8rem; padding:1px 4px; border:1px solid #ccd; border-radius:5px"><option value="user">use my clusters</option><option value="fingerprint">fingerprint clustering</option></select> · <a href="#" id="clip-clust-clear" style="color:#c0392b; font-weight:600">✕ clear</a></span>
+    </div>
     <div class="row" style="margin-top:.6rem; font-size:.85rem; color:#556">
       <span class="muted">3D structure via AlphaFold DB — resolved from FASTA sequence (exact) or protein name + length.</span>
     </div>
@@ -323,6 +328,59 @@ const TAB60 = TAB20.concat(TAB20B, TAB20C);   // 60 distinct — 'auto' uses thi
 const PALETTES = { tab10: TAB10, tab20: TAB20, tab20b: TAB20B, tab20c: TAB20C, distinct: TAB60 };
 let PALETTE = 'auto';   // default; 'auto' scales with k (tab10->tab20->tab60->HSL); fixed palettes extend with generated colors past their length
 let CLUSTER_OVERRIDE = {};   // per-cluster custom colour (cluster id -> hex); wins over the palette
+let USERCLUST_CLIP = null;   // user-supplied partner symbol -> cluster label (Map); overrides the fingerprint clustering
+// user clusters are used when a map is loaded and the toggle is not set back to fingerprint
+function clipUserClusterMode(){ return !!(USERCLUST_CLIP && USERCLUST_CLIP.size && (!$('clip-clustmode') || $('clip-clustmode').value === 'user')); }
+// display name for a cluster index: the user's label if any (bare number -> "Cluster N"/"CN"), else "Cluster N"/"CN"
+function clusterLabel(c, short){
+  const nm = LAST && LAST.cl && LAST.cl.commNames && LAST.cl.commNames[c];
+  if (nm == null) return short ? ('C' + c) : ('Cluster ' + c);
+  return /^\d+$/.test(nm) ? (short ? ('C' + nm) : ('Cluster ' + nm)) : nm;
+}
+// Override cl.labels with the user's partner->cluster map. The fingerprint tree (cl.Z) and leaf
+// order are left untouched, so the heatmap dendrogram still renders — only the cluster identities
+// (and thus every colour/chip/legend that reads cl.labels) change. Partners absent from the map go
+// to a neutral trailing 'unassigned' cluster; dropping them would break the tree (n would change).
+function applyUserClusters(cl, pipe){
+  const n = cl.labels.length, labelStr = new Array(n), freq = new Map();
+  for (let i = 0; i < n; i++){
+    const l = USERCLUST_CLIP.get(pipe.rows[i].Symbol_2);
+    labelStr[i] = (l != null && l !== '') ? String(l) : null;
+    if (labelStr[i] != null) freq.set(labelStr[i], (freq.get(labelStr[i]) || 0) + 1);
+  }
+  const order = [...freq.keys()].sort((a, b) => (freq.get(b) - freq.get(a)) || (a < b ? -1 : a > b ? 1 : 0));   // largest first
+  const idx = new Map(order.map((l, i) => [l, i + 1]));   // 1-indexed, matches cLIP's size-ranked convention
+  const hasUn = labelStr.some(l => l == null), unIdx = order.length + 1;
+  cl.labels = labelStr.map(l => l == null ? unIdx : idx.get(l));
+  cl.optimalK = order.length + (hasUn ? 1 : 0);
+  const names = {}; order.forEach((l, i) => names[i + 1] = l); if (hasUn) names[unIdx] = 'unassigned';
+  cl.commNames = names;
+}
+function parseClipClusterMap(text){                          // partner -> cluster label
+  const rows = CLIPPipeline.parseCSV(text).rows; if (!rows || !rows.length) return null;
+  const ks = Object.keys(rows[0]);
+  const nodeK = ks.find(k => /^(partner|node|name|symbol|symbol_2|protein|protein_2|gene)$/i.test(k)) || ks[0];
+  const clK = ks.find(k => /^(cluster|community|module|group|class|label)$/i.test(k)) || ks.find(k => k !== nodeK) || ks[1];
+  if (!clK) return null;
+  const m = new Map();
+  for (const r of rows){ const nkey = String(r[nodeK] != null ? r[nodeK] : '').trim(), c = String(r[clK] != null ? r[clK] : '').trim(); if (nkey && c !== '') m.set(nkey, c); }
+  return m.size ? m : null;
+}
+function clipClustStat(){
+  const on = !!(USERCLUST_CLIP && USERCLUST_CLIP.size);
+  $('clip-clust-mode-wrap').classList.toggle('hidden', !on);
+  $('clip-clust-stat').textContent = on
+    ? (clipUserClusterMode() ? `user-defined · ${USERCLUST_CLIP.size} partners mapped` : 'fingerprint clustering (your map is loaded but off)')
+    : 'fingerprint clustering (automatic)';
+}
+function regenerateClip(){ if ($('run') && !$('run').disabled && LAST) $('run').click(); }
+function loadClipClusterMap(text){
+  USERCLUST_CLIP = parseClipClusterMap(text);
+  if (!USERCLUST_CLIP) { $('status').textContent = '⚠ cluster map: no partner,cluster rows found (need a header like partner,cluster or Symbol_2,cluster).'; }
+  else if ($('clip-clustmode')) $('clip-clustmode').value = 'user';
+  clipClustStat(); regenerateClip();
+}
+function clearClipClusters(){ USERCLUST_CLIP = null; clipClustStat(); regenerateClip(); }
 // golden-angle HSL so colors never collide when clusters exceed the curated palettes
 function hslDistinct(i){ const h = (i * 137.508) % 360, s = (62 + (i % 2) * 16)/100, l = (42 + (i % 3) * 13)/100, a = s * Math.min(l, 1-l); const f = (n) => { const k = (n + h/30) % 12, c = l - a * Math.max(-1, Math.min(k-3, 9-k, 1)); return Math.round(255*c).toString(16).padStart(2,'0'); }; return `#${f(0)}${f(8)}${f(4)}`; }
 function clusterColor(id, k){
@@ -478,6 +536,9 @@ $('gene').addEventListener('change', () => { PARTNER_EXCLUDE = new Set(); rebuil
   const _sl = $('subset-dl-lis'); if (_sl) _sl.onclick = (e) => { e.preventDefault(); downloadFilteredLis(); };
   const _sf = $('subset-dl-fasta'); if (_sf) _sf.onclick = (e) => { e.preventDefault(); downloadFilteredFasta(); };
   const _su = $('subset-ul'); if (_su) _su.onchange = async (ev) => { const f = ev.target.files && ev.target.files[0]; if (!f) return; try { uploadSubsetList(await f.text()); } catch(err){ $('status').textContent = '⚠ subset list parse failed: ' + err.message; } finally { ev.target.value = ''; } }; }
+{ const _cu = $('clip-clust-ul'); if (_cu) _cu.onchange = async (ev) => { const f = ev.target.files && ev.target.files[0]; if (!f) return; try { loadClipClusterMap(await f.text()); } catch(err){ $('status').textContent = '⚠ cluster map parse failed: ' + err.message; } finally { ev.target.value = ''; } };
+  const _cm = $('clip-clustmode'); if (_cm) _cm.onchange = () => { clipClustStat(); regenerateClip(); };
+  const _cc = $('clip-clust-clear'); if (_cc) _cc.onclick = (e) => { e.preventDefault(); clearClipClusters(); }; }
 
 // A workbook states each protein's real identifiers alongside the display symbol. Feeding those to
 // the resolver is what separates FBgn0035802 (one fly gene) from the symbol 'Pura', which also matches
@@ -744,6 +805,7 @@ function rebuildSubsetPicker(){
   const gene = $('gene').value, wrap = $('subset-wrap'), box = $('subset-list');
   if (!wrap || !box) return;
   const partners = (gene && gene !== '\u2014' && FILES.length) ? queryPartners(gene) : [];
+  const cw = $('clip-clust-wrap'); if (cw){ cw.classList.toggle('hidden', partners.length < 2); if (partners.length >= 2) clipClustStat(); }
   if (partners.length < 2){ wrap.classList.add('hidden'); return; }
   box.innerHTML = '';
   for (const pt of partners){
@@ -869,6 +931,7 @@ $('run').onclick = () => {
     { const cnt = {}; for (const l of cl.labels) cnt[l] = (cnt[l]||0)+1;                     // renumber clusters by size: largest = cluster 1
       const remap = {}; Object.keys(cnt).map(Number).sort((a,b) => cnt[b]-cnt[a] || a-b).forEach((old,i) => remap[old]=i+1);
       cl.labels = cl.labels.map(l => remap[l]); }
+    if (clipUserClusterMode()) applyUserClusters(cl, pipe);   // user's partner->cluster map wins (tree kept)
     const order = CLIPCluster.leafOrder(cl.Z, pipe.fingerprints.length);
     LAST = { gene, opts, pipe, cl, order, ms: performance.now()-t0 };
     render(LAST);
@@ -887,7 +950,7 @@ function render(A){
   $('report').classList.remove('hidden');
   $('title').textContent = `${gene} — interactome (${uniqueP} partners, ${n} predictions, ${k} clusters)`;
   const _norm = pipe.constructNorm || {};
-  $('subtitle').textContent = `query length ${plen} aa · cosine + average linkage · silhouette-optimal k`
+  $('subtitle').textContent = `query length ${plen} aa · ` + (cl.commNames ? 'clusters: user-defined · tree = fingerprint similarity' : 'cosine + average linkage · silhouette-optimal k')
     + (_norm.remapped ? ` · ⤳ ${_norm.remapped} partial-construct row${_norm.remapped>1?'s':''} remapped to full-length coordinates` : '')
     + (_norm.mixed && !_norm.remapped ? ` · ⚠ mixed full/partial constructs detected — add the paired FASTA so coordinates can be unified` : '');
   $('s-partners').textContent = uniqueP; $('s-predictions').textContent = n; $('s-clusters').textContent = k; $('s-len').textContent = plen;
@@ -1008,7 +1071,7 @@ function renderClusterInfo(A){
     const all = members[c]; const mem = [...new Set(all)].sort((a, b) => String(a).toLowerCase().localeCompare(String(b).toLowerCase()));
     html += `<div style="display:flex; align-items:flex-start; gap:.5rem; margin-bottom:.4rem">`
       + `<span style="background:${clusterColor(c,k)}; width:13px; height:13px; border-radius:3px; flex-shrink:0; margin-top:3px"></span>`
-      + `<span><b>Cluster ${c}</b> (${mem.length} / ${all.length}): ${mem.join(', ')}</span></div>`;
+      + `<span><b>${_esc(clusterLabel(c))}</b> (${mem.length} / ${all.length}): ${mem.join(', ')}</span></div>`;
   }
   $('cluster-info').innerHTML = html;
 }
@@ -1665,7 +1728,7 @@ function renderChipBar(id, A){
   const k = A.cl.optimalK, box = $(id); if (!box) return;
   const sizes = {}; for (const lab of A.cl.labels) sizes[lab] = (sizes[lab]||0)+1;   // # PPIs per cluster
   let html = `<span class="cchip all sel" data-c="all">All clusters (${A.cl.labels.length})</span>`;
-  for (let c=1;c<=k;c++) html += `<span class="cchip" data-c="${c}"><span class="dot" style="background:${clusterColor(c,k)}"></span>C${c} (${sizes[c]||0})</span>`;
+  for (let c=1;c<=k;c++) html += `<span class="cchip" data-c="${c}"><span class="dot" style="background:${clusterColor(c,k)}"></span>${_esc(clusterLabel(c,true))} (${sizes[c]||0})</span>`;
   box.innerHTML = html;
   box.querySelectorAll('.cchip').forEach(chip => chip.onclick = () => toggleCluster(chip.dataset.c, A));
   refreshChipVisuals(A);
