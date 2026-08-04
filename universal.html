@@ -3602,7 +3602,7 @@ async function processPrecomputedBundle() {
     uniState.confidenceScores = {};
     // Gene labels from the manifest `chains` map (optional) — surfaced everywhere via chainLabel().
     const cg = {};
-    if (lw.chains && typeof lw.chains === 'object') for (const n of chainNames) if (lw.chains[n]) cg[n] = lw.chains[n];
+    if (lw.chains && typeof lw.chains === 'object') for (const n of chainNames) if (lw.chains[n] && !/^\d+$/.test(String(lw.chains[n]).trim())) cg[n] = lw.chains[n];   // real gene names only — a purely-numeric value is a residue count, not a gene (older bundles stored the length here)
     uniState.chainGenes = cg;
     uniState.manifestChains = Object.assign({}, cg);   // kept as a fallback if a UniProt re-identify misses a chain
 
@@ -5650,10 +5650,13 @@ async function buildLightweightBundle(colormap = 'bwr', customStops = ['#00897B'
     if (!Object.keys(structures).length) return null;
     if (best == null) best = +Object.keys(structures)[0];
 
-    // chains: gene name where resolved, else residue count (matches the loader's expectations)
+    // chains: real gene names only. Never fall back to the residue count — the loader feeds this
+    // map into chainGenes, where a number would render as the arc label ("356 (A)"). The count is
+    // carried by the structures/CSV and shown separately.
     const chains = {};
-    (chainNames || []).forEach((nm, i) => {
-        chains[nm] = (uniState.chainGenes && uniState.chainGenes[nm]) || (chainSizes ? chainSizes[i] : nm);
+    (chainNames || []).forEach((nm) => {
+        const g = uniState.chainGenes && uniState.chainGenes[nm];
+        if (g && !/^\d+$/.test(String(g).trim())) chains[nm] = g;
     });
 
     const manifest = {
