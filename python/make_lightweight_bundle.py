@@ -113,8 +113,9 @@ def chain_info(text, fmt):
     per-chain records is also accepted so this keeps working if that ever changes. Getting this wrong is
     silent -- the bundle still builds, the PAE images just quietly lose their chain boundary lines.
 
-    The chain map goes in the manifest so a viewer can label subunits without any external annotation.
-    Where real names are known (a gene symbol, a UniProt id), overwrite it; residue count is the fallback.
+    Only the boundary indices are used (to draw chain lines on the PAE images). The size map is NOT
+    written to the manifest: the loader reads manifest.chains as gene names, and a residue count there
+    renders as the chord arc label ("356 (A)"). Chain ids and sizes are recoverable from the structures.
     """
     try:
         c = lis.get_chains_from_structure(text, fmt)
@@ -232,7 +233,7 @@ def build(path, out_dir, label=None, keep_pae=False, only_models=None, quiet=Fal
             csv_text = subset_csv(csv_text, only_models)
         open(os.path.join(work, 'lis.csv'), 'w').write(csv_text)
 
-        kept, bounds, chains = [], [], {}
+        kept, bounds = [], []
         # lis.py yields (name, rank, model_label, struct, pae, scores, fmt). `model_label` is a filename,
         # not an index, and `rank` is an int for most platforms but a "seed_sample" string for local AF3 --
         # so derive a stable integer and fall back to position when it is not numeric.
@@ -251,7 +252,7 @@ def build(path, out_dir, label=None, keep_pae=False, only_models=None, quiet=Fal
             # stream a member expect an uncompressed structure inside
             open(os.path.join(work, f'model_{m}.{ext}'), 'w').write(stext)
             if not bounds:
-                bounds, chains = chain_info(stext, ext)
+                bounds, _ = chain_info(stext, ext)   # only the boundary indices are used (for the PAE chain lines); the size map is not a gene map
             try:
                 pae = lis.extract_pae(pae_path, read_fn)
                 render_pae(pae, bounds, os.path.join(work, f'pae_{m}.png'))
@@ -268,7 +269,7 @@ def build(path, out_dir, label=None, keep_pae=False, only_models=None, quiet=Fal
         best = pick_best(csv_text, [m for m, _ in kept])
         ext_of = dict(kept)
         man = lwb.build_manifest(
-            name=label, chains=chains,
+            name=label, chains={},   # no gene names here — the loader treats chains values as genes, and a residue count would render as the chord arc label ("356 (A)"). Chain ids/sizes come from the structures.
             structures={str(m): f'model_{m}.{ext_of[m]}' for m, _ in kept},
             pae_images={str(m): f'pae_{m}.png' for m, _ in kept
                         if os.path.exists(os.path.join(work, f'pae_{m}.png'))},
