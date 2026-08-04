@@ -237,6 +237,7 @@
             <h2>Linear Contact Map</h2>
             <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B. UniProt domain annotations shown when available.</span>
+                <div style="flex-basis:100%; height:0;"></div><!-- controls on their own line, below the description -->
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> domain architecture</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="window.showConnIDs=this.checked; window.__redrawDimerContact&&window.__redrawDimerContact()"> chain IDs</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> swap chains (top&harr;bottom)</label>

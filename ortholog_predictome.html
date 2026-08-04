@@ -249,6 +249,7 @@
             </div>
             <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Per-rank structures fetched automatically.</span>
+                <div style="flex-basis:100%; height:0;"></div><!-- controls on their own line, below the description -->
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="window.__redrawConn&&window.__redrawConn()"> domain architecture</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="window.showConnIDs=this.checked; window.__redrawConn&&window.__redrawConn()"> chain IDs</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="window.__redrawConn&&window.__redrawConn()"> swap chains (top&harr;bottom)</label>

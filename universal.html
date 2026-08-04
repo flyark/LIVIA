@@ -327,6 +327,7 @@
             </div>
             <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B.</span>
+                <div style="flex-basis:100%; height:0;"></div><!-- controls on their own line, below the description -->
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> domain architecture</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="uniShowLinearIDs=this.checked; buildLinearContactMaps();"> chain IDs</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> swap chains (top&harr;bottom)</label>
@@ -856,6 +857,7 @@ async function handleInputFiles(fileList) {
     // Disable Process immediately — large zips take seconds to load, and a premature
     // click would run processFiles with platform=null (fallback: generic, wrong PAE source).
     document.getElementById('btn-process').disabled = true;
+    uniState.loadEpoch = (uniState.loadEpoch || 0) + 1;   // invalidate any in-flight identifyChains from the previous prediction (its async result must not clobber this load's labels)
     uniState.loadedFiles = {};
     uniState.loadedZip = null;
     uniState.predictions = [];
@@ -880,6 +882,12 @@ async function handleInputFiles(fileList) {
     uniState.loadedImages = {};
     uniState.lightweight = null;
     uniState.manifestChains = null;
+    // Clear resolved chain identities so the previous prediction's labels don't leak into this one
+    // (they were being carried into figures and even baked into a lightweight bundle's manifest).
+    uniState.chainGenes = {};
+    uniState.chainDomains = {};
+    uniState.chainTedDomains = {};
+    uniState.chainDomainInfo = {};
     pendingJobs = null;
     // Clear drop-zone label so a fresh drop overwrites the previous folder name
     const fnEl = document.getElementById('file-name');
@@ -5054,6 +5062,7 @@ async function identifyChains(){
     const btn = document.getElementById('identify-btn'), out = document.getElementById('chain-identity-out');
     if (typeof CLIPResolver === 'undefined'){ out.innerHTML = '<span style="color:#c0392b;">resolver failed to load (needs internet)</span>'; return; }
     if (!uniState.modelData.length) return;
+    const epoch = uniState.loadEpoch;                             // abort if a new prediction loads while we await the network
     const md = uniState.modelData[0];
     const seqs = uniState.structureFormat === 'pdb' ? parsePdbSequence(md.structText) : parseCifSequence(md.structText);
     const names = uniState.chainNames || [];
@@ -5073,6 +5082,7 @@ async function identifyChains(){
     // one sequential retry for any that came back empty: parallel hits get transient 429/timeouts
     // from UniProt, which look like "not found" — a spaced-out retry usually recovers them.
     for (const s of uniq.keys()){ const e = resolved.get(s); if (e && e.r) continue; await new Promise(r => setTimeout(r, 500)); await resolveOne(s); }
+    if (uniState.loadEpoch !== epoch){ btn.disabled = false; btn.textContent = 'Identify chains via UniProt'; return; }   // a new prediction loaded mid-resolve — do not write stale identities
     const th = (h) => '<th style="text-align:left; padding:3px 12px 4px 0; border-bottom:1px solid #ddd; white-space:nowrap;">' + h + '</th>';
     const td = (h) => '<td style="padding:3px 12px 3px 0; vertical-align:top;">' + h + '</td>';
     let html = '<table style="border-collapse:collapse; font-size:0.85rem;"><thead><tr>' + ['Chain','Len','UniProt','Gene','Organism','Domains'].map(th).join('') + '</tr></thead><tbody>';
