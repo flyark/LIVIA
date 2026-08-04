@@ -102,6 +102,8 @@
             transition: background 0.2s;
         }
         .preset:hover { background: #f0f0f0; }
+        #bundle-btn { font: 600 0.8rem/1.35 sans-serif; color: #2471A3; background: none; border: 1px solid #2471A3; border-radius: 5px; padding: 2px 9px; cursor: pointer; transition: background-color .12s ease, color .12s ease; }
+        #bundle-btn:hover:not(:disabled) { background: #2471A3; color: #fff; }
 
         @media (max-width: 768px) {
             .map-row { flex-wrap: wrap; justify-content: center; flex-direction: column; align-items: center; }
@@ -191,9 +193,34 @@
     <div class="results" id="results">
         <!-- Interaction Analysis Summary -->
         <div class="card result-card">
-            <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:0.3rem 1rem; flex-wrap:wrap;">
                 <h2 id="result-title" style="margin-bottom:0;">Interaction Analysis Summary</h2>
                 <a style="font-size:0.8rem; color:#2471A3; cursor:pointer; text-decoration:none; border-bottom:1px dashed #2471A3;" onclick="downloadCSV()">&#8595; Download CSV</a>
+                <div id="bundle-row-break" style="display:none; flex-basis:100%; height:0;"></div><!-- bundle controls get their own line, so expanding 'custom' never reflows the title row -->
+                <span id="bundle-btn-wrap" style="display:none; align-items:center; gap:0.55rem; font-size:0.8rem; color:#555;" title="Shrink this prediction to a small LIVIA lightweight bundle (scores + structures + PAE images, no numeric PAE)">
+                    <button id="bundle-btn" onclick="downloadLightweightBundle()">&#8595; Lightweight bundle</button>
+                    <span style="display:inline-flex; align-items:center; gap:4px;">PAE color scale
+                        <select id="bundle-cmap" onchange="document.getElementById('bundle-cmap-custom').style.display=this.value==='custom'?'inline-flex':'none'" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;"><option value="bwr" selected>bwr</option><option value="green">green</option><option value="custom">custom</option></select>
+                        <span id="bundle-cmap-custom" style="display:none; align-items:center; gap:3px;" title="Custom PAE gradient: low error (confident) &rarr; high error (uncertain)">
+                            <select id="bundle-cmap-stops" onchange="const three=this.value==='3', m=three?'inline-block':'none'; document.getElementById('bundle-cmap-mid').style.display=m; document.getElementById('bundle-cmap-arrow2').style.display=m; const hi=document.getElementById('bundle-cmap-hi'); if(three && hi.value.toLowerCase()==='#ffffff') hi.value='#b2182b';" title="2-stop (low&rarr;high) or 3-stop (low&rarr;mid&rarr;high) gradient" style="font-size:0.78rem; padding:1px 2px; border:1px solid #ccd; border-radius:4px;"><option value="2" selected>2</option><option value="3">3</option></select>
+                            <input type="color" id="bundle-cmap-lo" value="#00897B" title="low PAE (confident)" style="width:24px; height:18px; padding:0; border:1px solid #ccd; border-radius:3px; cursor:pointer;">
+                            <span style="color:#aaa;">&rarr;</span>
+                            <input type="color" id="bundle-cmap-mid" value="#ffffff" title="mid PAE" style="display:none; width:24px; height:18px; padding:0; border:1px solid #ccd; border-radius:3px; cursor:pointer;">
+                            <span id="bundle-cmap-arrow2" style="display:none; color:#aaa;">&rarr;</span>
+                            <input type="color" id="bundle-cmap-hi" value="#ffffff" title="high PAE (uncertain)" style="width:24px; height:18px; padding:0; border:1px solid #ccd; border-radius:3px; cursor:pointer;">
+                            <input type="text" id="bundle-cmap-hexes" placeholder="or paste hex: #00897B, #fff, #B2182B" oninput="applyBundleHexes(this.value)" title="Paste 2 or 3 hex colours (comma/space separated): low&rarr;high or low&rarr;mid&rarr;high. Updates the swatches." style="width:210px; font-size:0.72rem; padding:1px 4px; border:1px solid #ccd; border-radius:4px;">
+                        </span>
+                    </span>
+                    <span style="display:inline-flex; align-items:center; gap:4px;" title="PAE image resolution in the bundle (pixels per map). Higher = sharper figure, larger file.">PAE size
+                        <select id="bundle-pae-px" onchange="document.getElementById('bundle-pae-px-custom').style.display=this.value==='custom'?'inline-block':'none'" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;"><option value="256">256 px</option><option value="384" selected>384 px</option><option value="512">512 px</option><option value="1024">1024 px</option><option value="2048">2048 px</option><option value="4096">4096 px</option><option value="custom">custom&hellip;</option></select>
+                        <input type="number" id="bundle-pae-px-custom" min="128" max="8192" step="64" value="1500" title="Custom PAE size in pixels (128&ndash;8192)" style="display:none; width:64px; font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;">
+                    </span>
+                    <label style="display:inline-flex; align-items:center; gap:4px; margin:0; font-size:0.8rem; font-weight:400; color:#555; cursor:pointer;" title="Draw a PAE colour-scale bar (0&ndash;30) with a &quot;PAE&quot; label on the right of each PAE image"><input type="checkbox" id="bundle-colorbar" checked style="margin:0;"> PAE color bar</label>
+                    <span style="display:inline-flex; align-items:center; gap:4px;" title="Scale the chain/tick/PAE label text on the PAE images">font
+                        <select id="bundle-font-scale" onchange="document.getElementById('bundle-font-scale-custom').style.display=this.value==='custom'?'inline-block':'none'" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;"><option value="0.8">0.8&times;</option><option value="1" selected>1&times;</option><option value="1.25">1.25&times;</option><option value="1.5">1.5&times;</option><option value="2">2&times;</option><option value="custom">custom&hellip;</option></select>
+                        <input type="number" id="bundle-font-scale-custom" min="0.3" max="4" step="0.05" value="1" title="Custom font scale (0.3&ndash;4&times;)" style="display:none; width:54px; font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;">
+                    </span>
+                </span>
             </div>
             <div id="interactome-summary" style="display:none; font-size:0.85rem; color:#334; margin:0.2rem 0 0.1rem;"></div>
             <div class="info-box">Click a row to switch models. This updates all visualizations and the script below.</div>
@@ -314,6 +341,7 @@
             <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
                 <h2 style="margin-bottom:0;">Circular Contact Map</h2>
                 <div class="model-selector" id="chord-model-selector"></div>
+                <div style="flex-basis:100%; height:0; margin:0;"></div><!-- force the toggles onto their own line, below the model selector -->
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-labels" checked onchange="uniShowChordLabels=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> labels</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="uniShowChordIDs=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> chain IDs</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="uniShowChordLength=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> length</label>
@@ -3752,6 +3780,14 @@ function updateInteractomeSummary() {
 
 function displayResults(results, jobName) {
     document.getElementById('result-title').textContent = jobName;
+    // "Lightweight bundle" button: only for a full upload with numeric PAE to shrink (not an
+    // already-lightweight bundle, which has no numeric PAE).
+    { const bw = document.getElementById('bundle-btn-wrap');
+      const brk = document.getElementById('bundle-row-break');
+      const hasPAE = (uniState.modelData || []).some(md => md.pae && md.pae.length);
+      const show = hasPAE && !uniState.lightweight;
+      if (bw) bw.style.display = show ? 'inline-flex' : 'none';
+      if (brk) brk.style.display = show ? 'block' : 'none'; }
     // Update iPTM column header: append asterisk + tooltip when value is iPTM+pTM
     const ths = document.querySelectorAll('#pairs-table thead th');
     for (const th of ths) {
@@ -5202,19 +5238,42 @@ function calcMapDisplaySize() {
     return Math.max(80, Math.min(raw, 350)); // clamp: >= 80px, cap 350px per map
 }
 
-function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, vmax) {
-    const leftMargin = 20;
+function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, vmax, plotPxTarget, showColorbar, fontScale) {
     const manyChains = chainSizes && chainSizes.length > 4;
-    const bottomMargin = manyChains ? 50 : 36;
-    const displaySize = calcMapDisplaySize();
+    // plotPxTarget: render the plot area at an explicit pixel size (lightweight-bundle export at a
+    // chosen resolution); otherwise size from the on-screen layout. HIRES supersamples.
+    const exporting = !!plotPxTarget;
+    const displaySize = exporting ? (plotPxTarget / HIRES) : calcMapDisplaySize();
+    // Label fonts (base, pre-HIRES). On screen: the original small fixed clamp (unchanged).
+    // Export: a constant fraction of the figure (so labels scale with resolution), times an
+    // optional user font-scale multiplier.
+    const fscale = exporting ? (fontScale > 0 ? fontScale : 1) : 1;
+    // Export base fractions bake in the former 1.25x, so a font scale of 1x now renders at that size.
+    const chainFontBase = (exporting
+        ? Math.max(displaySize * 0.0275, Math.min(displaySize * 0.0875, displaySize * 0.15 / chainSizes.length))
+        : Math.max(9, Math.min(12, Math.floor(displaySize / chainSizes.length / 3)))) * fscale;
+    const tickFontBase = (exporting
+        ? displaySize * 0.0375
+        : Math.max(7, Math.min(9, Math.floor(displaySize / 20)))) * fscale;
+    // Margins scale with the export fonts so the larger labels fit; fixed on screen.
+    const leftMargin = exporting ? Math.max(20, chainFontBase * 2.5) : 20;
+    const bottomMargin = exporting
+        ? (chainFontBase + tickFontBase + 6 + (manyChains ? chainFontBase + 3 : 0))
+        : (manyChains ? 50 : 36);
+    // Optional PAE colorbar on the right (export only): gradient bar + 0/10/20/30 ticks + "PAE" label.
+    const showBar = exporting && showColorbar;
+    const barGapBase = displaySize * 0.02;
+    const barWBase = Math.max(10, displaySize * 0.035);
+    const rightMargin = showBar ? (barGapBase + barWBase + 6 + tickFontBase * 1.8 + chainFontBase + 4) : 0;
     const plotPx = displaySize * HIRES;
     const leftPx = leftMargin * HIRES;
     const bottomPx = bottomMargin * HIRES;
+    const rightPx = rightMargin * HIRES;
     const scale = plotPx / n;
 
-    canvas.width = plotPx + leftPx;
+    canvas.width = plotPx + leftPx + rightPx;
     canvas.height = plotPx + bottomPx;
-    canvas.style.width = (displaySize + leftMargin) + 'px';
+    canvas.style.width = (displaySize + leftMargin + rightMargin) + 'px';
     canvas.style.height = (displaySize + bottomMargin) + 'px';
 
     const ctx = canvas.getContext('2d');
@@ -5248,8 +5307,8 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
         ctx.beginPath(); ctx.moveTo(leftPx, pos); ctx.lineTo(leftPx + plotPx, pos); ctx.stroke();
     }
 
-    const chainFont = Math.max(9, Math.min(12, Math.floor(displaySize / chainSizes.length / 3))) * HIRES;
-    const tickFont = Math.max(7, Math.min(9, Math.floor(displaySize / 20))) * HIRES;
+    const chainFont = chainFontBase * HIRES;
+    const tickFont = tickFontBase * HIRES;
 
     let labelCum = 0;
     for (let k = 0; k < chainSizes.length; k++) {
@@ -5278,6 +5337,35 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
 
         ctx.fillStyle = '#333';
         labelCum += chainLen;
+    }
+
+    if (showBar) {
+        const barGap = barGapBase * HIRES, barW = barWBase * HIRES;
+        const barX = leftPx + plotPx + barGap;
+        const inset = tickFont * 0.7;                                           // keep the end tick labels (0 / 30) from clipping the canvas edge
+        const barTop = inset, barH = plotPx - 2 * inset;
+        for (let py = 0; py < barH; py++) {                                     // gradient: top = vmax (high error), bottom = vmin (low)
+            const v = vmax - (py / (barH - 1)) * (vmax - vmin);
+            const [r, g, bb] = colorFn(v, vmin, vmax);
+            ctx.fillStyle = `rgb(${r},${g},${bb})`;
+            ctx.fillRect(barX, barTop + py, barW, 1);
+        }
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 0.5 * HIRES;
+        ctx.strokeRect(barX, barTop, barW, barH);
+        ctx.fillStyle = '#333'; ctx.font = `${tickFont}px sans-serif`;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        for (const tv of [0, 10, 20, 30].filter(t => t >= vmin && t <= vmax)) {
+            const ty = barTop + ((vmax - tv) / (vmax - vmin)) * barH;
+            ctx.beginPath(); ctx.moveTo(barX + barW, ty); ctx.lineTo(barX + barW + 3 * HIRES, ty); ctx.stroke();
+            ctx.fillText(String(tv), barX + barW + 5 * HIRES, ty);
+        }
+        ctx.save();                                                            // vertical "PAE" axis label on the far right
+        ctx.translate(barX + barW + tickFont * 1.8 + 8 * HIRES, plotPx / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = `${chainFont}px sans-serif`;
+        ctx.fillText('PAE', 0, 0);
+        ctx.restore();
     }
 }
 
@@ -5388,36 +5476,42 @@ function drawColorbar(canvasId, colorFn, vmin, vmax) {
 // CSV DOWNLOAD
 // ============================================================================
 
+// lis.py CSV column header (after name,model,chain_i,chain_j). The bundle builder appends
+// `,structure_file`; the CSV export uses it as-is.
+const LIS_CSV_HEADER = 'name,model,chain_i,chain_j,iLIS,iLIA,iLISA,ipSAE,actifpTM,LIS,cLIS,LIA,cLIA,ipTM,pLDDT_i,pLDDT_j,pLDDT,pTM,LIR_i,LIR_j,cLIR_i,cLIR_j,LIpLDDT_i,LIpLDDT_j,LIpLDDT,cLIpLDDT_i,cLIpLDDT_j,cLIpLDDT,len_i,len_j,LIR_indices_i,LIR_indices_j,cLIR_indices_i,cLIR_indices_j';
+// weighted mean of two chains' pLDDT (length- or interface-count-weighted), matching lis.py.
+function csvWmeanPlddt(vi, vj, wi, wj) {
+    vi = +vi; vj = +vj; wi = +wi; wj = +wj;
+    if (!isFinite(vi) || !isFinite(vj) || !((wi + wj) > 0)) return '';
+    return ((wi * vi + wj * vj) / (wi + wj)).toFixed(1);
+}
+// The lis.py score columns (iLIS … cLIR_indices_j) for one chain-pair row — shared by the CSV
+// export and the lightweight-bundle builder so the two can never drift.
+function lisScoreCols(v, plddtI, plddtJ, pi, pj, ptmStr) {
+    return [
+        v.iLIS.toFixed(6), (v.iLIA||0).toFixed(1), (v.iLISA||0).toFixed(1), (v.ipSAE||0).toFixed(6), (v.actifpTM||0).toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
+        (v.LIA||0).toFixed(1), (v.cLIA||0).toFixed(1),
+        v.ipTM.toFixed(6),
+        plddtI, plddtJ, csvWmeanPlddt(pi, pj, v.lenI, v.lenJ),
+        ptmStr,
+        v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
+        isNaN(v.LIpLDDT_i) ? '' : v.LIpLDDT_i.toFixed(1),
+        isNaN(v.LIpLDDT_j) ? '' : v.LIpLDDT_j.toFixed(1),
+        csvWmeanPlddt(v.LIpLDDT_i, v.LIpLDDT_j, v.lirI.size, v.lirJ.size),
+        isNaN(v.cLIpLDDT_i) ? '' : v.cLIpLDDT_i.toFixed(1),
+        isNaN(v.cLIpLDDT_j) ? '' : v.cLIpLDDT_j.toFixed(1),
+        csvWmeanPlddt(v.cLIpLDDT_i, v.cLIpLDDT_j, v.clirI.size, v.clirJ.size),
+        v.lenI, v.lenJ,
+        `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
+        `"[${[...v.lirJ].sort((a,b)=>a-b).join(', ')}]"`,
+        `"[${[...v.clirI].sort((a,b)=>a-b).join(', ')}]"`,
+        `"[${[...v.clirJ].sort((a,b)=>a-b).join(', ')}]"`,
+    ];
+}
 function downloadCSV() {
     if (!uniState.modelPairs || !uniState.avgResults || !uniState.chainNames) return;
     const jobName = document.getElementById('result-title')?.textContent || 'prediction';
-
-    // Compute per-model per-chain pLDDT from B-factors
-    function computeChainPlddt(structText, format) {
-        const cp = {};
-        if (!structText) return cp;
-        const bfs = parseBfactorsPerResidue(structText, format);
-        for (const [key, val] of bfs) {
-            const chain = key.split(':')[0];
-            if (!cp[chain]) cp[chain] = [];
-            cp[chain].push(val);
-        }
-        for (const c of Object.keys(cp)) {
-            const arr = cp[c];
-            cp[c] = arr.reduce((a, b) => a + b, 0) / arr.length;
-        }
-        return cp;
-    }
-
-    const header = 'name,model,chain_i,chain_j,iLIS,iLIA,iLISA,ipSAE,actifpTM,LIS,cLIS,LIA,cLIA,ipTM,pLDDT_i,pLDDT_j,pLDDT,pTM,LIR_i,LIR_j,cLIR_i,cLIR_j,LIpLDDT_i,LIpLDDT_j,LIpLDDT,cLIpLDDT_i,cLIpLDDT_j,cLIpLDDT,len_i,len_j,LIR_indices_i,LIR_indices_j,cLIR_indices_i,cLIR_indices_j';
-    const rows = [header];
-    // Per-pair pLDDT columns (match lis.py): length/count-weighted mean of the two chains'
-    // pLDDT — weighted by chain length (pLDDT) or interface-residue count (LIpLDDT/cLIpLDDT).
-    const wmeanPlddt = (vi, vj, wi, wj) => {
-        vi = +vi; vj = +vj; wi = +wi; wj = +wj;
-        if (!isFinite(vi) || !isFinite(vj) || !((wi + wj) > 0)) return '';
-        return ((wi * vi + wj * vj) / (wi + wj)).toFixed(1);
-    };
+    const rows = [LIS_CSV_HEADER];
     const platform = platformLabel(uniState.platform);
 
     for (let mi = 0; mi < uniState.modelPairs.length; mi++) {
@@ -5430,26 +5524,8 @@ function downloadCSV() {
             const pj = chainPlddt[v.cj] != null ? chainPlddt[v.cj] : (ms.pLDDT != null ? ms.pLDDT : NaN);
             const plddtI = isNaN(pi) ? '' : pi.toFixed(1);
             const plddtJ = isNaN(pj) ? '' : pj.toFixed(1);
-            rows.push([
-                jobName, `model_${mi}`, v.ci, v.cj,
-                v.iLIS.toFixed(6), (v.iLIA||0).toFixed(1), (v.iLISA||0).toFixed(1), (v.ipSAE||0).toFixed(6), (v.actifpTM||0).toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
-                (v.LIA||0).toFixed(1), (v.cLIA||0).toFixed(1),
-                v.ipTM.toFixed(6),
-                plddtI, plddtJ, wmeanPlddt(pi, pj, v.lenI, v.lenJ),
-                ms.pTM != null ? ms.pTM.toFixed(3) : '',
-                v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
-                isNaN(v.LIpLDDT_i) ? '' : v.LIpLDDT_i.toFixed(1),
-                isNaN(v.LIpLDDT_j) ? '' : v.LIpLDDT_j.toFixed(1),
-                wmeanPlddt(v.LIpLDDT_i, v.LIpLDDT_j, v.lirI.size, v.lirJ.size),
-                isNaN(v.cLIpLDDT_i) ? '' : v.cLIpLDDT_i.toFixed(1),
-                isNaN(v.cLIpLDDT_j) ? '' : v.cLIpLDDT_j.toFixed(1),
-                wmeanPlddt(v.cLIpLDDT_i, v.cLIpLDDT_j, v.clirI.size, v.clirJ.size),
-                v.lenI, v.lenJ,
-                `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
-                `"[${[...v.lirJ].sort((a,b)=>a-b).join(', ')}]"`,
-                `"[${[...v.clirI].sort((a,b)=>a-b).join(', ')}]"`,
-                `"[${[...v.clirJ].sort((a,b)=>a-b).join(', ')}]"`,
-            ].join(','));
+            rows.push([jobName, `model_${mi}`, v.ci, v.cj,
+                ...lisScoreCols(v, plddtI, plddtJ, pi, pj, ms.pTM != null ? ms.pTM.toFixed(3) : '')].join(','));
         }
     }
     if (uniState.modelPairs.length > 1) {
@@ -5478,26 +5554,8 @@ function downloadCSV() {
             const pj = avgChainPlddt[v.cj] != null ? avgChainPlddt[v.cj] : NaN;
             const plddtI = isNaN(pi) ? '' : pi.toFixed(1);
             const plddtJ = isNaN(pj) ? '' : pj.toFixed(1);
-            rows.push([
-                jobName, 'average', v.ci, v.cj,
-                v.iLIS.toFixed(6), (v.iLIA||0).toFixed(1), (v.iLISA||0).toFixed(1), (v.ipSAE||0).toFixed(6), (v.actifpTM||0).toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
-                (v.LIA||0).toFixed(1), (v.cLIA||0).toFixed(1),
-                v.ipTM.toFixed(6),
-                plddtI, plddtJ, wmeanPlddt(pi, pj, v.lenI, v.lenJ),
-                avgPtmVal != null ? avgPtmVal.toFixed(3) : '',
-                v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
-                isNaN(v.LIpLDDT_i) ? '' : v.LIpLDDT_i.toFixed(1),
-                isNaN(v.LIpLDDT_j) ? '' : v.LIpLDDT_j.toFixed(1),
-                wmeanPlddt(v.LIpLDDT_i, v.LIpLDDT_j, v.lirI.size, v.lirJ.size),
-                isNaN(v.cLIpLDDT_i) ? '' : v.cLIpLDDT_i.toFixed(1),
-                isNaN(v.cLIpLDDT_j) ? '' : v.cLIpLDDT_j.toFixed(1),
-                wmeanPlddt(v.cLIpLDDT_i, v.cLIpLDDT_j, v.clirI.size, v.clirJ.size),
-                v.lenI, v.lenJ,
-                `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
-                `"[${[...v.lirJ].sort((a,b)=>a-b).join(', ')}]"`,
-                `"[${[...v.clirI].sort((a,b)=>a-b).join(', ')}]"`,
-                `"[${[...v.clirJ].sort((a,b)=>a-b).join(', ')}]"`,
-            ].join(','));
+            rows.push([jobName, 'average', v.ci, v.cj,
+                ...lisScoreCols(v, plddtI, plddtJ, pi, pj, avgPtmVal != null ? avgPtmVal.toFixed(3) : '')].join(','));
         }
     }
 
@@ -5506,6 +5564,167 @@ function downloadCSV() {
     a.href = URL.createObjectURL(blob);
     a.download = `${jobName}_lis_analysis.csv`;
     a.click();
+}
+
+// Per-chain mean pLDDT from a structure's B-factors — {chain: mean}. Module-level so both the
+// CSV export and the lightweight-bundle builder use it.
+function computeChainPlddt(structText, format) {
+    const cp = {};
+    if (!structText) return cp;
+    for (const [key, val] of parseBfactorsPerResidue(structText, format)) {
+        const chain = key.split(':')[0];
+        (cp[chain] = cp[chain] || []).push(val);
+    }
+    for (const c of Object.keys(cp)) cp[c] = cp[c].reduce((a, b) => a + b, 0) / cp[c].length;
+    return cp;
+}
+
+// ── Client-side lightweight bundle: shrink the loaded full prediction into a LIVIA
+// lightweight-v1 zip (lis.csv + per-model structures + per-model PAE PNGs + manifest), so a
+// big AF3/ColabFold upload becomes a few MB you can keep or share. `colormap` = 'bwr'|'green'.
+async function buildLightweightBundle(colormap = 'bwr', customStops = ['#00897B', '#ffffff'], paePx = 384, showColorbar = false, fontScale = 1) {
+    if (!uniState.modelData || !uniState.modelData.length || !uniState.modelPairs) return null;
+    paePx = Math.max(128, Math.min(8192, Math.round(paePx) || 384));                    // guard arbitrary custom sizes against OOM
+    fontScale = Math.max(0.3, Math.min(4, fontScale || 1));                             // clamp custom font scale to a sane range
+    const jobName = (document.getElementById('result-title')?.textContent || 'prediction').trim() || 'prediction';
+    // PAE colormap — a gradient over PAE 0…30, LOW error = confident:
+    //  bwr    → blue(low)…white…red(high)
+    //  green  → dark green(low)…white(high)   [greensColor is built high=dark for cLIS, so invert]
+    //  custom → user-picked stops, low-error…high-error (2 = low→high, 3 = low→mid→high, N supported)
+    let colorFn;
+    if (colormap === 'green') {
+        colorFn = (v, lo, hi) => greensColor(hi - (v - lo), lo, hi);
+    } else if (colormap === 'custom') {
+        const rgb = (h) => [parseInt(h.slice(1, 3), 16) || 0, parseInt(h.slice(3, 5), 16) || 0, parseInt(h.slice(5, 7), 16) || 0];
+        const stops = (customStops && customStops.length >= 2 ? customStops : ['#00897B', '#ffffff']).map(rgb);
+        const seg = stops.length - 1;
+        colorFn = (v, lo, hi) => {
+            const t = Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+            const f = t * seg, i = Math.min(seg - 1, Math.floor(f)), u = f - i;   // piecewise-linear across the stops
+            const a = stops[i], b = stops[i + 1];
+            return [Math.round(a[0] + (b[0] - a[0]) * u), Math.round(a[1] + (b[1] - a[1]) * u), Math.round(a[2] + (b[2] - a[2]) * u)];
+        };
+    } else {
+        colorFn = bwrColor;
+    }
+    const paeCut = parseFloat(document.getElementById('pae-cutoff')?.value) || 12;
+    const cbCut = parseFloat(document.getElementById('cb-cutoff')?.value) || 8;
+    const chainSizes = uniState.chainSizes, chainNames = uniState.chainNames;
+
+    const rows = [LIS_CSV_HEADER + ',structure_file'];
+    const structures = {}, paeImages = {}, files = [];
+    let best = null, bestScore = -Infinity;
+
+    for (let mi = 0; mi < uniState.modelData.length; mi++) {
+        const md = uniState.modelData[mi] || {};
+        const stext = md.structText;                                       // array-indexed (0..N-1) — structureContents can be keyed 1-based (e.g. OpenFold3 sample_1..5), causing a dropped model
+        if (!stext) continue;                                              // no geometry for this model → skip
+        const ext = (md.structFormat || '').toLowerCase().startsWith('cif') ? 'cif' : 'pdb';
+        const structFile = `model_${mi}.${ext}`;
+        structures[mi] = structFile;
+        files.push({ name: structFile, data: stext });
+
+        // per-model lis.csv rows (with structure_file), reusing the shared score-column builder
+        const chainPlddt = computeChainPlddt(md.structText, md.structFormat);
+        const ms = md.scores || {};
+        let sumILIS = 0, nPairs = 0;
+        for (const [, v] of Object.entries(symmetrizePairs(uniState.modelPairs[mi]))) {
+            const pi = chainPlddt[v.ci] != null ? chainPlddt[v.ci] : (ms.pLDDT != null ? ms.pLDDT : NaN);
+            const pj = chainPlddt[v.cj] != null ? chainPlddt[v.cj] : (ms.pLDDT != null ? ms.pLDDT : NaN);
+            rows.push([jobName, mi, v.ci, v.cj,
+                ...lisScoreCols(v, isNaN(pi) ? '' : pi.toFixed(1), isNaN(pj) ? '' : pj.toFixed(1),
+                                pi, pj, ms.pTM != null ? ms.pTM.toFixed(3) : ''), structFile].join(','));
+            sumILIS += v.iLIS || 0; nPairs++;
+        }
+        const meanILIS = nPairs ? sumILIS / nPairs : 0;
+        if (meanILIS > bestScore) { bestScore = meanILIS; best = mi; }
+
+        // per-model PAE image in the chosen colormap (numeric PAE → canvas → PNG)
+        if (md.pae && md.pae.length) {
+            const cv = document.createElement('canvas');
+            drawMapCanvas(cv, md.pae, md.nTotal || md.pae.length, chainSizes, chainNames, colorFn, 0, 30, paePx, showColorbar, fontScale);
+            const pb = await new Promise(res => cv.toBlob(res, 'image/png'));
+            if (pb) { paeImages[mi] = `pae_${mi}.png`; files.push({ name: `pae_${mi}.png`, data: pb }); }
+        }
+    }
+    if (!Object.keys(structures).length) return null;
+    if (best == null) best = +Object.keys(structures)[0];
+
+    // chains: gene name where resolved, else residue count (matches the loader's expectations)
+    const chains = {};
+    (chainNames || []).forEach((nm, i) => {
+        chains[nm] = (uniState.chainGenes && uniState.chainGenes[nm]) || (chainSizes ? chainSizes[i] : nm);
+    });
+
+    const manifest = {
+        livia_bundle: 'lightweight-v1',
+        name: jobName, label: jobName,
+        scores: 'lis.csv',
+        chains,
+        structures,
+        structure: structures[best],
+        structure_model: best,
+        pae_images: paeImages,
+        pae_image: paeImages[best] || Object.values(paeImages)[0] || null,
+        n_models: Object.keys(structures).length,
+        pae_cutoff: paeCut, cb_cutoff: cbCut,
+        source_platform: uniState.platform || 'generic',
+        numeric_pae: false,
+        pae_image_px: paePx,
+        pae_colorbar: showColorbar,
+        pae_font_scale: fontScale,
+        pae_colormap: colormap === 'custom' ? `custom:${customStops.join('->')}` : colormap,
+        note: `Numeric PAE dropped; scores precomputed by LIVIA. PAE images rendered with the ${colormap === 'custom' ? `custom ${customStops.join('->')}` : colormap} colormap.`,
+    };
+
+    const zip = new JSZip();
+    zip.file('manifest.json', JSON.stringify(manifest, null, 1));
+    zip.file('lis.csv', rows.join('\n') + '\n');
+    for (const f of files) zip.file(f.name, f.data);
+    return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+}
+
+// Paste-hex entry for the custom PAE gradient: accepts 2 or 3 hex colours (comma/space separated,
+// with or without '#', 3- or 6-digit), sets the 2/3-stop toggle, and fills the colour swatches.
+function applyBundleHexes(str) {
+    const toks = (String(str).match(/#?[0-9a-fA-F]+/g) || [])
+        .map(h => h.replace('#', ''))
+        .filter(h => h.length === 3 || h.length === 6)
+        .map(h => '#' + (h.length === 3 ? h.split('').map(c => c + c).join('') : h).toLowerCase());
+    if (toks.length < 2) return;                                       // wait until at least a low→high pair is present
+    const three = toks.length >= 3;
+    document.getElementById('bundle-cmap-stops').value = three ? '3' : '2';
+    document.getElementById('bundle-cmap-lo').value = toks[0];
+    document.getElementById('bundle-cmap-hi').value = three ? toks[2] : toks[1];
+    if (three) document.getElementById('bundle-cmap-mid').value = toks[1];
+    const m = three ? 'inline-block' : 'none';
+    document.getElementById('bundle-cmap-mid').style.display = m;
+    document.getElementById('bundle-cmap-arrow2').style.display = m;
+}
+
+async function downloadLightweightBundle() {
+    const sel = document.getElementById('bundle-cmap');
+    const lo = document.getElementById('bundle-cmap-lo')?.value || '#00897B';
+    const mid = document.getElementById('bundle-cmap-mid')?.value || '#ffffff';
+    const hi = document.getElementById('bundle-cmap-hi')?.value || '#ffffff';
+    const stops = (document.getElementById('bundle-cmap-stops')?.value === '3') ? [lo, mid, hi] : [lo, hi];
+    const pxSel = document.getElementById('bundle-pae-px')?.value;
+    const paePx = (parseInt(pxSel === 'custom' ? document.getElementById('bundle-pae-px-custom')?.value : pxSel, 10)) || 384;
+    const colorbar = !!document.getElementById('bundle-colorbar')?.checked;
+    const fsSel = document.getElementById('bundle-font-scale')?.value;
+    const fontScale = (parseFloat(fsSel === 'custom' ? document.getElementById('bundle-font-scale-custom')?.value : fsSel)) || 1;
+    const btn = document.getElementById('bundle-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'building…'; }
+    try {
+        const blob = await buildLightweightBundle(sel ? sel.value : 'bwr', stops, paePx, colorbar, fontScale);
+        if (!blob) { alert('No full prediction with numeric PAE is loaded — nothing to shrink.'); return; }
+        const jobName = (document.getElementById('result-title')?.textContent || 'prediction').trim();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = `${jobName}.zip`; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '&#8595; Lightweight bundle'; }
+    }
 }
 
 function downloadAllChains() {

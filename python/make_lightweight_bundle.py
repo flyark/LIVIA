@@ -52,6 +52,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import lightweight_bundle as lwb   # canonical lightweight-v1 manifest + validator (twin: lis-toolkit/scripts/)
 try:
     import lis
 except ImportError:
@@ -266,25 +267,18 @@ def build(path, out_dir, label=None, keep_pae=False, only_models=None, quiet=Fal
             raise SystemExit('Nothing kept -- check --models.')
         best = pick_best(csv_text, [m for m, _ in kept])
         ext_of = dict(kept)
-        man = {
-            'livia_bundle': 'lightweight-v1',
-            'name': label, 'label': label,
-            'scores': 'lis.csv',
-            'chains': chains,
-            'structures': {str(m): f'model_{m}.{ext_of[m]}' for m, _ in kept},
-            'pae_images': {str(m): f'pae_{m}.png' for m, _ in kept
-                           if os.path.exists(os.path.join(work, f'pae_{m}.png'))},
-            # singular keys so a single-model reader still works
-            'structure': f'model_{best}.{ext_of[best]}',
-            'pae_image': f'pae_{best}.png',
-            'structure_model': best,
-            'n_models': len(kept),
-            'pae_cutoff': PAE_CUTOFF, 'cb_cutoff': CB_CUTOFF,
-            'source_platform': platform,
-            'numeric_pae': bool(keep_pae),
-            'note': ('Numeric PAE retained as pae_<m>.npz (float16).' if keep_pae else
-                     'Numeric PAE dropped; scores precomputed by lis.py at the cutoffs above.'),
-        }
+        man = lwb.build_manifest(
+            name=label, chains=chains,
+            structures={str(m): f'model_{m}.{ext_of[m]}' for m, _ in kept},
+            pae_images={str(m): f'pae_{m}.png' for m, _ in kept
+                        if os.path.exists(os.path.join(work, f'pae_{m}.png'))},
+            best_model=best,
+            pae_cutoff=PAE_CUTOFF, cb_cutoff=CB_CUTOFF, source_platform=platform,
+            # LIVIA-specific extras (verbatim): human label, model count, PAE-retention note
+            label=label, n_models=len(kept), numeric_pae=bool(keep_pae),
+            note=('Numeric PAE retained as pae_<m>.npz (float16).' if keep_pae else
+                  'Numeric PAE dropped; scores precomputed by lis.py at the cutoffs above.'),
+        )
         json.dump(man, open(os.path.join(work, 'manifest.json'), 'w'), indent=1)
 
         os.makedirs(out_dir, exist_ok=True)
@@ -352,41 +346,7 @@ def check(bundle):
     print(f'{os.path.basename(bundle)}: {man.get("label")}  '
           f'{man.get("n_models")} models  {man.get("source_platform")}  '
           f'cutoffs pae={man.get("pae_cutoff")} cb={man.get("cb_cutoff")}')
-    if man.get('scores') not in names:
-        problems.append(f'missing {man.get("scores")}')
-    for m, f in (man.get('structures') or {}).items():
-        if f not in names:
-            problems.append(f'missing structure {f}')
-        if f.endswith('.gz'):
-            problems.append(f'{f} is gzipped -- viewers skip .cif.gz; store it plain')
-    for m, f in (man.get('pae_images') or {}).items():
-        if f not in names:
-            problems.append(f'missing PAE image {f}')
-    n_struct = len(man.get('structures') or {})
-    if man.get('n_models') != n_struct:
-        problems.append(f'n_models={man.get("n_models")} but {n_struct} structures present')
-    for k in ('structure', 'pae_image'):
-        if man.get(k) and man[k] not in names:
-            problems.append(f'{k} points at absent {man[k]}')
-    if man.get('scores') in names:
-        # a real CSV reader, not split(','): several columns hold quoted residue ranges that contain commas
-        import csv as _csv
-        rd = list(_csv.reader(io.StringIO(z.read(man['scores']).decode('utf-8', 'replace'))))
-        if len(rd) >= 2:
-            h, r = rd[0], rd[1]
-            row = dict(zip(h, r))
-            sf = row.get('structure_file', '')
-            if sf and sf not in names:
-                problems.append(f'lis.csv structure_file "{sf}" is not in the bundle -- '
-                                f'per-model geometry will not resolve')
-            nm = row.get('name', '')
-            if nm and nm != man.get('label'):
-                problems.append(f'lis.csv name "{nm}" does not match the label "{man.get("label")}"')
-            files = {row2[h.index('structure_file')] for row2 in rd[1:]
-                     if 'structure_file' in h and len(row2) > h.index('structure_file')}
-            missing = {f for f in files if f and f not in names}
-            if missing:
-                problems.append(f'lis.csv references structures not in the bundle: {sorted(missing)}')
+    problems = lwb.validate_bundle(bundle)   # shared lightweight-v1 contract check
     for p in problems:
         print(f'  ! {p}')
     if not problems:

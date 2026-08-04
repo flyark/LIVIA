@@ -302,6 +302,7 @@
             <div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; margin-bottom:0.5rem;">
                 <h2 style="margin-bottom:0;">Circular Contact Map</h2>
                 <div class="model-selector" id="chord-model-selector"></div>
+                <div style="flex-basis:100%; height:0; margin:0;"></div><!-- force the toggles onto their own line, below the model selector -->
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-labels" checked onchange="flyShowChordLabels=this.checked; window.__redrawFlyChord&&window.__redrawFlyChord();"> labels</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="flyShowChordIDs=this.checked; window.__redrawFlyChord&&window.__redrawFlyChord();"> chain IDs</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="flyShowChordLength=this.checked; window.__redrawFlyChord&&window.__redrawFlyChord();"> length</label>
