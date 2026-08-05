@@ -116,8 +116,9 @@
     <div id="meta-label-wrap" class="hidden" style="margin-top:.6rem; font-size:.85rem; color:#556;">
       🏷️ Identity map · <span id="meta-stat"></span> · Label by: <select id="meta-label" style="font-size:.85rem; padding:2px 6px"></select>
     </div>
-    <div id="skel-wrap" class="hidden" style="margin-top:.4rem; font-size:.8rem; color:#889;">
-      Arbitrary prediction names? <a href="#" id="skel-link" style="color:#2471A3; font-weight:600">↓ download an identity-map template</a> for your CSV — fill in the IDs, re-upload.<br>or <a href="#" id="mg-convert" style="color:#2471A3; font-weight:600">✨ auto-convert names → symbols</a> (mygene.info + UniProt) <select id="mg-species" style="font-size:.8rem; padding:1px 4px"><option value="">all species</option><option value="7227">fly</option><option value="9606">human</option><option value="10090">mouse</option><option value="10116">rat</option><option value="6239">worm</option><option value="7955">zebrafish</option><option value="559292">yeast</option><option value="3702">arabidopsis</option><option value="83333">E. coli</option></select> <label style="margin-left:4px"><input type="checkbox" id="mg-auto" checked style="accent-color:#1a5276"> on load</label>
+    <div id="skel-wrap" class="hidden" style="margin-top:.5rem; font-size:.82rem; color:#556;">
+      <b>Names showing as IDs</b> (UniProt accession, FlyBase, entry name) instead of gene symbols? &nbsp;<a href="#" id="mg-convert" style="display:inline-block; padding:3px 10px; background:#2471A3; color:#fff; border-radius:5px; font-weight:600; text-decoration:none">✨ Auto-convert names → gene symbols</a> &nbsp;— looks each ID up via mygene.info + UniProt. <select id="mg-species" style="font-size:.8rem; padding:1px 4px"><option value="">all species</option><option value="7227">fly</option><option value="9606">human</option><option value="10090">mouse</option><option value="10116">rat</option><option value="6239">worm</option><option value="7955">zebrafish</option><option value="559292">yeast</option><option value="3702">arabidopsis</option><option value="83333">E. coli</option></select> <label style="margin-left:2px"><input type="checkbox" id="mg-auto" checked style="accent-color:#1a5276"> auto on load</label>
+      <br><span style="color:#889; font-size:.78rem;">Or <a href="#" id="skel-link" style="color:#2471A3; font-weight:600">↓ download an identity-map template</a> to name each chain yourself.</span>
     </div>
     <div style="margin-top:.7rem; font-size:.85rem; color:#556;">
       ▶ Try examples — kinase-transcription factor screen (<a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank" style="color:#2471A3">Kim et al. 2025</a>):<br>
@@ -760,12 +761,15 @@ async function autoConvertClip(){   // convert loaded query/partner names to sym
     $('status').textContent=`Converted ${clean.size}/${ids.length} names → symbols — pick a query and generate`;
     return;
   }
+  const _old = META, _gs = _old && _old.startK, _ge = _old && _old.endK;   // preserve fragment start/end from a loaded identity map — dropping them shifts partial-protein highlights onto the local 1..N coords
   const byKey={};
   for (const f of FILES) for (const r of f.rows){
-    byKey[r.name+':::'+String(r.chain_i)]={ symbol: clean.get(r._oSym1)||r._oSym1, orig:r._oSym1 };
-    byKey[r.name+':::'+String(r.chain_j)]={ symbol: clean.get(r._oSym2)||r._oSym2, orig:r._oSym2 };
+    const _ki = r.name+':::'+String(r.chain_i), _kj = r.name+':::'+String(r.chain_j);
+    const _oi = _old && _old.byKey[_ki], _oj = _old && _old.byKey[_kj];
+    byKey[_ki]={ symbol: clean.get(r._oSym1)||r._oSym1, orig:r._oSym1, start:(_gs&&_oi)?_oi[_gs]:null, end:(_ge&&_oi)?_oi[_ge]:null };
+    byKey[_kj]={ symbol: clean.get(r._oSym2)||r._oSym2, orig:r._oSym2, start:(_gs&&_oj)?_oj[_gs]:null, end:(_ge&&_oj)?_oj[_ge]:null };
   }
-  META={ byKey, cols:['symbol','orig'], nameK:'name', chainK:'chain', startK:null, endK:null };
+  META={ byKey, cols:['symbol','orig'], nameK:'name', chainK:'chain', startK:(_gs&&_ge)?'start':null, endK:(_gs&&_ge)?'end':null };
   META_LABELCOL='symbol';
   const sel=$('meta-label'); sel.innerHTML=''; for(const c of META.cols){ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); } sel.value='symbol';
   $('meta-label-wrap').classList.remove('hidden');
