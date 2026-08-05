@@ -306,7 +306,17 @@ async function routeFiles(list){
   const raw = [...list].filter(f=>/\.(csv|zip|xlsx|fasta|fa|faa|fas|fna|mfa|pep|seq)$/i.test(f.name)); if(!raw.length) return;
   setStatus(`Reading ${raw.length} file(s)…`);
   const items = [];                                     // {name,text} — a dropped .zip of lis.py CSVs (+ FASTA) is expanded here
-  const sortText = (name, text) => { if (FA.test(name) || /^\s*>/.test(text)) FASTA_RAW += (FASTA_RAW ? '\n' : '') + text; else items.push({ name, text }); };
+  let metaText = null;                                  // a bundled identity_map.csv → routed to the metadata parser, not the lis-CSV bucket
+  const looksLikeIdMap = (nm, tx) => {
+    if (/identity[_-]?map/i.test(nm)) return true;
+    const h = (String(tx).split(/\r?\n/)[0] || '').toLowerCase().split(',').map(s => s.trim());
+    return h.includes('name') && h.includes('chain') && (h.includes('uniprot') || h.includes('gene') || h.includes('label'));
+  };
+  const sortText = (name, text) => {
+    if (FA.test(name) || /^\s*>/.test(text)) { FASTA_RAW += (FASTA_RAW ? '\n' : '') + text; return; }
+    if (!metaText && !META && looksLikeIdMap(name, text)) { metaText = text; return; }
+    items.push({ name, text });
+  };
   for (const f of raw){
     if (/\.xlsx$/i.test(f.name)){                        // collaborator workbook → lis.py-style CSV, then the usual path
       try {
@@ -326,6 +336,15 @@ async function routeFiles(list){
         for (const nm in entries){ if (nm.startsWith('__MACOSX/') || nm.endsWith('/')) continue; const base = nm.split('/').pop(); if (/\.(csv|fasta|fa|faa|fas|fna|mfa|pep|seq)$/i.test(base)) sortText(base, dec.decode(entries[nm])); }
       } catch(e){ setStatus('could not read the zip: '+e.message); continue; }
     } else { try { sortText(f.name, await f.text()); } catch(e){} }
+  }
+  if (metaText && !META){                               // a bundled identity map → set up META (same as the dedicated meta box)
+    try { META = parseIdentityMap(metaText); } catch(e){ META = null; }
+    if (META){
+      META_COL = (META.mode==='lookup' ? META.cols.find(c=>/symbol/i.test(c)) : null) || META.cols[0] || null;
+      $('labelby').innerHTML = META.cols.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      $('labelby').value = META_COL || '';
+      $('labelby-wrap').classList.remove('hidden');
+    }
   }
   if (!items.length){ setStatus(FASTA_RAW ? 'FASTA loaded, but no lis.py CSV in the upload — add the CSV/XLSX.' : 'No CSVs found in the upload.'); return; }
   setStatus(`Parsing ${items.length} file(s)…`);

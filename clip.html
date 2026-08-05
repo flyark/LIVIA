@@ -618,9 +618,17 @@ async function routeFiles(list, kind){
     const wantExt = kind === 'fasta' ? /\.(fasta|fa|faa|fas|fna|mfa|pep|seq|txt)$/i
                                      : /\.(csv|tsv|txt|fasta|fa|faa|fas|fna|mfa|pep|seq)$/i;
     const items = [], fastaTexts = [];   // {name,text}: a dropped .zip of lis.py CSVs and/or FASTA files is expanded here
+    let metaText = null;                  // a bundled identity_map.csv is routed to the metadata parser, not the lis-CSV bucket
+    const looksLikeIdMap = (nm, tx) => {
+      if (/identity[_-]?map/i.test(nm)) return true;
+      const h = (String(tx).split(/\r?\n/)[0] || '').toLowerCase().split(',').map(s => s.trim());
+      return h.includes('name') && h.includes('chain') && (h.includes('uniprot') || h.includes('gene') || h.includes('label'));
+    };
     const sort = (name, text) => {
       const isFa = kind === 'fasta' || FA_EXT.test(name) || /^\s*>/.test(text);
-      if (isFa) fastaTexts.push(text); else items.push({ name, text });
+      if (isFa) { fastaTexts.push(text); return; }
+      if (!metaText && !META && looksLikeIdMap(name, text)) { metaText = text; return; }   // identity map bundled in the drop/zip
+      items.push({ name, text });
     };
     for (const f of list){
       if (kind === 'csv' && /\.xlsx$/i.test(f.name)){ await loadXlsx(f); continue; }   // collaborator workbook
@@ -631,6 +639,12 @@ async function routeFiles(list, kind){
       } else sort(f.name, await f.text());
     }
     if (fastaTexts.length){ FASTA_PARSE = CLIPResolver.parseFastaToSeqMap(fastaTexts.join('\n')); FASTA_WARN = FASTA_PARSE.warn || []; }
+    if (metaText && !META){                                                  // a bundled identity map → set up META (same as the dedicated meta box)
+      try { const _m = parseMetadata(metaText); if (_m && _m.cols.length){
+        META = _m; const sel = $('meta-label'); sel.innerHTML = ''; for (const c of META.cols){ const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); }
+        META_LABELCOL = META.cols[0]; $('meta-label-wrap').classList.remove('hidden');
+      } } catch(e){ console.warn('bundled identity map parse failed:', e); }
+    }
     for (const it of items){                                                 // csv — parse+convert ONCE, reuse for gene list + every generate
       $('status').textContent = `parsing ${it.name}…`;
       await new Promise(r => setTimeout(r, 0));
@@ -1823,7 +1837,8 @@ async function resolve3D(A){
   const _frag = String(gene).match(/_(\d+_\d+)$/);
   const _all = FORCE_ACC ? [FORCE_ACC + (_frag ? '_' + _frag[1] : '')]   // the user named the protein — do not second-guess it
                         : [...new Set([gene].concat(LABEL_IDS[gene] || []))];   // identity map and/or workbook-stated ids
-  const _xrefish = (s) => /^(FB(gn|pp|tr)\d+|WBGene\d+|ENS[A-Z]*[GPT]\d+)/i.test(String(s));   // resolve via xref: — unambiguous across organisms
+  const _ACC = /^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})(_\d+_\d+)?$/;   // UniProt accession (opt. fragment suffix) — species-unambiguous, unlike a bare symbol
+  const _xrefish = (s) => _ACC.test(String(s)) || /^(FB(gn|pp|tr)\d+|WBGene\d+|ENS[A-Z]*[GPT]\d+)/i.test(String(s));   // resolve via an accession / xref first — a bare symbol resolves to the human paralog when no organism is set
   const _cands = [..._all.filter(_xrefish), ..._all.filter(x => !_xrefish(x))];   // then the display label / identity-map id columns
   for (const _c of _cands){ let _r = null; try { _r = await CLIPResolver.resolveStructure({ gene: _c, length: plen, seq: predSeq, species }); } catch(e){ console.warn(e); } if (_r && _r.cifUrl){ res = _r; break; } if (_r && !res) res = _r; }
   if (!res){ badge.textContent = `· no UniProt match (${gene}${species ? ', ' + species : ''}) — drop a structure or set species`; $('viewer3d-frame').src = 'about:blank'; return; }
