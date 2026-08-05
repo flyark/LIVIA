@@ -112,7 +112,7 @@
         }
     </style>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260727"></script>
+<script src="js/livia-maps.js?v=20260804"></script>
 <script src="js/clip-resolver.js?v=20260715"></script>
 </head>
 <body>
@@ -347,6 +347,7 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="uniShowChordIDs=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> chain IDs</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="uniShowChordLength=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Circos-style residue-position ruler around each arc"><input type="checkbox" id="chord-show-ticks" checked onchange="uniShowChordTicks=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> ticks</label>
+                <span style="display:inline-flex; align-items:center; gap:5px; margin-bottom:0.4rem; font-size:0.8rem; color:#555;" title="Direction of the arc labels: along the arc, or pointing outward (outward avoids overlap when there are many subunits)"><span style="font-weight:600;">label direction</span><span style="display:inline-flex; align-items:center; border:1px solid #ccd; border-radius:5px; overflow:hidden; font-size:0.78rem;"><button type="button" onclick="uniShowChordRadial=false; LiviaMaps.segPick(this); if(typeof buildChordDiagram==='function') buildChordDiagram();" style="border:0; padding:2px 8px; cursor:pointer; background:#2471A3; color:#fff; font:inherit;">along arc</button><button type="button" onclick="uniShowChordRadial=true; LiviaMaps.segPick(this); if(typeof buildChordDiagram==='function') buildChordDiagram();" style="border:0; padding:2px 8px; cursor:pointer; background:transparent; color:#555; font:inherit;">outward</button></span></span>
             </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent chains. Lines connect cLIR residue pairs in physical contact across all chain pairs.
@@ -6471,7 +6472,7 @@ function buildPerResidueCharts(pairKey) {
         // Chain header
         const header = document.createElement('div');
         header.style.cssText = 'font-size:0.9rem; font-weight:700; color:#1a5276; margin-top:1rem; margin-bottom:0.2rem; padding-bottom:0.3rem; border-bottom:2px solid #e0e0e0;';
-        header.textContent = 'Chain ' + chainLabel(cd.name) + ' (' + cd.size + ' residues)';
+        { const _g = stripSpeciesPrefix(uniState.chainGenes && uniState.chainGenes[cd.name]); header.textContent = 'Chain ' + cd.name + (_g ? ' (' + _g + ')' : '') + ' · ' + cd.size + ' residues'; }
         container.appendChild(header);
 
         if (hasPAE) drawPerResLisChart(container, cd, selectedModelIdx, singleModel);
@@ -7195,6 +7196,7 @@ let uniShowChordIDs = true;   // Circular Contact Map: show the chain ID (A/B/C)
 let uniShowChordLabels = true;   // Circular Contact Map: show the gene/protein name in arc labels — independent of "chain IDs"
 let uniShowChordLength = true;   // Circular Contact Map: draw the residue-count number
 let uniShowChordTicks = true;   // Circular Contact Map: Circos-style residue-position ruler around each arc (default on)
+let uniShowChordRadial = false;   // Circular Contact Map: arc labels along the arc (tangential, default) vs. pointing outward (radial); radial fans out and avoids overlap with many subunits
 // The ruler itself lives in the shared module (LiviaMaps.drawChordRuler) so every chord page uses one implementation.
 function chordArcLabel(arc) {
     if (arc.type === 'ion') return arc.displayName;
@@ -7213,9 +7215,14 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
     const nc = chainNames.length;
     const S = 2;
     const cxC = size / 2, cyC = size / 2;
-    const outerR = size / 2 - (uniShowChordTicks ? 62 : 48), innerR = outerR - 18, chordR = innerR - 4;   // ticks need extra radial room for the ruler
     ctx.clearRect(0, 0, size * S, size * S);
     ctx.save(); ctx.scale(S, S);
+    const _labelExt = LiviaMaps.chordLabelExtent(ctx, chainNames.map((n, i) => ({
+        name: (uniShowChordLabels || uniShowChordIDs) ? chordArcLabel({ name: n, type: (chainTypes || [])[i], displayName: n }) : '',
+        length: uniShowChordLength ? `${chainSizes[i]}` : '',
+    })), { ticks: uniShowChordTicks, radial: uniShowChordRadial });
+    // shrink the ring if needed so long radial labels never clip the canvas edge
+    const outerR = Math.max(40, Math.min(size / 2 - (uniShowChordTicks ? 62 : 48), size / 2 - 4 - _labelExt)), innerR = outerR - 18, chordR = innerR - 4;
 
     const totalRes = chainSizes.reduce((a, b) => a + b, 0);
     const gapAngle = 0.04, totalGap = gapAngle * nc;
@@ -7260,20 +7267,11 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
         const hidden = hiddenSet.has(arc.name);
         paintChordArc(ctx, cxC, cyC, outerR, innerR, arc, hidden, arcLIR, arcCLIR, chainColors, arcLightColors);
         if (uniShowChordTicks) LiviaMaps.drawChordRuler(ctx, cxC, cyC, outerR, arc.start, arc.end, arc.size, { muted: hidden, type: arc.type });
-        const labelAngle = arc.mid;
-        let textAngle = labelAngle + Math.PI / 2;
-        const normA = ((textAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
-        if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
-        if (uniShowChordLabels || uniShowChordIDs) {
-            ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR + (uniShowChordTicks?34:18)), cyC + Math.sin(labelAngle) * (outerR + (uniShowChordTicks?34:18)));
-            ctx.rotate(textAngle); ctx.fillStyle = hidden ? '#bbb' : '#333'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(chordArcLabel(arc), 0, 0); ctx.restore();
-        }
-        if (uniShowChordLength) {
-            ctx.save(); ctx.translate(cxC + Math.cos(labelAngle) * (outerR + (uniShowChordTicks?50:35)), cyC + Math.sin(labelAngle) * (outerR + (uniShowChordTicks?50:35)));
-            ctx.rotate(textAngle); ctx.fillStyle = '#bbb'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`, 0, 0); ctx.restore();
-        }
+        LiviaMaps.drawChordArcLabel(ctx, {
+            cx: cxC, cy: cyC, outerR, angle: arc.mid, ticks: uniShowChordTicks, radial: uniShowChordRadial, hidden,
+            name: chordArcLabel(arc), showName: uniShowChordLabels || uniShowChordIDs,
+            length: arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`, showLength: uniShowChordLength,
+        });
     }
     ctx.restore();
 }
@@ -7282,13 +7280,18 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
     const nc = chainNames.length;
     const S = 2;
     const cxC = size / 2, cyC = size / 2;
-    const outerR = size / 2 - (uniShowChordTicks ? 62 : 48);   // ticks need extra radial room for the ruler
-    const innerR = outerR - 18;
-    const chordR = innerR - 4;
 
     ctx.clearRect(0, 0, size * S, size * S);
     ctx.save();
     ctx.scale(S, S);
+    const _labelExt = LiviaMaps.chordLabelExtent(ctx, chainNames.map((n, i) => ({
+        name: (uniShowChordLabels || uniShowChordIDs) ? chordArcLabel({ name: n, type: (chainTypes || [])[i], displayName: n }) : '',
+        length: uniShowChordLength ? `${chainSizes[i]}` : '',
+    })), { ticks: uniShowChordTicks, radial: uniShowChordRadial });
+    // shrink the ring if needed so long radial labels never clip the canvas edge
+    const outerR = Math.max(40, Math.min(size / 2 - (uniShowChordTicks ? 62 : 48), size / 2 - 4 - _labelExt));
+    const innerR = outerR - 18;
+    const chordR = innerR - 4;
 
     // Arc sizing proportional to chain length
     const totalRes = chainSizes.reduce((a, b) => a + b, 0);
@@ -7319,35 +7322,11 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
         paintChordArc(ctx, cxC, cyC, outerR, innerR, arc, hidden, arcLIR, arcCLIR, chainColors, arcLightColors);
         if (uniShowChordTicks) LiviaMaps.drawChordRuler(ctx, cxC, cyC, outerR, arc.start, arc.end, arc.size, { muted: hidden, type: arc.type });
 
-        // Label geometry (shared by the name label and the length number)
-        const labelAngle = arc.mid;
-        let textAngle = labelAngle + Math.PI / 2;
-        const normA = ((textAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
-        if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
-
-        if (uniShowChordLabels || uniShowChordIDs) {  // arc label: gene name (labels) and/or chain ID
-            ctx.save();
-            ctx.translate(cxC + Math.cos(labelAngle) * (outerR + (uniShowChordTicks?34:18)), cyC + Math.sin(labelAngle) * (outerR + (uniShowChordTicks?34:18)));
-            ctx.rotate(textAngle);
-            ctx.fillStyle = hidden ? '#bbb' : '#333';
-            ctx.font = 'bold 13px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(chordArcLabel(arc), 0, 0);
-            ctx.restore();
-        }
-        if (uniShowChordLength) {                      // residue-count number (header "length" toggle)
-            const sizeLabel = arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`;
-            ctx.save();
-            ctx.translate(cxC + Math.cos(labelAngle) * (outerR + (uniShowChordTicks?50:35)), cyC + Math.sin(labelAngle) * (outerR + (uniShowChordTicks?50:35)));
-            ctx.rotate(textAngle);
-            ctx.fillStyle = '#888';
-            ctx.font = '11px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(sizeLabel, 0, 0);
-            ctx.restore();
-        }
+        LiviaMaps.drawChordArcLabel(ctx, {
+            cx: cxC, cy: cyC, outerR, angle: arc.mid, ticks: uniShowChordTicks, radial: uniShowChordRadial, hidden,
+            name: chordArcLabel(arc), showName: uniShowChordLabels || uniShowChordIDs,
+            length: arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`, showLength: uniShowChordLength,
+        });
     }
 
     // Helper: residue to angle

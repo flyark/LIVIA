@@ -270,6 +270,7 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="orthoShowChordIDs=this.checked; window.__redrawOrthoChord&&window.__redrawOrthoChord();"> chain IDs</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="orthoShowChordLength=this.checked; window.__redrawOrthoChord&&window.__redrawOrthoChord();"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Circos-style residue-position ruler around each arc"><input type="checkbox" id="chord-show-ticks" checked onchange="orthoShowChordTicks=this.checked; window.__redrawOrthoChord&&window.__redrawOrthoChord();"> ticks</label>
+                <span style="display:inline-flex; align-items:center; gap:5px; margin-bottom:0.4rem; font-size:0.8rem; color:#555;" title="Direction of the arc labels: along the arc, or pointing outward"><span style="font-weight:600;">label direction</span><span style="display:inline-flex; align-items:center; border:1px solid #ccd; border-radius:5px; overflow:hidden; font-size:0.78rem;"><button type="button" onclick="orthoShowChordRadial=false; LiviaMaps.segPick(this); window.__redrawOrthoChord&&window.__redrawOrthoChord();" style="border:0; padding:2px 8px; cursor:pointer; background:#2471A3; color:#fff; font:inherit;">along arc</button><button type="button" onclick="orthoShowChordRadial=true; LiviaMaps.segPick(this); window.__redrawOrthoChord&&window.__redrawOrthoChord();" style="border:0; padding:2px 8px; cursor:pointer; background:transparent; color:#555; font:inherit;">outward</button></span></span>
             </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent chains (proportional to length). Lines connect cLIR residue pairs in physical contact.
@@ -497,7 +498,7 @@
 <script src="js/livia-viewer.js?v=20260716e"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260727"></script>
+<script src="js/livia-maps.js?v=20260804"></script>
 <script>
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (flyParsed && flyCurrentRank) { loadRank(flyCurrentRank); updateCombinedChord(); renderChainToggleBar(); } };
@@ -2029,7 +2030,7 @@ function buildFlyPlddtCharts(selectedRank, colors) {
 
         const header = document.createElement('div');
         header.style.cssText = 'font-size:0.9rem; font-weight:700; color:#1a5276; margin-top:1rem; margin-bottom:0.2rem; padding-bottom:0.3rem; border-bottom:2px solid #e0e0e0;';
-        header.textContent = (chainLabels[chainName] || chainName) + ' — Chain ' + chainName + ' (' + n + ' residues)';
+        { const _g = chainLabels[chainName]; header.textContent = 'Chain ' + chainName + (_g && _g !== chainName ? ' (' + _g + ')' : '') + ' · ' + n + ' residues'; }
         container.appendChild(header);
 
         const legendEl = document.createElement('div');
@@ -2668,6 +2669,7 @@ const paintChordArcBand = (...args) => LiviaMaps.paintChordArcBand(...args);   /
 
 let orthoShowChordIDs = true;
 let orthoShowChordTicks = true;   // Circular Contact Map: residue-position ruler around each arc (default on)
+let orthoShowChordRadial = false;   // Circular Contact Map: arc labels along the arc (tangential, default) vs radial (outward)
 let orthoShowChordLabels = true;   // Circular Contact Map: show the gene name
 let orthoShowChordLength = true;   // Circular Contact Map: show the residue-count number   // Circular Contact Map: include the chain-ID suffix "(A)" in arc labels (toggle in the header)
 const orthoChordLabel = (sym, id) => { const g = orthoShowChordLabels ? sym : ''; if (g && orthoShowChordIDs) return `${g} (${id})`; if (g) return g; if (orthoShowChordIDs) return id; return orthoShowChordLabels ? id : ''; };
@@ -2680,7 +2682,10 @@ function drawChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coord
     ctx.save(); ctx.scale(S, S);
 
     const cx = size / 2, cy = size / 2;
-    const outerR = size / 2 - (orthoShowChordTicks ? 62 : 48), innerR = outerR - 18, chordR = innerR - 4;
+    const outerR = Math.max(40, Math.min(size / 2 - (orthoShowChordTicks ? 62 : 48), size / 2 - 4 - LiviaMaps.chordLabelExtent(ctx, [
+        { name: orthoChordLabel(sym1, 'A'), length: orthoShowChordLength ? `${lenA}` : '' },
+        { name: orthoChordLabel(sym2, 'B'), length: orthoShowChordLength ? `${lenB}` : '' },
+    ], { ticks: orthoShowChordTicks, radial: orthoShowChordRadial }))), innerR = outerR - 18, chordR = innerR - 4;   // shrink to keep long radial labels on-canvas
     const gap = 0.04;
     const totalLen = lenA + lenB;
     const totalAngle = 2 * Math.PI - 2 * gap;
@@ -2740,18 +2745,10 @@ function drawChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coord
 
     // Labels
     for (const arc of [{mid:(startA+endA)/2, name:orthoChordLabel(sym1,'A'), size:lenA}, {mid:(startB+endB)/2, name:orthoChordLabel(sym2,'B'), size:lenB}]) {
-        const labelR = outerR + (orthoShowChordTicks ? 34 : 18);
-        const lx = cx + Math.cos(arc.mid) * labelR;
-        const ly = cy + Math.sin(arc.mid) * labelR;
-        let textAngle = arc.mid + Math.PI / 2;
-        const normA = ((textAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
-        if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
-        ctx.save(); ctx.translate(lx, ly); ctx.rotate(textAngle);
-        ctx.fillStyle = '#333'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(arc.name, 0, 0); ctx.restore();
-        ctx.save(); ctx.translate(cx+Math.cos(arc.mid)*(outerR+(orthoShowChordTicks?50:35)), cy+Math.sin(arc.mid)*(outerR+(orthoShowChordTicks?50:35)));
-        ctx.rotate(textAngle); ctx.fillStyle = '#888'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(orthoShowChordLength ? `${arc.size}` : '', 0, 0); ctx.restore();
+        LiviaMaps.drawChordArcLabel(ctx, {
+            cx, cy, outerR, angle: arc.mid, ticks: orthoShowChordTicks, radial: orthoShowChordRadial, hidden: false,
+            name: arc.name, showName: true, length: `${arc.size}`, showLength: orthoShowChordLength,
+        });
     }
     ctx.restore();
 }
@@ -2765,7 +2762,10 @@ function drawChordFromContacts(canvas, contacts, lenA, lenB, sym1, sym2, colors,
     ctx.save(); ctx.scale(S, S);
 
     const cx = size/2, cy = size/2;
-    const outerR = size/2 - (orthoShowChordTicks ? 62 : 48), innerR = outerR - 18, chordR = innerR - 4;
+    const outerR = Math.max(40, Math.min(size/2 - (orthoShowChordTicks ? 62 : 48), size/2 - 4 - LiviaMaps.chordLabelExtent(ctx, [
+        { name: orthoChordLabel(sym1, 'A'), length: orthoShowChordLength ? `${lenA}` : '' },
+        { name: orthoChordLabel(sym2, 'B'), length: orthoShowChordLength ? `${lenB}` : '' },
+    ], { ticks: orthoShowChordTicks, radial: orthoShowChordRadial }))), innerR = outerR - 18, chordR = innerR - 4;   // shrink to keep long radial labels on-canvas
     const gap = 0.04, totalLen = lenA + lenB;
     const totalAngle = 2*Math.PI - 2*gap;
     const angleA = (lenA/totalLen)*totalAngle, angleB = (lenB/totalLen)*totalAngle;
@@ -2794,15 +2794,10 @@ function drawChordFromContacts(canvas, contacts, lenA, lenB, sym1, sym2, colors,
     }
 
     for (const arc of [{mid:(startA+endA)/2, name:orthoChordLabel(sym1,'A'), size:lenA}, {mid:(startB+endB)/2, name:orthoChordLabel(sym2,'B'), size:lenB}]) {
-        let textAngle = arc.mid + Math.PI/2;
-        const normA = ((textAngle%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
-        if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
-        ctx.save(); ctx.translate(cx+Math.cos(arc.mid)*(outerR+(orthoShowChordTicks?34:18)), cy+Math.sin(arc.mid)*(outerR+(orthoShowChordTicks?34:18)));
-        ctx.rotate(textAngle); ctx.fillStyle='#333'; ctx.font='bold 13px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText(arc.name, 0, 0); ctx.restore();
-        ctx.save(); ctx.translate(cx+Math.cos(arc.mid)*(outerR+(orthoShowChordTicks?50:35)), cy+Math.sin(arc.mid)*(outerR+(orthoShowChordTicks?50:35)));
-        ctx.rotate(textAngle); ctx.fillStyle='#888'; ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText(orthoShowChordLength ? `${arc.size}` : '', 0, 0); ctx.restore();
+        LiviaMaps.drawChordArcLabel(ctx, {
+            cx, cy, outerR, angle: arc.mid, ticks: orthoShowChordTicks, radial: orthoShowChordRadial, hidden: false,
+            name: arc.name, showName: true, length: `${arc.size}`, showLength: orthoShowChordLength,
+        });
     }
     ctx.restore();
 }

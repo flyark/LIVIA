@@ -235,6 +235,7 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-labels" checked onchange="monShowChordLabels=this.checked; if(monLastRegions) drawChordDiagram(monLastRegions);"> labels</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="monShowChordLength=this.checked; if(monLastRegions) drawChordDiagram(monLastRegions);"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Residue-position ruler (absolute coordinates) around each subdomain arc"><input type="checkbox" id="chord-show-ticks" checked onchange="monShowChordTicks=this.checked; if(monLastRegions) drawChordDiagram(monLastRegions);"> ticks</label>
+                <span style="display:inline-flex; align-items:center; gap:5px; margin-bottom:0.4rem; font-size:0.8rem; color:#555;" title="Direction of the arc labels: along the arc, or pointing outward"><span style="font-weight:600;">label direction</span><span style="display:inline-flex; align-items:center; border:1px solid #ccd; border-radius:5px; overflow:hidden; font-size:0.78rem;"><button type="button" onclick="monShowChordRadial=false; LiviaMaps.segPick(this); if(monLastRegions) drawChordDiagram(monLastRegions);" style="border:0; padding:2px 8px; cursor:pointer; background:#2471A3; color:#fff; font:inherit;">along arc</button><button type="button" onclick="monShowChordRadial=true; LiviaMaps.segPick(this); if(monLastRegions) drawChordDiagram(monLastRegions);" style="border:0; padding:2px 8px; cursor:pointer; background:transparent; color:#555; font:inherit;">outward</button></span></span>
             </div>
             <div style="text-align:center;">
                 <canvas id="chord-canvas"></canvas>
@@ -452,7 +453,7 @@
 <script src="js/livia-viewer.js?v=20260716e"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260727"></script>
+<script src="js/livia-maps.js?v=20260804"></script>
 <script>
 // ── Callbacks for shared modules (monomer overrides most of these) ──
 onScriptTabSwitch = () => { /* handled by page-specific switchScriptTab override */ };
@@ -3181,6 +3182,7 @@ function drawMapCanvasSingle(canvas, map2d, n, colorFn, vmin, vmax, regions, ove
 }
 
 let monShowChordTicks = true, monLastRegions = null;   // Subdomain map: residue-position ruler (default on)
+let monShowChordRadial = false;   // Subdomain map: arc labels along the arc (tangential, default) vs radial (outward)
 let monShowChordLabels = true;   // Subdomain map: show the subdomain name
 let monShowChordLength = true;   // Subdomain map: show the residue range
 function drawChordDiagram(validRegions) {
@@ -3197,9 +3199,6 @@ function drawChordDiagram(validRegions) {
     const nc = validRegions.length;
     const size = 350;
     const cx = size / 2, cy = size / 2;
-    const outerR = size / 2 - (monShowChordTicks ? 62 : 48);
-    const innerR = outerR - 18;
-    const chordR = innerR - 4;
 
     canvas.width = size * 2;
     canvas.height = size * 2;
@@ -3210,6 +3209,14 @@ function drawChordDiagram(validRegions) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.scale(S, S);
+    // shrink the ring if needed so long radial labels never clip the canvas edge
+    const _labelExt = LiviaMaps.chordLabelExtent(ctx, validRegions.map(r => ({
+        name: monShowChordLabels ? `${r.name}` : '',
+        length: monShowChordLength ? `${r.start}-${r.end}` : '',
+    })), { ticks: monShowChordTicks, radial: monShowChordRadial });
+    const outerR = Math.max(40, Math.min(size / 2 - (monShowChordTicks ? 62 : 48), size / 2 - 4 - _labelExt));
+    const innerR = outerR - 18;
+    const chordR = innerR - 4;
 
     // Total residues for proportional arc sizing
     const totalRes = validRegions.reduce((sum, r) => sum + (r.end - r.start + 1), 0);
@@ -3260,37 +3267,12 @@ function drawChordDiagram(validRegions) {
             lirByRegion[arc.idx], clirByRegion[arc.idx], lightCol, darkCol);
         if (monShowChordTicks) LiviaMaps.drawChordRuler(ctx, cx, cy, outerR, arc.start, arc.end, arcLen, { offset: arc.region.start - 1 });   // absolute residue coords
 
-        // Label
-        const labelAngle = arc.mid;
-        const labelR = outerR + (monShowChordTicks ? 34 : 18);
-        const lx = cx + Math.cos(labelAngle) * labelR;
-        const ly = cy + Math.sin(labelAngle) * labelR;
-        ctx.save();
-        ctx.translate(lx, ly);
-        let textAngle = labelAngle + Math.PI / 2;
-        const normA = ((textAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
-        if (normA > Math.PI/2 && normA < 3*Math.PI/2) textAngle += Math.PI;
-        ctx.rotate(textAngle);
-        ctx.fillStyle = '#333';
-        ctx.font = 'bold 13px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(monShowChordLabels ? `${arc.region.name}` : '', 0, 0);
-        ctx.restore();
-
-        // Residue range label (smaller)
-        const rangeR = outerR + (monShowChordTicks ? 50 : 35);
-        const rx = cx + Math.cos(labelAngle) * rangeR;
-        const ry = cy + Math.sin(labelAngle) * rangeR;
-        ctx.save();
-        ctx.translate(rx, ry);
-        ctx.rotate(textAngle);
-        ctx.fillStyle = '#888';
-        ctx.font = '11px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(monShowChordLength ? `${arc.region.start}-${arc.region.end}` : '', 0, 0);
-        ctx.restore();
+        // Label (subdomain name + residue range) — radial or tangential
+        LiviaMaps.drawChordArcLabel(ctx, {
+            cx, cy, outerR, angle: arc.mid, ticks: monShowChordTicks, radial: monShowChordRadial, hidden: false,
+            name: `${arc.region.name}`, showName: monShowChordLabels,
+            length: `${arc.region.start}-${arc.region.end}`, showLength: monShowChordLength,
+        });
     }
 
     // Draw chords for interacting pairs

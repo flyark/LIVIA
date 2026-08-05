@@ -241,6 +241,72 @@
         ctx.restore();
     }
 
+    // Chord arc label (subunit name + residue count) in either orientation.
+    //   radial=false : tangential — text follows the arc curve (the original look).
+    //   radial=true  : text points outward along the radius, so labels fan out and don't collide
+    //                  when there are many subunits. Name then length stack outward; flipped on the
+    //                  left half so it always reads outward.
+    // opts: { cx, cy, outerR, angle, ticks, radial, name, showName, length, showLength, hidden }
+    function drawChordArcLabel(ctx, opts) {
+        const cx = opts.cx, cy = opts.cy, R0 = opts.outerR, a = opts.angle, ticks = opts.ticks;
+        const nameFont = 'bold 13px sans-serif', lenFont = '11px sans-serif';
+        const nameColor = opts.hidden ? '#bbb' : '#333', lenColor = opts.hidden ? '#ccc' : '#888';
+        const at = (r) => [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+        if (!opts.radial) {
+            let ta = a + Math.PI / 2;
+            const n = ((ta % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+            if (n > Math.PI / 2 && n < 3 * Math.PI / 2) ta += Math.PI;
+            const draw = (txt, r, font, color) => {
+                const p = at(r); ctx.save(); ctx.translate(p[0], p[1]); ctx.rotate(ta);
+                ctx.fillStyle = color; ctx.font = font; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(txt, 0, 0); ctx.restore();
+            };
+            if (opts.showName) draw(opts.name, R0 + (ticks ? 34 : 18), nameFont, nameColor);
+            if (opts.showLength) draw(opts.length, R0 + (ticks ? 50 : 35), lenFont, lenColor);
+            return;
+        }
+        const norm = ((a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+        const flip = norm > Math.PI / 2 && norm < 3 * Math.PI / 2;
+        const ra = flip ? a + Math.PI : a;
+        const rStart = R0 + (ticks ? 26 : 8);               // clear the ruler numbers
+        const nm = opts.showName ? (opts.name || '') : '', ln = opts.showLength ? (opts.length || '') : '';
+        ctx.font = nameFont; const nameW = nm ? ctx.measureText(nm).width : 0;
+        ctx.font = lenFont; const lenW = ln ? ctx.measureText(ln).width : 0;
+        const maxW = Math.max(nameW, lenW);
+        if (maxW <= 0) return;
+        const both = nameW > 0 && lenW > 0;                 // length goes on a second line BELOW the name (not further out — avoids clipping)
+        const p = at(rStart + maxW / 2); ctx.save(); ctx.translate(p[0], p[1]); ctx.rotate(ra);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        if (nm) { ctx.font = nameFont; ctx.fillStyle = nameColor; ctx.fillText(nm, 0, both ? -8 : 0); }
+        if (ln) { ctx.font = lenFont; ctx.fillStyle = lenColor; ctx.fillText(ln, 0, both ? 7 : 0); }
+        ctx.restore();
+    }
+
+    // Max radial extent (px beyond outerR) the labels need, so a page can shrink outerR to keep them
+    // on-canvas. labels: [{name, length}]. Mirrors drawChordArcLabel's geometry.
+    function chordLabelExtent(ctx, labels, opts) {
+        opts = opts || {};
+        const ticks = opts.ticks;
+        if (!opts.radial) return (ticks ? 50 : 35) + 14;    // tangential: length ring + a line of text
+        let maxW = 0;
+        for (const L of (labels || [])) {
+            ctx.font = 'bold 13px sans-serif'; const nw = L.name ? ctx.measureText(L.name).width : 0;
+            ctx.font = '11px sans-serif'; const lw = L.length ? ctx.measureText(L.length).width : 0;
+            maxW = Math.max(maxW, nw, lw);
+        }
+        return (ticks ? 26 : 8) + maxW + 4;                 // ruler gap + longest label + a little padding
+    }
+
+    // Highlight the clicked button in a 2-option segmented control (used for the chord label-direction
+    // picker); un-highlights its siblings. The caller sets the state + redraws.
+    function segPick(btn) {
+        for (const b of btn.parentElement.children) {
+            const on = b === btn;
+            b.style.background = on ? '#2471A3' : 'transparent';
+            b.style.color = on ? '#fff' : '#555';
+        }
+    }
+
     // PNG bar for a canvas ELEMENT (charts are built inside a container and carry no id).
     function attachPngBtnFor(cv, name) {
         if (!cv || !cv.parentElement) return;
@@ -490,7 +556,7 @@
         svgFromDraw, svgFromFixedCanvas,
         downloadSVGFile, downloadSVGFromCanvas, downloadCanvasPNG,
         attachExportBar, attachPngBtnFor, attachChartPngButtons,
-        setToRanges, paintChordArcBand, drawChordRuler,
+        setToRanges, paintChordArcBand, drawChordRuler, drawChordArcLabel, chordLabelExtent, segPick,
         parseColorCSV, attachColorUpload,
         seqFlow, fitSeqHost,
         strokeFadeQuad, strokeFadeCubic,
