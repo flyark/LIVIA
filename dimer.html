@@ -238,7 +238,9 @@
             <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B. UniProt domain annotations shown when available.</span>
                 <div style="flex-basis:100%; height:0;"></div><!-- controls on their own line, below the description -->
-                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> domain architecture</label>
+                <span style="font-size:0.82rem; color:#555; white-space:nowrap;">domains:</span>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> UniProt/Pfam</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ted" checked onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> TED</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="window.showConnIDs=this.checked; window.__redrawDimerContact&&window.__redrawDimerContact()"> chain IDs</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> swap chains (top&harr;bottom)</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"></label>
@@ -1082,7 +1084,8 @@ function buildDimerContactMap() {
 
     // Panel options (parity with universal.html): swap chains, domain show/hide, adjustable x-ticks.
     const swap = !!(document.getElementById('contact-swap-ab') && document.getElementById('contact-swap-ab').checked);
-    const showDomains = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;
+    const showDom = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;   // UniProt/Pfam
+    const showTed = document.getElementById('contact-show-ted') ? document.getElementById('contact-show-ted').checked : true;           // TED
     window.__redrawDimerContact = () => buildDimerContactMap();
     // Real filtered sets (chain i=A / j=B) — used for contact detection (never swapped)
     const lirI_real = filterSmallSegments(v.lirI), lirJ_real = filterSmallSegments(v.lirJ);
@@ -1132,8 +1135,8 @@ function buildDimerContactMap() {
         clir_b: document.getElementById('color-clir-b')?.value || '#E64A19',
     };
     if (swap) colors = { lir_a: colors.lir_b, clir_a: colors.clir_b, lir_b: colors.lir_a, clir_b: colors.clir_a };
-    const _dmA = showDomains ? (swap ? chainDomains.B : chainDomains.A) : [], _dmB = showDomains ? (swap ? chainDomains.A : chainDomains.B) : [];
-    const _tdA = showDomains ? (swap ? chainTedDomains.B : chainTedDomains.A) : [], _tdB = showDomains ? (swap ? chainTedDomains.A : chainTedDomains.B) : [];
+    const _dmA = showDom ? (swap ? chainDomains.B : chainDomains.A) : [], _dmB = showDom ? (swap ? chainDomains.A : chainDomains.B) : [];
+    const _tdA = showTed ? (swap ? chainTedDomains.B : chainTedDomains.A) : [], _tdB = showTed ? (swap ? chainTedDomains.A : chainTedDomains.B) : [];
 
     const S = 2;
     const hasDomains = (_dmA.length > 0 || _dmB.length > 0);

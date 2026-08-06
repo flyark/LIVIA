@@ -335,7 +335,9 @@
             <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B.</span>
                 <div style="flex-basis:100%; height:0;"></div><!-- controls on their own line, below the description -->
-                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> domain architecture</label>
+                <span style="font-size:0.82rem; color:#555; white-space:nowrap;">domains:</span>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> UniProt/Pfam</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ted" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> TED</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="uniShowLinearIDs=this.checked; buildLinearContactMaps();"> chain IDs</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> swap chains (top&harr;bottom)</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"></label>
@@ -7078,7 +7080,8 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
 
     // ── Panel options ──
     const swap = !!(document.getElementById('contact-swap-ab') && document.getElementById('contact-swap-ab').checked);
-    const showDomains = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;
+    const showDom = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;   // UniProt/Pfam track
+    const showTed = document.getElementById('contact-show-ted') ? document.getElementById('contact-show-ted').checked : true;           // TED track
     const colors = getColorsForPair(v.ci, v.cj);
 
     // Domain palettes — Set2 fills for UniProt/Pfam, CATH-ish solids for TED (match the legend swatches)
@@ -7097,7 +7100,7 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
     // ── Layout: reserve vertical space for domain tracks (UniProt/Pfam inner row + TED outer row) ──
     const S = 2, laneH = 16, boxH = 13, trackGap = 4, tickBand = 15;   // tickBand reserves room for the residue-number ticks beside each bar
     const assignLanes = (items) => { const s = items.slice().sort((a, b) => a.start - b.start); const ends = []; for (const d of s){ let k = 0; while (k < ends.length && ends[k] >= d.start) k++; d._lane = k; ends[k] = d.end; } return { list: s, n: Math.max(1, ends.length) }; };
-    const tracksOf = (role) => ({ dom: showDomains && role.doms.length ? assignLanes(role.doms) : null, ted: showDomains && role.ted.length ? assignLanes(role.ted) : null });
+    const tracksOf = (role) => ({ dom: showDom && role.doms.length ? assignLanes(role.doms) : null, ted: showTed && role.ted.length ? assignLanes(role.ted) : null });
     // Space beside a bar = the tick band (always) + stacked domain/TED lanes so nothing overlaps the ticks.
     const spaceOf = (t) => { let h = tickBand; if (t.dom) h += t.dom.n * laneH; if (t.ted) h += t.ted.n * laneH; if (t.dom && t.ted) h += trackGap; return h; };
     const topT = tracksOf(top), botT = tracksOf(bot), topSpace = spaceOf(topT), botSpace = spaceOf(botT);
@@ -7137,7 +7140,7 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
 
     // Domain tracks \u2014 dir -1 = above (top role), +1 = below (bottom role); UniProt/Pfam inner, TED outer.
     const drawTracks = (role, tr, xFn, baseY, dir) => {
-        if (!showDomains) return;
+        if (!showDom && !showTed) return;
         const off = tickBand;   // clear the residue-tick band so domains never overlap the ticks
         if (tr.dom) for (const d of tr.dom.list){
             const x0 = xFn(Math.max(1, d.start)), x1 = xFn(Math.min(role.len, d.end)), w = Math.max(2, x1 - x0);
@@ -7289,15 +7292,16 @@ function buildContactMap(_pairKey) { buildLinearContactMaps(); }
 // lands in the exported figure). Rendered into the map's legend element below it.
 function renderContactHtmlLegend(roles, DOM_FILL, TED_FILL, legendEl){
     const el = legendEl || document.getElementById('contact-domain-legend'); if (!el) return;
-    const show = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;
+    const showDom = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;
+    const showTed = document.getElementById('contact-show-ted') ? document.getElementById('contact-show-ted').checked : true;
     const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const sw = (c) => `<span style="display:inline-block; width:10px; height:10px; background:${c}; border:1px solid rgba(0,0,0,0.25); vertical-align:middle; margin:0 3px 0 0; border-radius:2px;"></span>`;
     const rows = [];
-    if (show) for (const role of roles){
+    if (showDom || showTed) for (const role of roles){
         if (!role.info && !role.doms.length && !role.ted.length) continue;
         const parts = [];
-        role.doms.forEach((d,i) => parts.push(`${sw(DOM_FILL[i % DOM_FILL.length])}${esc(d.name)} (${d.start}–${d.end})`));
-        role.ted.forEach((d,i) => parts.push(`${sw(TED_FILL[i % TED_FILL.length])}${esc(d.name)} (${d.start}–${d.end})`));
+        if (showDom) role.doms.forEach((d,i) => parts.push(`${sw(DOM_FILL[i % DOM_FILL.length])}${esc(d.name)} (${d.start}–${d.end})`));
+        if (showTed) role.ted.forEach((d,i) => parts.push(`${sw(TED_FILL[i % TED_FILL.length])}${esc(d.name)} (${d.start}–${d.end})`));
         let line = `<b style="color:${role.clirCol}">${esc(chainLabel(role.name))}:</b> ` + (parts.length ? parts.join(' &middot; ') : '<span style="color:#aaa;">no annotated domains</span>');
         if (role.info && role.info.isPartial && role.info.startInFull) line += ` <span style="color:#c0392b; font-style:italic;">(partial: aa ${role.info.startInFull}–${role.info.endInFull} of ${role.info.fullLength})</span>`;
         if (role.info && role.info.accession) line += ` <a href="https://www.uniprot.org/uniprotkb/${role.info.accession}" target="_blank" style="color:#2471A3; font-weight:600;">UniProt: ${role.info.accession}</a>`;

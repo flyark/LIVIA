@@ -288,7 +288,9 @@
             <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Per-rank structures fetched automatically.</span>
                 <div style="flex-basis:100%; height:0;"></div><!-- controls on their own line, below the description -->
-                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="window.__redrawConn&&window.__redrawConn()"> domain architecture</label>
+                <span style="font-size:0.82rem; color:#555; white-space:nowrap;">domains:</span>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="window.__redrawConn&&window.__redrawConn()"> UniProt/Pfam</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ted" checked onchange="window.__redrawConn&&window.__redrawConn()"> TED</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="window.showConnIDs=this.checked; window.__redrawConn&&window.__redrawConn()"> chain IDs</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="window.__redrawConn&&window.__redrawConn()"> swap chains (top&harr;bottom)</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="window.__redrawConn&&window.__redrawConn()"></label>
@@ -2842,7 +2844,8 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     if (!card || !canvas || !pdbText) { if (card) card.style.display = 'none'; return; }
     // Panel options (parity with universal.html): swap chains, domain show/hide, adjustable x-ticks.
     const swap = !!(document.getElementById('contact-swap-ab') && document.getElementById('contact-swap-ab').checked);
-    const showDomains = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;
+    const showDom = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;   // UniProt/Pfam
+    const showTed = document.getElementById('contact-show-ted') ? document.getElementById('contact-show-ted').checked : true;           // TED
     // The export closure re-runs this function; hand it the ORIGINAL args so the swap isn't applied twice.
     const _xp = { row, sym1, sym2, colors, pdbText };
     LiviaMaps.attachExportBar('connection-canvas', { name: 'linear_contact_map', svg: () => buildConnectionDiagram(_xp.row, _xp.sym1, _xp.sym2, _xp.colors, _xp.pdbText), png: true });
@@ -2854,9 +2857,9 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     const lenA = parseInt((swap ? (row['Len B'] || row['protein_2_size']) : (row['Len A'] || row['protein_1_size']))) || 0;
     const lenB = parseInt((swap ? (row['Len A'] || row['protein_1_size']) : (row['Len B'] || row['protein_2_size']))) || 0;
     // Per-side domain data honoring swap + show/hide (empty when hidden → no domain rows / legend)
-    const _dmA = showDomains ? (swap ? flyDomains.B : flyDomains.A) : [], _dmB = showDomains ? (swap ? flyDomains.A : flyDomains.B) : [];
-    const _tdA = showDomains ? (swap ? flyTedDomains.B : flyTedDomains.A) : [], _tdB = showDomains ? (swap ? flyTedDomains.A : flyTedDomains.B) : [];
-    const _diA = showDomains ? (swap ? flyDomainInfo.B : flyDomainInfo.A) : null, _diB = showDomains ? (swap ? flyDomainInfo.A : flyDomainInfo.B) : null;
+    const _dmA = showDom ? (swap ? flyDomains.B : flyDomains.A) : [], _dmB = showDom ? (swap ? flyDomains.A : flyDomains.B) : [];
+    const _tdA = showTed ? (swap ? flyTedDomains.B : flyTedDomains.A) : [], _tdB = showTed ? (swap ? flyTedDomains.A : flyTedDomains.B) : [];
+    const _diA = (showDom || showTed) ? (swap ? flyDomainInfo.B : flyDomainInfo.A) : null, _diB = (showDom || showTed) ? (swap ? flyDomainInfo.A : flyDomainInfo.B) : null;
     if (lenA === 0 || lenB === 0 || cLIR_A.size === 0 || cLIR_B.size === 0) {
         card.style.display = 'none';
         return;
