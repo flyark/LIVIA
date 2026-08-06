@@ -147,7 +147,7 @@
             <div class="drop-zone-text">Drop prediction files or folders here (.zip, .gz, .xz, .cif, .pdb, .json, .npz, .npy, .csv) or click to browse</div>
             <div class="drop-zone-filename" id="file-name"></div>
         </div>
-        <input type="file" id="file-input" accept=".zip,.gz,.xz,.cif,.pdb,.json,.npz,.npy,.pkl,.csv" multiple style="display:none">
+        <input type="file" id="file-input" accept=".zip,.gz,.xz,.cif,.pdb,.json,.npz,.npy,.pkl,.csv,.js" multiple style="display:none">
         <input type="file" id="folder-input" webkitdirectory style="display:none">
         <div style="display:flex; gap:0.5rem; margin-top:0.8rem;">
             <button class="btn btn-primary" style="flex:1; margin:0;" onclick="document.getElementById('file-input').click()">Select Files</button>
@@ -861,7 +861,31 @@ folderInput.addEventListener('change', e => { if (e.target.files.length) handleI
 // Store all pending files for multi-job selection
 let pendingJobs = null;
 
+// Offline file:// bundles ship as `<name>.zip.js` — `__LIVIA_B64['…']="<base64 zip>";` — because a
+// double-clicked (file://) page can load them via <script> but cannot fetch a .zip. Unwrap such a file
+// back into the real .zip so dropping / browsing it into LIVIA just works.
+async function unwrapLiviaB64(files) {
+    const out = [];
+    for (const f of files) {
+        if (/\.js$/i.test(f.name)) {
+            let txt = '';
+            try { txt = await f.text(); } catch (e) {}
+            const m = txt.match(/__LIVIA_B64\s*\[[^\]]*\]\s*=\s*"([A-Za-z0-9+/=\s]+)"/);
+            if (m) {
+                const bin = atob(m[1].replace(/\s+/g, ''));
+                const bytes = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                out.push(new File([bytes], f.name.replace(/\.js$/i, ''), { type: 'application/zip' }));
+                continue;
+            }
+        }
+        out.push(f);
+    }
+    return out;
+}
+
 async function handleInputFiles(fileList) {
+    fileList = await unwrapLiviaB64(Array.from(fileList));   // accept offline `.zip.js` bundles as their underlying zip
     // Disable Process immediately — large zips take seconds to load, and a premature
     // click would run processFiles with platform=null (fallback: generic, wrong PAE source).
     document.getElementById('btn-process').disabled = true;
@@ -5235,12 +5259,13 @@ function _renderMist(withId, subs, pairMap, esc){
     // PMIDs — collapsed by default so the card stays compact; click a count above to open all papers in
     // PubMed, or expand here to read/copy the raw PMIDs (each links to its paper; Copy grabs them all).
     html += '<details style="margin-top:0.5rem;"><summary style="cursor:pointer; color:#2471A3; font-size:0.8rem;">Show PMIDs</summary><div style="margin-top:0.3rem; font-size:0.78rem; color:#555;">';
+    const copyLink = (ids) => '<a href="javascript:void(0)" onclick="navigator.clipboard&&navigator.clipboard.writeText(\'' + ids.join(', ') + '\');this.textContent=\'copied\';setTimeout(()=>this.textContent=\'copy\',1200)" style="color:#888; font-size:0.72rem;">copy</a>';
     for (const p of reported){
-        const parts = [], all = new Set();
-        for (const [t, label] of _MIST_TYPES){ const set = p.byType[t]; if (set && set.size){ const list = [...set]; list.forEach(x => all.add(x));
-            parts.push('<a href="' + pubmedSet(list) + '" target="_blank" style="color:#2471A3;">' + label + '</a>: ' + pmidRefs(list)); } }
-        const copy = '<a href="javascript:void(0)" onclick="navigator.clipboard&&navigator.clipboard.writeText(\'' + [...all].join(', ') + '\');this.textContent=\'copied\'" style="color:#888; font-size:0.72rem; margin-left:4px;">copy</a>';
-        html += '<div style="margin:0.2rem 0;"><b>' + esc(p.a.sym) + ' — ' + esc(p.b.sym) + '</b> ' + copy + ' — ' + parts.join(' &nbsp;·&nbsp; ') + '</div>';
+        html += '<div style="margin:0.4rem 0;"><b>' + esc(p.a.sym) + ' — ' + esc(p.b.sym) + '</b>';
+        for (const [t, label] of _MIST_TYPES){ const set = p.byType[t]; if (!set || !set.size) continue; const list = [...set];   // one line per evidence category: "copy — Label: pmids", each separately copyable
+            html += '<div style="margin:0.12rem 0 0.12rem 1rem;">' + copyLink(list) + ' — <a href="' + pubmedSet(list) + '" target="_blank" style="color:#2471A3;">' + label + '</a>: ' + pmidRefs(list) + '</div>';
+        }
+        html += '</div>';
     }
     html += '</div></details>';
     if (unreported.length) html += '<div style="margin-top:0.4rem; font-size:0.78rem; color:#999;">Not reported in MIST: ' + unreported.map(p => esc(p.a.sym) + '–' + esc(p.b.sym)).join(', ') + '</div>';
