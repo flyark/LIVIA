@@ -260,6 +260,13 @@
             <div id="chain-identity-out" style="margin-top:0.6rem; overflow-x:auto;"></div>
         </div>
 
+        <!-- Reported interactions (MIST) — is this predicted pair already experimentally reported? -->
+        <div class="card result-card" id="mist-card" style="display:none;">
+            <h2>Reported Interactions <span style="font-weight:400; font-size:0.8rem; color:#888;">(<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>)</span></h2>
+            <div id="mist-content"></div>
+            <div id="mist-link" style="margin-top:0.5rem; font-size:0.82rem;"></div>
+        </div>
+
         <!-- Score Matrix (iLIS / iLIA) -->
         <div class="card result-card" id="score-matrix-card" style="display:none;">
             <h2>Score Matrix</h2>
@@ -3917,7 +3924,7 @@ function displayResults(results, jobName) {
     document.getElementById('results').classList.add('active');
     setupMultiChainColors();
     renderChainToggleBar();
-    { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; uniState.chainTedDomains = {}; uniState.chainDomainInfo = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; if (typeof identifyChains === 'function') setTimeout(identifyChains, 0); } _cic.style.display = ''; } else { _cic.style.display = 'none'; } } }
+    { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; uniState.chainTedDomains = {}; uniState.chainDomainInfo = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; const _mc = document.getElementById('mist-card'); if (_mc){ _mc.style.display = 'none'; const _mo = document.getElementById('mist-content'); if (_mo) _mo.innerHTML = ''; } if (typeof identifyChains === 'function') setTimeout(identifyChains, 0); } _cic.style.display = ''; } else { _cic.style.display = 'none'; const _mc = document.getElementById('mist-card'); if (_mc) _mc.style.display = 'none'; } } }
     drawAllScoreMatrices();
     if (uniState.lightweight) {
         // Lightweight bundle has no numeric PAE — hide the PAE/LIS/cLIS heatmap cards and
@@ -5124,6 +5131,81 @@ async function identifyChains(){
     if (typeof buildChordDiagram === 'function') buildChordDiagram();
     if (typeof drawAllScoreMatrices === 'function') drawAllScoreMatrices();
     btn.disabled = false; btn.textContent = 'Identify chains via UniProt';
+    queryMistForPair();   // now that accessions are resolved, ask MIST whether this pair is experimentally reported
+}
+
+// ── Reported interactions (MIST). Once Identify has resolved each chain to a UniProt accession, ask
+// whether the two chains of the current pair have a known experimental interaction. Species-independent:
+// MIST is keyed by NCBI Gene ID (accession → GeneID via UniProt xref_geneid works for any organism, and
+// the MIST endpoint returns human/mouse/fly/worm alike). Same source + rendering as flypredictome's card.
+function _fpJson(text){ if (!text) return null; const m = text.match(/<br>\s*([\[{])/); const i = m ? text.indexOf(m[1], m.index) : text.search(/[\[{]/); if (i < 0) return null; try { return JSON.parse(text.slice(i)); } catch (e) { return null; } }
+function _pairChains(){
+    const names = uniState.chainNames || [];
+    if (names.length === 2) return names.slice();
+    const key = String(uniState.currentPairKey || ''), parts = key.split(/[-,]/);   // multi-chain: the two chains of the active pair
+    const hit = names.filter(n => parts.includes(n));
+    return hit.length === 2 ? hit : names.slice(0, 2);
+}
+async function _accToGeneId(acc){
+    try { const d = await (await fetch('https://rest.uniprot.org/uniprotkb/' + encodeURIComponent(acc) + '?fields=xref_geneid&format=json')).json();
+          const x = (d.uniProtKBCrossReferences || []).find(r => r.database === 'GeneID'); return x ? x.id : null; }
+    catch (e){ return null; }
+}
+async function queryMistForPair(){
+    const card = document.getElementById('mist-card'), content = document.getElementById('mist-content'), linkEl = document.getElementById('mist-link');
+    if (!card || !content) return;
+    const chains = _pairChains();
+    const info = uniState.chainDomainInfo || {};
+    const accA = chains[0] && info[chains[0]] && info[chains[0]].accession;
+    const accB = chains[1] && info[chains[1]] && info[chains[1]].accession;
+    if (!accA || !accB){ card.style.display = 'none'; return; }        // need both chains resolved to an accession
+    const symA = (uniState.chainGenes && uniState.chainGenes[chains[0]]) || accA;
+    const symB = (uniState.chainGenes && uniState.chainGenes[chains[1]]) || accB;
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    card.style.display = ''; if (linkEl) linkEl.innerHTML = '';
+    content.innerHTML = '<span style="color:#888; font-size:0.85rem;">Querying MIST for ' + esc(symA) + ' — ' + esc(symB) + '…</span>';
+    const epoch = uniState.loadEpoch;
+    const [idA, idB] = await Promise.all([_accToGeneId(accA), _accToGeneId(accB)]);
+    if (uniState.loadEpoch !== epoch) return;                          // a new prediction loaded mid-query
+    if (!idA || !idB){ content.innerHTML = '<span style="color:#999; font-size:0.85rem;">No NCBI Gene ID for ' + esc(!idA ? symA : symB) + ' — cannot query MIST.</span>'; return; }
+    try {
+        const types = 'ppi,interolog,genetic,interolog-genetic';
+        const resp = await fetchTextViaProxy('https://www.flyrnai.org/tools/mist/api/get_interactions/' + idA + '/' + types);
+        const data = _fpJson(resp);
+        const all = (data && data.mist_data && data.mist_data.results) || [];
+        const seen = new Set();
+        const pair = all.filter(r => {                                 // only interactions with the partner gene, deduped
+            if (String(r.GeneA) !== String(idB) && String(r.GeneB) !== String(idB)) return false;
+            const k = [r.Interaction_type, r.Rank, r.Reference, r.TaxID_interolog || ''].join('|');
+            if (seen.has(k)) return false; seen.add(k); return true;
+        });
+        const byType = { ppi: [], genetic: [], interolog: [], 'interolog-genetic': [] };
+        for (const r of pair) if (byType[r.Interaction_type]) byType[r.Interaction_type].push(r);
+        if (uniState.loadEpoch !== epoch) return;
+        const hasAny = Object.values(byType).some(a => a.length);
+        let html = '';
+        if (!hasAny){
+            html = '<div style="background:#fff3cd; border-left:4px solid #ffc107; padding:0.6rem 0.8rem; border-radius:0 6px 6px 0; font-size:0.85rem; color:#856404;"><strong>No reported interaction</strong> between ' + esc(symA) + ' and ' + esc(symB) + ' in MIST.</div>';
+        } else {
+            const typeLabels = { ppi: 'PPI', genetic: 'Genetic', interolog: 'Interolog PPI', 'interolog-genetic': 'Interolog GI' };
+            const pmidLink = (p) => '<a href="https://pubmed.ncbi.nlm.nih.gov/' + p + '/" target="_blank" style="color:#2471A3;">' + p + '</a>';
+            html = '<table style="font-size:0.82rem; width:100%; border-collapse:collapse;"><thead><tr style="background:#f8f9fa;"><th style="padding:0.4rem 0.6rem; text-align:left;">Type</th><th style="padding:0.4rem 0.6rem; text-align:center;">Papers</th><th style="padding:0.4rem 0.6rem; text-align:left;">PMID</th></tr></thead><tbody>';
+            for (const [type, records] of Object.entries(byType)){
+                if (!records.length) continue;
+                const pmids = new Set();
+                for (const r of records) if (r.Reference) String(r.Reference).split(';').map(p => p.trim()).filter(Boolean).forEach(p => pmids.add(p));
+                const list = [...pmids]; let pmidHtml = '—';
+                if (list.length){
+                    if (list.length <= 5) pmidHtml = list.map(pmidLink).join(', ');
+                    else { const id = 'mpmid_' + type; pmidHtml = list.slice(0, 5).map(pmidLink).join(', ') + ' <a href="javascript:void(0)" onclick="document.getElementById(\'' + id + '\').style.display=\'\';this.style.display=\'none\'" style="color:#888; font-size:0.72rem;">+' + (list.length - 5) + ' more</a><span id="' + id + '" style="display:none;">, ' + list.slice(5).map(pmidLink).join(', ') + '</span>'; }
+                }
+                html += '<tr style="border-top:1px solid #eee;"><td style="padding:0.4rem 0.6rem; white-space:nowrap;">' + typeLabels[type] + '</td><td style="padding:0.4rem 0.6rem; text-align:center; font-weight:600;">' + list.length + '</td><td style="padding:0.4rem 0.6rem; font-size:0.78rem;">' + pmidHtml + '</td></tr>';
+            }
+            html += '</tbody></table>';
+        }
+        content.innerHTML = html;
+        if (linkEl) linkEl.innerHTML = '<a href="https://www.flyrnai.org/tools/mist/web/gene/' + encodeURIComponent(idA) + '" target="_blank" style="color:#2471A3;">' + esc(symA) + ' on MIST ↗</a>';
+    } catch (e){ content.innerHTML = '<span style="color:#999; font-size:0.85rem;">Could not query MIST: ' + esc(e.message) + '</span>'; }
 }
 function drawAllScoreMatrices() {
     const card = document.getElementById('score-matrix-card');
