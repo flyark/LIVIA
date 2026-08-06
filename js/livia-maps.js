@@ -203,6 +203,28 @@
         donut(sA, eA); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
     }
 
+    // Domain segments as a thin ring band over their residue spans on a chord arc. rIn/rOut = ring radii,
+    // sA/eA = the arc's angular span, len = arc residue count, domains = [{name,start,end}] (1-based).
+    // Each domain gets a fill from `fills` (cycled); `muted` greys a hidden chain. Mirrors the linear
+    // map's UniProt/Pfam + TED tracks as concentric rings just inside the arc.
+    function paintChordDomainRing(ctx, cx, cy, rIn, rOut, sA, eA, len, domains, fills, muted) {
+        const hits = [];   // returned so the caller can build hover hit-regions
+        if (!domains || !domains.length) return hits;
+        const ang = (res) => sA + (eA - sA) * ((res - 1) / Math.max(1, len - 1));
+        for (let i = 0; i < domains.length; i++) {
+            const d = domains[i], a0 = ang(d.start), a1 = ang(d.end);
+            ctx.beginPath();
+            ctx.arc(cx, cy, rOut, a0, a1);
+            ctx.arc(cx, cy, rIn, a1, a0, true);
+            ctx.closePath();
+            ctx.fillStyle = muted ? '#dddddd' : fills[i % fills.length];
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 0.75; ctx.stroke();
+            hits.push({ rIn, rOut, a0, a1, name: d.name, start: d.start, end: d.end });
+        }
+        return hits;
+    }
+
     // Nice-number major-tick spacing (1/2/5 × 10^k) aiming for ~5 major ticks across the span.
     function chordRulerStep(span) {
         const raw = span / 5, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag;
@@ -556,7 +578,7 @@
         svgFromDraw, svgFromFixedCanvas,
         downloadSVGFile, downloadSVGFromCanvas, downloadCanvasPNG,
         attachExportBar, attachPngBtnFor, attachChartPngButtons,
-        setToRanges, paintChordArcBand, drawChordRuler, drawChordArcLabel, chordLabelExtent, segPick,
+        setToRanges, paintChordArcBand, paintChordDomainRing, drawChordRuler, drawChordArcLabel, chordLabelExtent, segPick,
         parseColorCSV, attachColorUpload,
         seqFlow, fitSeqHost,
         strokeFadeQuad, strokeFadeCubic,

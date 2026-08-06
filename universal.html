@@ -112,7 +112,7 @@
         }
     </style>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260804"></script>
+<script src="js/livia-maps.js?v=20260806"></script>
 <script src="js/clip-resolver.js?v=20260715"></script>
 </head>
 <body>
@@ -335,7 +335,7 @@
             <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B.</span>
                 <div style="flex-basis:100%; height:0;"></div><!-- controls on their own line, below the description -->
-                <span style="font-size:0.82rem; color:#555; white-space:nowrap;">domains:</span>
+                <span style="font-size:0.82rem; color:#555; white-space:nowrap; display:inline-flex; align-items:center;">domains:</span>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> UniProt/Pfam</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ted" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> TED</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="uniShowLinearIDs=this.checked; buildLinearContactMaps();"> chain IDs</label>
@@ -356,6 +356,9 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="uniShowChordIDs=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> chain IDs</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="uniShowChordLength=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Circos-style residue-position ruler around each arc"><input type="checkbox" id="chord-show-ticks" checked onchange="uniShowChordTicks=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> ticks</label>
+                <span style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center;">domains:</span>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="UniProt/Pfam domain ring on each arc"><input type="checkbox" id="chord-show-dom" checked onchange="uniShowChordDom=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> UniProt/Pfam</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="TED domain ring on each arc"><input type="checkbox" id="chord-show-ted" checked onchange="uniShowChordTed=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> TED</label>
                 <span style="display:inline-flex; align-items:center; gap:5px; margin-bottom:0.4rem; font-size:0.8rem; color:#555;" title="Direction of the arc labels: along the arc, or pointing outward (outward avoids overlap when there are many subunits)"><span style="font-weight:600;">label direction</span><span style="display:inline-flex; align-items:center; border:1px solid #ccd; border-radius:5px; overflow:hidden; font-size:0.78rem;"><button type="button" onclick="uniShowChordRadial=false; LiviaMaps.segPick(this); if(typeof buildChordDiagram==='function') buildChordDiagram();" style="border:0; padding:2px 8px; cursor:pointer; background:#2471A3; color:#fff; font:inherit;">along arc</button><button type="button" onclick="uniShowChordRadial=true; LiviaMaps.segPick(this); if(typeof buildChordDiagram==='function') buildChordDiagram();" style="border:0; padding:2px 8px; cursor:pointer; background:transparent; color:#555; font:inherit;">outward</button></span></span>
             </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
@@ -7367,6 +7370,10 @@ let uniShowChordLabels = true;   // Circular Contact Map: show the gene/protein 
 let uniShowChordLength = true;   // Circular Contact Map: draw the residue-count number
 let uniShowChordTicks = true;   // Circular Contact Map: Circos-style residue-position ruler around each arc (default on)
 let uniShowChordRadial = false;   // Circular Contact Map: arc labels along the arc (tangential, default) vs. pointing outward (radial); radial fans out and avoids overlap with many subunits
+let uniShowChordDom = true;   // Circular Contact Map: UniProt/Pfam domain ring (just inside the arc)
+let uniShowChordTed = true;   // Circular Contact Map: TED domain ring
+const CHORD_DOM_FILL = ['#66c2a5','#fc8d62','#8da0cb','#e78ac3','#a6d854','#ffd92f','#e5c494','#b3b3b3'];   // UniProt/Pfam — matches the linear map
+const CHORD_TED_FILL = ['#7E57C2','#5C6BC0','#26A69A','#8D6E63','#EC407A','#42A5F5','#AB47BC','#66BB6A'];   // TED — matches the linear map
 // The ruler itself lives in the shared module (LiviaMaps.drawChordRuler) so every chord page uses one implementation.
 function chordArcLabel(arc) {
     if (arc.type === 'ion') return arc.displayName;
@@ -7392,7 +7399,9 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
         length: uniShowChordLength ? `${chainSizes[i]}` : '',
     })), { ticks: uniShowChordTicks, radial: uniShowChordRadial });
     // shrink the ring if needed so long radial labels never clip the canvas edge
-    const outerR = Math.max(40, Math.min(size / 2 - (uniShowChordTicks ? 62 : 48), size / 2 - 4 - _labelExt)), innerR = outerR - 18, chordR = innerR - 4;
+    const _nDomRings = (uniShowChordDom ? 1 : 0) + (uniShowChordTed ? 1 : 0), _domSpace = _nDomRings ? (_nDomRings * 7 + 3) : 0, _domHits = [];   // domain rings sit OUTSIDE the arc; reserve outer space, adaptive
+    ctx.canvas._domHits = _domHits; ctx.canvas._domGeom = { cx: cxC, cy: cyC, size };   // hover: hit-regions + geometry per canvas
+    const outerR = Math.max(40, Math.min(size / 2 - (uniShowChordTicks ? 62 : 48) - _domSpace, size / 2 - 4 - _labelExt - _domSpace)), innerR = outerR - 18, chordR = innerR - 4;   // chord lines unaffected by domains (they're outside)
 
     const totalRes = chainSizes.reduce((a, b) => a + b, 0);
     const gapAngle = 0.04, totalGap = gapAngle * nc;
@@ -7436,9 +7445,14 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
     for (const arc of arcs) {
         const hidden = hiddenSet.has(arc.name);
         paintChordArc(ctx, cxC, cyC, outerR, innerR, arc, hidden, arcLIR, arcCLIR, chainColors, arcLightColors);
-        if (uniShowChordTicks) LiviaMaps.drawChordRuler(ctx, cxC, cyC, outerR, arc.start, arc.end, arc.size, { muted: hidden, type: arc.type });
+        if (arc.type === 'protein') {   // domain rings just OUTSIDE the arc, stacked: UniProt/Pfam then TED (matches the linear map)
+            let _rr = outerR + 3;
+            if (uniShowChordDom) { for (const _h of LiviaMaps.paintChordDomainRing(ctx, cxC, cyC, _rr, _rr + 6, arc.start, arc.end, arc.size, (uniState.chainDomains || {})[arc.name] || [], CHORD_DOM_FILL, hidden)) _domHits.push(Object.assign({ chain: chordArcLabel(arc), src: 'UniProt/Pfam' }, _h)); _rr += 7; }
+            if (uniShowChordTed) { for (const _h of LiviaMaps.paintChordDomainRing(ctx, cxC, cyC, _rr, _rr + 6, arc.start, arc.end, arc.size, (uniState.chainTedDomains || {})[arc.name] || [], CHORD_TED_FILL, hidden)) _domHits.push(Object.assign({ chain: chordArcLabel(arc), src: 'TED' }, _h)); _rr += 7; }
+        }
+        if (uniShowChordTicks) LiviaMaps.drawChordRuler(ctx, cxC, cyC, outerR + _domSpace, arc.start, arc.end, arc.size, { muted: hidden, type: arc.type });
         LiviaMaps.drawChordArcLabel(ctx, {
-            cx: cxC, cy: cyC, outerR, angle: arc.mid, ticks: uniShowChordTicks, radial: uniShowChordRadial, hidden,
+            cx: cxC, cy: cyC, outerR: outerR + _domSpace, angle: arc.mid, ticks: uniShowChordTicks, radial: uniShowChordRadial, hidden,
             name: chordArcLabel(arc), showName: uniShowChordLabels || uniShowChordIDs,
             length: arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`, showLength: uniShowChordLength,
         });
@@ -7459,9 +7473,11 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
         length: uniShowChordLength ? `${chainSizes[i]}` : '',
     })), { ticks: uniShowChordTicks, radial: uniShowChordRadial });
     // shrink the ring if needed so long radial labels never clip the canvas edge
-    const outerR = Math.max(40, Math.min(size / 2 - (uniShowChordTicks ? 62 : 48), size / 2 - 4 - _labelExt));
+    const _nDomRings = (uniShowChordDom ? 1 : 0) + (uniShowChordTed ? 1 : 0), _domSpace = _nDomRings ? (_nDomRings * 7 + 3) : 0, _domHits = [];   // domain rings sit OUTSIDE the arc; reserve outer space, adaptive
+    ctx.canvas._domHits = _domHits; ctx.canvas._domGeom = { cx: cxC, cy: cyC, size };   // hover: hit-regions + geometry per canvas
+    const outerR = Math.max(40, Math.min(size / 2 - (uniShowChordTicks ? 62 : 48) - _domSpace, size / 2 - 4 - _labelExt - _domSpace));
     const innerR = outerR - 18;
-    const chordR = innerR - 4;
+    const chordR = innerR - 4;   // chord lines unaffected by domains (they're outside)
 
     // Arc sizing proportional to chain length
     const totalRes = chainSizes.reduce((a, b) => a + b, 0);
@@ -7490,10 +7506,15 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
     for (const arc of arcs) {
         const hidden = hiddenSet.has(arc.name);
         paintChordArc(ctx, cxC, cyC, outerR, innerR, arc, hidden, arcLIR, arcCLIR, chainColors, arcLightColors);
-        if (uniShowChordTicks) LiviaMaps.drawChordRuler(ctx, cxC, cyC, outerR, arc.start, arc.end, arc.size, { muted: hidden, type: arc.type });
+        if (arc.type === 'protein') {   // domain rings just OUTSIDE the arc, stacked: UniProt/Pfam then TED (matches the linear map)
+            let _rr = outerR + 3;
+            if (uniShowChordDom) { for (const _h of LiviaMaps.paintChordDomainRing(ctx, cxC, cyC, _rr, _rr + 6, arc.start, arc.end, arc.size, (uniState.chainDomains || {})[arc.name] || [], CHORD_DOM_FILL, hidden)) _domHits.push(Object.assign({ chain: chordArcLabel(arc), src: 'UniProt/Pfam' }, _h)); _rr += 7; }
+            if (uniShowChordTed) { for (const _h of LiviaMaps.paintChordDomainRing(ctx, cxC, cyC, _rr, _rr + 6, arc.start, arc.end, arc.size, (uniState.chainTedDomains || {})[arc.name] || [], CHORD_TED_FILL, hidden)) _domHits.push(Object.assign({ chain: chordArcLabel(arc), src: 'TED' }, _h)); _rr += 7; }
+        }
+        if (uniShowChordTicks) LiviaMaps.drawChordRuler(ctx, cxC, cyC, outerR + _domSpace, arc.start, arc.end, arc.size, { muted: hidden, type: arc.type });
 
         LiviaMaps.drawChordArcLabel(ctx, {
-            cx: cxC, cy: cyC, outerR, angle: arc.mid, ticks: uniShowChordTicks, radial: uniShowChordRadial, hidden,
+            cx: cxC, cy: cyC, outerR: outerR + _domSpace, angle: arc.mid, ticks: uniShowChordTicks, radial: uniShowChordRadial, hidden,
             name: chordArcLabel(arc), showName: uniShowChordLabels || uniShowChordIDs,
             length: arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`, showLength: uniShowChordLength,
         });
@@ -7561,7 +7582,41 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
     ctx.restore();
 }
 
+// Hover tooltips over the chord domain rings. Each drawChord* stashes per-canvas hit-regions (radial
+// band + angular span + name) and geometry; here we hit-test the cursor and show a small tip.
+let _chordDomTip = null;
+function _chordDomAt(cv, ev){
+    const hits = cv._domHits, geom = cv._domGeom;
+    if (!hits || !hits.length || !geom) return null;
+    const rect = cv.getBoundingClientRect(); if (!rect.width) return null;
+    const scale = geom.size / rect.width;                                  // logical units per CSS px
+    const x = (ev.clientX - rect.left) * scale - geom.cx, y = (ev.clientY - rect.top) * scale - geom.cy;
+    const r = Math.hypot(x, y), a = Math.atan2(y, x);
+    for (const h of hits){
+        if (r < h.rIn - 1 || r > h.rOut + 1) continue;
+        let aa = a; while (aa < h.a0) aa += 2 * Math.PI;                    // arc angles increase clockwise from -PI/2; normalise
+        if (aa <= h.a1) return h;
+    }
+    return null;
+}
+function _showChordDomTip(ev, h){
+    if (!_chordDomTip){ _chordDomTip = document.createElement('div'); _chordDomTip.style.cssText = 'position:fixed; z-index:9999; pointer-events:none; background:rgba(30,30,30,0.92); color:#fff; padding:5px 9px; border-radius:5px; font-size:0.78rem; line-height:1.45; max-width:280px; box-shadow:0 2px 10px rgba(0,0,0,0.35);'; document.body.appendChild(_chordDomTip); }
+    _chordDomTip.innerHTML = '<b>' + esc(String(h.name)) + '</b><br>' + esc(String(h.chain)) + ' &middot; ' + h.start + '–' + h.end + ' <span style="color:#9ecbff;">(' + esc(String(h.src)) + ')</span>';
+    _chordDomTip.style.left = Math.round(ev.clientX + 13) + 'px'; _chordDomTip.style.top = Math.round(ev.clientY + 13) + 'px'; _chordDomTip.style.display = '';
+}
+function _hideChordDomTip(){ if (_chordDomTip) _chordDomTip.style.display = 'none'; }
+function attachChordDomainHover(){
+    for (const id of ['chord-canvas', 'chord-canvas-all']){
+        const cv = document.getElementById(id);
+        if (!cv || cv._domHoverAttached) continue;
+        cv._domHoverAttached = true;
+        cv.addEventListener('mousemove', (ev) => { const h = _chordDomAt(cv, ev); if (h){ _showChordDomTip(ev, h); cv.style.cursor = 'help'; } else { _hideChordDomTip(); cv.style.cursor = ''; } });
+        cv.addEventListener('mouseleave', () => { _hideChordDomTip(); cv.style.cursor = ''; });
+    }
+}
+
 function buildChordDiagram() {
+    attachChordDomainHover();
     const card = document.getElementById('chord-card');
     const canvas = document.getElementById('chord-canvas');
     const canvasAll = document.getElementById('chord-canvas-all');

@@ -238,7 +238,7 @@
             <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B. UniProt domain annotations shown when available.</span>
                 <div style="flex-basis:100%; height:0;"></div><!-- controls on their own line, below the description -->
-                <span style="font-size:0.82rem; color:#555; white-space:nowrap;">domains:</span>
+                <span style="font-size:0.82rem; color:#555; white-space:nowrap; display:inline-flex; align-items:center;">domains:</span>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> UniProt/Pfam</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ted" checked onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> TED</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="window.showConnIDs=this.checked; window.__redrawDimerContact&&window.__redrawDimerContact()"> chain IDs</label>
@@ -467,7 +467,7 @@
 <script src="js/livia-viewer.js?v=20260716e"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260804"></script>
+<script src="js/livia-maps.js?v=20260806"></script>
 <script>
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (dimerPairResult) { generateAndDisplayScript(); buildDimerSequenceViewer(); buildDimerContactMap(); buildChordDiagram(); buildComparisonCharts(); updateViewer3d(); renderChainToggleBar(); } };

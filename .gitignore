@@ -1,2 +1,6 @@
 # Cross-session handoff notes must never be committed to the published Pages repo.
 HANDOFF*.md
+.DS_Store
+__pycache__/
+*.pyc
+CLAUDE.md
