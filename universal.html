@@ -7582,6 +7582,32 @@ function copyScript() {
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
 })();
+
+// ── Pushed bundle via postMessage: universal.html?post=1 — an opener (e.g. an offline index served on
+// localhost, or any page) hands over a bundle's BYTES directly, so hosted LIVIA never fetches the local
+// file. This sidesteps file:// (no fetch), CORS, and Chrome's Private-Network-Access block on a public
+// origin reading 127.0.0.1 — postMessage is subject to none of them. Opt-in via ?post=1 so a normal LIVIA
+// tab never accepts injected data. Handshake: opener pings {type:'livia-ping'} → we reply
+// {source:'livia',type:'livia-ready'} → opener posts {type:'livia-load', name, data:ArrayBuffer|Blob}.
+// Ingest is identical to drop / ?data= (handleInputFiles) — no new trust surface beyond what drop allows.
+(function(){
+  if (!new URLSearchParams(location.search).has('post')) return;
+  const ready = (src) => { try { src && src.postMessage({ source: 'livia', type: 'livia-ready' }, '*'); } catch (e) {} };
+  window.addEventListener('message', async (ev) => {
+    const m = ev.data;
+    if (!m || typeof m !== 'object') return;
+    if (m.type === 'livia-ping') { ready(ev.source); return; }
+    if (m.type !== 'livia-load' || m.data == null) return;
+    try {
+      const blob = (m.data instanceof Blob) ? m.data : new Blob([m.data]);
+      const nm = (m.name ? String(m.name) : 'structure').replace(/[^\w.\-]+/g, '_');
+      const fname = /\.(zip|gz|xz|cif|pdb|json)$/i.test(nm) ? nm : nm + '.zip';
+      setStatus('Loading ' + (m.name || 'structure') + '…', 'loading');
+      await handleInputFiles([new File([blob], fname, { type: 'application/zip' })]);
+    } catch (e) { setStatus('Could not load pushed bundle: ' + e.message, 'error'); }
+  });
+  if (window.opener) ready(window.opener);   // announce readiness in case the opener is already waiting
+})();
 </script>
 <script data-goatcounter="https://livia.goatcounter.com/count"
         async src="https://gc.zgo.at/count.js"></script>
