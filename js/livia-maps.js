@@ -225,6 +225,38 @@
         return hits;
     }
 
+    // Hover tooltips over the chord domain rings. Each drawChord* stashes per-canvas hit-regions on
+    // `canvas._domHits` (each {rIn,rOut,a0,a1,name,start,end,chain,src}) and geometry on `canvas._domGeom`
+    // ({cx,cy,size}). Attaching is idempotent per canvas; call it whenever the chord is (re)built.
+    let _cdTip = null;
+    const _cdEsc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    function _cdAt(cv, ev) {
+        const hits = cv._domHits, geom = cv._domGeom;
+        if (!hits || !hits.length || !geom) return null;
+        const rect = cv.getBoundingClientRect(); if (!rect.width) return null;
+        const scale = geom.size / rect.width;
+        const x = (ev.clientX - rect.left) * scale - geom.cx, y = (ev.clientY - rect.top) * scale - geom.cy;
+        const r = Math.hypot(x, y), a = Math.atan2(y, x);
+        for (const h of hits) { if (r < h.rIn - 1 || r > h.rOut + 1) continue; let aa = a; while (aa < h.a0) aa += 2 * Math.PI; if (aa <= h.a1) return h; }
+        return null;
+    }
+    function attachChordDomainHover(ids) {
+        for (const id of ids) {
+            const cv = document.getElementById(id);
+            if (!cv || cv._domHoverAttached) continue;
+            cv._domHoverAttached = true;
+            cv.addEventListener('mousemove', (ev) => {
+                const h = _cdAt(cv, ev);
+                if (h) {
+                    if (!_cdTip) { _cdTip = document.createElement('div'); _cdTip.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;background:rgba(30,30,30,0.92);color:#fff;padding:5px 9px;border-radius:5px;font-size:0.78rem;line-height:1.45;max-width:280px;box-shadow:0 2px 10px rgba(0,0,0,0.35)'; document.body.appendChild(_cdTip); }
+                    _cdTip.innerHTML = '<b>' + _cdEsc(h.name) + '</b><br>' + _cdEsc(h.chain) + ' &middot; ' + h.start + '–' + h.end + ' <span style="color:#9ecbff;">(' + _cdEsc(h.src) + ')</span>';
+                    _cdTip.style.left = Math.round(ev.clientX + 13) + 'px'; _cdTip.style.top = Math.round(ev.clientY + 13) + 'px'; _cdTip.style.display = ''; cv.style.cursor = 'help';
+                } else { if (_cdTip) _cdTip.style.display = 'none'; cv.style.cursor = ''; }
+            });
+            cv.addEventListener('mouseleave', () => { if (_cdTip) _cdTip.style.display = 'none'; cv.style.cursor = ''; });
+        }
+    }
+
     // Nice-number major-tick spacing (1/2/5 × 10^k) aiming for ~5 major ticks across the span.
     function chordRulerStep(span) {
         const raw = span / 5, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag;
@@ -578,7 +610,7 @@
         svgFromDraw, svgFromFixedCanvas,
         downloadSVGFile, downloadSVGFromCanvas, downloadCanvasPNG,
         attachExportBar, attachPngBtnFor, attachChartPngButtons,
-        setToRanges, paintChordArcBand, paintChordDomainRing, drawChordRuler, drawChordArcLabel, chordLabelExtent, segPick,
+        setToRanges, paintChordArcBand, paintChordDomainRing, attachChordDomainHover, drawChordRuler, drawChordArcLabel, chordLabelExtent, segPick,
         parseColorCSV, attachColorUpload,
         seqFlow, fitSeqHost,
         strokeFadeQuad, strokeFadeCubic,

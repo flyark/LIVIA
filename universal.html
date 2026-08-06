@@ -112,7 +112,7 @@
         }
     </style>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260806"></script>
+<script src="js/livia-maps.js?v=20260806b"></script>
 <script src="js/clip-resolver.js?v=20260715"></script>
 </head>
 <body>
@@ -7582,41 +7582,8 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
     ctx.restore();
 }
 
-// Hover tooltips over the chord domain rings. Each drawChord* stashes per-canvas hit-regions (radial
-// band + angular span + name) and geometry; here we hit-test the cursor and show a small tip.
-let _chordDomTip = null;
-function _chordDomAt(cv, ev){
-    const hits = cv._domHits, geom = cv._domGeom;
-    if (!hits || !hits.length || !geom) return null;
-    const rect = cv.getBoundingClientRect(); if (!rect.width) return null;
-    const scale = geom.size / rect.width;                                  // logical units per CSS px
-    const x = (ev.clientX - rect.left) * scale - geom.cx, y = (ev.clientY - rect.top) * scale - geom.cy;
-    const r = Math.hypot(x, y), a = Math.atan2(y, x);
-    for (const h of hits){
-        if (r < h.rIn - 1 || r > h.rOut + 1) continue;
-        let aa = a; while (aa < h.a0) aa += 2 * Math.PI;                    // arc angles increase clockwise from -PI/2; normalise
-        if (aa <= h.a1) return h;
-    }
-    return null;
-}
-function _showChordDomTip(ev, h){
-    if (!_chordDomTip){ _chordDomTip = document.createElement('div'); _chordDomTip.style.cssText = 'position:fixed; z-index:9999; pointer-events:none; background:rgba(30,30,30,0.92); color:#fff; padding:5px 9px; border-radius:5px; font-size:0.78rem; line-height:1.45; max-width:280px; box-shadow:0 2px 10px rgba(0,0,0,0.35);'; document.body.appendChild(_chordDomTip); }
-    _chordDomTip.innerHTML = '<b>' + esc(String(h.name)) + '</b><br>' + esc(String(h.chain)) + ' &middot; ' + h.start + '–' + h.end + ' <span style="color:#9ecbff;">(' + esc(String(h.src)) + ')</span>';
-    _chordDomTip.style.left = Math.round(ev.clientX + 13) + 'px'; _chordDomTip.style.top = Math.round(ev.clientY + 13) + 'px'; _chordDomTip.style.display = '';
-}
-function _hideChordDomTip(){ if (_chordDomTip) _chordDomTip.style.display = 'none'; }
-function attachChordDomainHover(){
-    for (const id of ['chord-canvas', 'chord-canvas-all']){
-        const cv = document.getElementById(id);
-        if (!cv || cv._domHoverAttached) continue;
-        cv._domHoverAttached = true;
-        cv.addEventListener('mousemove', (ev) => { const h = _chordDomAt(cv, ev); if (h){ _showChordDomTip(ev, h); cv.style.cursor = 'help'; } else { _hideChordDomTip(); cv.style.cursor = ''; } });
-        cv.addEventListener('mouseleave', () => { _hideChordDomTip(); cv.style.cursor = ''; });
-    }
-}
-
 function buildChordDiagram() {
-    attachChordDomainHover();
+    LiviaMaps.attachChordDomainHover(['chord-canvas', 'chord-canvas-all']);
     const card = document.getElementById('chord-card');
     const canvas = document.getElementById('chord-canvas');
     const canvasAll = document.getElementById('chord-canvas-all');
