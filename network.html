@@ -932,6 +932,33 @@ $('layer-reset').addEventListener('click', e=>{ e.preventDefault(); resetLayout(
 $('layer-mode').addEventListener('change', ()=>{ if(LAYER_ROOT) layerLayout(LAYER_ROOT); });
 $('layout').addEventListener('change', ()=>applyLayout($('layout').value));
 $('layiter').addEventListener('change', ()=>{ const L=$('layout').value; if(['fr','kk','drl','force'].includes(L)) applyLayout(L); });
+
+// ── Pushed data via postMessage: network.html?post=1 — an opener (e.g. an offline network index served
+// on localhost) hands over the lis.py bundle's BYTES directly, so hosted LIVIA never fetches the local
+// file (sidesteps file:// / CORS / Private-Network-Access — postMessage is subject to none). Opt-in via
+// ?post=1 so a normal tab never accepts injected data. Handshake: opener pings {type:'livia-ping'} → we
+// reply {source:'livia',type:'livia-ready'} → opener posts {type:'livia-load', name, data}. Same
+// reset + routeFiles + build() as loadExample.
+(function(){
+  if (!new URLSearchParams(location.search).has('post')) return;
+  const ready = (src) => { try { src && src.postMessage({ source: 'livia', type: 'livia-ready' }, '*'); } catch (e) {} };
+  window.addEventListener('message', async (ev) => {
+    const m = ev.data;
+    if (!m || typeof m !== 'object') return;
+    if (m.type === 'livia-ping') { ready(ev.source); return; }
+    if (m.type !== 'livia-load' || m.data == null) return;
+    try {
+      const blob = (m.data instanceof Blob) ? m.data : new Blob([m.data]);
+      const nm = (m.name ? String(m.name) : 'network').replace(/[^\w.\-]+/g, '_');
+      const fname = /\.(zip|gz|csv)$/i.test(nm) ? nm : nm + '.zip';
+      setStatus('Loading ' + (m.name || 'network') + '…');
+      RAWPAIRS.clear(); FILES_RAW.length=0; FASTA_RAW=''; FILECOUNT=0; META=null; META_COL=null;
+      await routeFiles([new File([blob], fname, { type: 'application/zip' })]);
+      if (RAWPAIRS.size) build();
+    } catch (e) { setStatus('Could not load pushed data: ' + (e.message || e)); }
+  });
+  if (window.opener) ready(window.opener);   // announce readiness in case the opener is already waiting
+})();
 </script>
 <script data-goatcounter="https://livia.goatcounter.com/count"
         async src="https://gc.zgo.at/count.js"></script>
