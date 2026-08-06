@@ -883,6 +883,7 @@ async function handleInputFiles(fileList) {
     uniState.loadedImages = {};
     uniState.lightweight = null;
     uniState.manifestChains = null;
+    uniState.chainAcc = null;   // per-chain UniProt accession from the bundle pair_id (skips BLAST on Identify)
     // Clear resolved chain identities so the previous prediction's labels don't leak into this one
     // (they were being carried into figures and even baked into a lightweight bundle's manifest).
     uniState.chainGenes = {};
@@ -3614,6 +3615,13 @@ async function processPrecomputedBundle() {
     if (lw.chains && typeof lw.chains === 'object') for (const n of chainNames) if (lw.chains[n] && !/^\d+$/.test(String(lw.chains[n]).trim())) cg[n] = lw.chains[n];   // real gene names only — a purely-numeric value is a residue count, not a gene (older bundles stored the length here)
     uniState.chainGenes = cg;
     uniState.manifestChains = Object.assign({}, cg);   // kept as a fallback if a UniProt re-identify misses a chain
+    // Per-chain UniProt accession from the bundle's pair_id ("ACC1_start_end___ACC2"), mapped to
+    // chains in order (ColabFold X___Y → chain A=X, B=Y). Lets "Identify chains" resolve by accession —
+    // fast (direct UniProt query, no BLAST) and species-unambiguous (a bare gene symbol would resolve
+    // the mouse protein to its human paralog; the accession pins the right organism).
+    uniState.chainAcc = {};
+    { const pid = lw && lw.manifest && lw.manifest.pair_id;
+      if (pid){ const parts = String(pid).split('___'); if (parts.length === chainNames.length) chainNames.forEach((n, i) => { uniState.chainAcc[n] = parts[i]; }); } }
 
     setStatus('Computing results…', 'loading');
     await sleep(10);
@@ -5071,12 +5079,24 @@ async function identifyChains(){
     const uniq = new Map();                                       // dedup identical chains (homo-oligomers resolve once)
     for (const n of names){ const s = seqOf(n); if (s && s.length >= 10 && !uniq.has(s)) uniq.set(s, true); }
     if (!uniq.size){ out.innerHTML = '<span style="color:#888;">no protein chains to identify</span>'; return; }
-    btn.disabled = true; btn.textContent = 'Identifying ' + uniq.size + ' sequence' + (uniq.size > 1 ? 's' : '') + '\u2026 (BLAST fallback may take ~20s)';
+    // A chain whose bundle carries its UniProt accession (pair_id) resolves BY ACCESSION \u2014 a direct
+    // UniProt query (fast, no ~20s BLAST) that also pins the organism, so a mouse protein is never
+    // mistaken for its human paralog the way a bare gene symbol would be. Map each unique sequence to
+    // an accession if any of the chains bearing it has one; BLAST-by-sequence stays as the fallback.
+    const _ACC = /^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})$/;
+    const accHint = (name) => { const raw = uniState.chainAcc && uniState.chainAcc[name]; return (raw && _ACC.test(String(raw).split('_')[0])) ? raw : null; };
+    const seqAcc = new Map();
+    for (const n of names){ const s = seqOf(n); if (s && !seqAcc.has(s)){ const a = accHint(n); if (a) seqAcc.set(s, a); } }
+    const nHint = [...uniq.keys()].filter(s => seqAcc.has(s)).length;
+    btn.disabled = true; btn.textContent = 'Identifying ' + uniq.size + ' sequence' + (uniq.size > 1 ? 's' : '') + '\u2026' + (nHint < uniq.size ? ' (BLAST fallback may take ~20s)' : '');
     const resolveOne = async (s) => {
-        try { const r = await CLIPResolver.resolveStructure({ seq: s, length: s.length, blast: true });
-              const dd = r ? await resolveChainDomains(r, s) : { dom: [], ted: [], info: null };
-              resolved.set(s, { r, dom: dd.dom, ted: dd.ted, info: dd.info }); }
-        catch(e){ resolved.set(s, resolved.get(s) || { r: null, dom: [], ted: [], info: null }); }
+        try {
+            const hint = seqAcc.get(s);
+            let r = hint ? await CLIPResolver.resolveStructure({ gene: hint, seq: s, length: s.length }).catch(() => null) : null;   // accession \u2192 direct query, no BLAST, right organism
+            if (!r) r = await CLIPResolver.resolveStructure({ seq: s, length: s.length, blast: true });                              // else sequence match, BLAST fallback (also species-correct)
+            const dd = r ? await resolveChainDomains(r, s) : { dom: [], ted: [], info: null };
+            resolved.set(s, { r, dom: dd.dom, ted: dd.ted, info: dd.info });
+        } catch(e){ resolved.set(s, resolved.get(s) || { r: null, dom: [], ted: [], info: null }); }
     };
     const resolved = new Map();
     await Promise.all([...uniq.keys()].map(resolveOne));          // resolve unique sequences in parallel (fast for multimers)
