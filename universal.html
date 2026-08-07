@@ -5187,7 +5187,7 @@ async function _accToGeneId(acc){
     catch (e){ return null; }
 }
 const _mistEsc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const _MIST_TYPES = [['ppi', 'PPI'], ['interolog', 'Interolog PPI'], ['genetic', 'Genetic'], ['interolog-genetic', 'Interolog GI']];
+const _MIST_TYPES = [['ppi', 'PPI'], ['interolog', 'Interolog PPI'], ['genetic', 'Genetic (GI)'], ['interolog-genetic', 'Interolog GI']];
 async function queryMistForPair(){   // name kept (called from identifyChains); handles 1..n subunits
     const card = document.getElementById('mist-card'), content = document.getElementById('mist-content'), linkEl = document.getElementById('mist-link');
     if (!card || !content) return;
@@ -5238,14 +5238,17 @@ function _mistForChains(ci, cj){
     return pm.get([a, b].sort().join('|')) || null;
 }
 function _mistPairHtml(byType){
+    // Compact one-liner for the Linear Contact Map: per-type counts (each linking to PubMed) + a jump
+    // up to the MIST card, which holds the full copyable PMID lists (no long lists duplicated here).
     if (!byType || !Object.keys(byType).length) return '';
-    const pmidLink = (p) => '<a href="https://pubmed.ncbi.nlm.nih.gov/' + p + '/" target="_blank" style="color:#2471A3;">' + p + '</a>';
     const pubmedSet = (ids) => 'https://pubmed.ncbi.nlm.nih.gov/?term=' + ids.join(',');
-    const copyLink = (ids) => '<a href="javascript:void(0)" onclick="navigator.clipboard&&navigator.clipboard.writeText(\'' + ids.join(', ') + '\');this.textContent=\'copied\';setTimeout(()=>this.textContent=\'copy\',1200)" style="color:#888; font-size:0.72rem;">copy</a>';
-    const pmidRefs = (list) => { if (list.length <= 5) return list.map(pmidLink).join(', '); const id = 'lmpm' + (_mistUid++); return list.slice(0, 5).map(pmidLink).join(', ') + ' <a href="javascript:void(0)" onclick="var e=document.getElementById(\'' + id + '\');e.style.display=\'\';this.style.display=\'none\'" style="color:#888; font-size:0.72rem;">+' + (list.length - 5) + ' more</a><span id="' + id + '" style="display:none;">, ' + list.slice(5).map(pmidLink).join(', ') + '</span>'; };
-    let html = '<div style="margin-top:6px; font-size:0.78rem; color:#555; background:#f6f9fc; border-left:3px solid #2471A3; padding:6px 10px; border-radius:0 5px 5px 0;"><b style="color:#1a5276;">Reported in MIST</b>';
-    for (const [t, label] of _MIST_TYPES){ const set = byType[t]; if (set && set.size){ const list = [...set]; html += '<div style="margin:2px 0 2px 8px;">' + copyLink(list) + ' — <a href="' + pubmedSet(list) + '" target="_blank" style="color:#2471A3;">' + label + '</a>: ' + pmidRefs(list) + '</div>'; } }
-    return html + '</div>';
+    const parts = [];
+    for (const [t, label] of _MIST_TYPES){ const set = byType[t]; if (set && set.size){ const list = [...set];
+        parts.push(_mistEsc(label) + ' <a href="' + pubmedSet(list) + '" target="_blank" title="Open all ' + list.length + ' papers in PubMed" style="color:#2471A3; font-weight:700; text-decoration:none;">' + list.length + '</a>'); } }
+    return '<div style="margin-top:6px; font-size:0.78rem; color:#555; background:#f6f9fc; border-left:3px solid #2471A3; padding:6px 10px; border-radius:0 5px 5px 0;">'
+        + '<b style="color:#1a5276;">Reported in <a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#1a5276;">MIST</a></b>: '
+        + parts.join(' &middot; ')
+        + ' &nbsp;<a href="javascript:void(0)" onclick="var c=document.getElementById(\'mist-card\'); if(c){ c.style.display=\'\'; c.scrollIntoView({behavior:\'smooth\', block:\'center\'}); }" style="color:#2471A3; font-size:0.74rem; white-space:nowrap;">full PMIDs &uarr;</a></div>';
 }
 function _renderMist(withId, subs, pairMap, esc){
     const pmidLink = (p) => '<a href="https://pubmed.ncbi.nlm.nih.gov/' + p + '/" target="_blank" style="color:#2471A3;">' + p + '</a>';
@@ -5253,9 +5256,10 @@ function _renderMist(withId, subs, pairMap, esc){
     const pmidRefs = (list) => {                                        // inline list; ">5" collapses behind a "+N more" toggle so every PMID is viewable
         if (list.length <= 5) return list.map(pmidLink).join(', ');
         const id = 'mpm' + (_mistUid++);
+        const n = list.length - 5;
         return list.slice(0, 5).map(pmidLink).join(', ')
-            + ' <a href="javascript:void(0)" onclick="var e=document.getElementById(\'' + id + '\');e.style.display=\'\';this.style.display=\'none\'" style="color:#888; font-size:0.72rem;">+' + (list.length - 5) + ' more</a>'
-            + '<span id="' + id + '" style="display:none;">, ' + list.slice(5).map(pmidLink).join(', ') + '</span>';
+            + '<span id="' + id + '" style="display:none;">, ' + list.slice(5).map(pmidLink).join(', ') + '</span>'
+            + ' <a href="javascript:void(0)" onclick="var e=document.getElementById(\'' + id + '\'),o=e.style.display===\'none\';e.style.display=o?\'\':\'none\';this.textContent=o?\' less\':\' +' + n + ' more\'" style="color:#888; font-size:0.72rem;">+' + n + ' more</a>';
     };
     const warn = (msg) => '<div style="background:#fff3cd; border-left:4px solid #ffc107; padding:0.6rem 0.8rem; border-radius:0 6px 6px 0; font-size:0.85rem; color:#856404;">' + msg + '</div>';
     if (withId.length === 1){                                          // single resolved protein → its reported-partner count
