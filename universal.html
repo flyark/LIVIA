@@ -5220,11 +5220,33 @@ async function queryMistForPair(){   // name kept (called from identifyChains); 
             }
         }
         content.innerHTML = _renderMist(withId, subs, pairMap, esc);
+        uniState.mistPairMap = pairMap;   // per-pair reported interactions → also surfaced under each linear contact map
+        if (typeof buildLinearContactMaps === 'function') buildLinearContactMaps();
         // (no per-protein deep link: MIST is a JS app with no stable gene-page URL. The header links to
         //  the MIST tool, and each count links to PubMed for that pair's papers.)
     } catch (e){ content.innerHTML = '<span style="color:#999; font-size:0.85rem;">Could not query MIST: ' + esc(e.message) + '</span>'; }
 }
 let _mistUid = 0;
+// Per-pair MIST for the Linear Contact Map: look up a pair's reported interactions (built by
+// queryMistForPair into uniState.mistPairMap, keyed by sorted accession pair) and render the same
+// "copy — Type: PMIDs" lines shown in the MIST card, as a compact callout under that pair's map.
+function _mistForChains(ci, cj){
+    const pm = uniState.mistPairMap, info = uniState.chainDomainInfo || {};
+    if (!pm) return null;
+    const a = info[ci] && info[ci].accession, b = info[cj] && info[cj].accession;
+    if (!a || !b) return null;
+    return pm.get([a, b].sort().join('|')) || null;
+}
+function _mistPairHtml(byType){
+    if (!byType || !Object.keys(byType).length) return '';
+    const pmidLink = (p) => '<a href="https://pubmed.ncbi.nlm.nih.gov/' + p + '/" target="_blank" style="color:#2471A3;">' + p + '</a>';
+    const pubmedSet = (ids) => 'https://pubmed.ncbi.nlm.nih.gov/?term=' + ids.join(',');
+    const copyLink = (ids) => '<a href="javascript:void(0)" onclick="navigator.clipboard&&navigator.clipboard.writeText(\'' + ids.join(', ') + '\');this.textContent=\'copied\';setTimeout(()=>this.textContent=\'copy\',1200)" style="color:#888; font-size:0.72rem;">copy</a>';
+    const pmidRefs = (list) => { if (list.length <= 5) return list.map(pmidLink).join(', '); const id = 'lmpm' + (_mistUid++); return list.slice(0, 5).map(pmidLink).join(', ') + ' <a href="javascript:void(0)" onclick="var e=document.getElementById(\'' + id + '\');e.style.display=\'\';this.style.display=\'none\'" style="color:#888; font-size:0.72rem;">+' + (list.length - 5) + ' more</a><span id="' + id + '" style="display:none;">, ' + list.slice(5).map(pmidLink).join(', ') + '</span>'; };
+    let html = '<div style="margin-top:6px; font-size:0.78rem; color:#555; background:#f6f9fc; border-left:3px solid #2471A3; padding:6px 10px; border-radius:0 5px 5px 0;"><b style="color:#1a5276;">Reported in MIST</b>';
+    for (const [t, label] of _MIST_TYPES){ const set = byType[t]; if (set && set.size){ const list = [...set]; html += '<div style="margin:2px 0 2px 8px;">' + copyLink(list) + ' — <a href="' + pubmedSet(list) + '" target="_blank" style="color:#2471A3;">' + label + '</a>: ' + pmidRefs(list) + '</div>'; } }
+    return html + '</div>';
+}
 function _renderMist(withId, subs, pairMap, esc){
     const pmidLink = (p) => '<a href="https://pubmed.ncbi.nlm.nih.gov/' + p + '/" target="_blank" style="color:#2471A3;">' + p + '</a>';
     const pubmedSet = (ids) => 'https://pubmed.ncbi.nlm.nih.gov/?term=' + ids.join(',');   // comma-joined PMIDs → PubMed shows exactly that set
@@ -7274,6 +7296,9 @@ function buildLinearContactMaps() {
         const legend = document.createElement('div'); legend.style.cssText = 'font-size:0.78rem; color:#555; margin-top:6px; line-height:1.7;';
         const exp = document.createElement('div'); exp.style.cssText = 'text-align:center; margin-top:4px;';
         block.append(title, canvas, count, legend, exp);
+        const mistLine = document.createElement('div');                 // reported interactions (MIST) for THIS pair, if any
+        mistLine.innerHTML = _mistPairHtml(_mistForChains(v.ci, v.cj));
+        if (mistLine.innerHTML) block.appendChild(mistLine);
         holder.appendChild(block);
 
         canvas.id = 'contact-canvas-' + key.replace(/[^A-Za-z0-9]/g, '_');
