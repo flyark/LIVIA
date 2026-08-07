@@ -356,7 +356,7 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="uniShowChordIDs=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> chain IDs</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="uniShowChordLength=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Circos-style residue-position ruler around each arc"><input type="checkbox" id="chord-show-ticks" checked onchange="uniShowChordTicks=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> ticks</label>
-                <span style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center;">domains:</span>
+                <span style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; position:relative; top:-3px;">domains:</span>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="UniProt/Pfam domain ring on each arc"><input type="checkbox" id="chord-show-dom" checked onchange="uniShowChordDom=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> UniProt/Pfam</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="TED domain ring on each arc"><input type="checkbox" id="chord-show-ted" checked onchange="uniShowChordTed=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> TED</label>
                 <span style="display:inline-flex; align-items:center; gap:5px; margin-bottom:0.4rem; font-size:0.8rem; color:#555;" title="Direction of the arc labels: along the arc, or pointing outward (outward avoids overlap when there are many subunits)"><span style="font-weight:600;">label direction</span><span style="display:inline-flex; align-items:center; border:1px solid #ccd; border-radius:5px; overflow:hidden; font-size:0.78rem;"><button type="button" onclick="uniShowChordRadial=false; LiviaMaps.segPick(this); if(typeof buildChordDiagram==='function') buildChordDiagram();" style="border:0; padding:2px 8px; cursor:pointer; background:#2471A3; color:#fff; font:inherit;">along arc</button><button type="button" onclick="uniShowChordRadial=true; LiviaMaps.segPick(this); if(typeof buildChordDiagram==='function') buildChordDiagram();" style="border:0; padding:2px 8px; cursor:pointer; background:transparent; color:#555; font:inherit;">outward</button></span></span>
@@ -5277,16 +5277,40 @@ function _renderMist(withId, subs, pairMap, esc){
     if (!reported.length) return warn(pairs.length === 1
         ? '<strong>No reported interaction</strong> between ' + esc(pairs[0].a.sym) + ' and ' + esc(pairs[0].b.sym) + ' in MIST.'
         : 'None of the ' + pairs.length + ' subunit pairs is reported in MIST.');
-    // matrix: subunit pair × interaction type (counts)
-    let html = '<table style="font-size:0.82rem; width:100%; border-collapse:collapse;"><thead><tr style="background:#f8f9fa;"><th style="padding:0.4rem 0.6rem; text-align:left;">Subunit pair</th>' + _MIST_TYPES.map(t => '<th style="padding:0.4rem 0.5rem; text-align:center;">' + t[1] + '</th>').join('') + '</tr></thead><tbody>';
-    for (const p of reported){
-        html += '<tr style="border-top:1px solid #eee;"><td style="padding:0.4rem 0.6rem; white-space:nowrap; font-weight:600;">' + esc(p.a.sym) + ' — ' + esc(p.b.sym) + '</td>';
-        for (const [t] of _MIST_TYPES){ const set = p.byType[t]; const c = set ? set.size : 0;
-            const cell = c ? '<a href="' + pubmedSet([...set]) + '" target="_blank" title="Open all ' + c + ' papers in PubMed" style="color:#2471A3; font-weight:700; text-decoration:none;">' + c + '</a>' : '<span style="color:#ccc;">·</span>';
-            html += '<td style="padding:0.4rem 0.5rem; text-align:center;">' + cell + '</td>'; }
-        html += '</tr>';
+    // Four heatmaps — one per interaction type. N×N subunit grid; each cell = PMID count for that
+    // pair, coloured by magnitude (number shown), clickable → PubMed. Scales to large complexes
+    // far better than a per-pair row list (a 14-mer is 91 rows but a 14×14 grid).
+    const n = withId.length;
+    const keyOf = (a, b) => [a.acc, b.acc].sort().join('|');
+    const cnt = (a, b, t) => { const bt = pairMap.get(keyOf(a, b)); const s = bt && bt[t]; return s ? s.size : 0; };
+    const idsOf = (a, b, t) => { const bt = pairMap.get(keyOf(a, b)); const s = bt && bt[t]; return s ? [...s] : []; };
+    const maxOf = {};                                                  // per-type max, for colour normalisation
+    for (const [t] of _MIST_TYPES){ let m = 0; for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) m = Math.max(m, cnt(withId[i], withId[j], t)); maxOf[t] = m; }
+    const cs = n <= 6 ? 30 : (n <= 10 ? 24 : 19);                      // cell size (px), adaptive to subunit count
+    const fs = n <= 10 ? '0.72rem' : '0.64rem';
+    const maxLen = withId.reduce((m, s) => Math.max(m, String(s.sym).length), 0);
+    const hdrH = Math.min(96, 18 + Math.round(maxLen * 4.6));          // header height fits the rotated labels
+    const heat = (c, max) => { if (!c) return 'background:#fbfcfd; color:#d0d0d0;'; const t = max ? c / max : 1; return 'background:rgba(36,113,163,' + (0.14 + t * 0.78).toFixed(3) + '); color:' + (t > 0.5 ? '#fff' : '#14324a') + ';'; };
+    function heatmap(t, label){
+        const max = maxOf[t];
+        if (!max) return '';                                           // no evidence of this type → omit its heatmap
+        let h = '<div style="margin:0 ' + Math.round(hdrH * 0.85) + 'px 0.7rem 0;"><div style="font-size:0.8rem; font-weight:700; color:#2471A3; margin-bottom:0.3rem;">' + esc(label) + ' <span style="color:#aaa; font-weight:400;">(max ' + max + ')</span></div>';
+        h += '<table style="border-collapse:collapse; font-size:' + fs + ';"><thead><tr><th style="padding:0;"></th>';
+        for (let j = 0; j < n; j++) h += '<th style="padding:0; vertical-align:bottom; height:' + hdrH + 'px;"><div style="width:' + cs + 'px; height:' + hdrH + 'px; position:relative;"><span style="position:absolute; left:50%; bottom:2px; transform-origin:left bottom; transform:rotate(-45deg); white-space:nowrap; font-weight:600; color:#444;">' + esc(withId[j].sym) + '</span></div></th>';
+        h += '</tr></thead><tbody>';
+        for (let i = 0; i < n; i++){
+            h += '<tr><th style="padding:1px 6px 1px 0; text-align:right; white-space:nowrap; font-weight:600; color:#444;">' + esc(withId[i].sym) + '</th>';
+            for (let j = 0; j < n; j++){
+                if (i === j){ h += '<td style="width:' + cs + 'px; height:' + cs + 'px; background:#eceff2; border:1px solid #fff;"></td>'; continue; }
+                const c = cnt(withId[i], withId[j], t);
+                if (c) h += '<td style="padding:0; border:1px solid #fff;"><a href="' + pubmedSet(idsOf(withId[i], withId[j], t)) + '" target="_blank" title="' + esc(withId[i].sym) + ' – ' + esc(withId[j].sym) + ': ' + c + ' paper' + (c > 1 ? 's' : '') + ' — open in PubMed" style="display:flex; align-items:center; justify-content:center; width:' + cs + 'px; height:' + cs + 'px; text-decoration:none; font-weight:700; ' + heat(c, max) + '">' + c + '</a></td>';
+                else h += '<td style="width:' + cs + 'px; height:' + cs + 'px; border:1px solid #fff; text-align:center; ' + heat(0, max) + '">·</td>';
+            }
+            h += '</tr>';
+        }
+        return h + '</tbody></table></div>';
     }
-    html += '</tbody></table>';
+    let html = '<div style="display:flex; flex-wrap:wrap; align-items:flex-start; overflow-x:auto;">' + _MIST_TYPES.map(([t, label]) => heatmap(t, label)).join('') + '</div>';
     // PMIDs — collapsed by default so the card stays compact; click a count above to open all papers in
     // PubMed, or expand here to read/copy the raw PMIDs (each links to its paper; Copy grabs them all).
     html += '<details style="margin-top:0.5rem;"><summary style="cursor:pointer; color:#2471A3; font-size:0.8rem;">Show PMIDs</summary><div style="margin-top:0.3rem; font-size:0.78rem; color:#555;">';
