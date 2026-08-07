@@ -5220,6 +5220,7 @@ async function queryMistForPair(){   // name kept (called from identifyChains); 
             }
         }
         content.innerHTML = _renderMist(withId, subs, pairMap, esc);
+        _bindMistResize(); requestAnimationFrame(_layoutMistHeatmaps);   // fit heatmaps to card width, no h-scroll
         uniState.mistPairMap = pairMap;   // per-pair reported interactions → also surfaced under each linear contact map
         if (typeof buildLinearContactMaps === 'function') buildLinearContactMaps();
         // (no per-protein deep link: MIST is a JS app with no stable gene-page URL. The header links to
@@ -5294,23 +5295,25 @@ function _renderMist(withId, subs, pairMap, esc){
     function heatmap(t, label){
         const max = maxOf[t];
         if (!max) return '';                                           // no evidence of this type → omit its heatmap
-        let h = '<div style="margin:0 ' + Math.round(hdrH * 0.85) + 'px 0.7rem 0;"><div style="font-size:0.8rem; font-weight:700; color:#2471A3; margin-bottom:0.3rem;">' + esc(label) + ' <span style="color:#aaa; font-weight:400;">(max ' + max + ')</span></div>';
+        let h = '<div data-mist-hm data-n="' + n + '" style="margin:0 ' + Math.round(hdrH * 0.85) + 'px 0.7rem 0;"><div style="font-size:0.8rem; font-weight:700; color:#2471A3; margin-bottom:0.3rem;">' + esc(label) + ' <span style="color:#aaa; font-weight:400;">(max ' + max + ')</span></div>';
         h += '<table style="border-collapse:collapse; font-size:' + fs + ';"><thead><tr><th style="padding:0;"></th>';
-        for (let j = 0; j < n; j++) h += '<th style="padding:0; vertical-align:bottom; height:' + hdrH + 'px;"><div style="width:' + cs + 'px; height:' + hdrH + 'px; position:relative;"><span style="position:absolute; left:50%; bottom:2px; transform-origin:left bottom; transform:rotate(-45deg); white-space:nowrap; font-weight:600; color:#444;">' + esc(withId[j].sym) + '</span></div></th>';
+        for (let j = 0; j < n; j++) h += '<th style="padding:0; vertical-align:bottom; height:' + hdrH + 'px;"><div style="width:var(--cs); height:' + hdrH + 'px; position:relative;"><span style="position:absolute; left:50%; bottom:2px; transform-origin:left bottom; transform:rotate(-45deg); white-space:nowrap; font-weight:600; color:#444;">' + esc(withId[j].sym) + '</span></div></th>';
         h += '</tr></thead><tbody>';
         for (let i = 0; i < n; i++){
             h += '<tr><th style="padding:1px 6px 1px 0; text-align:right; white-space:nowrap; font-weight:600; color:#444;">' + esc(withId[i].sym) + '</th>';
             for (let j = 0; j < n; j++){
-                if (i === j){ h += '<td style="width:' + cs + 'px; height:' + cs + 'px; background:#eceff2; border:1px solid #fff;"></td>'; continue; }
+                if (i === j){ h += '<td style="width:var(--cs); height:var(--cs); background:#eceff2; border:1px solid #fff;"></td>'; continue; }
                 const c = cnt(withId[i], withId[j], t);
-                if (c) h += '<td style="padding:0; border:1px solid #fff;"><a href="' + pubmedSet(idsOf(withId[i], withId[j], t)) + '" target="_blank" title="' + esc(withId[i].sym) + ' – ' + esc(withId[j].sym) + ': ' + c + ' paper' + (c > 1 ? 's' : '') + ' — open in PubMed" style="display:flex; align-items:center; justify-content:center; width:' + cs + 'px; height:' + cs + 'px; text-decoration:none; font-weight:700; ' + heat(c, max) + '">' + c + '</a></td>';
-                else h += '<td style="width:' + cs + 'px; height:' + cs + 'px; border:1px solid #fff; text-align:center; ' + heat(0, max) + '">·</td>';
+                if (c) h += '<td style="padding:0; border:1px solid #fff;"><a href="' + pubmedSet(idsOf(withId[i], withId[j], t)) + '" target="_blank" title="' + esc(withId[i].sym) + ' – ' + esc(withId[j].sym) + ': ' + c + ' paper' + (c > 1 ? 's' : '') + ' — open in PubMed" style="display:flex; align-items:center; justify-content:center; width:var(--cs); height:var(--cs); font-size:min(0.72rem, calc(var(--cs) * 0.5)); text-decoration:none; font-weight:700; ' + heat(c, max) + '">' + c + '</a></td>';
+                else h += '<td style="width:var(--cs); height:var(--cs); border:1px solid #fff; text-align:center; ' + heat(0, max) + '">·</td>';
             }
             h += '</tr>';
         }
         return h + '</tbody></table></div>';
     }
-    let html = '<div style="display:flex; flex-wrap:wrap; align-items:flex-start; overflow-x:auto;">' + _MIST_TYPES.map(([t, label]) => heatmap(t, label)).join('') + '</div>';
+    // overflow:hidden (not auto) — we never want a horizontal scrollbar; _layoutMistHeatmaps shrinks
+    // --cs so even a single very wide heatmap fits the card. flex-wrap picks 4-up / 2×2 by width.
+    let html = '<div data-mist-wrap data-natcs="' + cs + '" style="display:flex; flex-wrap:wrap; align-items:flex-start; overflow:hidden; --cs:' + cs + 'px;">' + _MIST_TYPES.map(([t, label]) => heatmap(t, label)).join('') + '</div>';
     // PMIDs — collapsed by default so the card stays compact; click a count above to open all papers in
     // PubMed, or expand here to read/copy the raw PMIDs (each links to its paper; Copy grabs them all).
     html += '<details style="margin-top:0.5rem;"><summary style="cursor:pointer; color:#2471A3; font-size:0.8rem;">Show PMIDs</summary><div style="margin-top:0.3rem; font-size:0.78rem; color:#555;">';
@@ -5325,6 +5328,31 @@ function _renderMist(withId, subs, pairMap, esc){
     html += '</div></details>';
     if (unreported.length) html += '<div style="margin-top:0.4rem; font-size:0.78rem; color:#999;">Not reported in MIST: ' + unreported.map(p => esc(p.a.sym) + '–' + esc(p.b.sym)).join(', ') + '</div>';
     return html;
+}
+// Fit the MIST heatmaps to the card width without ever producing a horizontal scrollbar.
+// flex-wrap already lays them out 4-up (wide) or 2×2 (narrow); this only kicks in for the rare
+// case where a SINGLE heatmap is still wider than the card (very large complexes) — then it
+// shrinks the shared --cs cell size just enough to fit, instead of scrolling or clipping.
+let _mistResizeBound = false;
+function _layoutMistHeatmaps(){
+    const content = document.getElementById('mist-content'); if (!content) return;
+    const wrap = content.querySelector('[data-mist-wrap]'); if (!wrap) return;
+    const boxes = [...wrap.querySelectorAll('[data-mist-hm]')]; if (!boxes.length) return;
+    const avail = wrap.clientWidth; if (avail < 60) return;                 // card hidden / not laid out yet
+    const natCs = parseFloat(wrap.dataset.natcs) || 19;
+    const nSub = parseInt(boxes[0].dataset.n, 10) || 1;
+    wrap.style.setProperty('--cs', natCs + 'px');                           // measure the natural size first
+    const mr = parseFloat(getComputedStyle(boxes[0]).marginRight) || 0;
+    let widest = 0; for (const b of boxes) widest = Math.max(widest, b.getBoundingClientRect().width);
+    if (widest + mr <= avail) return;                                       // natural fits → flex-wrap handles columns
+    const fixed = widest - nSub * natCs;                                    // row-label column + rotated-header overhang + borders
+    let cs = Math.floor((avail - fixed - mr - 4) / nSub);
+    cs = Math.max(9, Math.min(natCs, cs));                                  // never below 9px, never above natural
+    wrap.style.setProperty('--cs', cs + 'px');
+}
+function _bindMistResize(){
+    if (_mistResizeBound) return; _mistResizeBound = true;
+    let t; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(_layoutMistHeatmaps, 120); });
 }
 function drawAllScoreMatrices() {
     const card = document.getElementById('score-matrix-card');
