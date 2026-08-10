@@ -310,6 +310,7 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="flyShowChordIDs=this.checked; window.__redrawFlyChord&&window.__redrawFlyChord();"> chain IDs</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="flyShowChordLength=this.checked; window.__redrawFlyChord&&window.__redrawFlyChord();"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Circos-style residue-position ruler around each arc"><input type="checkbox" id="chord-show-ticks" checked onchange="flyShowChordTicks=this.checked; window.__redrawFlyChord&&window.__redrawFlyChord();"> ticks</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Per-residue pLDDT confidence ring, between the arc and the domain rings (AlphaFold colour scale)"><input type="checkbox" id="chord-show-plddt" checked onchange="flyShowChordPlddt=this.checked; window.__redrawFlyChord&&window.__redrawFlyChord();"> pLDDT</label>
                 <span style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; position:relative; top:-3px;">domains:</span>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-dom" checked onchange="flyShowChordDom=this.checked; window.__redrawFlyChord&&window.__redrawFlyChord();"> UniProt/Pfam</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ted" checked onchange="flyShowChordTed=this.checked; window.__redrawFlyChord&&window.__redrawFlyChord();"> TED</label>
@@ -541,7 +542,7 @@
 <script src="js/livia-viewer.js?v=20260716e"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260806b"></script>
+<script src="js/livia-maps.js?v=20260810a"></script>
 <script>
 // Wire shared module callbacks
 onColorChange = () => { if (flyParsed && flyCurrentRank) { loadRank(flyCurrentRank); updateCombinedChord(); renderChainToggleBar(); } };
@@ -1718,6 +1719,7 @@ let flyCurrentRank = 1;    // currently selected rank
 let flyAverageRow = null;  // averaged metrics across all ranks
 let flyDomains = { A: [], B: [] }; // UniProt domain annotations per chain
 let flyTedDomains = { A: [], B: [] }; // TED domain annotations per chain
+let flyPlddt = { A: [], B: [] }; // per-residue pLDDT per chain (B-factors) for the chord pLDDT ring
 let flyDomainInfo = { A: null, B: null }; // { accession, offset, fullLength, predLength, isPartial }
 let domainCache = new Map();       // cache UniProt domain results
 let tedCache = new Map();          // cache TED domain results
@@ -3191,6 +3193,7 @@ let flyShowChordTicks = true;   // Circular Contact Map: residue-position ruler 
 let flyShowChordRadial = false;   // Circular Contact Map: arc labels along the arc (tangential, default) vs radial (outward)
 let flyShowChordDom = true;   // Circular Contact Map: UniProt/Pfam domain ring (outside the arc)
 let flyShowChordTed = true;   // Circular Contact Map: TED domain ring
+let flyShowChordPlddt = true;   // Circular Contact Map: per-residue pLDDT ring (between the arc and the domain rings)
 const CHORD_DOM_FILL = ['#66c2a5','#fc8d62','#8da0cb','#e78ac3','#a6d854','#ffd92f','#e5c494','#b3b3b3'];   // UniProt/Pfam
 const CHORD_TED_FILL = ['#7E57C2','#5C6BC0','#26A69A','#8D6E63','#EC407A','#42A5F5','#AB47BC','#66BB6A'];   // TED
 let flyShowChordLabels = true;   // Circular Contact Map: show the gene name
@@ -3207,11 +3210,12 @@ function drawFlyChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, co
     ctx.scale(S, S);
 
     const cx = size / 2, cy = size / 2;
-    const _nDomRings = (flyShowChordDom ? 1 : 0) + (flyShowChordTed ? 1 : 0), _domSpace = _nDomRings ? (_nDomRings * 7 + 3) : 0, _domHits = [];   // domain rings sit OUTSIDE the arc; reserve adaptive outer space
+    const _plddtOn = flyShowChordPlddt && ((flyPlddt.A && flyPlddt.A.some(x => x != null)) || (flyPlddt.B && flyPlddt.B.some(x => x != null)));   // pLDDT ring only when data present
+    const _nDomRings = (_plddtOn ? 1 : 0) + (flyShowChordDom ? 1 : 0) + (flyShowChordTed ? 1 : 0), _domSpace = _nDomRings ? (_nDomRings * 7 + 3) : 0, _domHits = [];   // pLDDT + domain rings sit OUTSIDE the arc; reserve adaptive outer space
     const outerR = Math.max(40, Math.min(size / 2 - (flyShowChordTicks ? 62 : 48) - _domSpace, size / 2 - 4 - _domSpace - LiviaMaps.chordLabelExtent(ctx, [
         { name: flyChordLabel(sym1, 'A'), length: flyShowChordLength ? `${lenA}` : '' },
         { name: flyChordLabel(sym2, 'B'), length: flyShowChordLength ? `${lenB}` : '' },
-    ], { ticks: flyShowChordTicks, radial: flyShowChordRadial }))), innerR = outerR - 18, chordR = innerR - 4;   // shrink to keep long radial labels on-canvas
+    ], { ticks: flyShowChordTicks, radial: flyShowChordRadial }))), innerR = outerR - 12, chordR = innerR - 4;   // shrink to keep long radial labels on-canvas
     ctx.canvas._domHits = _domHits; ctx.canvas._domGeom = { cx, cy, size };   // hover
     const gap = 0.04;
     const totalLen = lenA + lenB;
@@ -3263,7 +3267,7 @@ function drawFlyChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, co
             const pB = { x: cx + Math.cos(aB) * chordR, y: cy + Math.sin(aB) * chordR };
             const t = maxDist > minDist ? 1 - (c.dist - minDist) / (maxDist - minDist) : 1;
             const alpha = 0.08 + t * 0.2;
-            LiviaMaps.strokeFadeQuad(ctx, pA.x, pA.y, cx, cy, pB.x, pB.y, hexToRgba(colA, alpha), hexToRgba(colB, alpha), 1.2);
+            LiviaMaps.strokeFadeQuad(ctx, pA.x, pA.y, cx, cy, pB.x, pB.y, hexToRgba(colA, alpha), hexToRgba(colB, alpha), 0.7);
         }
     }
 
@@ -3271,7 +3275,9 @@ function drawFlyChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, co
     const lightA = colors.lir_a || colA, lightB = colors.lir_b || colB;
     paintChordArcBand(ctx, cx, cy, outerR, innerR, startA, endA, lenA, LIR_A, cLIR_A, lightA, colA);
     paintChordArcBand(ctx, cx, cy, outerR, innerR, startB, endB, lenB, LIR_B, cLIR_B, lightB, colB);
-    { let _rA = outerR + 3, _rB = outerR + 3;   // domain rings outside each arc: UniProt/Pfam then TED, with hover hit-regions
+    { let _rA = outerR + 3, _rB = outerR + 3;   // pLDDT ring first, then domain rings (UniProt/Pfam, TED) stacked outward, with hover hit-regions
+      if (_plddtOn) { for (const _h of LiviaMaps.paintChordPlddtRing(ctx, cx, cy, _rA, _rA + 6, startA, endA, lenA, flyPlddt.A, false)) _domHits.push(Object.assign({ chain: flyChordLabel(sym1, 'A'), src: 'pLDDT' }, _h)); _rA += 7;
+                     for (const _h of LiviaMaps.paintChordPlddtRing(ctx, cx, cy, _rB, _rB + 6, startB, endB, lenB, flyPlddt.B, false)) _domHits.push(Object.assign({ chain: flyChordLabel(sym2, 'B'), src: 'pLDDT' }, _h)); _rB += 7; }
       if (flyShowChordDom) { for (const _h of LiviaMaps.paintChordDomainRing(ctx, cx, cy, _rA, _rA + 6, startA, endA, lenA, flyDomains.A, CHORD_DOM_FILL, false)) _domHits.push(Object.assign({ chain: flyChordLabel(sym1, 'A'), src: 'UniProt/Pfam' }, _h)); _rA += 7;
                              for (const _h of LiviaMaps.paintChordDomainRing(ctx, cx, cy, _rB, _rB + 6, startB, endB, lenB, flyDomains.B, CHORD_DOM_FILL, false)) _domHits.push(Object.assign({ chain: flyChordLabel(sym2, 'B'), src: 'UniProt/Pfam' }, _h)); _rB += 7; }
       if (flyShowChordTed) { for (const _h of LiviaMaps.paintChordDomainRing(ctx, cx, cy, _rA, _rA + 6, startA, endA, lenA, flyTedDomains.A, CHORD_TED_FILL, false)) _domHits.push(Object.assign({ chain: flyChordLabel(sym1, 'A'), src: 'TED' }, _h));
@@ -3301,11 +3307,12 @@ function drawFlyChordFromContacts(canvas, contacts, lenA, lenB, sym1, sym2, colo
     ctx.save(); ctx.scale(S, S);
 
     const cx = size/2, cy = size/2;
-    const _nDomRings = (flyShowChordDom ? 1 : 0) + (flyShowChordTed ? 1 : 0), _domSpace = _nDomRings ? (_nDomRings * 7 + 3) : 0, _domHits = [];   // domain rings sit OUTSIDE the arc; reserve adaptive outer space
+    const _plddtOn = flyShowChordPlddt && ((flyPlddt.A && flyPlddt.A.some(x => x != null)) || (flyPlddt.B && flyPlddt.B.some(x => x != null)));   // pLDDT ring only when data present
+    const _nDomRings = (_plddtOn ? 1 : 0) + (flyShowChordDom ? 1 : 0) + (flyShowChordTed ? 1 : 0), _domSpace = _nDomRings ? (_nDomRings * 7 + 3) : 0, _domHits = [];   // pLDDT + domain rings sit OUTSIDE the arc; reserve adaptive outer space
     const outerR = Math.max(40, Math.min(size/2 - (flyShowChordTicks ? 62 : 48) - _domSpace, size/2 - 4 - _domSpace - LiviaMaps.chordLabelExtent(ctx, [
         { name: flyChordLabel(sym1, 'A'), length: flyShowChordLength ? `${lenA}` : '' },
         { name: flyChordLabel(sym2, 'B'), length: flyShowChordLength ? `${lenB}` : '' },
-    ], { ticks: flyShowChordTicks, radial: flyShowChordRadial }))), innerR = outerR - 18, chordR = innerR - 4;   // shrink to keep long radial labels on-canvas
+    ], { ticks: flyShowChordTicks, radial: flyShowChordRadial }))), innerR = outerR - 12, chordR = innerR - 4;   // shrink to keep long radial labels on-canvas
     ctx.canvas._domHits = _domHits; ctx.canvas._domGeom = { cx, cy, size };   // hover
     const gap = 0.04, totalLen = lenA + lenB;
     const totalAngle = 2*Math.PI - 2*gap;
@@ -3325,14 +3332,16 @@ function drawFlyChordFromContacts(canvas, contacts, lenA, lenB, sym1, sym2, colo
         const pB = {x: cx+Math.cos(aB)*chordR, y: cy+Math.sin(aB)*chordR};
         const t = maxDist > minDist ? 1-(c.dist-minDist)/(maxDist-minDist) : 1;
         const alpha = 0.08 + t*0.2;
-        LiviaMaps.strokeFadeQuad(ctx, pA.x, pA.y, cx, cy, pB.x, pB.y, hexToRgba(colA, alpha), hexToRgba(colB, alpha), 1.2);
+        LiviaMaps.strokeFadeQuad(ctx, pA.x, pA.y, cx, cy, pB.x, pB.y, hexToRgba(colA, alpha), hexToRgba(colB, alpha), 0.7);
     }
 
     // Arcs (gray base + LIR light + cLIR dark)
     const lightA = colors.lir_a || colA, lightB = colors.lir_b || colB;
     paintChordArcBand(ctx, cx, cy, outerR, innerR, startA, endA, lenA, LIR_A, cLIR_A, lightA, colA);
     paintChordArcBand(ctx, cx, cy, outerR, innerR, startB, endB, lenB, LIR_B, cLIR_B, lightB, colB);
-    { let _rA = outerR + 3, _rB = outerR + 3;   // domain rings outside each arc: UniProt/Pfam then TED, with hover hit-regions
+    { let _rA = outerR + 3, _rB = outerR + 3;   // pLDDT ring first, then domain rings (UniProt/Pfam, TED) stacked outward, with hover hit-regions
+      if (_plddtOn) { for (const _h of LiviaMaps.paintChordPlddtRing(ctx, cx, cy, _rA, _rA + 6, startA, endA, lenA, flyPlddt.A, false)) _domHits.push(Object.assign({ chain: flyChordLabel(sym1, 'A'), src: 'pLDDT' }, _h)); _rA += 7;
+                     for (const _h of LiviaMaps.paintChordPlddtRing(ctx, cx, cy, _rB, _rB + 6, startB, endB, lenB, flyPlddt.B, false)) _domHits.push(Object.assign({ chain: flyChordLabel(sym2, 'B'), src: 'pLDDT' }, _h)); _rB += 7; }
       if (flyShowChordDom) { for (const _h of LiviaMaps.paintChordDomainRing(ctx, cx, cy, _rA, _rA + 6, startA, endA, lenA, flyDomains.A, CHORD_DOM_FILL, false)) _domHits.push(Object.assign({ chain: flyChordLabel(sym1, 'A'), src: 'UniProt/Pfam' }, _h)); _rA += 7;
                              for (const _h of LiviaMaps.paintChordDomainRing(ctx, cx, cy, _rB, _rB + 6, startB, endB, lenB, flyDomains.B, CHORD_DOM_FILL, false)) _domHits.push(Object.assign({ chain: flyChordLabel(sym2, 'B'), src: 'UniProt/Pfam' }, _h)); _rB += 7; }
       if (flyShowChordTed) { for (const _h of LiviaMaps.paintChordDomainRing(ctx, cx, cy, _rA, _rA + 6, startA, endA, lenA, flyTedDomains.A, CHORD_TED_FILL, false)) _domHits.push(Object.assign({ chain: flyChordLabel(sym1, 'A'), src: 'TED' }, _h));
@@ -3371,6 +3380,13 @@ function buildChordDiagram(row, sym1, sym2, colors, pdbText) {
     const coordA = coordChains.get('A');
     const coordB = coordChains.get('B');
     if (!coordA || !coordB) { card.style.display = 'none'; return; }
+
+    // Per-residue pLDDT per chain (B-factors) → chord pLDDT ring. Indexed plddt[r-1] = residue r.
+    flyPlddt = { A: [], B: [] };
+    try {
+        const _bfs = parseBfactorsPerResidue(pdbText);
+        for (const ch of ['A', 'B']) { const L = ch === 'A' ? lenA : lenB, a = new Array(L).fill(null); for (let r = 1; r <= L; r++) { const val = _bfs.get(`${ch}:${r}`); if (val != null) a[r - 1] = val; } flyPlddt[ch] = a; }
+    } catch (e) { flyPlddt = { A: [], B: [] }; }
 
     card.style.display = '';
 

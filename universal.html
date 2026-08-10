@@ -112,7 +112,7 @@
         }
     </style>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260806b"></script>
+<script src="js/livia-maps.js?v=20260810a"></script>
 <script src="js/clip-resolver.js?v=20260715"></script>
 </head>
 <body>
@@ -338,6 +338,7 @@
                 <span style="font-size:0.82rem; color:#555; white-space:nowrap; display:inline-flex; align-items:center;">domains:</span>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> UniProt/Pfam</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ted" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> TED</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;" title="Per-residue pLDDT confidence strip beside each chain bar (AlphaFold colour scale)"><input type="checkbox" id="contact-show-plddt" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> pLDDT</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="uniShowLinearIDs=this.checked; buildLinearContactMaps();"> chain IDs</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> swap chains (top&harr;bottom)</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"></label>
@@ -356,6 +357,7 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="uniShowChordIDs=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> chain IDs</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="uniShowChordLength=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Circos-style residue-position ruler around each arc"><input type="checkbox" id="chord-show-ticks" checked onchange="uniShowChordTicks=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> ticks</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Per-residue pLDDT confidence ring, between the arc and the domain rings (AlphaFold colour scale)"><input type="checkbox" id="chord-show-plddt" checked onchange="uniShowChordPlddt=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> pLDDT</label>
                 <span style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; position:relative; top:-3px;">domains:</span>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="UniProt/Pfam domain ring on each arc"><input type="checkbox" id="chord-show-dom" checked onchange="uniShowChordDom=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> UniProt/Pfam</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="TED domain ring on each arc"><input type="checkbox" id="chord-show-ted" checked onchange="uniShowChordTed=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> TED</label>
@@ -364,6 +366,7 @@
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent chains. Lines connect cLIR residue pairs in physical contact across all chain pairs.
             </div>
+            <div id="chord-plddt-legend" style="display:none; align-items:center; gap:0.6rem; flex-wrap:wrap; font-size:0.72rem; color:#666; margin-bottom:0.5rem;"></div>
             <div id="chord-chain-chips" style="display:none; align-items:center; gap:0.25rem; flex-wrap:wrap; margin-bottom:0.6rem;"></div>
             <div style="display:flex; justify-content:center; gap:2rem; flex-wrap:wrap;">
                 <div style="text-align:center;">
@@ -7163,6 +7166,7 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
     const swap = !!(document.getElementById('contact-swap-ab') && document.getElementById('contact-swap-ab').checked);
     const showDom = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;   // UniProt/Pfam track
     const showTed = document.getElementById('contact-show-ted') ? document.getElementById('contact-show-ted').checked : true;           // TED track
+    const showPlddt = document.getElementById('contact-show-plddt') ? document.getElementById('contact-show-plddt').checked : true;      // per-residue pLDDT strip
     const colors = getColorsForPair(v.ci, v.cj);
 
     // Domain palettes — Set2 fills for UniProt/Pfam, CATH-ish solids for TED (match the legend swatches)
@@ -7173,18 +7177,23 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
     const mkRole = (name, lir, clir, len, lirCol, clirCol) => ({ name, lir, clir, len, lirCol, clirCol,
         doms: (uniState.chainDomains && uniState.chainDomains[name]) || [],
         ted:  (uniState.chainTedDomains && uniState.chainTedDomains[name]) || [],
+        plddt: (uniState.chainPlddt && uniState.chainPlddt[name]) || [],
         info: (uniState.chainDomainInfo && uniState.chainDomainInfo[name]) || null });
     const roleI = mkRole(v.ci, lirI_f, clirI_f, v.lenI, colors.lir_a, colors.clir_a);
     const roleJ = mkRole(v.cj, lirJ_f, clirJ_f, v.lenJ, colors.lir_b, colors.clir_b);
     const top = swap ? roleJ : roleI, bot = swap ? roleI : roleJ;
+    // pLDDT strip (per-residue AlphaFold-coloured band) hugging each bar, between it and the ticks/domains
+    const plStripH = 5, plGap = 2, plBarGap = 2;   // strip height, gap to ticks, and gap to the cLIR/LIR contact bar
+    const plOn = (role) => showPlddt && role.plddt && role.plddt.some(v => v != null);
+    const plH = (role) => plOn(role) ? (plBarGap + plStripH + plGap) : 0;
 
     // ── Layout: reserve vertical space for domain tracks (UniProt/Pfam inner row + TED outer row) ──
     const S = 2, laneH = 16, boxH = 13, trackGap = 4, tickBand = 15;   // tickBand reserves room for the residue-number ticks beside each bar
     const assignLanes = (items) => { const s = items.slice().sort((a, b) => a.start - b.start); const ends = []; for (const d of s){ let k = 0; while (k < ends.length && ends[k] >= d.start) k++; d._lane = k; ends[k] = d.end; } return { list: s, n: Math.max(1, ends.length) }; };
     const tracksOf = (role) => ({ dom: showDom && role.doms.length ? assignLanes(role.doms) : null, ted: showTed && role.ted.length ? assignLanes(role.ted) : null });
     // Space beside a bar = the tick band (always) + stacked domain/TED lanes so nothing overlaps the ticks.
-    const spaceOf = (t) => { let h = tickBand; if (t.dom) h += t.dom.n * laneH; if (t.ted) h += t.ted.n * laneH; if (t.dom && t.ted) h += trackGap; return h; };
-    const topT = tracksOf(top), botT = tracksOf(bot), topSpace = spaceOf(topT), botSpace = spaceOf(botT);
+    const spaceOf = (role, t) => { let h = tickBand + plH(role); if (t.dom) h += t.dom.n * laneH; if (t.ted) h += t.ted.n * laneH; if (t.dom && t.ted) h += trackGap; return h; };
+    const topT = tracksOf(top), botT = tracksOf(bot), topSpace = spaceOf(top, topT), botSpace = spaceOf(bot, botT);
 
     const width = Math.min(900, ((canvas.parentElement && canvas.parentElement.clientWidth) || 900) - 32);
     const barH = 12;
@@ -7221,8 +7230,19 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
 
     // Domain tracks \u2014 dir -1 = above (top role), +1 = below (bottom role); UniProt/Pfam inner, TED outer.
     const drawTracks = (role, tr, xFn, baseY, dir) => {
+        if (plOn(role)) {   // per-residue pLDDT strip hugging the bar (AlphaFold confidence colours), RLE-merged
+            const yStrip = dir < 0 ? baseY - plBarGap - plStripH : baseY + plBarGap;
+            const arr = role.plddt, n = Math.min(role.len, arr.length);
+            const band = (val) => (val == null || isNaN(val)) ? -1 : (val > 90 ? 0 : val > 70 ? 1 : val > 50 ? 2 : 3);
+            const COL = ['#0053D6', '#65CBF3', '#FFDB13', '#FF7D45'], resW = barW / Math.max(1, role.len - 1);
+            const seg = (a, b, bd) => { if (bd < 0) return; const x0 = Math.max(barLeft, xFn(a) - resW / 2), x1 = Math.min(barRight, xFn(b) + resW / 2); ctx.fillStyle = COL[bd]; ctx.fillRect(x0, yStrip, Math.max(1, x1 - x0), plStripH); };
+            let r0 = 1, cur = band(arr[0]);
+            for (let r = 2; r <= n; r++) { const b = band(arr[r - 1]); if (b !== cur) { seg(r0, r - 1, cur); r0 = r; cur = b; } }
+            seg(r0, n, cur);
+            ctx.strokeStyle = '#ccc'; ctx.lineWidth = 0.5; ctx.strokeRect(barLeft, yStrip, barW, plStripH);
+        }
         if (!showDom && !showTed) return;
-        const off = tickBand;   // clear the residue-tick band so domains never overlap the ticks
+        const off = tickBand + plH(role);   // clear the residue-tick band (and pLDDT strip) so domains never overlap
         if (tr.dom) for (const d of tr.dom.list){
             const x0 = xFn(Math.max(1, d.start)), x1 = xFn(Math.min(role.len, d.end)), w = Math.max(2, x1 - x0);
             const laneY = dir < 0 ? baseY - off - (d._lane + 1) * laneH + (laneH - boxH) / 2 : baseY + off + d._lane * laneH;
@@ -7251,8 +7271,8 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
     const nTicks = Math.max(2, Math.min(30, parseInt(document.getElementById('contact-xticks')?.value) || 5));
     const tickPos = (len) => { const n = Math.max(2, Math.min(nTicks, len)); const s = new Set(); for (let i = 0; i < n; i++) s.add(Math.max(1, Math.min(len, Math.round(1 + (len - 1) * i / (n - 1))))); return [...s]; };
     ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom'; for (const t of tickPos(top.len)) ctx.fillText(t, xTop(t), barYtop - 3);
-    ctx.textBaseline = 'top'; for (const t of tickPos(bot.len)) ctx.fillText(t, xBot(t), barYbot + barH + 3);
+    ctx.textBaseline = 'bottom'; for (const t of tickPos(top.len)) ctx.fillText(t, xTop(t), barYtop - 3 - plH(top));
+    ctx.textBaseline = 'top'; for (const t of tickPos(bot.len)) ctx.fillText(t, xBot(t), barYbot + barH + 3 + plH(bot));
 
     // Connection lines (top \u2192 bottom); contacts keyed by original chain i/j, mapped to top/bot.
     const minDist = Math.min(...contacts.map(c => c.dist)), maxDist = Math.max(...contacts.map(c => c.dist));
@@ -7306,11 +7326,28 @@ function renderLinearChipBar() {
     }
 }
 
+// Per-residue pLDDT per chain from the selected model's B-factors → uniState.chainPlddt (chord ring +
+// linear track). Idempotent-ish: recomputes from the current seed selection each call.
+function ensureUniChainPlddt() {
+    try {
+        const seedVal = document.getElementById('seed-select')?.value || '0';
+        const sc = uniState.structureContents || {};
+        const useIdx = seedVal === 'avg' ? Object.keys(sc)[0] : seedVal;
+        const structText = sc[useIdx] || sc[Object.keys(sc)[0]];
+        if (!structText) { uniState.chainPlddt = {}; return; }
+        const bfs = parseBfactorsPerResidue(structText, uniState.structureFormat);
+        const cp = {}, names = uniState.chainNames || [], sizes = uniState.chainSizes || [];
+        for (let ci = 0; ci < names.length; ci++) { const cn = names[ci], L = sizes[ci] || 0, arr = new Array(L).fill(null); for (let r = 1; r <= L; r++) { const v = bfs.get(`${cn}:${r}`); if (v != null) arr[r - 1] = v; } cp[cn] = arr; }
+        uniState.chainPlddt = cp;
+    } catch (e) { uniState.chainPlddt = {}; }
+}
+
 // Controller: one linear contact map per pairwise combination of the selected chains.
 function buildLinearContactMaps() {
     const card = document.getElementById('contact-map-card');
     const holder = document.getElementById('contact-maps');
     if (!card || !holder || !uniState.results) { if (card) card.style.display = 'none'; return; }
+    ensureUniChainPlddt();
 
     if (!uniState.linearChains) uniState.linearChains = new Set();
     // Drop any chains left over from a previous complex, then seed to the current
@@ -7378,9 +7415,12 @@ function renderContactHtmlLegend(roles, DOM_FILL, TED_FILL, legendEl){
     const el = legendEl || document.getElementById('contact-domain-legend'); if (!el) return;
     const showDom = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;
     const showTed = document.getElementById('contact-show-ted') ? document.getElementById('contact-show-ted').checked : true;
+    const showPlddt = document.getElementById('contact-show-plddt') ? document.getElementById('contact-show-plddt').checked : true;
     const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const sw = (c) => `<span style="display:inline-block; width:10px; height:10px; background:${c}; border:1px solid rgba(0,0,0,0.25); vertical-align:middle; margin:0 3px 0 0; border-radius:2px;"></span>`;
     const rows = [];
+    const anyPlddt = showPlddt && roles.some(r => (uniState.chainPlddt && uniState.chainPlddt[r.name] || []).some(v => v != null));
+    if (anyPlddt) rows.push('<div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem; color:#666;">' + LiviaMaps.plddtLegendHtml() + '</div>');
     if (showDom || showTed) for (const role of roles){
         if (!role.info && !role.doms.length && !role.ted.length) continue;
         const parts = [];
@@ -7453,6 +7493,7 @@ let uniShowChordTicks = true;   // Circular Contact Map: Circos-style residue-po
 let uniShowChordRadial = false;   // Circular Contact Map: arc labels along the arc (tangential, default) vs. pointing outward (radial); radial fans out and avoids overlap with many subunits
 let uniShowChordDom = true;   // Circular Contact Map: UniProt/Pfam domain ring (just inside the arc)
 let uniShowChordTed = true;   // Circular Contact Map: TED domain ring
+let uniShowChordPlddt = true;   // Circular Contact Map: per-residue pLDDT ring (between the arc and the domain rings)
 const CHORD_DOM_FILL = ['#66c2a5','#fc8d62','#8da0cb','#e78ac3','#a6d854','#ffd92f','#e5c494','#b3b3b3'];   // UniProt/Pfam — matches the linear map
 const CHORD_TED_FILL = ['#7E57C2','#5C6BC0','#26A69A','#8D6E63','#EC407A','#42A5F5','#AB47BC','#66BB6A'];   // TED — matches the linear map
 // The ruler itself lives in the shared module (LiviaMaps.drawChordRuler) so every chord page uses one implementation.
@@ -7480,9 +7521,10 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
         length: uniShowChordLength ? `${chainSizes[i]}` : '',
     })), { ticks: uniShowChordTicks, radial: uniShowChordRadial });
     // shrink the ring if needed so long radial labels never clip the canvas edge
-    const _nDomRings = (uniShowChordDom ? 1 : 0) + (uniShowChordTed ? 1 : 0), _domSpace = _nDomRings ? (_nDomRings * 7 + 3) : 0, _domHits = [];   // domain rings sit OUTSIDE the arc; reserve outer space, adaptive
+    const _plddtOn = uniShowChordPlddt && uniState.chainPlddt && Object.values(uniState.chainPlddt).some(a => a && a.some(v => v != null));   // pLDDT ring only when B-factor/pLDDT data is present
+    const _nDomRings = (_plddtOn ? 1 : 0) + (uniShowChordDom ? 1 : 0) + (uniShowChordTed ? 1 : 0), _domSpace = _nDomRings ? (_nDomRings * 7 + 3) : 0, _domHits = [];   // pLDDT + domain rings sit OUTSIDE the arc; reserve outer space, adaptive
     ctx.canvas._domHits = _domHits; ctx.canvas._domGeom = { cx: cxC, cy: cyC, size };   // hover: hit-regions + geometry per canvas
-    const outerR = Math.max(40, Math.min(size / 2 - (uniShowChordTicks ? 62 : 48) - _domSpace, size / 2 - 4 - _labelExt - _domSpace)), innerR = outerR - 18, chordR = innerR - 4;   // chord lines unaffected by domains (they're outside)
+    const outerR = Math.max(40, Math.min(size / 2 - (uniShowChordTicks ? 62 : 48) - _domSpace, size / 2 - 4 - _labelExt - _domSpace)), innerR = outerR - 12, chordR = innerR - 4;   // chord lines unaffected by domains (they're outside)
 
     const totalRes = chainSizes.reduce((a, b) => a + b, 0);
     const gapAngle = 0.04, totalGap = gapAngle * nc;
@@ -7519,7 +7561,7 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
         const xB = cxC + Math.cos(angB) * chordR, yB = cyC + Math.sin(angB) * chordR;
         const t = maxDist > minDist ? 1 - ((c.dist || 0) - minDist) / (maxDist - minDist) : 1;
         const alpha = 0.08 + t * 0.2;
-        LiviaMaps.strokeFadeQuad(ctx, xA, yA, cxC, cyC, xB, yB, hexToRgba(colI, alpha), hexToRgba(colJ, alpha), 1.2);
+        LiviaMaps.strokeFadeQuad(ctx, xA, yA, cxC, cyC, xB, yB, hexToRgba(colI, alpha), hexToRgba(colJ, alpha), 0.7);
     }
 
     // Draw arcs and labels (same as drawChord; hidden chains drawn as muted placeholder)
@@ -7528,6 +7570,7 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
         paintChordArc(ctx, cxC, cyC, outerR, innerR, arc, hidden, arcLIR, arcCLIR, chainColors, arcLightColors);
         if (arc.type === 'protein') {   // domain rings just OUTSIDE the arc, stacked: UniProt/Pfam then TED (matches the linear map)
             let _rr = outerR + 3;
+            if (_plddtOn) { for (const _h of LiviaMaps.paintChordPlddtRing(ctx, cxC, cyC, _rr, _rr + 6, arc.start, arc.end, arc.size, (uniState.chainPlddt || {})[arc.name] || [], hidden)) _domHits.push(Object.assign({ chain: chordArcLabel(arc), src: 'pLDDT' }, _h)); _rr += 7; }
             if (uniShowChordDom) { for (const _h of LiviaMaps.paintChordDomainRing(ctx, cxC, cyC, _rr, _rr + 6, arc.start, arc.end, arc.size, (uniState.chainDomains || {})[arc.name] || [], CHORD_DOM_FILL, hidden)) _domHits.push(Object.assign({ chain: chordArcLabel(arc), src: 'UniProt/Pfam' }, _h)); _rr += 7; }
             if (uniShowChordTed) { for (const _h of LiviaMaps.paintChordDomainRing(ctx, cxC, cyC, _rr, _rr + 6, arc.start, arc.end, arc.size, (uniState.chainTedDomains || {})[arc.name] || [], CHORD_TED_FILL, hidden)) _domHits.push(Object.assign({ chain: chordArcLabel(arc), src: 'TED' }, _h)); _rr += 7; }
         }
@@ -7554,10 +7597,11 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
         length: uniShowChordLength ? `${chainSizes[i]}` : '',
     })), { ticks: uniShowChordTicks, radial: uniShowChordRadial });
     // shrink the ring if needed so long radial labels never clip the canvas edge
-    const _nDomRings = (uniShowChordDom ? 1 : 0) + (uniShowChordTed ? 1 : 0), _domSpace = _nDomRings ? (_nDomRings * 7 + 3) : 0, _domHits = [];   // domain rings sit OUTSIDE the arc; reserve outer space, adaptive
+    const _plddtOn = uniShowChordPlddt && uniState.chainPlddt && Object.values(uniState.chainPlddt).some(a => a && a.some(v => v != null));   // pLDDT ring only when B-factor/pLDDT data is present
+    const _nDomRings = (_plddtOn ? 1 : 0) + (uniShowChordDom ? 1 : 0) + (uniShowChordTed ? 1 : 0), _domSpace = _nDomRings ? (_nDomRings * 7 + 3) : 0, _domHits = [];   // pLDDT + domain rings sit OUTSIDE the arc; reserve outer space, adaptive
     ctx.canvas._domHits = _domHits; ctx.canvas._domGeom = { cx: cxC, cy: cyC, size };   // hover: hit-regions + geometry per canvas
     const outerR = Math.max(40, Math.min(size / 2 - (uniShowChordTicks ? 62 : 48) - _domSpace, size / 2 - 4 - _labelExt - _domSpace));
-    const innerR = outerR - 18;
+    const innerR = outerR - 12;
     const chordR = innerR - 4;   // chord lines unaffected by domains (they're outside)
 
     // Arc sizing proportional to chain length
@@ -7589,6 +7633,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
         paintChordArc(ctx, cxC, cyC, outerR, innerR, arc, hidden, arcLIR, arcCLIR, chainColors, arcLightColors);
         if (arc.type === 'protein') {   // domain rings just OUTSIDE the arc, stacked: UniProt/Pfam then TED (matches the linear map)
             let _rr = outerR + 3;
+            if (_plddtOn) { for (const _h of LiviaMaps.paintChordPlddtRing(ctx, cxC, cyC, _rr, _rr + 6, arc.start, arc.end, arc.size, (uniState.chainPlddt || {})[arc.name] || [], hidden)) _domHits.push(Object.assign({ chain: chordArcLabel(arc), src: 'pLDDT' }, _h)); _rr += 7; }
             if (uniShowChordDom) { for (const _h of LiviaMaps.paintChordDomainRing(ctx, cxC, cyC, _rr, _rr + 6, arc.start, arc.end, arc.size, (uniState.chainDomains || {})[arc.name] || [], CHORD_DOM_FILL, hidden)) _domHits.push(Object.assign({ chain: chordArcLabel(arc), src: 'UniProt/Pfam' }, _h)); _rr += 7; }
             if (uniShowChordTed) { for (const _h of LiviaMaps.paintChordDomainRing(ctx, cxC, cyC, _rr, _rr + 6, arc.start, arc.end, arc.size, (uniState.chainTedDomains || {})[arc.name] || [], CHORD_TED_FILL, hidden)) _domHits.push(Object.assign({ chain: chordArcLabel(arc), src: 'TED' }, _h)); _rr += 7; }
         }
@@ -7655,7 +7700,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
 
                 // Two solid half-curves instead of a per-line gradient — same two-tone
                 // read, but no <linearGradient> bloating the SVG export (js/livia-maps.js).
-                LiviaMaps.strokeFadeQuad(ctx, xA, yA, cxC, cyC, xB, yB, hexToRgba(colI, alpha), hexToRgba(colJ, alpha), 1.2);
+                LiviaMaps.strokeFadeQuad(ctx, xA, yA, cxC, cyC, xB, yB, hexToRgba(colI, alpha), hexToRgba(colJ, alpha), 0.7);
             }
         }
     }
@@ -7692,6 +7737,9 @@ function buildChordDiagram() {
 
     // Get chain sequences (for ion names)
     const chainSeqs = uniState.structureFormat === 'pdb' ? parsePdbSequence(structText) : parseCifSequence(structText);
+
+    ensureUniChainPlddt();   // per-residue pLDDT per chain (selected model B-factors) → chord ring + linear track
+    { const _lg = document.getElementById('chord-plddt-legend'); if (_lg) { const _has = uniShowChordPlddt && Object.values(uniState.chainPlddt || {}).some(a => a && a.some(v => v != null)); _lg.innerHTML = LiviaMaps.plddtLegendHtml(); _lg.style.display = _has ? 'flex' : 'none'; } }
 
     // Get current results (all pairs)
     const results = uniState.results || uniState.avgResults;

@@ -225,6 +225,46 @@
         return hits;
     }
 
+    // Per-residue pLDDT as a thin ring, coloured by the AlphaFold confidence scale. plddt[r-1] = pLDDT of
+    // residue r (0..100); len = arc residue count. Consecutive residues in the same confidence band are
+    // merged into one arc so the SVG export stays compact. Returns hover hit-regions like the domain ring.
+    const _PLDDT_COL = ['#0053D6', '#65CBF3', '#FFDB13', '#FF7D45'];   // matches the pLDDT colour preset
+    const _PLDDT_NAME = ['Very high (pLDDT > 90)', 'Confident (70 < pLDDT ≤ 90)', 'Low (50 < pLDDT ≤ 70)', 'Very low (pLDDT ≤ 50)'];
+    function paintChordPlddtRing(ctx, cx, cy, rIn, rOut, sA, eA, len, plddt, muted) {
+        const hits = [];
+        if (!plddt || !plddt.length || !(len > 0)) return hits;
+        const band = (v) => (v == null || isNaN(v)) ? -1 : (v > 90 ? 0 : v > 70 ? 1 : v > 50 ? 2 : 3);
+        const arcAt = (frac) => sA + (eA - sA) * frac;
+        const seg = (r0, r1, b) => {   // residues r0..r1 (1-based, inclusive) share band b
+            const a0 = arcAt((r0 - 1) / len), a1 = arcAt(r1 / len);
+            ctx.beginPath();
+            ctx.arc(cx, cy, rOut, a0, a1);
+            ctx.arc(cx, cy, rIn, a1, a0, true);
+            ctx.closePath();
+            ctx.fillStyle = muted ? '#dddddd' : _PLDDT_COL[b];
+            ctx.fill();
+            hits.push({ rIn, rOut, a0, a1, name: _PLDDT_NAME[b], start: r0, end: r1 });
+        };
+        const n = Math.min(len, plddt.length);
+        let r0 = 1, cur = band(plddt[0]);
+        for (let r = 2; r <= n; r++) {
+            const b = band(plddt[r - 1]);
+            if (b !== cur) { if (cur >= 0) seg(r0, r - 1, cur); r0 = r; cur = b; }
+        }
+        if (cur >= 0) seg(r0, n, cur);
+        ctx.beginPath(); ctx.arc(cx, cy, rOut, sA, eA); ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 0.75; ctx.stroke();
+        return hits;
+    }
+
+    // Compact inline legend for the pLDDT colour scale (AlphaFold confidence bands). Used under the
+    // circular and linear contact maps wherever a pLDDT ring/track is shown.
+    function plddtLegendHtml(label) {
+        const item = (c, t) => '<span style="display:inline-flex;align-items:center;gap:0.25rem;white-space:nowrap;"><span style="width:11px;height:11px;background:' + c + ';border-radius:2px;display:inline-block;"></span>' + t + '</span>';
+        return '<span style="font-weight:600;">' + (label || 'pLDDT') + ':</span>'
+            + item('#0053D6', 'Very high (&gt;90)') + item('#65CBF3', 'Confident (70&ndash;90)')
+            + item('#FFDB13', 'Low (50&ndash;70)') + item('#FF7D45', 'Very low (&le;50)');
+    }
+
     // Hover tooltips over the chord domain rings. Each drawChord* stashes per-canvas hit-regions on
     // `canvas._domHits` (each {rIn,rOut,a0,a1,name,start,end,chain,src}) and geometry on `canvas._domGeom`
     // ({cx,cy,size}). Attaching is idempotent per canvas; call it whenever the chord is (re)built.
@@ -610,7 +650,7 @@
         svgFromDraw, svgFromFixedCanvas,
         downloadSVGFile, downloadSVGFromCanvas, downloadCanvasPNG,
         attachExportBar, attachPngBtnFor, attachChartPngButtons,
-        setToRanges, paintChordArcBand, paintChordDomainRing, attachChordDomainHover, drawChordRuler, drawChordArcLabel, chordLabelExtent, segPick,
+        setToRanges, paintChordArcBand, paintChordDomainRing, paintChordPlddtRing, plddtLegendHtml, attachChordDomainHover, drawChordRuler, drawChordArcLabel, chordLabelExtent, segPick,
         parseColorCSV, attachColorUpload,
         seqFlow, fitSeqHost,
         strokeFadeQuad, strokeFadeCubic,

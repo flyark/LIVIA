@@ -261,6 +261,7 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="dimerShowChordIDs=this.checked; buildChordDiagram();"> chain IDs</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="dimerShowChordLength=this.checked; buildChordDiagram();"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Circos-style residue-position ruler around each arc"><input type="checkbox" id="chord-show-ticks" checked onchange="dimerShowChordTicks=this.checked; buildChordDiagram();"> ticks</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Per-residue pLDDT confidence ring, between the arc and the domain rings (AlphaFold colour scale)"><input type="checkbox" id="chord-show-plddt" checked onchange="dimerShowChordPlddt=this.checked; buildChordDiagram();"> pLDDT</label>
                 <span style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; position:relative; top:-3px;">domains:</span>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-dom" checked onchange="dimerShowChordDom=this.checked; buildChordDiagram();"> UniProt/Pfam</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ted" checked onchange="dimerShowChordTed=this.checked; buildChordDiagram();"> TED</label>
@@ -470,7 +471,7 @@
 <script src="js/livia-viewer.js?v=20260716e"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260806b"></script>
+<script src="js/livia-maps.js?v=20260810a"></script>
 <script>
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (dimerPairResult) { generateAndDisplayScript(); buildDimerSequenceViewer(); buildDimerContactMap(); buildChordDiagram(); buildComparisonCharts(); updateViewer3d(); renderChainToggleBar(); } };
@@ -1456,6 +1457,7 @@ let dimerShowChordLabels = true;   // Circular Contact Map: show the gene name
 let dimerShowChordLength = true;   // Circular Contact Map: show the residue-count number
 let dimerShowChordDom = true;   // Circular Contact Map: UniProt/Pfam domain ring (outside the arc)
 let dimerShowChordTed = true;   // Circular Contact Map: TED domain ring
+let dimerShowChordPlddt = true;   // Circular Contact Map: per-residue pLDDT ring (between the arc and the domain rings)
 const CHORD_DOM_FILL = ['#66c2a5','#fc8d62','#8da0cb','#e78ac3','#a6d854','#ffd92f','#e5c494','#b3b3b3'];   // UniProt/Pfam
 const CHORD_TED_FILL = ['#7E57C2','#5C6BC0','#26A69A','#8D6E63','#EC407A','#42A5F5','#AB47BC','#66BB6A'];   // TED
 // Combine gene name + chain ID per the "labels"/"chain IDs" toggles (mirrors universal's chordArcLabel).
@@ -1506,6 +1508,12 @@ function buildChordDiagram() {
     const coordB = chainCoordMap.get(v.cj);
     if (!coordA || !coordB) { card.style.display = 'none'; return; }
 
+    // Per-residue pLDDT (B-factors) per chain → chord pLDDT ring. Indexed plddt[r-1] = residue r.
+    const _bfs = parseBfactorsPerResidue(dimerCifText);
+    const _plddtArr = (chain, len) => { const a = new Array(len).fill(null); for (let r = 1; r <= len; r++) { const val = _bfs.get(`${chain}:${r}`); if (val != null) a[r - 1] = val; } return a; };
+    const plddtA = _plddtArr(v.ci, lenA), plddtB = _plddtArr(v.cj, lenB);
+    const _plddtOn = dimerShowChordPlddt && (plddtA.some(x => x != null) || plddtB.some(x => x != null));
+
     // Find cLIR-cLIR contact pairs (Cβ < 8 Å) using filtered sets
     const contactDist = 8;
     const contacts = [];
@@ -1538,8 +1546,8 @@ function buildChordDiagram() {
         { name: dimerChordLabel(geneA, v.ci), length: dimerShowChordLength ? `${lenA}` : '' },
         { name: dimerChordLabel(geneB, v.cj), length: dimerShowChordLength ? `${lenB}` : '' },
     ], { ticks: dimerShowChordTicks, radial: dimerShowChordRadial });
-    const _nDomRings = (dimerShowChordDom ? 1 : 0) + (dimerShowChordTed ? 1 : 0), _domSpace = _nDomRings ? (_nDomRings * 7 + 3) : 0, _domHits = [];   // domain rings sit OUTSIDE the arc; reserve adaptive outer space
-    const outerR = Math.max(40, Math.min(size / 2 - (dimerShowChordTicks ? 62 : 48) - _domSpace, size / 2 - 4 - _labelExt - _domSpace)), innerR = outerR - 18, chordR = innerR - 4;
+    const _nDomRings = (_plddtOn ? 1 : 0) + (dimerShowChordDom ? 1 : 0) + (dimerShowChordTed ? 1 : 0), _domSpace = _nDomRings ? (_nDomRings * 7 + 3) : 0, _domHits = [];   // pLDDT + domain rings sit OUTSIDE the arc; reserve adaptive outer space
+    const outerR = Math.max(40, Math.min(size / 2 - (dimerShowChordTicks ? 62 : 48) - _domSpace, size / 2 - 4 - _labelExt - _domSpace)), innerR = outerR - 12, chordR = innerR - 4;
     ctx.canvas._domHits = _domHits; ctx.canvas._domGeom = { cx, cy, size };   // hover
     const gap = 0.04;
     const totalLen = lenA + lenB;
@@ -1566,7 +1574,7 @@ function buildChordDiagram() {
         const pB = pt(aB, chordR);
         const t = maxDist > minDist ? 1 - (c.dist - minDist) / (maxDist - minDist) : 1;
         const alpha = 0.08 + t * 0.2;
-        LiviaMaps.strokeFadeQuad(ctx, pA.x, pA.y, cx, cy, pB.x, pB.y, hexToRgba(colA, alpha), hexToRgba(colB, alpha), 1.2);
+        LiviaMaps.strokeFadeQuad(ctx, pA.x, pA.y, cx, cy, pB.x, pB.y, hexToRgba(colA, alpha), hexToRgba(colB, alpha), 0.7);
     }
 
     // Draw arcs: gray base + LIR (light) + cLIR (dark), matching seq viewer / linear map
@@ -1574,8 +1582,12 @@ function buildChordDiagram() {
         const lightA = colors.lir_a || colA, lightB = colors.lir_b || colB;
         paintChordArcBand(ctx, cx, cy, outerR, innerR, startA, endA, lenA, lirI_f, clirI_f, lightA, colA);
         paintChordArcBand(ctx, cx, cy, outerR, innerR, startB, endB, lenB, lirJ_f, clirJ_f, lightB, colB);
-        // domain rings just outside each arc: UniProt/Pfam then TED (stacked), with hover hit-regions
+        // pLDDT ring first (just outside the arc), then domain rings: UniProt/Pfam, TED (stacked outward), with hover hit-regions
         let _rA = outerR + 3, _rB = outerR + 3;
+        if (_plddtOn) {
+            for (const _h of LiviaMaps.paintChordPlddtRing(ctx, cx, cy, _rA, _rA + 6, startA, endA, lenA, plddtA, false)) _domHits.push(Object.assign({ chain: dimerChordLabel(geneA, v.ci), src: 'pLDDT' }, _h)); _rA += 7;
+            for (const _h of LiviaMaps.paintChordPlddtRing(ctx, cx, cy, _rB, _rB + 6, startB, endB, lenB, plddtB, false)) _domHits.push(Object.assign({ chain: dimerChordLabel(geneB, v.cj), src: 'pLDDT' }, _h)); _rB += 7;
+        }
         if (dimerShowChordDom) {
             for (const _h of LiviaMaps.paintChordDomainRing(ctx, cx, cy, _rA, _rA + 6, startA, endA, lenA, chainDomains.A, CHORD_DOM_FILL, false)) _domHits.push(Object.assign({ chain: dimerChordLabel(geneA, v.ci), src: 'UniProt/Pfam' }, _h)); _rA += 7;
             for (const _h of LiviaMaps.paintChordDomainRing(ctx, cx, cy, _rB, _rB + 6, startB, endB, lenB, chainDomains.B, CHORD_DOM_FILL, false)) _domHits.push(Object.assign({ chain: dimerChordLabel(geneB, v.cj), src: 'UniProt/Pfam' }, _h)); _rB += 7;
