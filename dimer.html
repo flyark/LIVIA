@@ -274,6 +274,12 @@
             </div>
         </div>
 
+        <!-- Reported Interactions (MIST) -->
+        <div class="card result-card" id="mist-card" style="display:none;">
+            <h2 style="margin-bottom:0.4rem;">Reported Interactions <a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="font-size:0.85rem; color:#2471A3;">(MIST)</a></h2>
+            <div id="mist-content" style="font-size:0.85rem; color:#444;"></div>
+        </div>
+
         <!-- 3D Structure Viewer -->
         <div class="card result-card" id="viewer3d-card" style="display:none;">
             <h2>3D Structure Viewer</h2>
@@ -887,6 +893,7 @@ async function selectDimer(idx, trEl) {
     if (v3card) v3card.style.display = 'none';
     const ctbar = document.getElementById('chain-toggle-bar');
     if (ctbar) ctbar.style.display = 'none';
+    { const _mc = document.getElementById('mist-card'); if (_mc) { _mc.style.display = 'none'; const _mo = document.getElementById('mist-content'); if (_mo) _mo.innerHTML = ''; } _dimerMistToken++; }   // reset MIST for the new pair
 
     const modelEntityId = entry.modelEntityId;
     const version = entry.latestVersion || entry.modelVersion || 1;
@@ -952,6 +959,7 @@ async function selectDimer(idx, trEl) {
         await new Promise(r => setTimeout(r, 10));
 
         processDimer();
+        queryDimerMist();   // reported A–B interactions from MIST (non-blocking)
 
     } catch (e) {
         setStatus(e.message + ' — AlphaFold DB may be temporarily slow. Try again.', 'error');
@@ -1498,6 +1506,71 @@ function dimerChordLabel(gene, id) {
     return dimerShowChordLabels ? id : '';
 }
 
+// ============================================================================
+// Reported Interactions (MIST) — for the single A–B dimer pair. Resolves each chain's
+// UniProt accession → NCBI Gene ID → flyrnai MIST API, then shows a compact per-evidence-type
+// summary (counts link to PubMed; PMIDs copyable). Mirrors universal.html's MIST logic.
+// ============================================================================
+const _MIST_TYPES_D = [['ppi', 'PPI'], ['interolog', 'Interolog PPI'], ['genetic', 'Genetic (GI)'], ['interolog-genetic', 'Interolog GI']];
+const _mistEscD = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let _mistUidD = 0, _dimerMistToken = 0;
+async function _accToGeneIdD(acc) {
+    try { const d = await (await fetch('https://rest.uniprot.org/uniprotkb/' + encodeURIComponent(acc) + '?fields=xref_geneid&format=json')).json();
+          const x = (d.uniProtKBCrossReferences || []).find(r => r.database === 'GeneID'); return x ? x.id : null; }
+    catch (e) { return null; }
+}
+async function _mistInteractionsD(geneId) {
+    const resp = await fetchTextViaProxy('https://www.flyrnai.org/tools/mist/api/get_interactions/' + geneId + '/ppi,interolog,genetic,interolog-genetic');
+    try { const d = JSON.parse(resp); return (d && d.mist_data && d.mist_data.results) || []; } catch (e) { return []; }
+}
+async function queryDimerMist() {
+    const card = document.getElementById('mist-card'), content = document.getElementById('mist-content');
+    if (!card || !content || !selectedDimer) { if (card) card.style.display = 'none'; return; }
+    const accs = selectedDimer.uniprotAccession || [], genes = selectedDimer.gene || [];
+    const accA = accs[0], accB = accs[1] || accs[0];
+    if (!accA) { card.style.display = 'none'; return; }
+    const symA = genes[0] || accA, symB = genes[1] || genes[0] || accB;
+    const token = ++_dimerMistToken;
+    card.style.display = '';
+    content.innerHTML = '<span style="color:#888; font-size:0.85rem;">Querying MIST for ' + _mistEscD(symA) + ' — ' + _mistEscD(symB) + '…</span>';
+    const gidA = await _accToGeneIdD(accA), gidB = (accB === accA) ? gidA : await _accToGeneIdD(accB);
+    if (token !== _dimerMistToken) return;
+    if (!gidA || !gidB) { content.innerHTML = '<span style="color:#999; font-size:0.85rem;">No NCBI Gene ID for these chains — cannot query MIST.</span>'; return; }
+    try {
+        const results = await _mistInteractionsD(gidA);
+        if (token !== _dimerMistToken) return;
+        const sg = String(gidA), pg = String(gidB), byType = {};
+        for (const r of results) {
+            const ga = String(r.GeneA), gb = String(r.GeneB);
+            if (!((ga === sg && gb === pg) || (ga === pg && gb === sg))) continue;   // row must connect the two chains
+            const t = r.Interaction_type; if (!byType[t]) byType[t] = new Set();
+            if (r.Reference) String(r.Reference).split(';').map(p => p.trim()).filter(Boolean).forEach(p => byType[t].add(p));
+        }
+        content.innerHTML = _renderDimerMist(symA, symB, byType);
+    } catch (e) { content.innerHTML = '<span style="color:#999; font-size:0.85rem;">Could not query MIST: ' + _mistEscD(e.message) + '</span>'; }
+}
+function _renderDimerMist(symA, symB, byType) {
+    const esc = _mistEscD;
+    const pubmedSet = (ids) => 'https://pubmed.ncbi.nlm.nih.gov/?term=' + ids.join(',');
+    const pmidLink = (p) => '<a href="https://pubmed.ncbi.nlm.nih.gov/' + p + '/" target="_blank" style="color:#2471A3;">' + p + '</a>';
+    if (!_MIST_TYPES_D.some(([t]) => byType[t] && byType[t].size))
+        return '<div style="background:#fff3cd; border-left:4px solid #ffc107; padding:0.6rem 0.8rem; border-radius:0 6px 6px 0; font-size:0.85rem; color:#856404;"><strong>No reported interaction</strong> between ' + esc(symA) + ' and ' + esc(symB) + ' in MIST.</div>';
+    const parts = [];
+    for (const [t, label] of _MIST_TYPES_D) { const set = byType[t]; if (set && set.size) { const list = [...set];
+        parts.push(esc(label) + ' <a href="' + pubmedSet(list) + '" target="_blank" title="Open all ' + list.length + ' papers in PubMed" style="color:#2471A3; font-weight:700; text-decoration:none;">' + list.length + '</a>'); } }
+    let html = '<div style="font-size:0.78rem; color:#777; margin:0 0 0.4rem;">Counts are reported papers; <b style="color:#2471A3;">click a number to open them in PubMed</b>, or expand “Show PMIDs” to copy the IDs.</div>';
+    html += '<div style="font-size:0.9rem;"><b style="color:#1a5276;">' + esc(symA) + ' — ' + esc(symB) + '</b> &nbsp; Reported in <a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#1a5276; font-weight:600;">MIST</a>: ' + parts.join(' &middot; ') + '</div>';
+    const copyLink = (ids) => '<a href="javascript:void(0)" onclick="navigator.clipboard&&navigator.clipboard.writeText(\'' + ids.join(', ') + '\');this.textContent=\'copied\';setTimeout(()=>this.textContent=\'copy\',1200)" style="color:#888; font-size:0.72rem;">copy</a>';
+    const pmidRefs = (list) => { if (list.length <= 8) return list.map(pmidLink).join(', ');
+        const id = 'dmp' + (_mistUidD++), n = list.length - 8;
+        return list.slice(0, 8).map(pmidLink).join(', ') + '<span id="' + id + '" style="display:none;">, ' + list.slice(8).map(pmidLink).join(', ') + '</span>'
+            + ' <a href="javascript:void(0)" onclick="var e=document.getElementById(\'' + id + '\'),o=e.style.display===\'none\';e.style.display=o?\'\':\'none\';this.textContent=o?\' less\':\' +' + n + ' more\'" style="color:#888; font-size:0.72rem;">+' + n + ' more</a>'; };
+    html += '<details style="margin-top:0.5rem;"><summary style="cursor:pointer; color:#2471A3; font-size:0.8rem;">Show PMIDs</summary><div style="margin-top:0.3rem; font-size:0.78rem; color:#555;">';
+    for (const [t, label] of _MIST_TYPES_D) { const set = byType[t]; if (!set || !set.size) continue; const list = [...set];
+        html += '<div style="margin:0.2rem 0;">' + copyLink(list) + ' — <a href="' + pubmedSet(list) + '" target="_blank" style="color:#2471A3;">' + esc(label) + '</a>: ' + pmidRefs(list) + '</div>'; }
+    html += '</div></details>';
+    return html;
+}
 function buildChordDiagram() {
     const v = dimerPairResult;
     const card = document.getElementById('chord-card');
