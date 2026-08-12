@@ -744,6 +744,11 @@ async function searchGene() {
         // Step 3: Parse the results
         const partners = parseOrthoSummary(resultHtml, query);
 
+        if (partners === null) {
+            statusEl.innerHTML = 'Gene-name search is temporarily unavailable while FlyPredictome updates its data format. Paste a prediction <b>details-page URL</b>, or use an example, to analyze a pair.';
+            statusEl.style.color = '#c0392b';
+            return;
+        }
         if (partners.length === 0) {
             statusEl.textContent = 'No interaction partners found for ' + query + '.';
             statusEl.style.color = '#c0392b';
@@ -787,7 +792,9 @@ function parseOrthoSummary(html, querySymbol) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
     const table = doc.getElementById('fam_summary_table');
-    if (!table) return [];
+    // #fam_summary_table was removed in the FlyPredictome redesign; name-search is pending a
+    // lightweight partner-list API. Signal that (null) rather than a misleading "no partners" ([]).
+    if (!table) return null;
 
     const rows = table.querySelectorAll('tbody tr');
     const partners = [];
@@ -1079,7 +1086,10 @@ async function fetchViaProxy(url) {
 function parseTable(html) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
-    const table = doc.getElementById('rank_table');
+    // Redesigned FlyPredictome details page renders ranks in a DataTables table (#rank_table_test);
+    // its <thead> prepends a compact display header before the full data header, so cells align with
+    // the LAST N headers. Columns are read by name.
+    const table = doc.getElementById('rank_table_test') || doc.getElementById('rank_table');
     if (!table) return null;
 
     const headers = [];
@@ -1089,9 +1099,11 @@ function parseTable(html) {
     table.querySelectorAll('tbody tr').forEach(tr => {
         const cells = [];
         tr.querySelectorAll('td').forEach(td => cells.push(td.textContent.trim()));
-        if (cells.length > 0) {
+        if (cells.length >= 10) {
+            const hdr = headers.length > cells.length ? headers.slice(headers.length - cells.length) : headers;
             const row = {};
-            cells.forEach((val, i) => { if (i < headers.length) row[headers[i]] = val; });
+            cells.forEach((val, i) => { if (i < hdr.length) row[hdr[i]] = val; });
+            if (!row['Rank'] && row['Rank/Model']) row['Rank'] = String(row['Rank/Model']).split('/')[0].trim();
             row._cLIR_A = parseResidueRanges(row['cLIR Indice A'] || '');
             row._cLIR_B = parseResidueRanges(row['cLIR Indice B'] || '');
             row._LIR_A = parseResidueRanges(row['LIR Indice A'] || '');
@@ -1100,26 +1112,25 @@ function parseTable(html) {
         }
     });
 
-    // Extract PDB URL
+    // Extract PDB URL — prefer the full /tools/fly_predictome/web/ path (bare /colabfold-output/ 404s).
     let pdbUrl = '';
-    const pdbMatch = html.match(/["']([^"']*colabfold-output[^"']*\.pdb)["']/);
+    const pdbMatch = html.match(/["'](\/tools\/fly_predictome\/web\/colabfold-output\/[^"']*\.pdb)["']/)
+                  || html.match(/["']([^"']*colabfold-output[^"']*\.pdb)["']/);
     if (pdbMatch) {
         pdbUrl = pdbMatch[1];
         if (!pdbUrl.startsWith('http')) pdbUrl = 'https://www.flyrnai.org' + pdbUrl;
     }
 
-    // Extract NCBI gene IDs
-    const ncbi1El = doc.querySelector('.ncbi_gene_id1');
-    const ncbi2El = doc.querySelector('.ncbi_gene_id2');
-    let ncbiGeneId1 = ncbi1El ? ncbi1El.textContent.trim() : '';
-    let ncbiGeneId2 = ncbi2El ? ncbi2El.textContent.trim() : '';
+    // NCBI gene IDs are now table columns; fall back to the old class/regex probe.
+    let ncbiGeneId1 = (rows[0] && (rows[0]['ncbi_gene_id1'] || '').trim()) || '';
+    let ncbiGeneId2 = (rows[0] && (rows[0]['ncbi_gene_id2'] || '').trim()) || '';
     if (!ncbiGeneId1) {
-        const m1 = html.match(/ncbi_gene_id1[^>]*>\s*(\d+)/);
-        if (m1) ncbiGeneId1 = m1[1];
+        const ncbi1El = doc.querySelector('.ncbi_gene_id1'); ncbiGeneId1 = ncbi1El ? ncbi1El.textContent.trim() : '';
+        if (!ncbiGeneId1) { const m1 = html.match(/ncbi_gene_id1[^>]*>\s*(\d+)/); if (m1) ncbiGeneId1 = m1[1]; }
     }
     if (!ncbiGeneId2) {
-        const m2 = html.match(/ncbi_gene_id2[^>]*>\s*(\d+)/);
-        if (m2) ncbiGeneId2 = m2[1];
+        const ncbi2El = doc.querySelector('.ncbi_gene_id2'); ncbiGeneId2 = ncbi2El ? ncbi2El.textContent.trim() : '';
+        if (!ncbiGeneId2) { const m2 = html.match(/ncbi_gene_id2[^>]*>\s*(\d+)/); if (m2) ncbiGeneId2 = m2[1]; }
     }
 
     // Extract PAE image URL
@@ -1782,7 +1793,7 @@ async function fetchRankPdb(rankNum) {
         }
         const rankHtml = await fetchTextViaProxy(rankUrl);
         if (rankHtml) {
-            const pdbMatch = rankHtml.match(/["']([^"']*colabfold-output[^"']*\.pdb)["']/);
+            const pdbMatch = rankHtml.match(/["'](\/tools\/fly_predictome\/web\/colabfold-output\/[^"']*\.pdb)["']/) || rankHtml.match(/["']([^"']*colabfold-output[^"']*\.pdb)["']/);
             if (pdbMatch) {
                 let pdbUrl = pdbMatch[1];
                 if (!pdbUrl.startsWith('http')) pdbUrl = 'https://www.flyrnai.org' + pdbUrl;
