@@ -46,6 +46,34 @@ many **structures** to include — the CSV is unchanged either way:
 └── pae_4.png
 ```
 
+**(c) No structure — scores-only (for very large projects; smallest possible per prediction):**
+
+When a project has thousands — or hundreds of thousands — of predictions, even one structure
+each adds up. You can ship the `lis.csv` **alone** (optionally with PAE images), with **no
+`.cif`/`.pdb` at all**:
+
+```
+<name>.zip
+├── manifest.json     # optional; if present, omit `structure`
+└── lis.csv           # lis.py output — ALL models' scores + interface residues
+```
+
+— or even a bare `lis.csv` (no zip, no manifest). LIVIA then enters **scores-only mode**:
+
+- **Renders** — the full score analysis (every metric: iLIS / iLISA / iLIA / ipTM / ipSAE /
+  actifpTM / LIS / cLIS / LIpLDDT …) and the interface residues (LIR/cLIR) drawn as the
+  **linear-map bars** and **chord arcs**. Chain names + lengths come straight from the CSV
+  (`chain_i`/`chain_j`, `len_i`/`len_j`).
+- **Omits** everything that needs 3D coordinates or sequences: the connecting **contact lines**
+  (the maps show bars/arcs only — with no PDB there is no way to know which residues touch),
+  the **3D viewer**, the **sequence viewer**, the **PAE** cards, **chain-identity / MIST**, and
+  the combined all-models chord.
+
+This is the size/fidelity floor: you keep the numbers and the interface footprint and drop
+every coordinate-dependent view. Detection is automatic — a signature `lis.csv` with **no
+structure and no numeric PAE** → scores-only. Ship a structure and you get the full §1a/§1b
+bundle (every figure) instead.
+
 Typical sizes: `lis.csv` tens of KB (holds every model), each structure 1–3 MB, `pae.png` ~50 KB.
 The numeric PAE — the thing you are dropping — was the multi-tens-of-MB part. Example (PRC2, 5
 models): full **17 MB** → one-structure **0.5 MB** → five-structure **1.7 MB**.
@@ -90,6 +118,11 @@ same structure(s) lis.py read (see §9). **Do not edit or reformat the CSV.**
 
 All five models' **scores** always come from the CSV. The only choice here is how much
 **geometry** to ship — a size/fidelity trade-off:
+
+> **This step is optional.** Ship **no** structure and LIVIA renders a scores-only bundle
+> (§1c): every score + the LIR/cLIR interface residues as bars/arcs, but no 3D viewer, no
+> contact lines, and no sequence/PAE/MIST views. For a huge catalogue that trade can be worth
+> it; for anything you want to inspect in 3D, keep at least one structure.
 
 **One structure (smallest — the usual choice).** Copy out a single structure — the top-ranked
 model (rank 1; for AF3 `*_model_0.cif`), or the highest-`iLISA` model in `lis.csv`. Every
