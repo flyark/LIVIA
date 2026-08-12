@@ -921,6 +921,7 @@ async function handleInputFiles(fileList) {
     if (uniState.loadedImages) { for (const u of Object.values(uniState.loadedImages)) { try { URL.revokeObjectURL(u); } catch (e) {} } }
     uniState.loadedImages = {};
     uniState.lightweight = null;
+    uniState.noStructure = false;
     uniState.manifestChains = null;
     uniState.chainAcc = null;   // per-chain UniProt accession from the bundle pair_id (skips BLAST on Identify)
     // Clear resolved chain identities so the previous prediction's labels don't leak into this one
@@ -3341,8 +3342,8 @@ function detectLightweightBundle() {
     };
 
     const build = (csvKey, repBase, manifest) => {
-        const rep = allStructs[repBase];
-        if (!csvKey || !rep) return null;
+        if (!csvKey) return null;
+        const rep = repBase ? allStructs[repBase] : null;   // scores-only bundle (lis.py CSV, no structure) → rep null
         // Per-model structure map from the manifest ({model: filename}) — how a bundle whose CSV
         // structure_file names don't match the shipped (renamed/gzipped) files bridges them.
         const structsByModel = {};
@@ -3352,7 +3353,8 @@ function detectLightweightBundle() {
         if (manifest && manifest.pae_images) for (const [m, fn] of Object.entries(manifest.pae_images)) { const u = pickImage(fn); if (u) paeByModel[String(m)] = u; }
         return {
             csvPath: csvKey, csvText: files[csvKey],
-            structText: rep.text, structName: rep.name, structFormat: rep.format,
+            structText: rep ? rep.text : null, structName: rep ? rep.name : null, structFormat: rep ? rep.format : null,
+            noStructure: !rep,
             structsByBase: allStructs, structsByModel,
             paeImageUrl: pickImage(manifest && manifest.pae_image), paeByModel,
             manifest: manifest || null,
@@ -3380,12 +3382,11 @@ function detectLightweightBundle() {
     //    (e.g. a Boltz export) on the normal compute path instead of hijacking it here.
     const csvKey = sigCsvKey();
     if (!csvKey) return null;
-    const stKey = structKey();
-    if (!stKey) return null;
     const hasNumericPae = keys.some(k => /\.(npz|npy)$/i.test(k))
         || keys.some(k => /\.json$/i.test(k) && /(predicted_aligned_error|"pae")/.test(files[k] || ''));
     if (hasNumericPae) return null;
-    return build(csvKey, norm(stKey), null);
+    const stKey = structKey();   // structure is optional — a lis.py CSV alone → scores-only bundle
+    return build(csvKey, stKey ? norm(stKey) : null, null);
 }
 
 // Parse a lis.py CSV. Fields may be double-quoted and contain commas (the "[1-4,10-11,13]"
@@ -3574,15 +3575,32 @@ async function processPrecomputedBundle() {
         if (v3frame) v3frame.src = 'about:blank';
     }
 
-    // Chain layout from the representative structure (chains are identical across models).
+    // Chain layout — from the representative structure, or (scores-only bundle) from the lis.py CSV.
     const structText = lw.structText;
-    const fmt = lw.structFormat;
+    const fmt = lw.structFormat || 'cif';
     const structsByBase = lw.structsByBase || {};
     const structsByModel = lw.structsByModel || {};
-    const chainInfo = getChainsFromStructure(structText, fmt);
-    const chainNames = chainInfo.names;
-    const sizes = chainInfo.sizes;
-    const types = chainInfo.types || chainNames.map(() => 'protein');
+    uniState.noStructure = !!lw.noStructure;
+    let chainInfo, chainNames, sizes, types;
+    if (lw.noStructure) {
+        // No coordinates shipped: derive chain names + lengths straight from the CSV (chain_i/j, len_i/j).
+        // Everything that needs 3D (the connecting contact lines, the 3D viewer, sequences) is skipped;
+        // scores + LIR/cLIR interface residues still render as bars/arcs.
+        const seen = new Map();
+        for (const r of parseLisCsv(lw.csvText)) {
+            if (r.chain_i && !seen.has(r.chain_i)) seen.set(r.chain_i, parseInt(r.len_i, 10) || 0);
+            if (r.chain_j && !seen.has(r.chain_j)) seen.set(r.chain_j, parseInt(r.len_j, 10) || 0);
+        }
+        chainNames = [...seen.keys()];
+        sizes = chainNames.map(n => seen.get(n));
+        types = chainNames.map(() => 'protein');
+        chainInfo = { names: chainNames, sizes, types, ptm: {} };
+    } else {
+        chainInfo = getChainsFromStructure(structText, fmt);
+        chainNames = chainInfo.names;
+        sizes = chainInfo.sizes;
+        types = chainInfo.types || chainNames.map(() => 'protein');
+    }
     const nTotal = sizes.reduce((a, b) => a + b, 0);
 
     // Parse CSV → group rows by model
@@ -3668,7 +3686,7 @@ async function processPrecomputedBundle() {
     uniState.avgResults = uniState.results;
 
     const label = lw.name || (lw.structName ? lw.structName.replace(/\.(pdb|cif)$/i, '') : 'Precomputed bundle');
-    setStatus(`Done! Processed precomputed bundle — ${chainNames.length} chains, ${modelKeys.length} model${modelKeys.length > 1 ? 's' : ''} (scores from lis.py).`, 'success');
+    setStatus(`Done! Processed ${lw.noStructure ? 'scores-only' : 'precomputed'} bundle — ${chainNames.length} chains, ${modelKeys.length} model${modelKeys.length > 1 ? 's' : ''} (scores from lis.py${lw.noStructure ? '; no structure — interface residues only, no 3D / contact lines' : ''}).`, 'success');
     displayResults(uniState.results, label + ' (precomputed)');
 }
 
@@ -3956,7 +3974,7 @@ function displayResults(results, jobName) {
     document.getElementById('results').classList.add('active');
     setupMultiChainColors();
     renderChainToggleBar();
-    { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; uniState.chainTedDomains = {}; uniState.chainDomainInfo = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; const _mc = document.getElementById('mist-card'); if (_mc){ _mc.style.display = 'none'; const _mo = document.getElementById('mist-content'); if (_mo) _mo.innerHTML = ''; } if (typeof identifyChains === 'function') setTimeout(identifyChains, 0); } _cic.style.display = ''; } else { _cic.style.display = 'none'; const _mc = document.getElementById('mist-card'); if (_mc) _mc.style.display = 'none'; } } }
+    { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2 && !uniState.noStructure){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; uniState.chainTedDomains = {}; uniState.chainDomainInfo = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; const _mc = document.getElementById('mist-card'); if (_mc){ _mc.style.display = 'none'; const _mo = document.getElementById('mist-content'); if (_mo) _mo.innerHTML = ''; } if (typeof identifyChains === 'function') setTimeout(identifyChains, 0); } _cic.style.display = ''; } else { _cic.style.display = 'none'; const _mc = document.getElementById('mist-card'); if (_mc) _mc.style.display = 'none'; } } }
     drawAllScoreMatrices();
     if (uniState.lightweight) {
         // Lightweight bundle has no numeric PAE — hide the PAE/LIS/cLIS heatmap cards and
@@ -7122,46 +7140,38 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
     const v = uniState.results[pairKey];
     if (!v || !canvas) return false;
 
-    // Get structure coordinates
-    const seedVal = document.getElementById('seed-select')?.value || '0';
-    const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
-    const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
-    if (!structText) return false;
-
-    const coords = parseStructureCoords(structText, uniState.structureFormat);
-    // Build per-chain coordinate maps
-    const chainCoordMap = new Map();
-    for (const c of coords) {
-        const key = c.chain;
-        if (!chainCoordMap.has(key)) chainCoordMap.set(key, new Map());
-        chainCoordMap.get(key).set(c.resnum, c);
-    }
-
-    const coordA = chainCoordMap.get(v.ci);
-    const coordB = chainCoordMap.get(v.cj);
-    // Apply Min segment filter to both chains (cLIR restricted to filtered LIR)
+    // Min-segment filter (cLIR restricted to filtered LIR) — needs no coordinates
     const lirI_f = filterSmallSegments(v.lirI);
     const lirJ_f = filterSmallSegments(v.lirJ);
     const clirI_f = new Set([...v.clirI].filter(r => lirI_f.has(r)));
     const clirJ_f = new Set([...v.clirJ].filter(r => lirJ_f.has(r)));
-    if (!coordA || !coordB || clirI_f.size === 0 || clirJ_f.size === 0) return false;
+    if (clirI_f.size === 0 || clirJ_f.size === 0) return false;   // no interface residues → skip this pair
 
-    // Find contact pairs (cLIR_A near cLIR_B within 8 Angstrom)
-    const contactDist = 8;
-    const contacts = [];
-    for (const resA of clirI_f) {
-        const cA = coordA.get(resA);
-        if (!cA) continue;
-        for (const resB of clirJ_f) {
-            const cB = coordB.get(resB);
-            if (!cB) continue;
-            const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
-            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-            if (dist < contactDist) contacts.push({ resA, resB, dist });
+    // The connecting contact lines need 3D coordinates. A scores-only bundle (no structure) draws the
+    // bars + domain tracks from the CSV's residue indices and simply omits the lines.
+    let contacts = [];
+    if (!uniState.noStructure) {
+        const seedVal = document.getElementById('seed-select')?.value || '0';
+        const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
+        const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
+        if (!structText) return false;
+        const coords = parseStructureCoords(structText, uniState.structureFormat);
+        const chainCoordMap = new Map();
+        for (const c of coords) { const key = c.chain; if (!chainCoordMap.has(key)) chainCoordMap.set(key, new Map()); chainCoordMap.get(key).set(c.resnum, c); }
+        const coordA = chainCoordMap.get(v.ci), coordB = chainCoordMap.get(v.cj);
+        if (!coordA || !coordB) return false;
+        const contactDist = 8;
+        for (const resA of clirI_f) {
+            const cA = coordA.get(resA); if (!cA) continue;
+            for (const resB of clirJ_f) {
+                const cB = coordB.get(resB); if (!cB) continue;
+                const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
+                const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                if (dist < contactDist) contacts.push({ resA, resB, dist });
+            }
         }
+        if (contacts.length === 0) return false;   // structure present but no contacts within 8 Å → skip
     }
-
-    if (contacts.length === 0) return false;
 
     // ── Panel options ──
     const swap = !!(document.getElementById('contact-swap-ab') && document.getElementById('contact-swap-ab').checked);
@@ -7285,7 +7295,9 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
     }
 
     ctx.restore();
-    if (countEl) countEl.textContent = `${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`;
+    if (countEl) countEl.textContent = uniState.noStructure
+        ? `${clirI_f.size} + ${clirJ_f.size} cLIR interface residues (no structure in bundle \u2014 contact lines omitted)`
+        : `${contacts.length} cLIR contact pairs (C\u03B2 < 8 \u00C5)`;
     renderContactHtmlLegend([top, bot], DOM_FILL, TED_FILL, legendEl);   // clickable HTML legend below
     return true;
 }
@@ -7723,21 +7735,22 @@ function buildChordDiagram() {
     const nc = chainNames.length;
     if (nc < 2) { card.style.display = 'none'; return; }
 
-    // Get structure coordinates for the selected model
-    const seedVal = document.getElementById('seed-select')?.value || '0';
-    const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
-    const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
-    if (!structText) { card.style.display = 'none'; return; }
-
-    const coords = parseStructureCoords(structText, uniState.structureFormat);
+    // Structure coordinates for the selected model. A scores-only bundle has none: the chord then draws
+    // the arcs (LIR/cLIR bands) from the CSV residue sets and omits the connecting chords (no coords).
     const chainCoordMap = new Map();
-    for (const c of coords) {
-        if (!chainCoordMap.has(c.chain)) chainCoordMap.set(c.chain, new Map());
-        chainCoordMap.get(c.chain).set(c.resnum, c);
+    let chainSeqs = new Map();
+    if (!uniState.noStructure) {
+        const seedVal = document.getElementById('seed-select')?.value || '0';
+        const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
+        const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
+        if (!structText) { card.style.display = 'none'; return; }
+        const coords = parseStructureCoords(structText, uniState.structureFormat);
+        for (const c of coords) {
+            if (!chainCoordMap.has(c.chain)) chainCoordMap.set(c.chain, new Map());
+            chainCoordMap.get(c.chain).set(c.resnum, c);
+        }
+        chainSeqs = uniState.structureFormat === 'pdb' ? parsePdbSequence(structText) : parseCifSequence(structText);   // for ion names
     }
-
-    // Get chain sequences (for ion names)
-    const chainSeqs = uniState.structureFormat === 'pdb' ? parsePdbSequence(structText) : parseCifSequence(structText);
 
     ensureUniChainPlddt();   // per-residue pLDDT per chain (selected model B-factors) → chord ring + linear track
     { const _lg = document.getElementById('chord-plddt-legend'); if (_lg) { const _has = uniShowChordPlddt && Object.values(uniState.chainPlddt || {}).some(a => a && a.some(v => v != null)); _lg.innerHTML = LiviaMaps.plddtLegendHtml(); _lg.style.display = _has ? 'flex' : 'none'; } }
@@ -7799,8 +7812,9 @@ function buildChordDiagram() {
     window.__chordDraw = (c) => { c.width = size * S; c.height = size * S; drawChord(c.getContext('2d'), size, chainNames, chainSizes, chainTypes, chainSeqs, chainCoordMap, contactPairs, chainColors, selLIR, selCLIR, chainLightColors); };
     if (canvas.parentElement && !canvas.parentElement.querySelector('.export-bar')){ addExportBar(canvas.parentElement, 'chord_diagram', () => canvas, () => svgFromDraw(window.__chordDraw)); }
 
-    // --- Draw combined all-models chord ---
-    const hasMultipleModels = uniState.modelPairs && uniState.modelPairs.length > 1;
+    // --- Draw combined all-models chord --- (skipped in a scores-only bundle: it aggregates contacts
+    // across each model's coordinates, which a structure-less bundle doesn't have)
+    const hasMultipleModels = uniState.modelPairs && uniState.modelPairs.length > 1 && !uniState.noStructure;
     if (chordAllWrap) chordAllWrap.style.display = hasMultipleModels ? '' : 'none';
 
     if (hasMultipleModels && canvasAll) {
