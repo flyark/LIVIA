@@ -5316,7 +5316,8 @@ function _renderMist(withId, subs, pairMap, esc){
     }
     // overflow:hidden (not auto) — we never want a horizontal scrollbar; _layoutMistHeatmaps shrinks
     // --cs so even a single very wide heatmap fits the card. flex-wrap picks 4-up / 2×2 by width.
-    let html = '<div data-mist-wrap data-natcs="' + cs + '" style="display:flex; flex-wrap:wrap; align-items:flex-start; overflow:hidden; --cs:' + cs + 'px;">' + _MIST_TYPES.map(([t, label]) => heatmap(t, label)).join('') + '</div>';
+    let html = '<div style="font-size:0.78rem; color:#777; margin:0 0 0.5rem;">Each cell is the number of reported papers for that subunit pair (darker = more). <b style="color:#2471A3;">Click a cell to open those papers in PubMed</b>, or expand “Show PMIDs” below to copy the IDs.</div>';
+    html += '<div data-mist-wrap data-natcs="' + cs + '" style="display:flex; flex-wrap:wrap; align-items:flex-start; overflow:hidden; --cs:' + cs + 'px;">' + _MIST_TYPES.map(([t, label]) => heatmap(t, label)).join('') + '</div>';
     // PMIDs — collapsed by default so the card stays compact; click a count above to open all papers in
     // PubMed, or expand here to read/copy the raw PMIDs (each links to its paper; Copy grabs them all).
     html += '<details style="margin-top:0.5rem;"><summary style="cursor:pointer; color:#2471A3; font-size:0.8rem;">Show PMIDs</summary><div style="margin-top:0.3rem; font-size:0.78rem; color:#555;">';
