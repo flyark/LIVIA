@@ -745,7 +745,7 @@ async function searchGene() {
         const partners = parseOrthoSummary(resultHtml, query);
 
         if (partners === null) {
-            statusEl.innerHTML = 'Gene-name search is temporarily unavailable while FlyPredictome updates its data format. Paste a prediction <b>details-page URL</b>, or use an example, to analyze a pair.';
+            statusEl.innerHTML = 'Gene-name search is temporarily unavailable while FlyPredictome updates its data format. Open the <a href="javascript:void(0)" onclick="switchTab(\'url\')" style="color:#2471A3; font-weight:600;">Paste URL</a> tab to analyze a pair from a prediction details-page URL (ready examples are there).';
             statusEl.style.color = '#c0392b';
             return;
         }
@@ -1104,6 +1104,7 @@ function parseTable(html) {
             const row = {};
             cells.forEach((val, i) => { if (i < hdr.length) row[hdr[i]] = val; });
             if (!row['Rank'] && row['Rank/Model']) row['Rank'] = String(row['Rank/Model']).split('/')[0].trim();
+            if (!/^\d+$/.test(String(row['Rank'] || '').trim())) return;   // skip FlyPredictome's own "Average" summary row — LIVIA computes its own Avg
             row._cLIR_A = parseResidueRanges(row['cLIR Indice A'] || '');
             row._cLIR_B = parseResidueRanges(row['cLIR Indice B'] || '');
             row._LIR_A = parseResidueRanges(row['LIR Indice A'] || '');
