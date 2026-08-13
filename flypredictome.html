@@ -755,12 +755,10 @@ async function searchGene(presetFbgn) {
             }
         } catch (e) { /* non-critical */ }
 
-        // Step 3: Fetch famdb_summary to get all partners
-        const summaryResp = await fetchTextViaProxy('https://www.flyrnai.org/tools/fly_predictome/web/famdb_summary/' + fbgnId + '/');
-        if (!summaryResp) throw new Error('Could not fetch interaction data.');
-
-        // Step 4: Parse the HTML table
-        const partners = parseFamdbSummary(summaryResp, fbgnId, geneSymbol);
+        // Step 3: Fetch the compact partner list from the fpSummary worker route (server-side extract of
+        // the big famdb_summary page). Null → endpoint not deployed / free-tier CPU limit / error → note.
+        const summaryData = await fetchFpSummary(fbgnId);
+        const partners = partnersFromFpSummary(summaryData, fbgnId, geneSymbol);
 
         if (partners === null) {
             statusEl.innerHTML = 'Gene-name search is temporarily unavailable while FlyPredictome updates its data format. Open the <a href="javascript:void(0)" onclick="switchTab(\'url\')" style="color:#2471A3; font-weight:600;">Paste URL</a> tab to analyze a pair from a prediction details-page URL (ready examples are there).';
@@ -944,9 +942,9 @@ async function searchGenePair() {
 
         statusEl.textContent = 'Found: ' + geneA.symbol + ' (' + geneA.fbgn + ') & ' + geneB.symbol + ' (' + geneB.fbgn + '). Searching interaction...';
 
-        // Step 2: Fetch famdb_summary and canonical lengths in parallel
-        const [summaryResp, canonicalA, canonicalB] = await Promise.all([
-            fetchTextViaProxy('https://www.flyrnai.org/tools/fly_predictome/web/famdb_summary/' + geneA.fbgn + '/'),
+        // Step 2: Fetch the partner list (fpSummary worker route) + canonical lengths in parallel
+        const [summaryData, canonicalA, canonicalB] = await Promise.all([
+            fetchFpSummary(geneA.fbgn),
             fetchTextViaProxy('https://www.flyrnai.org/tools/fly_predictome/web/get_protein_info/' + geneA.fbgn).then(t => {
                 const arr = parseFpJson(t);
                 return arr ? Math.max(...arr.map(i => parseInt(i.seq?.len) || 0)) : 0;
@@ -956,9 +954,8 @@ async function searchGenePair() {
                 return arr ? Math.max(...arr.map(i => parseInt(i.seq?.len) || 0)) : 0;
             }).catch(() => 0)
         ]);
-        if (!summaryResp) throw new Error('Could not fetch interaction data.');
 
-        const partners = parseFamdbSummary(summaryResp, geneA.fbgn, geneA.symbol);
+        const partners = partnersFromFpSummary(summaryData, geneA.fbgn, geneA.symbol);
         if (partners === null) {
             statusEl.innerHTML = 'Gene-name search is temporarily unavailable while FlyPredictome updates its data format. Open the <a href="javascript:void(0)" onclick="switchTab(\'url\')" style="color:#2471A3; font-weight:600;">Paste URL</a> tab to analyze a pair from a prediction details-page URL (ready examples are there).';
             statusEl.style.color = '#c0392b';
@@ -1066,6 +1063,56 @@ function displayPairResults(matches) {
 
     tableWrap.appendChild(table);
     container.appendChild(tableWrap);
+}
+
+// Fast partner list — from the CORS worker's fpSummary route, which extracts FlyPredictome's ~80 MB
+// summary page server-side and returns compact JSON ({cols, rows}). Returns the JSON, or null (endpoint
+// absent / free-tier CPU limit / error / empty) so the caller can fall back to the "search unavailable" note.
+const FP_SUMMARY_PROXY = 'https://livia-proxy.flyark.workers.dev/?fpSummary=';
+async function fetchFpSummary(fbgn) {
+    try {
+        const resp = await fetch(FP_SUMMARY_PROXY + encodeURIComponent(fbgn), { signal: AbortSignal.timeout(60000) });
+        if (!resp.ok) return null;
+        const d = await resp.json();
+        if (!d || !Array.isArray(d.rows) || !d.rows.length || !d.colsMatched) return null;
+        return d;
+    } catch (e) { return null; }
+}
+
+// Build LIVIA partner objects from the fpSummary JSON. Same shape parseFamdbSummary produced from the
+// scraped table, so the rest of the search flow is unchanged. Returns null on an unexpected shape.
+function partnersFromFpSummary(data, queryFbgn, querySymbol) {
+    if (!data || !Array.isArray(data.cols) || !Array.isArray(data.rows)) return null;
+    const ix = {}; data.cols.forEach((c, i) => { ix[c] = i; });
+    if (['fbgn1', 'fbgn2', 'gene_symbol1', 'gene_symbol2', 'directory_name'].some(k => ix[k] === undefined)) return null;
+    const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+    const int = (v) => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
+    const q = (querySymbol || '').toLowerCase();
+    const partners = [];
+    for (const r of data.rows) {
+        const g = (k) => (ix[k] !== undefined ? r[ix[k]] : '');
+        const fbgn1 = g('fbgn1'), fbgn2 = g('fbgn2'), sym1 = g('gene_symbol1'), sym2 = g('gene_symbol2');
+        const ncbi1 = g('ncbi_gene_id1'), ncbi2 = g('ncbi_gene_id2'), dirName = g('directory_name');
+        if (!dirName) continue;
+        const isQuery1 = (fbgn1 === queryFbgn) || (sym1 && sym1.toLowerCase() === q);
+        partners.push({
+            sym1, sym2, fbgn1, fbgn2, ncbi1, ncbi2,
+            partnerSymbol: isQuery1 ? sym2 : sym1,
+            partnerFbgn: isQuery1 ? fbgn2 : fbgn1,
+            partnerNcbi: isQuery1 ? ncbi2 : ncbi1,
+            ilisAvg: num(g('iLIS_avg')), ilisBest: num(g('iLIS_best')),
+            lisAvg: num(g('LIS_avg')), clisAvg: num(g('cLIS_avg')),
+            iptmAvg: num(g('ipTM_avg')), iptmBest: num(g('ipTM_best')),
+            lirAvg: num(g('LIR_avg')), clirAvg: num(g('cLIR_avg')), liaAvg: num(g('LIA_avg')),
+            lenA: int(g('Protein_Len_A')), lenB: int(g('Protein_Len_B')),
+            mistPPI: int(g('fPPI')), mistGI: int(g('fGI')), mistInterologPPI: int(g('iPPI')), mistInterologGI: int(g('iGI')),
+            dirName,
+            // The scraped path (famdb_details/<a>/<b>/<SET>/) still resolves in generate(); build it from fbgns.
+            detailUrl: 'https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/' + encodeURIComponent(fbgn1) + '/' + encodeURIComponent(fbgn2) + '/' + encodeURIComponent(dirName) + '/',
+        });
+    }
+    partners.sort((a, b) => b.ilisBest - a.ilisBest);
+    return partners;
 }
 
 function parseFamdbSummary(html, queryFbgn, querySymbol) {
@@ -2194,7 +2241,13 @@ async function queryMIST() {
 async function fetchRankPdb(rankNum) {
     if (flyPdbPerRank[rankNum] || !flyBaseUrl) return false;
     try {
-        const rankUrl = flyBaseUrl.replace('famdb_details/', 'famdb_details_with_rank/').replace(/\/$/, '') + '/' + rankNum;
+        // Build the per-rank page URL from either the old famdb_details/X/Y/SET/ or the new
+        // famdb_details_all/X/Y/SET/taxon/taxon/ shape → famdb_details_with_rank/X/Y/SET/{rank}.
+        const rankUrl = flyBaseUrl
+            .replace('famdb_details_all/', 'famdb_details_with_rank/')
+            .replace('famdb_details/', 'famdb_details_with_rank/')
+            .replace(/\/\d+\/\d+\/?$/, '/')   // drop the /taxon/taxon/ tail (famdb_details_all only)
+            .replace(/\/$/, '') + '/' + rankNum;
         const rankHtml = await fetchTextViaProxy(rankUrl);
         if (rankHtml) {
             const pdbMatch = rankHtml.match(/["'](\/tools\/fly_predictome\/web\/colabfold-output\/[^"']*\.pdb)["']/) || rankHtml.match(/["']([^"']*colabfold-output[^"']*\.pdb)["']/);
@@ -2636,7 +2689,7 @@ async function fetchFlyDomains(chainSeqs, urlInput) {
     const symbols = [row0?.['Symbol 1'] || '', row0?.['Symbol 2'] || ''];
 
     // Also extract identifiers from URL as fallback
-    const urlMatch = (urlInput || '').match(/famdb_details(?:_ortho)?\/([^/]+)\/([^/]+)\//);
+    const urlMatch = (urlInput || '').match(/famdb_details(?:_all)?(?:_ortho)?\/([^/]+)\/([^/]+)\//);
     const urlIds = urlMatch ? [urlMatch[1], urlMatch[2]] : ['', ''];
     // Detect if ortho (non-fly): URL IDs like AKT1_HUMAN contain underscore with species
     const isOrtho = (urlInput || '').includes('famdb_details_ortho');
