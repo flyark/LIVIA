@@ -155,18 +155,18 @@
         <div id="url-panel">
             <div class="url-row">
                 <input type="text" id="url-input"
-                       placeholder="https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_ortho/..."
+                       placeholder="https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/.../9606/9606/"
                        value="">
                 <button class="btn btn-primary" id="btn-generate" onclick="generate()">Generate</button>
             </div>
             <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.5rem; align-items:center;">
                 <span style="font-size:0.8rem; color:#888;">Examples:</span>
-                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_ortho/P24941/P20248/SET_183/';generate()">CDK2&ndash;CCNA2</button>
-                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_ortho/P53_HUMAN/MDM2_HUMAN/SET_393/';generate()">TP53&ndash;MDM2</button>
-                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_ortho/MK14_HUMAN/MKNK1_HUMAN/SET_259/';generate()">MAPK14&ndash;MKNK1</button>
-                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_ortho/P00519/P46108/SET_185/';generate()">ABL1&ndash;CRK</button>
-                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_ortho/P01106_HUMAN/DYR1A_HUMAN/SET_216/';generate()">DYRK1A&ndash;MYC</button>
-                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_ortho/AURKA_HUMAN/ATF5_HUMAN/SET_2272/';generate()">AURKA&ndash;ATF5</button>
+                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/P24941/P20248/SET_183/9606/9606/';generate()">CDK2&ndash;CCNA2</button>
+                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/P53_HUMAN/MDM2_HUMAN/SET_393/9606/9606/';generate()">TP53&ndash;MDM2</button>
+                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/MK14_HUMAN/MKNK1_HUMAN/SET_259/9606/9606/';generate()">MAPK14&ndash;MKNK1</button>
+                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/P00519/P46108/SET_185/9606/9606/';generate()">ABL1&ndash;CRK</button>
+                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/P01106_HUMAN/DYR1A_HUMAN/SET_216/9606/9606/';generate()">DYRK1A&ndash;MYC</button>
+                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/AURKA_HUMAN/ATF5_HUMAN/SET_2272/9606/9606/';generate()">AURKA&ndash;ATF5</button>
             </div>
             <div id="fetch-status" class="fetch-status"></div>
             <textarea id="html-input" style="display:none"></textarea>
@@ -665,7 +665,7 @@ async function searchGene() {
                 const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(30000) });
                 if (resp.ok) {
                     const text = await resp.text();
-                    if (text.includes('fam_summary_table')) {
+                    if (text.includes('famdb_summary_results') || text.includes('fam_summary_table')) {
                         resultHtml = text;
                     } else {
                         // Check if it's a JSON error
@@ -714,7 +714,7 @@ async function searchGene() {
                 '<div style="flex:1;">' +
                 '<div style="font-weight:600; color:#1a5276; margin-bottom:0.3rem;">Paste URL here</div>' +
                 '<div class="url-row" style="margin:0;">' +
-                '<input type="text" id="inline-url-input" placeholder="https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_ortho/..." style="flex:1; padding:0.6rem 0.8rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.85rem;" onkeydown="if(event.key===\'Enter\'){var u=this.value.trim();if(u){document.getElementById(\'url-input\').value=u;switchTab(\'url\');generate();}}">' +
+                '<input type="text" id="inline-url-input" placeholder="https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/.../9606/9606/" style="flex:1; padding:0.6rem 0.8rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.85rem;" onkeydown="if(event.key===\'Enter\'){var u=this.value.trim();if(u){document.getElementById(\'url-input\').value=u;switchTab(\'url\');generate();}}">' +
                 '<button class="btn btn-primary" style="font-size:0.85rem;" onclick="var u=document.getElementById(\'inline-url-input\').value.trim();if(u){document.getElementById(\'url-input\').value=u;switchTab(\'url\');generate();}">Analyze</button>' +
                 '</div>' +
                 '</div></div>' +
@@ -768,96 +768,54 @@ async function searchGene() {
 }
 
 function parseOrthoSummary(html, querySymbol) {
-    // Ortho search table (#fam_summary_table) columns:
-    // 0: ID (link to famdb_details_ortho), 1: rank counts (hidden)
-    // 2: protein_1 (UniProt acc), 3: protein_2 (UniProt acc)
-    // 4: ncbi_gene_id1, 5: ncbi_gene_id2
-    // 6: gene_symbol1, 7: gene_symbol2
-    // 8: iLIS avg, 9: iLIS best
-    // 10: LIS avg, 11: LIS best
-    // 12: LIA avg, 13: LIA best
-    // 14: LIR avg, 15: LIR best
-    // 16: LIpLDDT avg, 17: LIpLDDT best
-    // 18: cLIS avg, 19: cLIS best
-    // 20: cLIA avg, 21: cLIA best
-    // 22: cLIR avg, 23: cLIR best
-    // 24: cLIpLDDT avg, 25: cLIpLDDT best
-    // 26: pLDDT avg, 27: pLDDT best
-    // 28: pTM avg, 29: pTM best
-    // 30: ipTM avg, 31: ipTM best
-    // 32: Confidence avg, 33: Confidence best
-    // 34: Protein Len A, 35: Protein Len B
-    // 36: directory name (hidden)
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const table = doc.getElementById('fam_summary_table');
-    // #fam_summary_table was removed in the FlyPredictome redesign; name-search is pending a
-    // lightweight partner-list API. Signal that (null) rather than a misleading "no partners" ([]).
+    // FlyPredictome redesign: the ortholog partner list is now #famdb_summary_results, a compact ~17-column
+    // DataTable (fewer columns than the fly summary — no separate fbgn/taxon/SET data cells). Everything
+    // needed to open a pair lives in the FIRST cell's detail link:
+    //   /tools/fly_predictome/web/famdb_details_all/<prot1>/<prot2>/SET_n/<taxon>/<taxon>/
+    // Visible metric columns: 0 partner(link), 1 rank/count, 2 iLIS_best, 3 iLIS_avg, 4 iLISA_best,
+    //   5 iLISA_avg, 6 ipSAE_best, 7 ipSAE_avg, 8 actifpTM_best, 9 actifpTM_avg, 10 ipTM_best, 11 ipTM_avg,
+    //   12 Length_ij ("lenQuery/lenPartner"), 13 fPPI, 14 fGI, 15 iPPI, 16 iGI (MIST).
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const table = doc.getElementById('famdb_summary_results') || doc.getElementById('fam_summary_table');
+    // If the table is gone entirely, signal that (null) rather than a misleading "no partners" ([]).
     if (!table) return null;
 
-    const rows = table.querySelectorAll('tbody tr');
+    const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+    const int = (v) => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
     const partners = [];
+    const seen = new Set();
 
-    for (const row of rows) {
+    for (const row of table.querySelectorAll('tbody tr')) {
         const cells = row.querySelectorAll('td');
-        if (cells.length < 36) continue;
-
-        try {
-            const sym1 = cells[6]?.textContent?.trim() || '';
-            const sym2 = cells[7]?.textContent?.trim() || '';
-            const prot1 = cells[2]?.textContent?.trim() || '';
-            const prot2 = cells[3]?.textContent?.trim() || '';
-            const ncbi1 = cells[4]?.textContent?.trim() || '';
-            const ncbi2 = cells[5]?.textContent?.trim() || '';
-
-            const ilisAvg = parseFloat(cells[8]?.textContent?.trim()) || 0;
-            const ilisBest = parseFloat(cells[9]?.textContent?.trim()) || 0;
-            const lisAvg = parseFloat(cells[10]?.textContent?.trim()) || 0;
-            const liaAvg = parseFloat(cells[12]?.textContent?.trim()) || 0;
-            const lirAvg = parseFloat(cells[14]?.textContent?.trim()) || 0;
-            const clisAvg = parseFloat(cells[18]?.textContent?.trim()) || 0;
-            const clirAvg = parseFloat(cells[22]?.textContent?.trim()) || 0;
-            const iptmAvg = parseFloat(cells[30]?.textContent?.trim()) || 0;
-            const iptmBest = parseFloat(cells[31]?.textContent?.trim()) || 0;
-            const lenA = parseInt(cells[34]?.textContent?.trim()) || 0;
-            const lenB = parseInt(cells[35]?.textContent?.trim()) || 0;
-
-            // Determine which is the partner — match by symbol or protein ID
-            const ql = querySymbol.toLowerCase();
-            const isQuery1 = sym1.toLowerCase() === ql || prot1.toLowerCase() === ql
-                || sym1.toLowerCase().startsWith(ql) || prot1.toLowerCase().startsWith(ql)
-                || ql.startsWith(sym1.toLowerCase());
-            const partnerSymbol = isQuery1 ? sym2 : sym1;
-            const partnerProt = isQuery1 ? prot2 : prot1;
-            const partnerNcbi = isQuery1 ? ncbi2 : ncbi1;
-            const queryNcbi = isQuery1 ? ncbi1 : ncbi2;
-
-            // Extract detail URL from link in first cell
-            const detailLink = cells[0]?.querySelector('a[href*="famdb_details_ortho"]');
-            let detailUrl = '';
-            if (detailLink) {
-                detailUrl = detailLink.getAttribute('href') || '';
-                if (!detailUrl.startsWith('http')) {
-                    detailUrl = 'https://www.flyrnai.org' + detailUrl;
-                }
-            }
-
-            partners.push({
-                sym1, sym2, prot1, prot2, ncbi1, ncbi2,
-                partnerSymbol, partnerProt, partnerNcbi, queryNcbi,
-                ilisAvg, ilisBest, lisAvg, clisAvg, iptmAvg, iptmBest,
-                lirAvg, clirAvg, liaAvg, lenA, lenB,
-                detailUrl
-            });
-        } catch (e) {
-            continue;
-        }
+        if (cells.length < 13) continue;
+        const link = cells[0].querySelector('a[href*="famdb_details"]');
+        if (!link) continue;
+        let detailUrl = link.getAttribute('href') || '';
+        if (!detailUrl) continue;
+        if (!detailUrl.startsWith('http')) detailUrl = 'https://www.flyrnai.org' + detailUrl;
+        // Pull accessions + SET out of the link (taxon suffix already in the URL, so it resolves as-is).
+        const m = detailUrl.match(/famdb_details(?:_all)?(?:_ortho)?\/([^/]+)\/([^/]+)\/([^/]+)\//);
+        if (!m) continue;
+        const prot1 = m[1], prot2 = m[2], dirName = m[3];
+        const dkey = prot1 + '|' + prot2 + '|' + dirName;
+        if (seen.has(dkey)) continue;   // FlyPredictome collapses repeated (pair, SET) rows; match that
+        seen.add(dkey);
+        const partnerSymbol = (link.textContent || '').trim() || prot2;
+        const lenTxt = (cells[12]?.textContent || '').trim().split('/');
+        partners.push({
+            sym1: querySymbol, sym2: partnerSymbol, prot1, prot2,
+            partnerSymbol, partnerProt: prot2,
+            ilisAvg: num(cells[3]?.textContent), ilisBest: num(cells[2]?.textContent),
+            iptmAvg: num(cells[11]?.textContent), iptmBest: num(cells[10]?.textContent),
+            lisAvg: 0, clisAvg: 0, lirAvg: 0, clirAvg: 0, liaAvg: 0,
+            lenA: int(lenTxt[0]), lenB: int(lenTxt[1]),
+            mistPPI: int(cells[13]?.textContent), mistGI: int(cells[14]?.textContent),
+            mistInterologPPI: int(cells[15]?.textContent), mistInterologGI: int(cells[16]?.textContent),
+            dirName, detailUrl,
+        });
     }
 
-    // Sort by iLIS best descending
     partners.sort((a, b) => b.ilisBest - a.ilisBest);
-
     return partners;
 }
 
@@ -1785,12 +1743,17 @@ async function queryMIST() {
 async function fetchRankPdb(rankNum) {
     if (flyPdbPerRank[rankNum] || !flyBaseUrl) return false;
     try {
-        // Handle both famdb_details/ and famdb_details_ortho/ URLs
+        // Build the per-rank page URL from the redesigned famdb_details_all/X/Y/SET/taxon/taxon/ shape (or
+        // the legacy famdb_details_ortho/ / famdb_details/ forms) → famdb_details_with_rank/X/Y/SET/{rank}.
         let rankUrl = flyBaseUrl;
         if (rankUrl.includes('famdb_details_ortho/')) {
             rankUrl = rankUrl.replace('famdb_details_ortho/', 'famdb_details_ortho_with_rank/').replace(/\/$/, '') + '/' + rankNum;
         } else {
-            rankUrl = rankUrl.replace('famdb_details/', 'famdb_details_with_rank/').replace(/\/$/, '') + '/' + rankNum;
+            rankUrl = rankUrl
+                .replace('famdb_details_all/', 'famdb_details_with_rank/')
+                .replace('famdb_details/', 'famdb_details_with_rank/')
+                .replace(/\/\d+\/\d+\/?$/, '/')   // drop the /taxon/taxon/ tail (famdb_details_all only)
+                .replace(/\/$/, '') + '/' + rankNum;
         }
         const rankHtml = await fetchTextViaProxy(rankUrl);
         if (rankHtml) {

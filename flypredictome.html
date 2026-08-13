@@ -1132,11 +1132,17 @@ function partnersFromFpSummary(data, queryFbgn, querySymbol) {
     const int = (v) => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
     const q = (querySymbol || '').toLowerCase();
     const partners = [];
+    const seen = new Set();
     for (const r of data.rows) {
         const g = (k) => (ix[k] !== undefined ? r[ix[k]] : '');
         const fbgn1 = g('fbgn1'), fbgn2 = g('fbgn2'), sym1 = g('gene_symbol1'), sym2 = g('gene_symbol2');
         const ncbi1 = g('ncbi_gene_id1'), ncbi2 = g('ncbi_gene_id2'), dirName = g('directory_name');
         if (!dirName) continue;
+        // FlyPredictome collapses repeated (pair, SET) rows; the raw table still lists them, so dedup to match.
+        const dkey = fbgn1 + '|' + fbgn2 + '|' + dirName;
+        if (seen.has(dkey)) continue;
+        seen.add(dkey);
+        const tax1 = g('taxon1') || '7227', tax2 = g('taxon2') || '7227';
         const isQuery1 = (fbgn1 === queryFbgn) || (sym1 && sym1.toLowerCase() === q);
         partners.push({
             sym1, sym2, fbgn1, fbgn2, ncbi1, ncbi2,
@@ -1150,8 +1156,10 @@ function partnersFromFpSummary(data, queryFbgn, querySymbol) {
             lenA: int(g('Protein_Len_A')), lenB: int(g('Protein_Len_B')),
             mistPPI: int(g('fPPI')), mistGI: int(g('fGI')), mistInterologPPI: int(g('iPPI')), mistInterologGI: int(g('iGI')),
             dirName,
-            // The scraped path (famdb_details/<a>/<b>/<SET>/) still resolves in generate(); build it from fbgns.
-            detailUrl: 'https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/' + encodeURIComponent(fbgn1) + '/' + encodeURIComponent(fbgn2) + '/' + encodeURIComponent(dirName) + '/',
+            // Canonical redesigned path: famdb_details_all/<a>/<b>/<SET>/<taxon>/<taxon>/ (the taxon suffix is
+            // required now — the bare famdb_details_all/.../SET/ form 500s). Taxon comes from the row, not a
+            // hardcoded value, so cross-species pairs resolve too.
+            detailUrl: 'https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/' + encodeURIComponent(fbgn1) + '/' + encodeURIComponent(fbgn2) + '/' + encodeURIComponent(dirName) + '/' + encodeURIComponent(tax1) + '/' + encodeURIComponent(tax2) + '/',
         });
     }
     partners.sort((a, b) => b.ilisBest - a.ilisBest);
