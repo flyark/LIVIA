@@ -235,11 +235,13 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-labels" checked onchange="monShowChordLabels=this.checked; if(monLastRegions) drawChordDiagram(monLastRegions);"> labels</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="monShowChordLength=this.checked; if(monLastRegions) drawChordDiagram(monLastRegions);"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Residue-position ruler (absolute coordinates) around each subdomain arc"><input type="checkbox" id="chord-show-ticks" checked onchange="monShowChordTicks=this.checked; if(monLastRegions) drawChordDiagram(monLastRegions);"> ticks</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Per-residue AlphaFold confidence (pLDDT) ring around each subdomain arc"><input type="checkbox" id="chord-show-plddt" checked onchange="monShowChordPlddt=this.checked; if(monLastRegions) drawChordDiagram(monLastRegions);"> pLDDT</label>
                 <span style="display:inline-flex; align-items:center; gap:5px; margin-bottom:0.4rem; font-size:0.8rem; color:#555;" title="Direction of the arc labels: along the arc, or pointing outward"><span style="font-weight:600;">label direction</span><span style="display:inline-flex; align-items:center; border:1px solid #ccd; border-radius:5px; overflow:hidden; font-size:0.78rem;"><button type="button" onclick="monShowChordRadial=false; LiviaMaps.segPick(this); if(monLastRegions) drawChordDiagram(monLastRegions);" style="border:0; padding:2px 8px; cursor:pointer; background:#2471A3; color:#fff; font:inherit;">along arc</button><button type="button" onclick="monShowChordRadial=true; LiviaMaps.segPick(this); if(monLastRegions) drawChordDiagram(monLastRegions);" style="border:0; padding:2px 8px; cursor:pointer; background:transparent; color:#555; font:inherit;">outward</button></span></span>
             </div>
             <div style="text-align:center;">
                 <canvas id="chord-canvas"></canvas>
             </div>
+            <div id="chord-plddt-legend" style="display:none; flex-wrap:wrap; align-items:center; gap:0.5rem; justify-content:center; margin-top:0.4rem; font-size:0.72rem; color:#666;"></div>
         </div>
 
         <!-- Sequence Viewer -->
@@ -282,6 +284,11 @@
             <h2>3D Structure Viewer</h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Interactive 3D preview powered by <a href="https://molstar.org" target="_blank" style="color:#2471A3;">Mol*</a> (<a href="https://doi.org/10.1093/nar/gkab314" target="_blank" style="color:#2471A3;">Sehnal et al. 2021</a>). LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom. <span style="color:#999;">If the viewer appears empty, refresh the page.</span>
+            </div>
+            <div id="subdomain-toggle-bar" style="display:none; margin-bottom:0.5rem; align-items:center; gap:0.5rem; flex-wrap:wrap; font-size:0.8rem; color:#555;" title="Click a subdomain to hide it in the 3D view; click again to show it">
+                <span style="font-weight:600;">Subdomains:</span>
+                <span id="subdomain-toggle-buttons" style="display:inline-flex; gap:0.35rem; flex-wrap:wrap;"></span>
+                <button type="button" id="subdomain-toggle-reset" onclick="resetSubdomainVisibility()" style="border:1px solid #ccd; border-radius:5px; padding:2px 8px; background:#f8f9fa; cursor:pointer; font-size:0.75rem; color:#555;">show all</button>
             </div>
             <iframe id="viewer3d-frame" style="width:100%; height:660px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin allow-downloads" allowfullscreen></iframe>
             <div style="text-align:right; margin-top:0.3rem;">
@@ -453,7 +460,7 @@
 <script src="js/livia-viewer.js?v=20260716e"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260810a"></script>
+<script src="js/livia-maps.js?v=20260812a"></script>
 <script>
 // ── Callbacks for shared modules (monomer overrides most of these) ──
 onScriptTabSwitch = () => { /* handled by page-specific switchScriptTab override */ };
@@ -2645,6 +2652,66 @@ function lightenColorHex(hex, amount) {
     return '#' + [nr, ng, nb].map(v => v.toString(16).padStart(2, '0')).join('');
 }
 
+// ── Subdomain isolation in the 3D viewer (mirrors the multimer subunit-selection chips) ──
+let monHiddenRegions = new Set();   // subdomain names hidden in the 3D viewer
+let monLastViewerRegions = null;    // last validRegions passed to updateViewer3d (for re-render on toggle)
+
+const _monEsc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// Restrict already-built colorComponents to residues of the still-visible subdomains. Works across every
+// color mode because it filters the final residue ranges, not the mode-specific build logic.
+function isolateComponentsToVisibleRegions(components, validRegions) {
+    if (!monHiddenRegions || !monHiddenRegions.size || !validRegions) return components;
+    const allowed = new Set();
+    for (const reg of validRegions) {
+        if (monHiddenRegions.has(reg.name)) continue;
+        for (let i = reg.start; i <= reg.end; i++) allowed.add(i);
+    }
+    const out = [];
+    for (const c of components) {
+        const keep = new Set();
+        for (const rng of c.ranges) for (let i = rng.start; i <= rng.end; i++) if (allowed.has(i)) keep.add(i);
+        if (keep.size) out.push({ chain: c.chain, ranges: toRanges(keep), color: c.color });
+    }
+    return out;
+}
+
+function applySubdomainChipStyle(chip, visible) {
+    chip.style.opacity = visible ? '1' : '0.4';
+    chip.style.textDecoration = visible ? 'none' : 'line-through';
+}
+function renderSubdomainToggleBar(validRegions) {
+    const bar = document.getElementById('subdomain-toggle-bar');
+    const host = document.getElementById('subdomain-toggle-buttons');
+    if (!bar || !host) return;
+    if (!validRegions || validRegions.length < 2) { bar.style.display = 'none'; return; }   // nothing to isolate between
+    const names = new Set(validRegions.map(r => r.name));
+    for (const n of [...monHiddenRegions]) if (!names.has(n)) monHiddenRegions.delete(n);    // drop stale hidden names
+    host.innerHTML = '';
+    for (const reg of validRegions) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.dataset.name = reg.name;
+        chip.onclick = () => toggleSubdomainVisibility(reg.name);
+        chip.innerHTML = '<span style="width:10px;height:10px;border-radius:2px;display:inline-block;background:' + (reg.color || '#888') + ';"></span>' + _monEsc(reg.name);
+        chip.style.cssText = 'display:inline-flex;align-items:center;gap:0.3rem;border:1px solid #ccd;border-radius:5px;padding:2px 8px;background:#fff;cursor:pointer;font:inherit;font-size:0.75rem;color:#333;';
+        applySubdomainChipStyle(chip, !monHiddenRegions.has(reg.name));
+        host.appendChild(chip);
+    }
+    bar.style.display = 'flex';
+}
+function toggleSubdomainVisibility(name) {
+    if (monHiddenRegions.has(name)) monHiddenRegions.delete(name); else monHiddenRegions.add(name);
+    const sel = (window.CSS && CSS.escape) ? CSS.escape(name) : name.replace(/"/g, '\\"');
+    const chip = document.querySelector('#subdomain-toggle-buttons button[data-name="' + sel + '"]');
+    if (chip) applySubdomainChipStyle(chip, !monHiddenRegions.has(name));
+    if (monLastViewerRegions) updateViewer3d(monLastViewerRegions);
+}
+function resetSubdomainVisibility() {
+    monHiddenRegions.clear();
+    if (monLastViewerRegions) { renderSubdomainToggleBar(monLastViewerRegions); updateViewer3d(monLastViewerRegions); }
+}
+
 function updateViewer3d(validRegions) {
     const card = document.getElementById('viewer3d-card');
     const frame = document.getElementById('viewer3d-frame');
@@ -2654,6 +2721,8 @@ function updateViewer3d(validRegions) {
     }
 
     card.style.display = '';
+    monLastViewerRegions = validRegions;
+    renderSubdomainToggleBar(validRegions);
     let colorComponents = [];
 
     if (validRegions && validRegions.length >= 2 && monPairResults && monPairResults.length > 0) {
@@ -2687,9 +2756,13 @@ function updateViewer3d(validRegions) {
         } else {
             // No interactions and showComplete is off — hide the viewer
             if (card) card.style.display = 'none';
+            const _bar = document.getElementById('subdomain-toggle-bar'); if (_bar) _bar.style.display = 'none';
             return;
         }
     }
+
+    // Subdomain isolation: drop residues of any subdomains the user has hidden via the chip bar.
+    colorComponents = isolateComponentsToVisibleRegions(colorComponents, validRegions);
 
     // Fast path: same structure → only colors changed → postMessage (no iframe reload)
     if (frame.src && viewer3dStructText === monPdbText) {
@@ -3185,6 +3258,7 @@ let monShowChordTicks = true, monLastRegions = null;   // Subdomain map: residue
 let monShowChordRadial = false;   // Subdomain map: arc labels along the arc (tangential, default) vs radial (outward)
 let monShowChordLabels = true;   // Subdomain map: show the subdomain name
 let monShowChordLength = true;   // Subdomain map: show the residue range
+let monShowChordPlddt = true;    // Subdomain map: per-residue pLDDT confidence ring (default on)
 function drawChordDiagram(validRegions) {
     monLastRegions = validRegions;
     const container = document.getElementById('chord-diagram-container');
@@ -3214,9 +3288,15 @@ function drawChordDiagram(validRegions) {
         name: monShowChordLabels ? `${r.name}` : '',
         length: monShowChordLength ? `${r.start}-${r.end}` : '',
     })), { ticks: monShowChordTicks, radial: monShowChordRadial });
-    const outerR = Math.max(40, Math.min(size / 2 - (monShowChordTicks ? 62 : 48), size / 2 - 4 - _labelExt));
+    // Per-residue pLDDT ring sits just OUTSIDE each arc (like the linear track and the universal chord).
+    // Reserve radial space for it and push the ruler + labels beyond it. Only when B-factor/pLDDT is present.
+    const _plddtMap = (monShowChordPlddt && monPdbText) ? parsePdbPlddtMonomer(monPdbText) : null;
+    const _plddtOn = !!(_plddtMap && _plddtMap.size);
+    const _domSpace = _plddtOn ? 10 : 0;   // one ring: 6 px band + 3 px inset + 1 px breathing room
+    const outerR = Math.max(40, Math.min(size / 2 - (monShowChordTicks ? 62 : 48) - _domSpace, size / 2 - 4 - _labelExt - _domSpace));
     const innerR = outerR - 12;
     const chordR = innerR - 4;
+    { const _lg = document.getElementById('chord-plddt-legend'); if (_lg) { _lg.innerHTML = LiviaMaps.plddtLegendHtml(); _lg.style.display = _plddtOn ? 'flex' : 'none'; } }
 
     // Total residues for proportional arc sizing
     const totalRes = validRegions.reduce((sum, r) => sum + (r.end - r.start + 1), 0);
@@ -3265,11 +3345,16 @@ function drawChordDiagram(validRegions) {
         const arcLen = arc.region.end - arc.region.start + 1;
         LiviaMaps.paintChordArcBand(ctx, cx, cy, outerR, innerR, arc.start, arc.end, arcLen,
             lirByRegion[arc.idx], clirByRegion[arc.idx], lightCol, darkCol);
-        if (monShowChordTicks) LiviaMaps.drawChordRuler(ctx, cx, cy, outerR, arc.start, arc.end, arcLen, { offset: arc.region.start - 1 });   // absolute residue coords
+        if (_plddtOn) {   // per-residue pLDDT ring (absolute coords: arc-local index r → residue region.start+r-1)
+            const reg = arc.region, arr = [];
+            for (let rr = reg.start; rr <= reg.end; rr++) { const v = _plddtMap.get(rr); arr.push(v == null ? null : v); }
+            LiviaMaps.paintChordPlddtRing(ctx, cx, cy, outerR + 3, outerR + 9, arc.start, arc.end, arcLen, arr, false);
+        }
+        if (monShowChordTicks) LiviaMaps.drawChordRuler(ctx, cx, cy, outerR + _domSpace, arc.start, arc.end, arcLen, { offset: arc.region.start - 1 });   // absolute residue coords, outside the pLDDT ring
 
         // Label (subdomain name + residue range) — radial or tangential
         LiviaMaps.drawChordArcLabel(ctx, {
-            cx, cy, outerR, angle: arc.mid, ticks: monShowChordTicks, radial: monShowChordRadial, hidden: false,
+            cx, cy, outerR: outerR + _domSpace, angle: arc.mid, ticks: monShowChordTicks, radial: monShowChordRadial, hidden: false,
             name: `${arc.region.name}`, showName: monShowChordLabels,
             length: `${arc.region.start}-${arc.region.end}`, showLength: monShowChordLength,
         });

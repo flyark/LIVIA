@@ -544,7 +544,7 @@
 <script src="js/livia-viewer.js?v=20260716e"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260810a"></script>
+<script src="js/livia-maps.js?v=20260812a"></script>
 <script>
 // Wire shared module callbacks
 onColorChange = () => { if (flyParsed && flyCurrentRank) { loadRank(flyCurrentRank); updateCombinedChord(); renderChainToggleBar(); } };
@@ -755,13 +755,13 @@ async function searchGene(presetFbgn) {
             }
         } catch (e) { /* non-critical */ }
 
-        // Step 3: Fetch the compact partner list from the fpSummary worker route (server-side extract of
-        // the big famdb_summary page). Null → endpoint not deployed / free-tier CPU limit / error → note.
+        // Step 3: Scrape the partner list from the ~80 MB famdb_summary page via the free proxy (slow but
+        // free; see fetchFpSummary). Null → fetch failed / timed out / layout changed → fall back to note.
         const summaryData = await fetchFpSummary(fbgnId);
         const partners = partnersFromFpSummary(summaryData, fbgnId, geneSymbol);
 
         if (partners === null) {
-            statusEl.innerHTML = 'Gene-name search is temporarily unavailable while FlyPredictome updates its data format. Open the <a href="javascript:void(0)" onclick="switchTab(\'url\')" style="color:#2471A3; font-weight:600;">Paste URL</a> tab to analyze a pair from a prediction details-page URL (ready examples are there).';
+            statusEl.innerHTML = 'Couldn\'t load the partner list — the FlyPredictome summary page is very large and the request may have timed out. Try again in a moment, or open the <a href="javascript:void(0)" onclick="switchTab(\'url\')" style="color:#2471A3; font-weight:600;">Paste URL</a> tab to analyze a pair from a prediction details-page URL (ready examples are there).';
             statusEl.style.color = '#c0392b';
             return;
         }
@@ -942,7 +942,7 @@ async function searchGenePair() {
 
         statusEl.textContent = 'Found: ' + geneA.symbol + ' (' + geneA.fbgn + ') & ' + geneB.symbol + ' (' + geneB.fbgn + '). Searching interaction...';
 
-        // Step 2: Fetch the partner list (fpSummary worker route) + canonical lengths in parallel
+        // Step 2: Scrape the partner list (~80 MB famdb_summary page, free proxy) + canonical lengths in parallel
         const [summaryData, canonicalA, canonicalB] = await Promise.all([
             fetchFpSummary(geneA.fbgn),
             fetchTextViaProxy('https://www.flyrnai.org/tools/fly_predictome/web/get_protein_info/' + geneA.fbgn).then(t => {
@@ -957,7 +957,7 @@ async function searchGenePair() {
 
         const partners = partnersFromFpSummary(summaryData, geneA.fbgn, geneA.symbol);
         if (partners === null) {
-            statusEl.innerHTML = 'Gene-name search is temporarily unavailable while FlyPredictome updates its data format. Open the <a href="javascript:void(0)" onclick="switchTab(\'url\')" style="color:#2471A3; font-weight:600;">Paste URL</a> tab to analyze a pair from a prediction details-page URL (ready examples are there).';
+            statusEl.innerHTML = 'Couldn\'t load the partner list — the FlyPredictome summary page is very large and the request may have timed out. Try again in a moment, or open the <a href="javascript:void(0)" onclick="switchTab(\'url\')" style="color:#2471A3; font-weight:600;">Paste URL</a> tab to analyze a pair from a prediction details-page URL (ready examples are there).';
             statusEl.style.color = '#c0392b';
             return;
         }
@@ -1065,17 +1065,60 @@ function displayPairResults(matches) {
     container.appendChild(tableWrap);
 }
 
-// Fast partner list — from the CORS worker's fpSummary route, which extracts FlyPredictome's ~80 MB
-// summary page server-side and returns compact JSON ({cols, rows}). Returns the JSON, or null (endpoint
-// absent / free-tier CPU limit / error / empty) so the caller can fall back to the "search unavailable" note.
-const FP_SUMMARY_PROXY = 'https://livia-proxy.flyark.workers.dev/?fpSummary=';
+// Partner list — scraped client-side from FlyPredictome's famdb_summary page (the pre-redesign approach,
+// re-adapted to the new table). The redesigned page is ~80 MB — a debug <script> per cell inflates it
+// ~200×, while the real partner data is only ~350 KB — so a search downloads the whole page through the
+// free CORS proxy and parses it here. Deliberately the "slow but free" path: no Cloudflare Paid, no server
+// endpoint. Heavy for hub genes (thousands of partners); a lightweight endpoint on FlyPredictome would make
+// it instant. Returns {cols, rows, ...} in the shape partnersFromFpSummary expects, or null (page missing /
+// layout changed / empty / fetch failed) so the caller falls back to the "search unavailable" note.
+
+// The #famdb_summary_results tbody has a fixed 56-column layout — the page's grouped <thead> is a 2-row
+// header that does not align 1:1 with the cells, so we name columns by this list when the row width matches.
+const FP_SUMMARY_COLS = [
+    'partner_display', 'CompositeScore',
+    'iLIS_best', 'iLIS_avg', 'iLISA_best', 'iLISA_avg', 'ipSAE_best', 'ipSAE_avg', 'actifpTM_best', 'actifpTM_avg', 'ipTM_best', 'ipTM_avg',
+    'Length_ij', 'fPPI', 'fGI', 'iPPI', 'iGI',
+    'id', 'ranks_counts', 'taxon1', 'taxon2', 'fbgn1', 'fbgn2', 'ncbi_gene_id1', 'ncbi_gene_id2', 'gene_symbol1', 'gene_symbol2', 'Protein_Len_A', 'Protein_Len_B',
+    'LIS_avg', 'LIS_best', 'LIA_avg', 'LIA_best', 'LIR_avg', 'LIR_best', 'LIpLDDT_avg', 'LIpLDDT_best',
+    'cLIS_avg', 'cLIS_best', 'cLIA_avg', 'cLIA_best', 'cLIR_avg', 'cLIR_best', 'cLIpLDDT_avg', 'cLIpLDDT_best',
+    'pLDDT_avg', 'pLDDT_best', 'pTM_avg', 'pTM_best', 'iLIA_best', 'iLIA_avg', 'Confidence_avg', 'Confidence_best',
+    'directory_name', 'Protein_1_size', 'Protein_2_size',
+];
+const FP_SUMMARY_MAX_ROWS = 8000;   // safety valve so a pathological page can't run the parser unbounded
+
 async function fetchFpSummary(fbgn) {
     try {
-        const resp = await fetch(FP_SUMMARY_PROXY + encodeURIComponent(fbgn), { signal: AbortSignal.timeout(60000) });
+        fbgn = String(fbgn || '').replace(/^fbgn/i, 'FBgn');   // FlyBase ids are case-sensitive; flyrnai 500s on FBGN…
+        if (!/^FBgn\d+$/.test(fbgn)) return null;
+        const target = 'https://www.flyrnai.org/tools/fly_predictome/web/famdb_summary/' + fbgn + '/';
+        const proxied = 'https://livia-proxy.flyark.workers.dev/?url=' + encodeURIComponent(target);
+        // The page can be ~80 MB → allow a long window (fetchTextViaProxy's 10 s cap is far too short here).
+        const resp = await fetch(proxied, { signal: AbortSignal.timeout(180000) });
         if (!resp.ok) return null;
-        const d = await resp.json();
-        if (!d || !Array.isArray(d.rows) || !d.rows.length || !d.colsMatched) return null;
-        return d;
+        const html = await resp.text();
+        // Shrink before DOMParser so the browser parses a light DOM, not the raw ~80 MB. Two passes:
+        //  1. drop the per-cell debug <script> blocks (also keeps their console.log() text out of td.textContent);
+        //  2. collapse inter-tag whitespace — the page is ~95% per-line indentation, so this cuts ~80 MB → ~3 MB.
+        const cleaned = html
+            .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/>\s+</g, '><');
+        const doc = new DOMParser().parseFromString(cleaned, 'text/html');
+        const table = doc.getElementById('famdb_summary_results');
+        if (!table) return null;
+        const norm = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const theadCols = Array.from(table.querySelectorAll('thead th')).map(norm);
+        const rows = [];
+        for (const tr of table.querySelectorAll('tbody tr')) {
+            const cells = Array.from(tr.querySelectorAll('td')).map(norm);
+            if (cells.length) rows.push(cells);
+            if (rows.length >= FP_SUMMARY_MAX_ROWS) break;
+        }
+        if (!rows.length) return null;
+        const rowWidth = rows[0].length;
+        const colsMatched = rowWidth === FP_SUMMARY_COLS.length;
+        if (!colsMatched) return null;   // layout changed → show the note rather than mis-map columns
+        return { fbgn, cols: FP_SUMMARY_COLS, colsMatched, rowWidth, theadCols, rows, count: rows.length };
     } catch (e) { return null; }
 }
 
