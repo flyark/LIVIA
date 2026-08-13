@@ -4,3 +4,4 @@ HANDOFF*.md
 __pycache__/
 *.pyc
 CLAUDE.md
+tools/cloudflare-worker/.wrangler/

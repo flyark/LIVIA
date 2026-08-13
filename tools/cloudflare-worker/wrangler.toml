@@ -2,3 +2,10 @@ name = "livia-proxy"
 main = "worker.js"
 compatibility_date = "2026-06-08"
 # Free Workers plan supports 100k requests/day — plenty for LIVIA traffic.
+
+# The ?fpSummary=<FBgn> route stream-parses FlyPredictome's ~80 MB summary page server-side. That costs
+# CPU well past the free tier's 10 ms limit, so it needs Workers Paid with a raised CPU cap. Without this,
+# the simple ?url= proxy still works on the free plan; only fpSummary needs it.
+# (If you're on the free plan, delete this block — fpSummary will just 507 and LIVIA falls back to its note.)
+[limits]
+cpu_ms = 300000   # 5 min ceiling; typical runs are far shorter, but hub genes (thousands of partners) can be slow.
