@@ -662,7 +662,7 @@ async function searchGene() {
             try {
                 statusEl.textContent = 'Searching FlyPredictome for ' + query + '...';
                 const proxyUrl = ORTHO_PROXY_URL + '?gene=' + encodeURIComponent(query) + '&species=' + speciesId + '&type=Gene+Symbol';
-                const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(30000) });
+                const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(60000) });   // Apps Script cold starts can exceed 30 s
                 if (resp.ok) {
                     const text = await resp.text();
                     if (text.includes('famdb_summary_results') || text.includes('fam_summary_table')) {
@@ -782,7 +782,7 @@ function parseOrthoSummary(html, querySymbol) {
 
     const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
     const int = (v) => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
-    const partners = [];
+    const raw = [];
     const seen = new Set();
 
     for (const row of table.querySelectorAll('tbody tr')) {
@@ -800,20 +800,38 @@ function parseOrthoSummary(html, querySymbol) {
         const dkey = prot1 + '|' + prot2 + '|' + dirName;
         if (seen.has(dkey)) continue;   // FlyPredictome collapses repeated (pair, SET) rows; match that
         seen.add(dkey);
-        const partnerSymbol = (link.textContent || '').trim() || prot2;
-        const lenTxt = (cells[12]?.textContent || '').trim().split('/');
-        partners.push({
-            sym1: querySymbol, sym2: partnerSymbol, prot1, prot2,
-            partnerSymbol, partnerProt: prot2,
-            ilisAvg: num(cells[3]?.textContent), ilisBest: num(cells[2]?.textContent),
-            iptmAvg: num(cells[11]?.textContent), iptmBest: num(cells[10]?.textContent),
-            lisAvg: 0, clisAvg: 0, lirAvg: 0, clirAvg: 0, liaAvg: 0,
-            lenA: int(lenTxt[0]), lenB: int(lenTxt[1]),
+        raw.push({
+            prot1, prot2, dirName, detailUrl,
+            partnerSymbol: (link.textContent || '').trim(),
+            ilisBest: num(cells[2]?.textContent), ilisAvg: num(cells[3]?.textContent),
+            iptmBest: num(cells[10]?.textContent), iptmAvg: num(cells[11]?.textContent),
+            lenTxt: (cells[12]?.textContent || '').trim(),
             mistPPI: int(cells[13]?.textContent), mistGI: int(cells[14]?.textContent),
             mistInterologPPI: int(cells[15]?.textContent), mistInterologGI: int(cells[16]?.textContent),
-            dirName, detailUrl,
         });
     }
+
+    // The two accessions in each detail URL are (query, partner) in an inconsistent order. The query
+    // protein pairs with every partner, so it is the accession common to (nearly) all rows — the mode.
+    const freq = {};
+    for (const r of raw) { freq[r.prot1] = (freq[r.prot1] || 0) + 1; freq[r.prot2] = (freq[r.prot2] || 0) + 1; }
+    let queryAcc = '', best = -1;
+    for (const k in freq) if (freq[k] > best) { best = freq[k]; queryAcc = k; }
+
+    const partners = raw.map((r) => {
+        const partnerProt = r.prot1 === queryAcc ? r.prot2 : r.prot1;
+        const lm = r.lenTxt.split('/');   // Length_ij = len(prot1)/len(prot2)
+        return {
+            sym1: querySymbol, sym2: r.partnerSymbol || partnerProt,
+            prot1: r.prot1, prot2: r.prot2,
+            partnerSymbol: r.partnerSymbol || partnerProt, partnerProt,
+            ilisAvg: r.ilisAvg, ilisBest: r.ilisBest, iptmAvg: r.iptmAvg, iptmBest: r.iptmBest,
+            lisAvg: 0, clisAvg: 0, lirAvg: 0, clirAvg: 0, liaAvg: 0,
+            lenA: int(lm[0]), lenB: int(lm[1]),
+            mistPPI: r.mistPPI, mistGI: r.mistGI, mistInterologPPI: r.mistInterologPPI, mistInterologGI: r.mistInterologGI,
+            dirName: r.dirName, detailUrl: r.detailUrl,
+        };
+    });
 
     partners.sort((a, b) => b.ilisBest - a.ilisBest);
     return partners;
