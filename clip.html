@@ -451,6 +451,12 @@ wireZone('dz-csv', 'in-csv', 'csv'); wireZone('dz-fasta', 'in-fasta', 'fasta'); 
     const blob = await resp.blob();
     FILES.length = 0; FASTA_PARSE = null; FASTA_WARN = []; META = null; META_LABELCOL = null;
     LABEL_IDS = {}; LABEL_FRAG = {}; XLSX_IDS = {}; FORCE_ACC = ''; STRUCT_FILE = null; PARTNER_EXCLUDE = new Set();
+    // Pin the organism for a single-species hand-off so a symbol like CDK2AP1 resolves to the FLY
+    // protein, not the human ortholog. Explicit ?species= wins; else infer fly from an FBgn-named
+    // bundle or a FlyPredictome URL (that's the fly-network → cLIP hand-off).
+    { const sp = $('mg-species'), spq = params.get('species');
+      if (sp){ if (spq) sp.value = spq;
+               else if (/FBgn\d+/i.test(url) || /flypredictome/i.test(url)) sp.value = '7227'; } }
     await routeFiles([new File([blob], (url.split('/').pop() || 'data.zip'))], 'csv');   // .zip → CSV+FASTA auto-sorted
     const sel = $('gene'); if (!sel || !sel.options.length){ $('status').textContent = 'no proteins found in the data'; return; }
     const want = params.get('gene');
