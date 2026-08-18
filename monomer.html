@@ -495,9 +495,10 @@ function switchScriptTab(mode) {
     const scriptEl = document.getElementById('script-preview');
     const dlScript = document.getElementById('dl-script');
     const extEl = document.getElementById('dl-script-ext');
-    if (monPairResults && monPairResults.length > 0 && monRegions) {
-        const vr = monRegions.filter(r => !isNaN(parseInt(r.start)) && !isNaN(parseInt(r.end)));
-        if (vr.length >= 2) generateAndShowScript(vr);
+    if (monPdbText && monRegions) {
+        const vr = monRegions.filter(r => !isNaN(parseInt(r.start)) && !isNaN(parseInt(r.end)))
+            .map(r => ({ name: r.name, start: parseInt(r.start), end: parseInt(r.end), color: r.color }));
+        generateAndShowScript(vr);   // regenerate for any region count (single-domain included)
     }
 }
 let monRegionCounter = 0;   // for naming regions
@@ -1038,8 +1039,10 @@ function applyCxcPreset(mode, el) {
         generateAndShowScript(vr);
         updateViewer3d(vr);
     } else if (monPdbText) {
-        // Still update 3D viewer for complete/plddt modes even without pair results
+        // Single-domain / no pairs: still update the 3D viewer AND the script for whole-structure
+        // colour modes (pLDDT / by-chain / by-polymer), so the pLDDT preset takes effect here too.
         updateViewer3d(vr);
+        generateAndShowScript(vr);
     }
 }
 
@@ -1396,7 +1399,10 @@ onColorChange = function() {
         drawChordDiagram(vr);
         updateViewer3d(vr);
     } else if (monPdbText) {
+        // Single-domain: keep the viewer, script and chord in sync with colour changes too.
         updateViewer3d(vr);
+        generateAndShowScript(vr);
+        drawChordDiagram(vr);
     }
 }
 
@@ -1978,9 +1984,11 @@ function displayResults(validRegions) {
         // Auto-enable complete structure view since there's nothing to selectively show
         showComplete = true;
         document.querySelectorAll('.show-complete-cb').forEach(el => { el.checked = true; });
-        // Still show all visualizations (maps, 3D viewer, etc.)
+        // Still show all visualizations (maps, 3D viewer, script, etc.). A single-domain protein has no
+        // interaction pairs but still gets a structure + a visualization script (pLDDT / by-chain etc.).
         drawPaeMap();
         updateViewer3d(validRegions);
+        generateAndShowScript(validRegions);
         buildSequenceViewer(validRegions);
         buildDomainComparison(validRegions);
         buildMonomerPerResidueCharts();
