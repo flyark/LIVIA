@@ -284,7 +284,7 @@
                  are SEPARATE grid cells, so BOTH the sub-labels and the dropdowns line up into clean vertical
                  columns across every row (a per-row flexbox can't do this). Sub-labels are right-aligned so
                  they hug their control; empty cells pad the short rows. -->
-            <div style="display:grid; grid-template-columns:max-content repeat(4, max-content max-content); gap:0.45rem 0.4rem; align-items:center; font-size:0.8rem; color:#555; margin-bottom:0.7rem;">
+            <div style="display:grid; grid-template-columns:max-content repeat(4, max-content max-content); gap:0.45rem 0.4rem; align-items:baseline; font-size:0.8rem; color:#555; margin-bottom:0.7rem;">
                 <span style="font-weight:600; color:#888;">Names</span>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Axis labels: resolved gene name or chain ID (A/B). Custom labels below override either.">show</span>
                 <select id="map-label-mode" onchange="uniMapDetailedLabels=(this.value==='gene'); renderCustomLabelInputs(); redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="gene">gene name</option><option value="chain">chain ID</option></select>
@@ -314,7 +314,7 @@
                 <span style="justify-self:start; margin-left:0.6rem;" title="Length-number font size (1 = default; type any value)">font</span>
                 <input type="number" id="map-size-scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniSizeScale=parseFloat(this.value)||1; redrawMapLabels();">
 
-                <span style="font-weight:600; color:#888; align-self:start; padding-top:2px;">Custom</span>
+                <span style="font-weight:600; color:#888;">Custom</span>
                 <!-- Custom-label editor: spans from the sub-label column (col 2) so the hint/textarea start
                      where "show"/"chip" start — same left edge as the other rows' first control. -->
                 <div id="custom-labels-cell" style="grid-column:2 / -1; margin-left:0.6rem; display:flex; flex-direction:column; gap:0.3rem; align-items:stretch;"></div>
