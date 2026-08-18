@@ -73,7 +73,7 @@ function plddtColor(b) {
     return '#FF7D45';
 }
 
-// Jmol/CPK element colours for atomic (ball-and-stick) representations of PTM/modified residues.
+// Jmol/CPK element colors for atomic (ball-and-stick) representations of PTM/modified residues.
 const ELEMENT_CPK = [['C', '#909090'], ['N', '#3050F8'], ['O', '#FF0D0D'], ['P', '#FF8000'], ['S', '#FFFF30'], ['H', '#FFFFFF']];
 
 // ── Build the MVS structureChildren (per-component representations + colors) ──
@@ -82,8 +82,8 @@ function _buildMvsStructureChildren(colorComponents) {
     for (const comp of colorComponents) {
         if (comp.isIon) {
             // Non-polymer chain (ion / ligand / glycan / nucleic) → one ball-and-stick component
-            // scoped to THIS chain's label_asym_id, coloured by its own chord/legend colour.
-            // (Scoping by chain avoids the global 'ion'/'ligand' selectors letting the last colour win.)
+            // scoped to THIS chain's label_asym_id, colored by its own chord/legend color.
+            // (Scoping by chain avoids the global 'ion'/'ligand' selectors letting the last color win.)
             structureChildren.push({
                 kind: 'component',
                 params: { selector: { label_asym_id: comp.chain } },
@@ -97,7 +97,7 @@ function _buildMvsStructureChildren(colorComponents) {
         if (comp.stick) {
             // PTM / modified residues: show the modified sidechain as ball-and-stick over the cartoon
             // (backbone stays cartoon) so the functional group stays bonded to the chain. baseColor =
-            // the subunit colour for the amino acid part; highlights = per-atom overrides for the
+            // the subunit color for the amino acid part; highlights = per-atom overrides for the
             // functional group (phosphate: P orange, O red). Falls back to CPK if neither is given.
             const oneSel = (a) => ({ label_asym_id: a.chain, label_seq_id: a.seq, label_atom_id: a.atom });
             const sel = comp.atoms.map(oneSel);

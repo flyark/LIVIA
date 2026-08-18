@@ -285,7 +285,7 @@
                 <span style="font-size:0.82rem; color:#555; white-space:nowrap; display:inline-flex; align-items:center;">domains:</span>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> UniProt/Pfam</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ted" checked onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> TED</label>
-                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;" title="Per-residue pLDDT confidence strip beside each chain bar (AlphaFold colour scale)"><input type="checkbox" id="contact-show-plddt" checked onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> pLDDT</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;" title="Per-residue pLDDT confidence strip beside each chain bar (AlphaFold color scale)"><input type="checkbox" id="contact-show-plddt" checked onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> pLDDT</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="window.showConnIDs=this.checked; window.__redrawDimerContact&&window.__redrawDimerContact()"> chain IDs</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"> swap chains (top&harr;bottom)</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"></label>
@@ -307,7 +307,7 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="dimerShowChordIDs=this.checked; buildChordDiagram();"> chain IDs</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="dimerShowChordLength=this.checked; buildChordDiagram();"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Circos-style residue-position ruler around each arc"><input type="checkbox" id="chord-show-ticks" checked onchange="dimerShowChordTicks=this.checked; buildChordDiagram();"> ticks</label>
-                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Per-residue pLDDT confidence ring, between the arc and the domain rings (AlphaFold colour scale)"><input type="checkbox" id="chord-show-plddt" checked onchange="dimerShowChordPlddt=this.checked; buildChordDiagram();"> pLDDT</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Per-residue pLDDT confidence ring, between the arc and the domain rings (AlphaFold color scale)"><input type="checkbox" id="chord-show-plddt" checked onchange="dimerShowChordPlddt=this.checked; buildChordDiagram();"> pLDDT</label>
                 <span style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; position:relative; top:-3px;">domains:</span>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-dom" checked onchange="dimerShowChordDom=this.checked; buildChordDiagram();"> UniProt/Pfam</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ted" checked onchange="dimerShowChordTed=this.checked; buildChordDiagram();"> TED</label>
@@ -527,7 +527,7 @@
 <script>
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (dimerPairResult) { generateAndDisplayScript(); buildDimerSequenceViewer(); buildDimerContactMap(); buildChordDiagram(); buildComparisonCharts(); updateViewer3d(); renderChainToggleBar(); } };
-attachChainColorUpload(document.getElementById('chain-color-upload'), {});   // CSV/paste chain colours (A/B)
+attachChainColorUpload(document.getElementById('chain-color-upload'), {});   // CSV/paste chain colors (A/B)
 onScriptTabSwitch = () => { if (dimerPairResult) generateAndDisplayScript(); };
 document.addEventListener('DOMContentLoaded', () => {
     initColorPickers();
@@ -1799,7 +1799,9 @@ function buildDimerSequenceViewer() {
         const label = document.createElement('div');
         label.className = 'seq-chain-label';
         const ci = cc === chainConfigs[0] ? 0 : 1;
-        const geneName = genes[ci] || genes[0] || '';
+        // Custom label overrides the gene name here too (via chainGeneName), so Apply renames the chain
+        // in the sequence viewer consistently with the maps/chord/linear/per-residue figures.
+        const geneName = (typeof chainGeneName === 'function' ? chainGeneName(cc.name) : '') || genes[ci] || genes[0] || '';
         const acc = accs[ci] || accs[0] || '';
         let labelHtml = `Chain ${cc.name}${geneName ? ': ' + geneName : ''} (${cc.seq.length} residues)`;
         if (acc) labelHtml += ` <a href="https://www.uniprot.org/uniprot/${acc}" target="_blank" style="font-weight:400; font-size:0.78rem; color:#2471A3;">UniProt: ${acc}</a>`;
@@ -2785,6 +2787,7 @@ function renderCustomLabelInputs() {
         if (typeof buildDimerContactMap === 'function') buildDimerContactMap();   // linear contact map bar labels
         if (typeof buildChordDiagram === 'function') buildChordDiagram();         // circular contact map arc labels
         if (typeof buildComparisonCharts === 'function') buildComparisonCharts(); // per-residue comparison chart headers
+        if (typeof buildDimerSequenceViewer === 'function') buildDimerSequenceViewer();   // sequence viewer chain header
     };
     ta.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') applyBtn.click(); });   // ⌘/Ctrl-Enter applies
     cell.appendChild(hint);
@@ -3482,7 +3485,7 @@ function generateAndDisplayScript() {
         : (ch === '(' || ch === ')' || ch === '-') ? 0.0038 : (ch >= '0' && ch <= '9') ? 0.0052
         : (ch >= 'a' && ch <= 'z') ? 0.0056 : 0.0064) * k);
     const textW = (t, k) => [...t].reduce((a, ch) => a + glyphW(ch, k), 0);
-    // Chain-boundary row (each chain in its own colour + LIR span)
+    // Chain-boundary row (each chain in its own color + LIR span)
     const bndA = `Chain ${v.ci} (${lirIStr})`, bndB = `Chain ${v.cj} (${lirJStr})`;
     lines.push(`2dlabels create ttA text "${bndA}" xpos 0.0300 ypos 0.96 size 13 color ${colors.clir_a} bold true`);
     lines.push(`2dlabels create ttB text "${bndB}" xpos ${(0.03 + textW(bndA, 13 / 12) + 0.012).toFixed(4)} ypos 0.96 size 13 color ${colors.clir_b} bold true`);

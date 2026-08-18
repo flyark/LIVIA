@@ -208,7 +208,7 @@ let NAME_OF = {};                  // resolved node id -> Set(original predictio
 let FILECOUNT = 0, PYODIDE = null, NETWORK = null, NODES = null, EDGES = null, LAST = null;
 let META = null, META_COL = null, COMMCOLORS = {}, SUBSET = null, LAYER_ROOT = null;   // SUBSET: node ids to keep (tab 3); LAYER_ROOT: BFS-shell root or null
 let USERCLUST = null;              // user-supplied node id -> cluster label (Map); overrides Leiden, drops unlisted nodes
-let NODECOLORS = {};               // per-node custom colour override (node id -> hex); wins over the 'color by' mode
+let NODECOLORS = {};               // per-node custom color override (node id -> hex); wins over the 'color by' mode
 let NET_HL = null;                 // node id currently highlighted by the search box (null = none)
 
 // ---------- helpers ----------
@@ -903,9 +903,9 @@ $('expset').addEventListener('click', exportSettings);
 $('impset-btn').addEventListener('click', ()=>$('impset').click());
 $('impset').addEventListener('change', e=>{ if(e.target.files[0]) importSettings(e.target.files[0]); });
 $('ni-x').addEventListener('click', hideNodeInfo);
-// Custom node colours: upload/paste "node,#hex" (node = protein id). Overrides win over the 'color by' mode.
+// Custom node colors: upload/paste "node,#hex" (node = protein id). Overrides win over the 'color by' mode.
 LiviaMaps.attachColorUpload($('nodecolor-upload'), {
-  label: 'node colours', keyHeader: 'node',
+  label: 'node colors', keyHeader: 'node',
   currentRows: () => { if (!LAST) return []; const disp=getDisplay(), fills=nodeColors(disp); return disp.nodes.map((n,i)=>({ key:n, color:fills[i] })); },
   apply: (rows) => {
     if (!LAST) return 0;

@@ -207,7 +207,7 @@ platform already produced a PAE PNG (e.g. ColabFold `*_pae.png`), just use that.
 
 **Per-model PAE images (optional).** Render one PNG per model (`pae_0.png … pae_4.png`) and list
 them in the manifest as `"pae_images": {"0":"pae_0.png", …}`; all of them are then shown side by
-side (labelled by model), like the full-load PAE Maps. Otherwise a single representative
+side (labeled by model), like the full-load PAE Maps. Otherwise a single representative
 `pae_image` is shown once for all models.
 
 ---
@@ -246,7 +246,7 @@ signature, the structure by extension, and the PNG by name. The manifest is the 
 | `structure` | recommended | Filename of the representative `.pdb`/`.cif[.gz]` — used for the chain layout and as the fallback geometry. |
 | `structures` | optional | Map of `model` → structure filename, e.g. `{"0":"model_0.cif.gz", …}`. **The robust way to give per-model geometry** — LIVIA maps each model to its own file by this (preferred over the CSV `structure_file` column, which may not match if you renamed/gzipped the files). |
 | `pae_image` | optional | Filename of the representative PAE image. Omit if you shipped none — the PAE card just hides. |
-| `pae_images` | optional | Map of `model` → PAE image filename, e.g. `{"0":"pae_0.png", …}`. When present, all per-model PAE plots are shown side by side (labelled by model), like the full-load PAE Maps. If you ship only a single `pae_image`, it is shown once for all models. |
+| `pae_images` | optional | Map of `model` → PAE image filename, e.g. `{"0":"pae_0.png", …}`. When present, all per-model PAE plots are shown side by side (labeled by model), like the full-load PAE Maps. If you ship only a single `pae_image`, it is shown once for all models. |
 | `structure_model` | optional | Which model the representative `structure`/`pae_image` correspond to (the `model` value from the CSV). |
 | `chains` | optional | Map of chain ID → gene/protein label, shown in the figures. |
 | `pae_cutoff`, `cb_cutoff` | optional | Provenance. Should be `12` and `8` unless you deliberately changed them. |
@@ -407,7 +407,7 @@ Differences from §4, each deliberate:
 - **No `Scored residue` / `Aligned residue` axis labels.** At bundle size the axes carry chain
   identity, which is what a reader of a 10-subunit complex needs; residue indices are not
   readable at this scale anyway.
-- **Chain letters as tick labels**, centred on each chain's span, auto-shrinking past ~10 chains.
+- **Chain letters as tick labels**, centerd on each chain's span, auto-shrinking past ~10 chains.
 - **Black boundary lines**, because `bwr` puts white at PAE 15 and a white line vanishes into
   every moderately-confident region.
 - **Colorbar ticks fixed at `[0, 15, 30]`, no colorbar label.** The fixed ticks make the white
@@ -447,7 +447,7 @@ Beyond §8's checklist:
 - confirm `n_models` equals the number of `model_*.cif` actually present
 - confirm no `.cif.gz` anywhere
 - confirm each `pae_<m>.png` exists for each `model_<m>.cif`
-- open two bundles of very different complex size side by side and check the colour scale reads
+- open two bundles of very different complex size side by side and check the color scale reads
   the same — that is the check that catches an accidental autoscale
 
 ---

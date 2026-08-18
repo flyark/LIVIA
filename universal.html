@@ -208,14 +208,14 @@
                             <input type="color" id="bundle-cmap-mid" value="#ffffff" title="mid PAE" style="display:none; width:24px; height:18px; padding:0; border:1px solid #ccd; border-radius:3px; cursor:pointer;">
                             <span id="bundle-cmap-arrow2" style="display:none; color:#aaa;">&rarr;</span>
                             <input type="color" id="bundle-cmap-hi" value="#ffffff" title="high PAE (uncertain)" style="width:24px; height:18px; padding:0; border:1px solid #ccd; border-radius:3px; cursor:pointer;">
-                            <input type="text" id="bundle-cmap-hexes" placeholder="or paste hex: #00897B, #fff, #B2182B" oninput="applyBundleHexes(this.value)" title="Paste 2 or 3 hex colours (comma/space separated): low&rarr;high or low&rarr;mid&rarr;high. Updates the swatches." style="width:210px; font-size:0.72rem; padding:1px 4px; border:1px solid #ccd; border-radius:4px;">
+                            <input type="text" id="bundle-cmap-hexes" placeholder="or paste hex: #00897B, #fff, #B2182B" oninput="applyBundleHexes(this.value)" title="Paste 2 or 3 hex colors (comma/space separated): low&rarr;high or low&rarr;mid&rarr;high. Updates the swatches." style="width:210px; font-size:0.72rem; padding:1px 4px; border:1px solid #ccd; border-radius:4px;">
                         </span>
                     </span>
                     <span style="display:inline-flex; align-items:center; gap:4px;" title="PAE image resolution in the bundle (pixels per map). Higher = sharper figure, larger file.">PAE size
                         <select id="bundle-pae-px" onchange="document.getElementById('bundle-pae-px-custom').style.display=this.value==='custom'?'inline-block':'none'" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;"><option value="256">256 px</option><option value="384" selected>384 px</option><option value="512">512 px</option><option value="1024">1024 px</option><option value="2048">2048 px</option><option value="4096">4096 px</option><option value="custom">custom&hellip;</option></select>
                         <input type="number" id="bundle-pae-px-custom" min="128" max="8192" step="64" value="1500" title="Custom PAE size in pixels (128&ndash;8192)" style="display:none; width:64px; font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;">
                     </span>
-                    <label style="display:inline-flex; align-items:center; gap:4px; margin:0; font-size:0.8rem; font-weight:400; color:#555; cursor:pointer;" title="Draw a PAE colour-scale bar (0&ndash;30) with a &quot;PAE&quot; label on the right of each PAE image"><input type="checkbox" id="bundle-colorbar" checked style="margin:0;"> PAE color bar</label>
+                    <label style="display:inline-flex; align-items:center; gap:4px; margin:0; font-size:0.8rem; font-weight:400; color:#555; cursor:pointer;" title="Draw a PAE color-scale bar (0&ndash;30) with a &quot;PAE&quot; label on the right of each PAE image"><input type="checkbox" id="bundle-colorbar" checked style="margin:0;"> PAE color bar</label>
                     <span style="display:inline-flex; align-items:center; gap:4px;" title="Scale the chain/tick/PAE label text on the PAE images">font
                         <select id="bundle-font-scale" onchange="document.getElementById('bundle-font-scale-custom').style.display=this.value==='custom'?'inline-block':'none'" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;"><option value="0.8">0.8&times;</option><option value="1" selected>1&times;</option><option value="1.25">1.25&times;</option><option value="1.5">1.5&times;</option><option value="2">2&times;</option><option value="custom">custom&hellip;</option></select>
                         <input type="number" id="bundle-font-scale-custom" min="0.3" max="4" step="0.05" value="1" title="Custom font scale (0.3&ndash;4&times;)" style="display:none; width:54px; font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;">
@@ -402,7 +402,7 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="uniShowChordIDs=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> chain IDs</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="uniShowChordLength=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Circos-style residue-position ruler around each arc"><input type="checkbox" id="chord-show-ticks" checked onchange="uniShowChordTicks=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> ticks</label>
-                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Per-residue pLDDT confidence ring, between the arc and the domain rings (AlphaFold colour scale)"><input type="checkbox" id="chord-show-plddt" checked onchange="uniShowChordPlddt=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> pLDDT</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Per-residue pLDDT confidence ring, between the arc and the domain rings (AlphaFold color scale)"><input type="checkbox" id="chord-show-plddt" checked onchange="uniShowChordPlddt=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> pLDDT</label>
                 <span style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; position:relative; top:-3px;">domains:</span>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="UniProt/Pfam domain ring on each arc"><input type="checkbox" id="chord-show-dom" checked onchange="uniShowChordDom=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> UniProt/Pfam</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="TED domain ring on each arc"><input type="checkbox" id="chord-show-ted" onchange="uniShowChordTed=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> TED</label>
@@ -563,7 +563,7 @@
                 <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy script</button>
             </div>
             <div style="font-size:0.72rem; color:#999; margin-top:0.5rem; line-height:1.45;">
-                Both scripts show <b>every subunit</b>, each chain's LIR/cLIR coloured to match the 3D viewer (LIR light &amp; cLIR dark in <i>Gradient</i> shade; one colour per chain in <i>Solid</i>). <b>.cxc &middot; full structure</b> opens <b>Full structure</b> = the whole complex. &nbsp;<b style="color:#8e44ad;">.cxc &middot; partial structure</b> opens <b style="color:#8e44ad;">Partial structure</b> = the same subunit composition, each chain trimmed to the LIR segments shown above (<b>Fill gaps</b> / <b>Min segment</b> honored). Distinct filenames, so nothing overwrites; residue numbers preserved.
+                Both scripts show <b>every subunit</b>, each chain's LIR/cLIR colored to match the 3D viewer (LIR light &amp; cLIR dark in <i>Gradient</i> shade; one color per chain in <i>Solid</i>). <b>.cxc &middot; full structure</b> opens <b>Full structure</b> = the whole complex. &nbsp;<b style="color:#8e44ad;">.cxc &middot; partial structure</b> opens <b style="color:#8e44ad;">Partial structure</b> = the same subunit composition, each chain trimmed to the LIR segments shown above (<b>Fill gaps</b> / <b>Min segment</b> honored). Distinct filenames, so nothing overwrites; residue numbers preserved.
             </div>
             <div class="info-box" style="margin-top:1rem;">Download a script and its matching structure file into the same folder, then open the script in ChimeraX or PyMOL.</div>
         </div>
@@ -646,7 +646,7 @@
 onColorChange = () => { const sel = document.querySelector('#pairs-tbody tr.selected'); if (sel) sel.click(); };
 onScriptTabSwitch = () => { updateScriptPreview(); };
 document.addEventListener('DOMContentLoaded', initColorPickers);
-document.addEventListener('DOMContentLoaded', () => attachChainColorUpload(document.getElementById('chain-color-upload'), {   // CSV/paste chain colours (2-chain complexes)
+document.addEventListener('DOMContentLoaded', () => attachChainColorUpload(document.getElementById('chain-color-upload'), {   // CSV/paste chain colors (2-chain complexes)
     geneOf: () => { try { const n = uniState.chainNames || []; const g = uniState.chainGenes || {}; return { A: g[n[0]], B: g[n[1]] }; } catch (e) { return {}; } },
 }));
 
@@ -1541,7 +1541,7 @@ function setupMultiChainColors() {
             applyColors(palName);
             document.querySelectorAll('.palette-chip').forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
-            uniState.multiChainColors._active = true;                                    // palette is now the active colouring
+            uniState.multiChainColors._active = true;                                    // palette is now the active coloring
             uniState.cxcColorMode = '';                                                  // clear any coloring mode (pLDDT/bychain/…)
             document.querySelectorAll('.cxc-chip').forEach(c => c.classList.remove('active'));
             rebuildModeChips();
@@ -1598,10 +1598,10 @@ function setupMultiChainColors() {
     row.appendChild(shadeLabel);
     row.appendChild(modeWrap);
 
-    // Custom chain colours + labels: upload/paste a "chain,name,color" CSV (chain = ID like A/B/C/D;
+    // Custom chain colors + labels: upload/paste a "chain,name,color" CSV (chain = ID like A/B/C/D;
     // name = optional display label, blank keeps the current/gene label; also accepts plain "chain,color").
     LiviaMaps.attachColorUpload(row, {
-        label: 'chain colours', keyHeader: 'chain',
+        label: 'chain colors', keyHeader: 'chain',
         placeholder: 'chain,name,color\nA,Akt1,#1f77b4\nB,foxo,#ff7f0e',
         currentRows: () => (uniState.chainNames || []).map(n => ({ key: n, name: (uniState.chainGenes && uniState.chainGenes[n]) || '', color: uniState.multiChainColors[n] || '#888888' })),
         apply: (rows) => {
@@ -2732,7 +2732,7 @@ function getChainsFromCif(cifText) {
                     chainTypes.set(chain, 'protein');
                     const seq = parseInt(resSeq);
                     // Record the whole modified sidechain (non-backbone atoms) so the functional group
-                    // stays bonded to the chain when shown as sticks. Colouring (subunit vs highlighted
+                    // stays bonded to the chain when shown as sticks. Coloring (subunit vs highlighted
                     // functional group) is decided in buildColorComponents.
                     if (!isNaN(seq) && !BACKBONE_ATOMS.has(atomName)) {
                         const rk = chain + ':' + seq;
@@ -3553,7 +3553,7 @@ function hidePaeImageCard() {
     if (row) row.innerHTML = '';
 }
 
-// Render the lightweight bundle's static PAE plot(s) as a labelled row — one per model when the
+// Render the lightweight bundle's static PAE plot(s) as a labeled row — one per model when the
 // manifest ships `pae_images`, mirroring the full-load "PAE Maps" card; otherwise the single
 // representative image. Hides the card if the bundle shipped no PAE image.
 function renderLightweightPaeImages() {
@@ -3660,7 +3660,7 @@ async function processPrecomputedBundle() {
     }
     const modelKeys = [...byModel.keys()].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
     // Label rows by RANK when the CSV carries one. The PAE images a bundle ships are named by
-    // rank (ColabFold writes rank_1…rank_5), so labelling the score table by model index put
+    // rank (ColabFold writes rank_1…rank_5), so labeling the score table by model index put
     // "model_5" beside "rank_1" for the same prediction. Rank also orders best-first.
     const rankOf = (mk) => { const r = (byModel.get(mk)[0] || {}).rank; return (r === undefined || r === '' || isNaN(+r)) ? null : +r; };
     const modelOf = (mk) => { const m = (byModel.get(mk)[0] || {}).model; return (m === undefined || m === '' || isNaN(+m)) ? null : +m; };
@@ -4413,7 +4413,7 @@ function buildColorComponents(v) {
 
     // PTM / modified residues (phospho SEP/TPO/PTR, etc.): show the whole modified sidechain as
     // ball-and-stick over the cartoon so the functional group stays bonded to the backbone. The amino
-    // acid part keeps the subunit colour; only the functional group (phosphate) is element-highlighted.
+    // acid part keeps the subunit color; only the functional group (phosphate) is element-highlighted.
     const ptmRes = uniState.ptmResidues || {};
     for (const chain of (uniState.chainNames || [])) {
         if (uniState.hiddenChains?.has(chain)) continue;
@@ -5356,13 +5356,13 @@ function _renderMist(withId, subs, pairMap, esc){
         ? '<strong>No reported interaction</strong> between ' + esc(pairs[0].a.sym) + ' and ' + esc(pairs[0].b.sym) + ' in MIST.'
         : 'None of the ' + pairs.length + ' subunit pairs is reported in MIST.');
     // Four heatmaps — one per interaction type. N×N subunit grid; each cell = PMID count for that
-    // pair, coloured by magnitude (number shown), clickable → PubMed. Scales to large complexes
+    // pair, colored by magnitude (number shown), clickable → PubMed. Scales to large complexes
     // far better than a per-pair row list (a 14-mer is 91 rows but a 14×14 grid).
     const n = withId.length;
     const keyOf = (a, b) => [a.acc, b.acc].sort().join('|');
     const cnt = (a, b, t) => { const bt = pairMap.get(keyOf(a, b)); const s = bt && bt[t]; return s ? s.size : 0; };
     const idsOf = (a, b, t) => { const bt = pairMap.get(keyOf(a, b)); const s = bt && bt[t]; return s ? [...s] : []; };
-    const maxOf = {};                                                  // per-type max, for colour normalisation
+    const maxOf = {};                                                  // per-type max, for color normalisation
     for (const [t] of _MIST_TYPES){ let m = 0; for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) m = Math.max(m, cnt(withId[i], withId[j], t)); maxOf[t] = m; }
     const cs = n <= 6 ? 30 : (n <= 10 ? 24 : 19);                      // cell size (px), adaptive to subunit count
     const fs = n <= 10 ? '0.72rem' : '0.64rem';
@@ -5744,7 +5744,7 @@ function drawMapName(ctx, text, cx, cy, fontPx, align, baseline, plainColor, chi
     ctx.font = `bold ${fontPx}px sans-serif`;
     ctx.textAlign = align;
     if (uniLabelStyle === 'filled') {
-        // Centre the chip on the ACTUAL glyph box (measured ascent/descent), so the text is vertically
+        // Center the chip on the ACTUAL glyph box (measured ascent/descent), so the text is vertically
         // centerd in the pill rather than hugging the top. Rounded-rectangle, not a full pill.
         ctx.textBaseline = 'alphabetic';
         const m = ctx.measureText(text), w = m.width;
@@ -5975,7 +5975,7 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
             }
         }
 
-        // chain length on the bottom edge — format (count "746" / range "1-746"), colour, staggered by its font.
+        // chain length on the bottom edge — format (count "746" / range "1-746"), color, staggered by its font.
         ctx.font = `${tickFont}px sans-serif`;
         ctx.fillStyle = uniSizeColorMode === 'chain' ? chColor : '#333';
         ctx.textAlign = 'center';
@@ -6338,8 +6338,8 @@ async function buildLightweightBundle(colormap = 'bwr', customStops = ['#00897B'
     return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
 }
 
-// Paste-hex entry for the custom PAE gradient: accepts 2 or 3 hex colours (comma/space separated,
-// with or without '#', 3- or 6-digit), sets the 2/3-stop toggle, and fills the colour swatches.
+// Paste-hex entry for the custom PAE gradient: accepts 2 or 3 hex colors (comma/space separated,
+// with or without '#', 3- or 6-digit), sets the 2/3-stop toggle, and fills the color swatches.
 function applyBundleHexes(str) {
     const toks = (String(str).match(/#?[0-9a-fA-F]+/g) || [])
         .map(h => h.replace('#', ''))
@@ -6453,9 +6453,9 @@ function buildAllChainsCxc(overrideFilename, sel) {
     };
 
     // Helper: get LIR/cLIR colors for a chain.
-    // 2 chains → the A/B colour pickers. >2 chains → per-chain palette (matches Mol*), whether or
-    // not multi-chain colouring is "active": a fixed 2-colour fallback would paint chains C, D, … the
-    // same shade (and mis-fires during the brief window before multi-colour auto-activates on load).
+    // 2 chains → the A/B color pickers. >2 chains → per-chain palette (matches Mol*), whether or
+    // not multi-chain coloring is "active": a fixed 2-color fallback would paint chains C, D, … the
+    // same shade (and mis-fires during the brief window before multi-color auto-activates on load).
     const getChainColors = (ci, name) => {
         if (nc <= 2) {
             return { lir: ci === 0 ? pickerColors.lir_a : pickerColors.lir_b,
@@ -6471,7 +6471,7 @@ function buildAllChainsCxc(overrideFilename, sel) {
         : (ch === '(' || ch === ')' || ch === '-') ? 0.0038 : (ch >= '0' && ch <= '9') ? 0.0052 : 0.0064) * k);
     const textW = (t, k) => [...t].reduce((a, ch) => a + glyphW(ch, k), 0);
 
-    // ── Title row: every interacting chain (its colour + LIR span) — compact ("A (12-330)", no "Chain "
+    // ── Title row: every interacting chain (its color + LIR span) — compact ("A (12-330)", no "Chain "
     // prefix) and hugging the top-left so the labels don't span across / hide the central structure ──
     let _tx = 0.02;
     for (let ci = 0; ci < nc; ci++) {
@@ -6482,7 +6482,7 @@ function buildAllChainsCxc(overrideFilename, sel) {
         lines.push(`2dlabels create tt${ci} text "${txt}" xpos ${_tx.toFixed(4)} ypos 0.975 size 12 color ${getChainColors(ci, nm).clir} bold true`);
         _tx += textW(txt, 1) + 0.010;   // 0.010 = gap between adjacent chain labels
     }
-    // ── Positive PPI pairs, listed vertically: "i / j (iLIS / ipTM)" with chain IDs in their own colours ──
+    // ── Positive PPI pairs, listed vertically: "i / j (iLIS / ipTM)" with chain IDs in their own colors ──
     // iLIS is PAIRWISE; positive = at/above the 10% FPR threshold used by ilisHtml (0.073 avg, 0.223 single-model).
     const _isAvg = (seedVal === 'avg');
     const _posCut = _isAvg ? 0.073 : 0.223;
@@ -6631,11 +6631,11 @@ function buildAllChainsCxc(overrideFilename, sel) {
         .filter(c => (ptmRes[c] || []).length)
         .map(c => `#1/${c}:${ptmRes[c].map(r => r.seq).join(',')}`);
     if (ptmSpecs.length) {
-        lines.push('# \u2500\u2500 PTM / modified residues (functional group coloured by element) \u2500\u2500');
+        lines.push('# \u2500\u2500 PTM / modified residues (functional group colored by element) \u2500\u2500');
         lines.push(`select ${ptmSpecs.join(' ')}`);
         lines.push('show sel atoms');
         lines.push('style sel ball');        // ball-and-stick
-        lines.push('color sel byhetero');    // heteroatoms by element (O red, P orange, N blue); carbon keeps the chain colour
+        lines.push('color sel byhetero');    // heteroatoms by element (O red, P orange, N blue); carbon keeps the chain color
         lines.push('~select', '');
     }
 
@@ -6833,9 +6833,9 @@ function buildAllChainsPml(overrideFilename) {
         }
     }
 
-    // PTM / modified residues: show sticks, functional group coloured by element.
-    // util.cnc colours non-carbon atoms by element (O red, P orange, N blue) and keeps carbon
-    // the chain colour — the PyMOL equivalent of ChimeraX `color byhetero`.
+    // PTM / modified residues: show sticks, functional group colored by element.
+    // util.cnc colors non-carbon atoms by element (O red, P orange, N blue) and keeps carbon
+    // the chain color — the PyMOL equivalent of ChimeraX `color byhetero`.
     {
         const ptmRes = uniState.ptmResidues || {};
         const ptmSel = uniState.chainNames
@@ -6867,7 +6867,7 @@ const ION_NAMES = new Set(['ZN','CA','MG','MN','FE','CU','NA','K','CL','NI','CO'
 const MOD_AA = new Set(['SEP','TPO','PTR','MSE','SEC','HYP','CSO','CSD','CME','CSS','OCS','MLY','M3L','MLZ','ALY','KCX','PCA','CGU','NEP','HIC','SAC','MHO','CAS','DDZ','SNN','CXM','FME','CSX','CSP','TYS','SXE']);
 // Backbone atoms excluded from the PTM sticks. CA is kept so the sidechain's CB–CA bond renders and
 // anchors the sticks to the backbone cartoon (otherwise the sidechain floats just off the ribbon).
-// The whole modified sidechain (+CA) is shown as sticks in the subunit colour; only the functional
+// The whole modified sidechain (+CA) is shown as sticks in the subunit color; only the functional
 // group (phosphate) is element-highlighted (see buildColorComponents).
 const BACKBONE_ATOMS = new Set(['N', 'C', 'O', 'OXT']);
 
@@ -7562,7 +7562,7 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
     const roleI = mkRole(v.ci, lirI_f, clirI_f, v.lenI, colors.lir_a, colors.clir_a);
     const roleJ = mkRole(v.cj, lirJ_f, clirJ_f, v.lenJ, colors.lir_b, colors.clir_b);
     const top = swap ? roleJ : roleI, bot = swap ? roleI : roleJ;
-    // pLDDT strip (per-residue AlphaFold-coloured band) hugging each bar, between it and the ticks/domains
+    // pLDDT strip (per-residue AlphaFold-colored band) hugging each bar, between it and the ticks/domains
     const plStripH = 5, plGap = 2, plBarGap = 2;   // strip height, gap to ticks, and gap to the cLIR/LIR contact bar
     const plOn = (role) => showPlddt && role.plddt && role.plddt.some(v => v != null);
     const plH = (role) => plOn(role) ? (plBarGap + plStripH + plGap) : 0;
@@ -7610,7 +7610,7 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
 
     // Domain tracks \u2014 dir -1 = above (top role), +1 = below (bottom role); UniProt/Pfam inner, TED outer.
     const drawTracks = (role, tr, xFn, baseY, dir) => {
-        if (plOn(role)) {   // per-residue pLDDT strip hugging the bar (AlphaFold confidence colours), RLE-merged
+        if (plOn(role)) {   // per-residue pLDDT strip hugging the bar (AlphaFold confidence colors), RLE-merged
             const yStrip = dir < 0 ? baseY - plBarGap - plStripH : baseY + plBarGap;
             const arr = role.plddt, n = Math.min(role.len, arr.length);
             const band = (val) => (val == null || isNaN(val)) ? -1 : (val > 90 ? 0 : val > 70 ? 1 : val > 50 ? 2 : 3);

@@ -253,7 +253,7 @@
                 <span style="font-size:0.82rem; color:#555; white-space:nowrap; display:inline-flex; align-items:center;">domains:</span>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="window.__redrawConn&&window.__redrawConn()"> UniProt/Pfam</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ted" checked onchange="window.__redrawConn&&window.__redrawConn()"> TED</label>
-                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;" title="Per-residue pLDDT confidence strip beside each chain bar (AlphaFold colour scale)"><input type="checkbox" id="contact-show-plddt" checked onchange="window.__redrawConn&&window.__redrawConn()"> pLDDT</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;" title="Per-residue pLDDT confidence strip beside each chain bar (AlphaFold color scale)"><input type="checkbox" id="contact-show-plddt" checked onchange="window.__redrawConn&&window.__redrawConn()"> pLDDT</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="window.showConnIDs=this.checked; window.__redrawConn&&window.__redrawConn()"> chain IDs</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="window.__redrawConn&&window.__redrawConn()"> swap chains (top&harr;bottom)</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="window.__redrawConn&&window.__redrawConn()"></label>
@@ -273,7 +273,7 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ids" checked onchange="orthoShowChordIDs=this.checked; window.__redrawOrthoChord&&window.__redrawOrthoChord();"> chain IDs</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="orthoShowChordLength=this.checked; window.__redrawOrthoChord&&window.__redrawOrthoChord();"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Circos-style residue-position ruler around each arc"><input type="checkbox" id="chord-show-ticks" checked onchange="orthoShowChordTicks=this.checked; window.__redrawOrthoChord&&window.__redrawOrthoChord();"> ticks</label>
-                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Per-residue pLDDT confidence ring, between the arc and the domain rings (AlphaFold colour scale)"><input type="checkbox" id="chord-show-plddt" checked onchange="orthoShowChordPlddt=this.checked; window.__redrawOrthoChord&&window.__redrawOrthoChord();"> pLDDT</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Per-residue pLDDT confidence ring, between the arc and the domain rings (AlphaFold color scale)"><input type="checkbox" id="chord-show-plddt" checked onchange="orthoShowChordPlddt=this.checked; window.__redrawOrthoChord&&window.__redrawOrthoChord();"> pLDDT</label>
                 <span style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; position:relative; top:-3px;">domains:</span>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-dom" checked onchange="orthoShowChordDom=this.checked; window.__redrawOrthoChord&&window.__redrawOrthoChord();"> UniProt/Pfam</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ted" checked onchange="orthoShowChordTed=this.checked; window.__redrawOrthoChord&&window.__redrawOrthoChord();"> TED</label>
@@ -510,7 +510,7 @@
 <script>
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (flyParsed && flyCurrentRank) { loadRank(flyCurrentRank); updateCombinedChord(); renderChainToggleBar(); } };
-attachChainColorUpload(document.getElementById('chain-color-upload'), {   // CSV/paste chain colours (A/B or gene symbol)
+attachChainColorUpload(document.getElementById('chain-color-upload'), {   // CSV/paste chain colors (A/B or gene symbol)
     geneOf: () => { try { if (!flyParsed || !flyCurrentRank) return {}; const isAvg = flyCurrentRank === 'avg'; const t = isAvg ? flyAverageRow : (flyParsed.rows.find(r => parseInt(r['Rank']) === flyCurrentRank) || flyParsed.rows[0]); return t ? { A: t['Symbol 1'], B: t['Symbol 2'] } : {}; } catch (e) { return {}; } },
 });
 onScriptTabSwitch = () => { updateScriptPreview(); };
@@ -1246,7 +1246,7 @@ function generateCxc(row, pdbFilename, colors) {
         : (ch === '(' || ch === ')' || ch === '-') ? 0.0038 : (ch >= '0' && ch <= '9') ? 0.0052
         : (ch >= 'a' && ch <= 'z') ? 0.0056 : 0.0064) * k);
     const textW = (t, k) => [...t].reduce((a, ch) => a + glyphW(ch, k), 0);
-    // Chain-boundary row (each protein in its own colour + LIR span)
+    // Chain-boundary row (each protein in its own color + LIR span)
     const bndA = `${sym1} (${lirAStr})`, bndB = `${sym2} (${lirBStr})`;
     lines.push(`2dlabels create ttA text "${bndA}" xpos 0.0300 ypos 0.96 size 13 color ${colors.clir_a} bold true`);
     lines.push(`2dlabels create ttB text "${bndB}" xpos ${(0.03 + textW(bndA, 13 / 12) + 0.012).toFixed(4)} ypos 0.96 size 13 color ${colors.clir_b} bold true`);
@@ -2959,7 +2959,7 @@ function buildSeqViewer(row, sym1, sym2, colors, chainSeqs) {
         container.appendChild(label);
 
         // With no sequence resolved, fall back to positional residues so the LIR/cLIR
-        // track still renders — unchanged behaviour, the letters are simply absent.
+        // track still renders — unchanged behavior, the letters are simply absent.
         const hasSeq = cc.seq && cc.seq.length > 0;
         const residues = hasSeq ? cc.seq : Array.from({ length: cc.len }, (_, i) => ({ aa: '', resnum: i + 1 }));
         container.appendChild(LiviaMaps.seqFlow(residues, (res) => {

@@ -225,10 +225,10 @@
         return hits;
     }
 
-    // Per-residue pLDDT as a thin ring, coloured by the AlphaFold confidence scale. plddt[r-1] = pLDDT of
+    // Per-residue pLDDT as a thin ring, colored by the AlphaFold confidence scale. plddt[r-1] = pLDDT of
     // residue r (0..100); len = arc residue count. Consecutive residues in the same confidence band are
     // merged into one arc so the SVG export stays compact. Returns hover hit-regions like the domain ring.
-    const _PLDDT_COL = ['#0053D6', '#65CBF3', '#FFDB13', '#FF7D45'];   // matches the pLDDT colour preset
+    const _PLDDT_COL = ['#0053D6', '#65CBF3', '#FFDB13', '#FF7D45'];   // matches the pLDDT color preset
     const _PLDDT_NAME = ['Very high (pLDDT > 90)', 'Confident (70 < pLDDT ≤ 90)', 'Low (50 < pLDDT ≤ 70)', 'Very low (pLDDT ≤ 50)'];
     function paintChordPlddtRing(ctx, cx, cy, rIn, rOut, sA, eA, len, plddt, muted) {
         const hits = [];
@@ -256,7 +256,7 @@
         return hits;
     }
 
-    // Compact inline legend for the pLDDT colour scale (AlphaFold confidence bands). Used under the
+    // Compact inline legend for the pLDDT color scale (AlphaFold confidence bands). Used under the
     // circular and linear contact maps wherever a pLDDT ring/track is shown.
     function plddtLegendHtml(label) {
         const item = (c, t) => '<span style="display:inline-flex;align-items:center;gap:0.25rem;white-space:nowrap;"><span style="width:11px;height:11px;background:' + c + ';border-radius:2px;display:inline-block;"></span>' + t + '</span>';
@@ -441,10 +441,10 @@
         box.querySelectorAll('canvas').forEach((cv, i) => attachPngBtnFor(cv, (prefix || 'chart') + '_' + (i + 1)));
     }
 
-    // Parse a colour CSV. Two forms, auto-detected per row:
-    //   "<key>,<color>"          — key (chain/node/cluster) + colour
-    //   "<key>,<name>,<color>"   — key + display-label override + colour (chain relabel)
-    // Tolerant of an optional header, quotes, and comma/tab/semicolon separators. Colour = #RGB / #RRGGBB / CSS name.
+    // Parse a color CSV. Two forms, auto-detected per row:
+    //   "<key>,<color>"          — key (chain/node/cluster) + color
+    //   "<key>,<name>,<color>"   — key + display-label override + color (chain relabel)
+    // Tolerant of an optional header, quotes, and comma/tab/semicolon separators. Color = #RGB / #RRGGBB / CSS name.
     function parseColorCSV(text) {
         const out = [];
         const isColor = (c) => /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(c) || /^[a-zA-Z]{3,20}$/.test(c);
@@ -459,7 +459,7 @@
         return out;
     }
 
-    // Compact "custom colours" widget: upload a CSV file, paste rows, apply, and download the current
+    // Compact "custom colors" widget: upload a CSV file, paste rows, apply, and download the current
     // set (round-trip). opts = { label, keyHeader, currentRows: () => [{key,color}], apply: rows => appliedCount }.
     function attachColorUpload(container, opts) {
         opts = opts || {};
@@ -489,17 +489,17 @@
                 + rows.map((r) => has3 ? (r.key + ',' + (r.name || '') + ',' + r.color) : (r.key + ',' + r.color)).join('\n') + '\n';
             const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = kh + '_colors.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
         };
-        const lbl = document.createElement('span'); lbl.textContent = '🎨 custom ' + (opts.label || 'colours') + ':'; lbl.style.fontWeight = '600';
+        const lbl = document.createElement('span'); lbl.textContent = '🎨 custom ' + (opts.label || 'colors') + ':'; lbl.style.fontWeight = '600';
         wrap.append(lbl, upBtn, pasteBtn, ta, applyBtn, dlBtn, status);
         container.appendChild(wrap);
         return wrap;
     }
 
-    // ── Two-colour contact curves ─────────────────────────────────────────────
+    // ── Two-color contact curves ─────────────────────────────────────────────
     //
     // A contact line fades smoothly from strokeA at one end to strokeB at the other
     // via a canvas linear gradient — the look users expect. Caller passes ready
-    // stroke styles (usually hexToRgba(col, alpha)) so the colour logic stays at the
+    // stroke styles (usually hexToRgba(col, alpha)) so the color logic stays at the
     // call site, where it differs per figure. In the SVG export canvas2svg emits one
     // <linearGradient> per line; the coordinate rounding in canvas2svg.js keeps each
     // compact. A follow-up
@@ -539,7 +539,7 @@
     //
     //   residues  [{ aa, resnum }, ...]  (aa may be a multi-letter ion label)
     //   decorate  (res, i) -> { bg, clir, tip } | null
-    //             bg   background colour, or null/undefined for none
+    //             bg   background color, or null/undefined for none
     //             clir true for the bold/white cLIR treatment
     //             tip  hover text; omit for no tooltip on that residue
     //   opts      { group: 10 }
@@ -547,7 +547,7 @@
     // Returns a <div class="seq-flow">. Tooltips are delegated from that div, so
     // a 9-chain complex costs two listeners rather than thousands.
     // Size a sequence host to the largest whole number of residue blocks that fit,
-    // then centre it. Measured from the live box rather than computed from font
+    // then center it. Measured from the live box rather than computed from font
     // metrics: letter-spacing, the ch unit and the inter-block margin all feed the
     // real block pitch, and guessing any of them puts the grid one block out.
     function fitSeqHost(host) {
@@ -635,11 +635,11 @@
             div.appendChild(pad);
         }
 
-        // Centre the grid, keep the residues left-aligned inside it. Sizing the host
+        // Center the grid, keep the residues left-aligned inside it. Sizing the host
         // to a whole number of blocks is what makes both true at once: the leftover
         // slack moves to the margins instead of piling up on the right, and every
         // chain keeps the same left edge because they share the host. Sizing each
-        // chain to its own content instead would centre a short chain differently
+        // chain to its own content instead would center a short chain differently
         // from a long one and they would stop lining up.
         requestAnimationFrame(() => fitSeqHost(div.parentElement));
         if (!opts.noObserve && div.parentElement && typeof ResizeObserver !== 'undefined') observeSeqHost(div.parentElement);

@@ -184,13 +184,13 @@ function swapColors() {
     applyPreset(lb, cb, la, ca, null);
 }
 
-// Lighten a colour toward white by amt (0..1) → the LIR (light) shade paired with a cLIR (dark) colour.
+// Lighten a color toward white by amt (0..1) → the LIR (light) shade paired with a cLIR (dark) color.
 function _lightenHex(hex, amt) {
     const h = _normalizeHex(hex); if (!h) return hex;
     const m = (c) => Math.round(c + (255 - c) * amt).toString(16).padStart(2, '0');
     return '#' + m(parseInt(h.slice(1, 3), 16)) + m(parseInt(h.slice(3, 5), 16)) + m(parseInt(h.slice(5, 7), 16));
 }
-// Resolve any CSS colour (#hex, #rgb, or a name like "teal") to #rrggbb, or null if invalid.
+// Resolve any CSS color (#hex, #rgb, or a name like "teal") to #rrggbb, or null if invalid.
 function _colorToHex(c) {
     const norm = _normalizeHex(c); if (norm) return norm;
     try {
@@ -200,8 +200,8 @@ function _colorToHex(c) {
     } catch (e) { return null; }
 }
 
-// CSV/paste colour upload for a 2-chain (A/B) figure. Accepts "chain,color" (also 3-col "chain,name,color";
-// the name is ignored here). Sets each chain's cLIR (main) colour and derives the light LIR shade, then
+// CSV/paste color upload for a 2-chain (A/B) figure. Accepts "chain,color" (also 3-col "chain,name,color";
+// the name is ignored here). Sets each chain's cLIR (main) color and derives the light LIR shade, then
 // applies through applyPreset() (which re-renders on every page). Match by chain letter A/B (or 1/2), or an
 // optional gene name via opts.geneOf → { A:'sym1', B:'sym2' }.
 function attachChainColorUpload(container, opts) {
@@ -211,7 +211,7 @@ function attachChainColorUpload(container, opts) {
     const geneOf = opts.geneOf || (() => ({}));
     const val = (id) => (document.getElementById(id) || {}).value;
     window.LiviaMaps.attachColorUpload(container, {
-        label: 'chain colours', keyHeader: 'chain',
+        label: 'chain colors', keyHeader: 'chain',
         placeholder: 'chain,color\nA,#00897B\nB,#E64A19',
         currentRows: () => {
             const g = geneOf();
