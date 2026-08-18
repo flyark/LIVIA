@@ -64,7 +64,7 @@
         .warning-box { background: #fff8e1; border-left: 4px solid #f9a825; padding: 0.8rem 1rem; border-radius: 0 8px 8px 0; font-size: 0.85rem; color: #795548; margin-bottom: 1rem; }
 
         /* Map rows */
-        .map-row { display: flex; gap: 0.4rem; flex-wrap: nowrap; margin-bottom: 0.8rem; }
+        .map-row { display: flex; gap: 0.4rem; flex-wrap: nowrap; margin-bottom: 0.8rem; overflow-x: auto; padding-bottom: 2px; }
         .map-item { text-align: center; }
         .map-item canvas { border-radius: 4px; display: block; }
         .map-item .map-label { font-size: 0.75rem; color: #666; margin-bottom: 0.2rem; }
@@ -112,7 +112,7 @@
         }
     </style>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260812a"></script>
+<script src="js/livia-maps.js?v=20260816"></script>
 <script src="js/clip-resolver.js?v=20260715"></script>
 </head>
 <body>
@@ -277,9 +277,53 @@
             <div class="map-row" id="score-matrix-row"></div>
         </div>
 
+        <!-- Map label settings — a dedicated panel shared by the Score Matrix and the PAE/LIS/cLIS maps -->
+        <div class="card result-card" id="map-labels-card" style="display:none;">
+            <h2 style="margin:0 0 0.6rem;">Label Settings</h2>
+            <!-- ONE grid: group-label column + four (sub-label, control) column pairs. Sub-labels and controls
+                 are SEPARATE grid cells, so BOTH the sub-labels and the dropdowns line up into clean vertical
+                 columns across every row (a per-row flexbox can't do this). Sub-labels are right-aligned so
+                 they hug their control; empty cells pad the short rows. -->
+            <div style="display:grid; grid-template-columns:max-content repeat(4, max-content max-content); gap:0.45rem 0.4rem; align-items:center; font-size:0.8rem; color:#555; margin-bottom:0.7rem;">
+                <span style="font-weight:600; color:#888;">Names</span>
+                <span style="justify-self:start; margin-left:0.6rem;" title="Axis labels: resolved gene name or chain ID (A/B). Custom labels below override either.">show</span>
+                <select id="map-label-mode" onchange="uniMapDetailedLabels=(this.value==='gene'); renderCustomLabelInputs(); redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="gene">gene name</option><option value="chain">chain ID</option></select>
+                <span style="justify-self:start; margin-left:0.6rem;" title="Which edges carry the chain/gene name — for many-chain complexes, drop one axis to avoid overlap">on</span>
+                <select id="map-label-axis" onchange="uniLabelAxis=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="both">top + left</option><option value="y">left only</option><option value="x">top only</option><option value="none">none</option></select>
+                <span style="justify-self:start; margin-left:0.6rem;" title="Direction of the left-edge (row) names — horizontal, or rotated vertical to save width">left</span>
+                <select id="map-label-diry" onchange="uniLabelDirY=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="vertical">vertical</option><option value="horizontal">horizontal</option></select>
+                <span style="justify-self:start; margin-left:0.6rem;" title="Direction of the top-edge (column) names — horizontal, or rotated vertical to save height">top</span>
+                <select id="map-label-dirx" onchange="uniLabelDirX=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="horizontal">horizontal</option><option value="vertical">vertical</option></select>
+
+                <span style="font-weight:600; color:#888;">Style</span>
+                <span style="justify-self:start; margin-left:0.6rem;" title="Name style: a filled chip in the chain colour with contrasting text, or plain coloured text">chip</span>
+                <select id="map-label-style" onchange="uniLabelStyle=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="filled">filled chip</option><option value="text">text</option></select>
+                <span style="justify-self:start; margin-left:0.6rem;" title="Text colour (used by the text style): each chain's colour, or plain black">color</span>
+                <select id="map-label-color" onchange="setLabelBlack(this.value==='black')" style="font-size:0.8rem; padding:1px 2px;"><option value="chain">chain</option><option value="black">black</option></select>
+                <span style="justify-self:start; margin-left:0.6rem;" title="Chain/gene name font size (1 = default; type any value, e.g. 1.2)">font</span>
+                <input type="number" id="map-label-scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniLabelScale=parseFloat(this.value)||1; redrawMapLabels();">
+                <span></span><span></span>
+
+                <span style="font-weight:600; color:#888;">Length</span>
+                <label for="map-label-size" style="justify-self:start; margin-left:0.6rem; cursor:pointer; font-weight:400; color:#555;" title="Show each chain's length (residue count) along the bottom edge of the PAE/LIS/cLIS maps">show</label>
+                <input type="checkbox" id="map-label-size" checked onchange="uniShowMapSize=this.checked; redrawMapLabels();" style="justify-self:start;">
+                <span style="justify-self:start; margin-left:0.6rem;" title="Length format: N = residue count (e.g. 746); 1–N = full range (e.g. 1–746)">format</span>
+                <select id="map-size-format" onchange="uniSizeFormat=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="count">N</option><option value="range">1–N</option></select>
+                <span style="justify-self:start; margin-left:0.6rem;" title="Length-number colour: plain black, or each chain's colour">color</span>
+                <select id="map-size-color" onchange="uniSizeColorMode=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="black">black</option><option value="chain">chain</option></select>
+                <span style="justify-self:start; margin-left:0.6rem;" title="Length-number font size (1 = default; type any value)">font</span>
+                <input type="number" id="map-size-scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniSizeScale=parseFloat(this.value)||1; redrawMapLabels();">
+
+                <span style="font-weight:600; color:#888; align-self:start; padding-top:2px;">Custom</span>
+                <!-- Custom-label editor: spans from the sub-label column (col 2) so the hint/textarea start
+                     where "show"/"chip" start — same left edge as the other rows' first control. -->
+                <div id="custom-labels-cell" style="grid-column:2 / -1; margin-left:0.6rem; display:flex; flex-direction:column; gap:0.3rem; align-items:stretch;"></div>
+            </div>
+        </div>
+
         <!-- PAE Maps -->
         <div class="card result-card" id="pae-maps-card">
-            <h2>Predicted Aligned Error (PAE) Maps</h2>
+            <h2 style="margin:0 0 0.5rem;">Predicted Aligned Error (PAE) Maps</h2>
             <div class="map-row" id="pae-row"></div>
             <div class="colorbar-row">
                 <canvas id="colorbar-pae" width="300" height="14"></canvas>
@@ -337,9 +381,10 @@
                 <div style="flex-basis:100%; height:0;"></div><!-- controls on their own line, below the description -->
                 <span style="font-size:0.82rem; color:#555; white-space:nowrap; display:inline-flex; align-items:center;">domains:</span>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> UniProt/Pfam</label>
-                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ted" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> TED</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ted" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> TED</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;" title="Per-residue pLDDT confidence strip beside each chain bar (AlphaFold colour scale)"><input type="checkbox" id="contact-show-plddt" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> pLDDT</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="uniShowLinearIDs=this.checked; buildLinearContactMaps();"> chain IDs</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;" title="Draw chain labels in black instead of each chain's colour (linear map, circular map, and PAE/LIS/cLIS maps)"><input type="checkbox" id="label-black" onchange="setLabelBlack(this.checked)"> black labels</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> swap chains (top&harr;bottom)</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"></label>
             </div>
@@ -360,7 +405,7 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Per-residue pLDDT confidence ring, between the arc and the domain rings (AlphaFold colour scale)"><input type="checkbox" id="chord-show-plddt" checked onchange="uniShowChordPlddt=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> pLDDT</label>
                 <span style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; position:relative; top:-3px;">domains:</span>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="UniProt/Pfam domain ring on each arc"><input type="checkbox" id="chord-show-dom" checked onchange="uniShowChordDom=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> UniProt/Pfam</label>
-                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="TED domain ring on each arc"><input type="checkbox" id="chord-show-ted" checked onchange="uniShowChordTed=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> TED</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="TED domain ring on each arc"><input type="checkbox" id="chord-show-ted" onchange="uniShowChordTed=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> TED</label>
                 <span style="display:inline-flex; align-items:center; gap:5px; margin-bottom:0.4rem; font-size:0.8rem; color:#555;" title="Direction of the arc labels: along the arc, or pointing outward (outward avoids overlap when there are many subunits)"><span style="font-weight:600;">label direction</span><span style="display:inline-flex; align-items:center; border:1px solid #ccd; border-radius:5px; overflow:hidden; font-size:0.78rem;"><button type="button" onclick="uniShowChordRadial=false; LiviaMaps.segPick(this); if(typeof buildChordDiagram==='function') buildChordDiagram();" style="border:0; padding:2px 8px; cursor:pointer; background:#2471A3; color:#fff; font:inherit;">along arc</button><button type="button" onclick="uniShowChordRadial=true; LiviaMaps.segPick(this); if(typeof buildChordDiagram==='function') buildChordDiagram();" style="border:0; padding:2px 8px; cursor:pointer; background:transparent; color:#555; font:inherit;">outward</button></span></span>
             </div>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
@@ -927,6 +972,7 @@ async function handleInputFiles(fileList) {
     // Clear resolved chain identities so the previous prediction's labels don't leak into this one
     // (they were being carried into figures and even baked into a lightweight bundle's manifest).
     uniState.chainGenes = {};
+    uniCustomLabels = {};   // custom label overrides are per-complex — clear for the new prediction
     uniState.chainDomains = {};
     uniState.chainTedDomains = {};
     uniState.chainDomainInfo = {};
@@ -3986,6 +4032,9 @@ function displayResults(results, jobName) {
         hidePaeImageCard();
         drawAllMaps();
     }
+    // The shared label-settings panel shows whenever either surface it controls is visible.
+    { const _lc = document.getElementById('map-labels-card'); if (_lc) { const _sm = document.getElementById('score-matrix-card'), _pm = document.getElementById('pae-maps-card'); const vis = (_sm && _sm.style.display !== 'none') || (_pm && _pm.style.display !== 'none'); _lc.style.display = vis ? '' : 'none'; } }
+    renderCustomLabelInputs();   // (re)build the always-visible custom-label editor for this chain set
     document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
 
     // Trigger data load for auto-selected first pair
@@ -4451,6 +4500,11 @@ function selectPair(key) {
     buildSequenceViewer(key);
     buildContactMap(key);
     buildChordDiagram();
+    // Keep BOTH the Score Matrix and the PAE/LIS/cLIS map labels in sync with chain-colour changes
+    // (presets, palette, pickers, custom upload) — those all re-render through here, and the labels read
+    // the live colours. Score matrix can show even for lightweight bundles; maps only when not lightweight.
+    if (typeof drawAllScoreMatrices === 'function') drawAllScoreMatrices();
+    if (!uniState.lightweight && typeof drawAllMaps === 'function') drawAllMaps();
     updateViewer3d(key);
     // Refresh chain toggle button colors — preset chips / swap / Tab10 chip all funnel
     // through here via selectedRow.click(), and the picker hex may have just changed.
@@ -4993,9 +5047,9 @@ function greensColor(value, vmin, vmax) {
 // Strip a FlyBase-style species prefix ("Dmel\CG12725" -> "CG12725", also "Dmel/…") so the
 // ring / linear-map / legend labels aren't cluttered with the redundant single-species code.
 function stripSpeciesPrefix(g){ return typeof g === 'string' ? g.replace(/^[A-Za-z][A-Za-z0-9]{1,5}[\\/]/, '') : g; }
-function chainLabel(name){ const g = stripSpeciesPrefix(uniState.chainGenes && uniState.chainGenes[name]); return g ? g + ' (' + name + ')' : name; }   // 'A' -> 'TP53 (A)' once resolved
+function chainLabel(name){ const g = chainGeneName(name); return g ? g + ' (' + name + ')' : name; }   // 'A' -> 'TP53 (A)' (or custom) once resolved
 let uniShowLinearIDs = true;   // Linear Contact Map: include the chain-ID suffix "(A)" in labels (its own header toggle)
-function linearChainLabel(name){ if (uniShowLinearIDs) return chainLabel(name); const g = stripSpeciesPrefix(uniState.chainGenes && uniState.chainGenes[name]); return g ? g : name; }
+function linearChainLabel(name){ if (uniShowLinearIDs) return chainLabel(name); const g = chainGeneName(name); return g ? g : name; }
 const applyExportOpts = (svg) => LiviaMaps.applyExportOpts(svg);                    // shared: js/livia-maps.js
 // ---- vector SVG export: re-run any canvas draw fn against a canvas2svg context ----
 const svgFromDraw = (drawClosure) => LiviaMaps.svgFromDraw(drawClosure);
@@ -5109,7 +5163,8 @@ async function applyChainIdentity(chainName, query, source, rowEl){   // shared 
     const pk = uniState.currentPairKey;              // re-render every figure with the new identity
     if (pk){ buildContactMap(pk); if (typeof buildPerResidueCharts === 'function') buildPerResidueCharts(pk); if (typeof buildSequenceViewer === 'function') buildSequenceViewer(pk); }
     if (typeof buildChordDiagram === 'function') buildChordDiagram();
-    if (typeof drawAllScoreMatrices === 'function') drawAllScoreMatrices();
+    if (typeof renderCustomLabelInputs === 'function') renderCustomLabelInputs();   // refresh Custom editor prefill with resolved names
+    if (typeof redrawMapLabels === 'function') redrawMapLabels();   // gene names now resolved → refresh PAE maps AND score matrix
     if (rowEl){ const td = rowEl.querySelectorAll('td');
         if (td[2]) td[2].innerHTML = '<a href="https://www.uniprot.org/uniprotkb/' + r.accession + '" target="_blank" style="color:#2471A3;">' + r.accession + '</a> <span style="color:#999; font-size:0.8em">(' + source + ')</span>';
         if (td[3]) td[3].textContent = r.gene || query;
@@ -5179,7 +5234,8 @@ async function identifyChains(){
     const _pk = uniState.currentPairKey;                          // re-render so chain labels + domains reflect the resolved identities
     if (_pk){ buildContactMap(_pk); if (typeof buildPerResidueCharts === 'function') buildPerResidueCharts(_pk); if (typeof buildSequenceViewer === 'function') buildSequenceViewer(_pk); }
     if (typeof buildChordDiagram === 'function') buildChordDiagram();
-    if (typeof drawAllScoreMatrices === 'function') drawAllScoreMatrices();
+    if (typeof renderCustomLabelInputs === 'function') renderCustomLabelInputs();   // refresh Custom editor prefill with resolved names
+    if (typeof redrawMapLabels === 'function') redrawMapLabels();   // gene names now resolved → refresh PAE maps AND score matrix
     btn.disabled = false; btn.textContent = 'Identify chains via UniProt';
     queryMistForPair();   // now that accessions are resolved, ask MIST whether this pair is experimentally reported
 }
@@ -5420,21 +5476,48 @@ function drawAllScoreMatrices() {
 
 function drawOneScoreMatrix(canvas, lowerG, upperG, nc, lowerMax, upperMax, lowerFmt, upperFmt, displaySize) {
     const S = 2;
-    const leftMargin = 20;
-    const bottomMargin = 18;
-    const totalW = displaySize + leftMargin;
     const cellSize = Math.floor(displaySize / nc);
+    // Axis labels mirror the PAE maps exactly: names on TOP + LEFT (not bottom), name mode (gene/chain
+    // ID), colour, font scale, placement, and per-axis direction (horizontal/vertical).
+    const lf = Math.max(7, Math.min(10, cellSize / 3)) * (uniLabelScale > 0 ? uniLabelScale : 1);
+    const smShowLeft = uniLabelAxis === 'both' || uniLabelAxis === 'y';   // row labels (left)
+    const smShowTop  = uniLabelAxis === 'both' || uniLabelAxis === 'x';   // column labels (top)
+    const smVertY = uniLabelDirY === 'vertical', smVertX = uniLabelDirX === 'vertical';
+    const smName = (k) => resolveMapName(uniState.chainNames[k]);
+    const mctx0 = canvas.getContext('2d'); mctx0.font = `bold ${lf}px sans-serif`;
+    let smMaxW = 0; for (let k = 0; k < nc; k++) smMaxW = Math.max(smMaxW, mctx0.measureText(smName(k)).width);
+    // Chip-aware effective sizes (a filled chip is wider and shorter than the raw text), so chips don't
+    // overlap even at font 1 — same rule as the PAE maps.
+    const smFilled = uniLabelStyle === 'filled';
+    const smEffW = smMaxW + (smFilled ? 0.68 * lf : 0);     // chip width
+    const smEffH = (smFilled ? 0.82 : 1) * lf;              // chip height
+    const smGap = smFilled ? lf * 0.34 : 3;                 // gap scales with the font; chip overhang added in the draw code
+    const smStagger = smShowTop && !smVertX && smEffW > cellSize * 0.98;   // equal columns: collide only if wider than a cell
+    const smEdge = (smShowTop && !smVertX) ? (smEffW / 2 + 4) : 0;         // centred top names overflow at the first/last column
+    // Left (row) names stagger into a 2nd column when their vertical extent exceeds one cell height.
+    const smLeftExtent = smVertY ? smEffW : smEffH;
+    const smLeftStep = smVertY ? smEffH : smEffW;
+    const smLeftStagger = smShowLeft && smLeftExtent > cellSize * 0.98;
+    const smLeftBand = smShowLeft ? (smLeftStep * (smLeftStagger ? 2 : 1) + (smLeftStagger ? 3 : 0) + 4 + smGap) : 4;
+    const leftMargin = Math.max(smLeftBand, smEdge, 4);
+    const rightMargin = smEdge;
+    const topMargin = smShowTop ? ((smVertX ? smEffW + 4 : smEffH * (smStagger ? 2 : 1) + (smStagger ? 3 : 0) + 3) + smGap) : 4;
+
+    const cellPxW = cellSize * nc;
     const gridPx = cellSize * nc * S;
     const leftPx = leftMargin * S;
+    const topPx = topMargin * S;
     const cPx = cellSize * S;
 
-    canvas.width = gridPx + leftPx;
-    canvas.height = gridPx + bottomMargin * S;
-    canvas.style.width = totalW + 'px';
-    canvas.style.height = (cellSize * nc + bottomMargin) + 'px';
+    canvas.width = gridPx + leftPx + rightMargin * S;
+    canvas.height = gridPx + topPx;
+    canvas.style.width = (cellPxW + leftMargin + rightMargin) + 'px';
+    canvas.style.height = (cellPxW + topMargin) + 'px';
 
     const ctx = canvas.getContext('2d');
     if (!ctx.getSerializedSvg) { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height); }   // white bg for screen/PNG only — SVG export stays transparent
+    ctx.save();
+    ctx.translate(0, topPx);   // grid-relative drawing below: y=0 is the grid's top edge
 
     for (let i = 0; i < nc; i++) {
         for (let j = 0; j < nc; j++) {
@@ -5479,16 +5562,40 @@ function drawOneScoreMatrix(canvas, lowerG, upperG, nc, lowerMax, upperMax, lowe
     ctx.strokeStyle = '#999'; ctx.lineWidth = 1.5 * S;
     ctx.beginPath(); ctx.moveTo(leftPx, 0); ctx.lineTo(leftPx + gridPx, gridPx); ctx.stroke();
 
-    const lf = Math.max(7, Math.min(10, cellSize / 3)) * S;
-    ctx.fillStyle = '#333';
     for (let k = 0; k < nc; k++) {
-        const name = uniState.chainNames[k];
-        ctx.font = `bold ${lf}px sans-serif`;
-        ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-        ctx.fillText(name, leftPx - 3 * S, k * cPx + cPx / 2);
-        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-        ctx.fillText(name, leftPx + k * cPx + cPx / 2, gridPx + 3 * S);
+        const nm = smName(k);
+        const chCol = uniMapLabelColor(uniState.chainNames[k], k);
+        const plain = uniLabelBlack ? '#333' : chCol, chip = uniLabelBlack ? '#555' : chCol;
+        const gS = smGap * S;   // small gap to the grid; chip overhang added per orientation
+        const smPadX = smFilled ? lf * S * 0.28 : 0, smHalfH = smFilled ? lf * S * 0.44 : lf * S * 0.5;
+        // row label (left) — horizontal or rotated; staggered into a 2nd column when tall
+        if (smShowLeft) {
+            const loff = (smLeftStagger && k % 2 === 1) ? (smLeftStep + 3) * S : 0;
+            if (smVertY) {
+                ctx.save();
+                ctx.translate(leftPx - gS - smHalfH - loff, k * cPx + cPx / 2);
+                ctx.rotate(-Math.PI / 2);
+                drawMapName(ctx, nm, 0, 0, lf * S, 'center', 'middle', plain, chip);
+                ctx.restore();
+            } else {
+                drawMapName(ctx, nm, leftPx - gS - smPadX - loff, k * cPx + cPx / 2, lf * S, 'right', 'middle', plain, chip);
+            }
+        }
+        // column label on TOP (matches the PAE maps) — horizontal (staggered if wide) or vertical
+        if (smShowTop) {
+            if (smVertX) {
+                ctx.save();
+                ctx.translate(leftPx + k * cPx + cPx / 2, -gS - smPadX);
+                ctx.rotate(-Math.PI / 2);
+                drawMapName(ctx, nm, 0, 0, lf * S, 'left', 'middle', plain, chip);
+                ctx.restore();
+            } else {
+                const off = (smStagger && k % 2 === 1) ? (lf * S + 3 * S) : 0;
+                drawMapName(ctx, nm, leftPx + k * cPx + cPx / 2, -gS - off, lf * S, 'center', 'bottom', plain, chip);
+            }
+        }
     }
+    ctx.restore();   // undo the top-margin translate
 }
 
 function orangesColor(value, vmin, vmax) {
@@ -5509,17 +5616,181 @@ function calcMapDisplaySize() {
     if (!card || card.clientWidth <= 0) card = document.querySelector("#score-matrix-card");
     if (!card || card.clientWidth <= 0) card = document.querySelector(".container");
     const containerW = ((card && card.clientWidth > 0) ? card.clientWidth : 1100) - 64;
-    const leftMargin = 20;
+    // Detailed labels add a gene-name band to each map's left; account for it so N maps still fit
+    // the row width (else they overflow). Estimate at the max on-screen font — a slight over-estimate,
+    // which only makes the maps a touch smaller (safe).
+    let leftMargin = 20, edgePad = 0;
+    const showTopName = uniLabelAxis === 'both' || uniLabelAxis === 'x', showLeftName = uniLabelAxis === 'both' || uniLabelAxis === 'y';
+    if (uniMapDetailedLabels || showTopName) {
+        const mc = document.createElement('canvas').getContext('2d'); mc.font = `bold ${12 * (uniLabelScale > 0 ? uniLabelScale : 1)}px sans-serif`;
+        let gw = 0;
+        for (const cn of (uniState.chainNames || [])) { const dn = resolveMapName(cn); gw = Math.max(gw, mc.measureText(dn).width); }
+        if (uniMapDetailedLabels && showLeftName) leftMargin = 20 + (uniLabelDirY === 'vertical' ? 12 * (uniLabelScale > 0 ? uniLabelScale : 1) + 6 : gw + 4);
+        if (showTopName && uniLabelDirX !== 'vertical') edgePad = gw / 2 + 4;   // horizontal top names overflow at the first/last chain
+    }
+    leftMargin = Math.max(leftMargin, edgePad);
     // On phones the maps stack one-per-row (mobile .map-row rule), so each uses the full width
     // rather than being divided across all models (which shrank them to an unreadable ~80px).
     const nMaps = (typeof window !== 'undefined' && window.innerWidth <= 768) ? 1 : (uniState.modelData.length || 1);
     const gap = 6;
     const totalGaps = gap * (nMaps - 1);
-    const totalMargins = leftMargin * nMaps;
+    const totalMargins = (leftMargin + edgePad) * nMaps;   // edgePad on the right too
     const raw = Math.floor((containerW - totalGaps - totalMargins) / nMaps);
     return Math.max(80, Math.min(raw, 350)); // clamp: >= 80px, cap 350px per map
 }
 
+let uniMapDetailedLabels = true;   // Maps: true = gene names, false = chain IDs (A/B) — the "show" dropdown
+let uniCustomLabels = {};          // chainName -> custom override text; when set it wins over gene/chain
+// Base name from the "show" mode alone (ignores custom overrides) — used to prefill the Custom editor.
+function baseMapName(name) {
+    if (!uniMapDetailedLabels) return name;                                   // chain ID
+    return stripSpeciesPrefix(uniState.chainGenes && uniState.chainGenes[name]) || name;
+}
+// Resolve the display name for a chain: a custom override wins, else the base (gene name / chain ID).
+function resolveMapName(name) {
+    const c = (uniCustomLabels[name] || '').trim();
+    return c || baseMapName(name);
+}
+// Custom override OR resolved gene name (no chain-ID fallback) — for the linear/chord/per-residue labels
+// that show "gene (A)" style. A custom label renames the chain everywhere these appear.
+function chainGeneName(name) {
+    const c = (uniCustomLabels[name] || '').trim();
+    if (c) return c;
+    return stripSpeciesPrefix(uniState.chainGenes && uniState.chainGenes[name]) || '';
+}
+// Build one text input per chain (prefilled with the current gene/chain name) for custom labels.
+// Parse pasted/uploaded "chain,label" lines (comma or tab) → { chainName: label }. The key matches a
+// chain by its ID (A/B/…) or its resolved gene name, so users can key off whichever they see.
+function parseCustomLabelText(text) {
+    const map = {};
+    (text || '').split(/\r?\n/).forEach(line => {
+        if (!line.trim() || /^\s*(chain|id)\s*[,\t]/i.test(line)) return;   // skip blanks + a header row
+        const parts = line.split(/[,\t]/);
+        if (parts.length < 2) return;
+        const key = parts[0].trim(), label = parts.slice(1).join(',').trim();
+        if (!key) return;
+        const cn = (uniState.chainNames || []).find(n => n.toLowerCase() === key.toLowerCase()
+            || ((stripSpeciesPrefix(uniState.chainGenes && uniState.chainGenes[n]) || '').toLowerCase() === key.toLowerCase()));
+        if (cn) map[cn] = label;
+    });
+    return map;
+}
+// Custom-label editor (always available): a paste-able "chain,label" override textarea, a CSV upload,
+// and an example hint. Empty by default — only chains listed here are overridden; the rest use the
+// "show" mode (gene name / chain ID).
+function renderCustomLabelInputs() {
+    const cell = document.getElementById('custom-labels-cell');
+    if (!cell) return;
+    const names = uniState.chainNames || [];
+    cell.innerHTML = '';
+    const hint = document.createElement('span');
+    hint.style.cssText = 'color:#aaa; font-size:0.75rem;';
+    hint.textContent = 'edit any "chain,label" line, then Apply to rename its chip';
+    const ta = document.createElement('textarea');
+    ta.id = 'custom-labels-text';
+    ta.rows = Math.min(8, Math.max(3, names.length));
+    ta.spellcheck = false;
+    // Prefill every chain with its current label (an existing override, else the base gene/chain name),
+    // so the user can just edit a line. Only lines that DIFFER from the base are stored as overrides —
+    // that way un-edited chains still follow gene-name resolution (which lands after load).
+    ta.value = names.map(n => n + ',' + (uniCustomLabels[n] || baseMapName(n))).join('\n');
+    ta.style.cssText = 'width:100%; max-width:30rem; font-family:monospace; font-size:0.78rem; padding:4px 6px; box-sizing:border-box; resize:vertical;';
+    const applyBtn = document.createElement('button');
+    applyBtn.type = 'button'; applyBtn.textContent = 'Apply labels';
+    applyBtn.style.cssText = 'align-self:flex-start; font-size:0.78rem; padding:2px 12px; cursor:pointer; border:1px solid #2471A3; background:#2471A3; color:#fff; border-radius:5px;';
+    applyBtn.onclick = () => {
+        const parsed = parseCustomLabelText(ta.value), ov = {};
+        for (const n in parsed) { if (parsed[n] && parsed[n] !== baseMapName(n)) ov[n] = parsed[n]; }
+        uniCustomLabels = ov;
+        // Custom labels rename the chain EVERYWHERE the name appears — refresh every figure that shows it.
+        redrawMapLabels();                                                    // PAE/LIS/cLIS maps + Score Matrix
+        if (typeof buildLinearContactMaps === 'function') buildLinearContactMaps();   // linear contact map bar labels
+        if (typeof buildChordDiagram === 'function') buildChordDiagram();             // circular contact map arc labels
+        if (uniState.currentPairKey && typeof buildPerResidueCharts === 'function') buildPerResidueCharts(uniState.currentPairKey);   // Per-Residue LIS & pLDDT headers
+    };
+    ta.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') applyBtn.click(); });   // ⌘/Ctrl-Enter applies
+    cell.appendChild(hint);
+    cell.appendChild(ta);
+    cell.appendChild(applyBtn);
+}
+let uniLabelBlack = false;   // Maps/chord/linear: draw chain labels in black instead of the chain colour
+let uniLabelAxis = 'both';   // Maps: which axis carries the chain/gene NAME — 'both' | 'y' | 'x' (drop one to de-clutter many-chain maps)
+let uniShowMapSize = true;   // Maps: residue-size numbers on the bottom edge — independent of name placement
+let uniLabelScale = 1;   // Maps: chain/gene NAME font-size multiplier (S/M/L), on screen and export
+let uniSizeScale = 1;    // Maps: residue-SIZE number font-size multiplier (S/M/L), on screen and export
+let uniLabelDirY = 'vertical';   // Maps/Score Matrix: left (row) name direction — default vertical (saves width)
+let uniLabelDirX = 'horizontal';   // Maps/Score Matrix: top (column) name direction — 'horizontal' | 'vertical'
+let uniLabelStyle = 'filled';   // Maps/Score Matrix: NAME style — 'filled' (chain-colour chip, contrast text) | 'text' (coloured text)
+let uniSizeFormat = 'count';  // Maps: length number format — 'count' ("746") | 'range' ("1-746")
+let uniSizeColorMode = 'black';   // Maps: length number colour — 'black' | 'chain'
+// Text colour that reads on a given background (luminance split) — for the filled-chip name style.
+function contrastText(hex) {
+    if (!hex || hex[0] !== '#' || hex.length < 7) return '#fff';
+    const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    // Threshold 165: vivid saturated fills (orange/green/red/blue) read better with WHITE text; only
+    // genuinely pale chips flip to black.
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 165 ? '#000' : '#fff';
+}
+function roundRectPath(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+// Draw a chain/gene NAME at (cx,cy) with the given alignment. In 'filled' style it paints a rounded
+// chip in chipBg behind the text and picks a contrasting text colour; in 'text' style it's plain
+// coloured text. Used by every map surface (PAE top/left, rotated, Score Matrix) so they stay uniform.
+function drawMapName(ctx, text, cx, cy, fontPx, align, baseline, plainColor, chipBg) {
+    ctx.font = `bold ${fontPx}px sans-serif`;
+    ctx.textAlign = align;
+    if (uniLabelStyle === 'filled') {
+        // Centre the chip on the ACTUAL glyph box (measured ascent/descent), so the text is vertically
+        // centred in the pill rather than hugging the top. Rounded-rectangle, not a full pill.
+        ctx.textBaseline = 'alphabetic';
+        const m = ctx.measureText(text), w = m.width;
+        const asc = m.actualBoundingBoxAscent || fontPx * 0.72;   // fallback for the SVG-export fake ctx
+        const desc = m.actualBoundingBoxDescent || fontPx * 0.02;
+        const glyphH = asc + desc;
+        const padX = fontPx * 0.3, padY = fontPx * 0.16;
+        const rectW = w + 2 * padX, rectH = glyphH + 2 * padY;
+        // Baseline that keeps the requested anchor semantics: block bottom / centre / top at cy.
+        const baseY = baseline === 'middle' ? cy + (asc - desc) / 2 : baseline === 'bottom' ? cy - desc : cy + asc;
+        const glyphCenter = baseY + (desc - asc) / 2;   // exact vertical centre of the glyph box
+        const rx = cx - (align === 'center' ? w / 2 : align === 'right' ? w : 0);
+        ctx.fillStyle = chipBg;
+        roundRectPath(ctx, rx - padX, glyphCenter - rectH / 2, rectW, rectH, Math.min(fontPx * 0.22, rectH * 0.32));
+        ctx.fill();
+        ctx.fillStyle = contrastText(chipBg);
+        ctx.fillText(text, cx, baseY);
+    } else {
+        ctx.textBaseline = baseline;
+        ctx.fillStyle = plainColor;
+        ctx.fillText(text, cx, cy);
+    }
+}
+// Per-chain label colour. Multi-chain (>2) uses multiChainColors; a 2-chain dimer leaves that null
+// and its colours live in the two-chain scheme inputs (clir-a = first chain, clir-b = second).
+function uniMapLabelColor(name, idx) {
+    if (uniState.multiChainColors) return uniState.multiChainColors[name] || '#888';
+    const el = document.getElementById(idx === 0 ? 'color-clir-a' : 'color-clir-b');
+    return (el && el.value) || '#333';
+}
+// Single source of truth for the label colour toggle — the control lives in both the linear-map
+// controls and the PAE-maps header, so keep both checkboxes and all three map types in sync.
+function setLabelBlack(v) {
+    uniLabelBlack = !!v;
+    const cb = document.getElementById('label-black'); if (cb) cb.checked = uniLabelBlack;          // linear-map controls (checkbox)
+    const sel = document.getElementById('map-label-color'); if (sel) sel.value = uniLabelBlack ? 'black' : 'chain';   // PAE-maps header (select)
+    if (typeof buildLinearContactMaps === 'function') buildLinearContactMaps();
+    if (typeof buildChordDiagram === 'function') buildChordDiagram();
+    redrawMapLabels();
+}
+// The label controls (name/placement/vertical/colour/font) drive both the PAE·LIS·cLIS maps and the
+// Score Matrix, so refresh both from one place.
+function redrawMapLabels() {
+    if (typeof drawAllMaps === 'function') drawAllMaps();
+    if (typeof drawAllScoreMatrices === 'function') drawAllScoreMatrices();
+}
 function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, vmax, plotPxTarget, showColorbar, fontScale) {
     const manyChains = chainSizes && chainSizes.length > 4;
     // plotPxTarget: render the plot area at an explicit pixel size (lightweight-bundle export at a
@@ -5529,34 +5800,99 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
     // Label fonts (base, pre-HIRES). On screen: the original small fixed clamp (unchanged).
     // Export: a constant fraction of the figure (so labels scale with resolution), times an
     // optional user font-scale multiplier.
-    const fscale = exporting ? (fontScale > 0 ? fontScale : 1) : 1;
+    // Two independent font-size multipliers: the chain/gene NAME font and the residue-SIZE font.
+    const exFs = exporting ? (fontScale > 0 ? fontScale : 1) : 1;
+    const sizeScale = exFs * (uniSizeScale > 0 ? uniSizeScale : 1);
     // Export base fractions bake in the former 1.25x, so a font scale of 1x now renders at that size.
-    const chainFontBase = (exporting
+    const nameFontRaw = exporting
         ? Math.max(displaySize * 0.0275, Math.min(displaySize * 0.0875, displaySize * 0.15 / chainSizes.length))
-        : Math.max(9, Math.min(12, Math.floor(displaySize / chainSizes.length / 3)))) * fscale;
-    const tickFontBase = (exporting
-        ? displaySize * 0.0375
-        : Math.max(7, Math.min(9, Math.floor(displaySize / 20)))) * fscale;
-    // Margins scale with the export fonts so the larger labels fit; fixed on screen.
-    const leftMargin = exporting ? Math.max(20, chainFontBase * 2.5) : 20;
-    const bottomMargin = exporting
-        ? (chainFontBase + tickFontBase + 6 + (manyChains ? chainFontBase + 3 : 0))
-        : (manyChains ? 50 : 36);
+        : Math.max(9, Math.min(12, Math.floor(displaySize / chainSizes.length / 3)));
+    const showLeftName = uniLabelAxis === 'both' || uniLabelAxis === 'y';
+    const showTopName = uniLabelAxis === 'both' || uniLabelAxis === 'x';
+    const showSize = uniShowMapSize;
+    const vertY = uniLabelDirY === 'vertical';   // left names rotated
+    const vertX = uniLabelDirX === 'vertical';   // top names rotated
+    const detailY = uniMapDetailedLabels && showLeftName;   // gene band on the left only when the y-axis carries names
+    // Measure the widest name at the RAW font (scale 1); widths scale linearly with the font multiplier.
+    let baseNameW = 0;
+    {
+        const mctx = canvas.getContext('2d'); mctx.font = `bold ${nameFontRaw}px sans-serif`;
+        for (const cn of chainNames) {
+            const dn = resolveMapName(cn);
+            baseNameW = Math.max(baseNameW, mctx.measureText(dn).width);
+        }
+    }
+    // Min adjacent centre-to-centre distance between labels (font-independent) — the room one label has.
+    const colScale = displaySize * HIRES / n;
+    let minAdjCenter = Infinity;
+    for (let k = 0; k < chainSizes.length - 1; k++) minAdjCenter = Math.min(minAdjCenter, (chainSizes[k] + chainSizes[k + 1]) / 2 * colScale);
+    if (!isFinite(minAdjCenter)) minAdjCenter = displaySize * HIRES;   // single chain
+    // A filled chip is wider and shorter than the raw text: width = text + 2·padX, height ≈ 0.82·font.
+    // Auto-fit and the stagger test must both use these effective sizes, or the CHIPS overlap even when
+    // the bare text would fit (that was the "auto font but still two rows" bug).
+    const filled = uniLabelStyle === 'filled';
+    const chipWperFont = filled ? 0.68 : 0;   // 2·padX as a fraction of the font
+    const chipHfactor = filled ? 0.82 : 1;    // chip height / font (horizontal left extent)
+    // NAME font multiplier: the user's exact value. Labels that don't fit one line stagger onto two rows.
+    const nameMul = uniLabelScale > 0 ? uniLabelScale : 1;
+    const nameScale = exFs * nameMul;
+    const chainFontBase = nameFontRaw * nameScale;
+    const maxNameW = baseNameW * nameScale;                       // bare text width at the actual font
+    const effNameW = maxNameW + chipWperFont * chainFontBase;     // chip width (text + padding)
+    const effLeftH = chipHfactor * chainFontBase;                 // chip height (left-horizontal extent)
+    // Residue numbers default close to the name font (0.9×) so the two read as a matched pair.
+    const tickFontBase = nameFontRaw * 0.9 * sizeScale;
+    // Measure the actual residue-label text (e.g. "1-356"), not a rough char-count estimate.
+    let maxSizeW = 0;
+    if (showSize) {
+        const sctx = canvas.getContext('2d'); sctx.font = `${tickFontBase}px sans-serif`;
+        for (const cl of chainSizes) { const t = cl <= 1 ? '' : (uniSizeFormat === 'range' ? `1-${cl}` : `${cl}`); maxSizeW = Math.max(maxSizeW, sctx.measureText(t).width); }
+    }
+    const nameStagger = showTopName && !vertX && (effNameW * HIRES > minAdjCenter * 0.92);
+    const sizeStagger = showSize && (maxSizeW * HIRES > minAdjCenter * 0.92);
+    // Left (row) names collide vertically when big: chip height (horizontal) or full width (rotated) must
+    // fit the row centre distance; else stagger alternate names into a SECOND column further left.
+    const leftExtent = vertY ? effNameW : effLeftH;
+    const leftColStep = vertY ? effLeftH : effNameW;
+    const leftStagger = showLeftName && (leftExtent * HIRES > minAdjCenter * 0.92);
+    // Small visual gap between a chip and the plot edge. The per-orientation chip overhang (padX / half
+    // chip-height) is added in the draw code, so this stays small and the labels sit snug to the heatmap.
+    const nameGap = filled ? chainFontBase * 0.34 : 2;   // px (pre-HIRES); scales with the font (dynamic)
+    // Horizontal top names centred on a column overflow the plot at the first/last chain → half-width pad.
+    const edgePad = (showTopName && !vertX) ? (effNameW / 2 + 4) : 0;
+    const leftCols = leftStagger ? 2 : 1;
+    // Reserve the left band whenever left names show (chain IDs included), and include the plot gap so the
+    // chip clears the heatmap. Previously chain-ID mode reserved nothing and its chips touched the edge.
+    const leftBandW = showLeftName ? (leftColStep * leftCols + (leftStagger ? 3 : 0) + 4 + nameGap) : 0;
+    const leftMargin = Math.max((exporting ? Math.max(20, chainFontBase * 2.5) : 20) + leftBandW, edgePad);
+    const rowH = filled ? effLeftH : chainFontBase;                       // per-row vertical extent of a top name
+    const nameRows = nameStagger ? 2 : 1;
+    const nameBand = (vertX
+        ? effNameW + 4                                          // vertical: band as tall as the longest name/chip
+        : rowH * nameRows + (nameStagger ? 3 : 0) + 3)          // horizontal: 1–2 rows
+        + nameGap;
+    const topMargin = showTopName ? nameBand : (exporting ? 0 : 4);
+    const sizeRows = sizeStagger ? 2 : 1;
+    const sizeBand = tickFontBase * sizeRows + (sizeStagger ? 2 : 0) + 6;
+    const bottomMargin = showSize
+        ? (exporting ? sizeBand : Math.max(16, sizeBand))
+        : (exporting ? Math.max(2, tickFontBase * 0.5) : 6);
     // Optional PAE colorbar on the right (export only): gradient bar + 0/10/20/30 ticks + "PAE" label.
     const showBar = exporting && showColorbar;
     const barGapBase = displaySize * 0.02;
     const barWBase = Math.max(10, displaySize * 0.035);
-    const rightMargin = showBar ? (barGapBase + barWBase + 6 + tickFontBase * 1.8 + chainFontBase + 4) : 0;
+    const rightMargin = Math.max(showBar ? (barGapBase + barWBase + 6 + tickFontBase * 1.8 + chainFontBase + 4) : 0, edgePad);
     const plotPx = displaySize * HIRES;
     const leftPx = leftMargin * HIRES;
+    const topPx = topMargin * HIRES;
     const bottomPx = bottomMargin * HIRES;
     const rightPx = rightMargin * HIRES;
     const scale = plotPx / n;
 
     canvas.width = plotPx + leftPx + rightPx;
-    canvas.height = plotPx + bottomPx;
+    canvas.height = plotPx + topPx + bottomPx;
     canvas.style.width = (displaySize + leftMargin + rightMargin) + 'px';
-    canvas.style.height = (displaySize + bottomMargin) + 'px';
+    canvas.style.height = (displaySize + topMargin + bottomMargin) + 'px';
 
     const ctx = canvas.getContext('2d');
     if (!ctx.getSerializedSvg) { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height); }   // white bg for screen/PNG only — SVG export stays transparent
@@ -5575,7 +5911,9 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
             data[idx] = r; data[idx + 1] = g; data[idx + 2] = b; data[idx + 3] = 255;
         }
     }
-    ctx.putImageData(imgData, leftPx, 0);
+    ctx.putImageData(imgData, leftPx, topPx);
+    ctx.save();
+    ctx.translate(0, topPx);   // plot-relative drawing below: y=0 is the plot's top edge
 
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 0.5 * HIRES;
@@ -5598,24 +5936,53 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
         const chainLen = chainSizes[k];
         const chainMid = (chainStart + chainLen / 2) * scale;
         const name = chainNames[k] || String.fromCharCode(65 + k);
+        // "detailed labels" (PAE-Viewer style): resolved gene name in the chain's colour, else 'A'/'B'.
+        const displayName = resolveMapName(name);
+        const chColor = uniMapLabelColor(name, k);
+        const labelCol = uniLabelBlack ? '#333' : chColor;        // plain-text colour
+        const chipBg = uniLabelBlack ? '#555' : chColor;          // filled-chip background
 
-        ctx.font = `${chainFont}px sans-serif`;
-        ctx.fillStyle = '#333';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(name, leftPx - 3 * HIRES, chainMid);
+        // chain/gene NAME on the y-axis (left) — horizontal or rotated; staggered into a 2nd column when tall.
+        // Position each label so its chip's NEAR edge sits `clr` from the plot; the chip's own overhang
+        // (padX for a horizontal chip, half its height for a rotated one) is added per orientation.
+        const clr = nameGap * HIRES;                       // small visual gap to the plot
+        const padXpx = filled ? chainFont * 0.28 : 0;      // chip horizontal padding
+        const halfH = filled ? chainFont * 0.44 : chainFont * 0.5;   // half chip height (rotated overhang)
+        if (showLeftName) {
+            const leftOff = (leftStagger && k % 2 === 1) ? (leftColStep + 3) * HIRES : 0;
+            if (vertY) {
+                ctx.save();
+                ctx.translate(leftPx - clr - halfH - leftOff, chainMid);
+                ctx.rotate(-Math.PI / 2);
+                drawMapName(ctx, displayName, 0, 0, chainFont, 'center', 'middle', labelCol, chipBg);
+                ctx.restore();
+            } else {
+                drawMapName(ctx, displayName, leftPx - clr - padXpx - leftOff, chainMid, chainFont, 'right', 'middle', labelCol, chipBg);
+            }
+        }
 
-        const stagger = chainSizes.length > 4;
-        const rowOff = (stagger && k % 2 === 1) ? (chainFont + 3 * HIRES) : 0;
+        // chain/gene NAME on the top edge (column header) — horizontal (staggered if wide) or vertical.
+        if (showTopName) {
+            if (vertX) {
+                ctx.save();
+                ctx.translate(leftPx + chainMid, -clr - padXpx);
+                ctx.rotate(-Math.PI / 2);
+                drawMapName(ctx, displayName, 0, 0, chainFont, 'left', 'middle', labelCol, chipBg);
+                ctx.restore();
+            } else {
+                const topOff = (nameStagger && k % 2 === 1) ? (chainFont + 3 * HIRES) : 0;
+                drawMapName(ctx, displayName, leftPx + chainMid, -clr - topOff, chainFont, 'center', 'bottom', labelCol, chipBg);
+            }
+        }
 
+        // chain length on the bottom edge — format (count "746" / range "1-746"), colour, staggered by its font.
+        ctx.font = `${tickFont}px sans-serif`;
+        ctx.fillStyle = uniSizeColorMode === 'chain' ? chColor : '#333';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(name, leftPx + chainMid, plotPx + 2 * HIRES + rowOff);
-
-        ctx.font = `${tickFont}px sans-serif`;
-        ctx.fillStyle = '#888';
-        const lenText = chainLen <= 1 ? '' : (chainSizes.length <= 4 ? `1-${chainLen}` : `${chainLen}`);
-        ctx.fillText(lenText, leftPx + chainMid, plotPx + chainFont + 3 * HIRES + rowOff);
+        const botOff = (sizeStagger && k % 2 === 1) ? (tickFont + 2 * HIRES) : 0;
+        const lenText = chainLen <= 1 ? '' : (uniSizeFormat === 'range' ? `1-${chainLen}` : `${chainLen}`);
+        if (showSize) ctx.fillText(lenText, leftPx + chainMid, plotPx + 3 * HIRES + botOff);
 
         ctx.fillStyle = '#333';
         labelCum += chainLen;
@@ -5649,6 +6016,8 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
         ctx.fillText('PAE', 0, 0);
         ctx.restore();
     }
+
+    ctx.restore();   // undo the top-margin translate
 }
 
 function dilateMap(map2d, radius) {
@@ -6743,7 +7112,7 @@ function buildPerResidueCharts(pairKey) {
         // Chain header
         const header = document.createElement('div');
         header.style.cssText = 'font-size:0.9rem; font-weight:700; color:#1a5276; margin-top:1rem; margin-bottom:0.2rem; padding-bottom:0.3rem; border-bottom:2px solid #e0e0e0;';
-        { const _g = stripSpeciesPrefix(uniState.chainGenes && uniState.chainGenes[cd.name]); header.textContent = 'Chain ' + cd.name + (_g ? ' (' + _g + ')' : '') + ' · ' + cd.size + ' residues'; }
+        { const _g = chainGeneName(cd.name); header.textContent = 'Chain ' + cd.name + (_g ? ' (' + _g + ')' : '') + ' · ' + cd.size + ' residues'; }
         container.appendChild(header);
 
         if (hasPAE) drawPerResLisChart(container, cd, selectedModelIdx, singleModel);
@@ -7236,8 +7605,8 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
 
     // Chain labels
     ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = top.clirCol; ctx.fillText(linearChainLabel(top.name), barLeft - 5, barYtop + barH / 2);
-    ctx.fillStyle = bot.clirCol; ctx.fillText(linearChainLabel(bot.name), barLeft - 5, barYbot + barH / 2);
+    ctx.fillStyle = uniLabelBlack ? '#333' : top.clirCol; ctx.fillText(linearChainLabel(top.name), barLeft - 5, barYtop + barH / 2);
+    ctx.fillStyle = uniLabelBlack ? '#333' : bot.clirCol; ctx.fillText(linearChainLabel(bot.name), barLeft - 5, barYbot + barH / 2);
 
     // Domain tracks \u2014 dir -1 = above (top role), +1 = below (bottom role); UniProt/Pfam inner, TED outer.
     const drawTracks = (role, tr, xFn, baseY, dir) => {
@@ -7505,7 +7874,7 @@ let uniShowChordLength = true;   // Circular Contact Map: draw the residue-count
 let uniShowChordTicks = true;   // Circular Contact Map: Circos-style residue-position ruler around each arc (default on)
 let uniShowChordRadial = false;   // Circular Contact Map: arc labels along the arc (tangential, default) vs. pointing outward (radial); radial fans out and avoids overlap with many subunits
 let uniShowChordDom = true;   // Circular Contact Map: UniProt/Pfam domain ring (just inside the arc)
-let uniShowChordTed = true;   // Circular Contact Map: TED domain ring
+let uniShowChordTed = false;   // Circular Contact Map: TED domain ring (off by default — TED clutters the view)
 let uniShowChordPlddt = true;   // Circular Contact Map: per-residue pLDDT ring (between the arc and the domain rings)
 const CHORD_DOM_FILL = ['#66c2a5','#fc8d62','#8da0cb','#e78ac3','#a6d854','#ffd92f','#e5c494','#b3b3b3'];   // UniProt/Pfam — matches the linear map
 const CHORD_TED_FILL = ['#7E57C2','#5C6BC0','#26A69A','#8D6E63','#EC407A','#42A5F5','#AB47BC','#66BB6A'];   // TED — matches the linear map
@@ -7513,7 +7882,7 @@ const CHORD_TED_FILL = ['#7E57C2','#5C6BC0','#26A69A','#8D6E63','#EC407A','#42A5
 function chordArcLabel(arc) {
     if (arc.type === 'ion') return arc.displayName;
     // "labels" = gene/protein name, "chain IDs" = A/B/C — fully independent toggles.
-    const g = stripSpeciesPrefix((uniState.chainGenes && uniState.chainGenes[arc.name]) || '');
+    const g = chainGeneName(arc.name);
     const gene = uniShowChordLabels ? g : '';
     const id = arc.name;
     if (gene && uniShowChordIDs) return gene + ' (' + id + ')';       // both → "gene (A)"
@@ -7592,6 +7961,7 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
             cx: cxC, cy: cyC, outerR: outerR + _domSpace, angle: arc.mid, ticks: uniShowChordTicks, radial: uniShowChordRadial, hidden,
             name: chordArcLabel(arc), showName: uniShowChordLabels || uniShowChordIDs,
             length: arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`, showLength: uniShowChordLength,
+            color: uniLabelBlack ? '#333' : (chainColors[arc.name] || '#333'),
         });
     }
     ctx.restore();
@@ -7656,6 +8026,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
             cx: cxC, cy: cyC, outerR: outerR + _domSpace, angle: arc.mid, ticks: uniShowChordTicks, radial: uniShowChordRadial, hidden,
             name: chordArcLabel(arc), showName: uniShowChordLabels || uniShowChordIDs,
             length: arc.type === 'ion' ? `(${arc.name})` : `${arc.size}`, showLength: uniShowChordLength,
+            color: uniLabelBlack ? '#333' : (chainColors[arc.name] || '#333'),
         });
     }
 

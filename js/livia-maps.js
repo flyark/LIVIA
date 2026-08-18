@@ -357,7 +357,7 @@
     function drawChordArcLabel(ctx, opts) {
         const cx = opts.cx, cy = opts.cy, R0 = opts.outerR, a = opts.angle, ticks = opts.ticks;
         const nameFont = 'bold 13px sans-serif', lenFont = '11px sans-serif';
-        const nameColor = opts.hidden ? '#bbb' : '#333', lenColor = opts.hidden ? '#ccc' : '#888';
+        const nameColor = opts.hidden ? '#bbb' : (opts.color || '#333'), lenColor = opts.hidden ? '#ccc' : '#888';
         const at = (r) => [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
         if (!opts.radial) {
             let ta = a + Math.PI / 2;
