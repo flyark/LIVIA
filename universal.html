@@ -296,9 +296,9 @@
                 <select id="map-label-dirx" onchange="uniLabelDirX=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="horizontal">horizontal</option><option value="vertical">vertical</option></select>
 
                 <span style="font-weight:600; color:#888;">Style</span>
-                <span style="justify-self:start; margin-left:0.6rem;" title="Name style: a filled chip in the chain colour with contrasting text, or plain coloured text">chip</span>
+                <span style="justify-self:start; margin-left:0.6rem;" title="Name style: a filled chip in the chain color with contrasting text, or plain colored text">chip</span>
                 <select id="map-label-style" onchange="uniLabelStyle=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="filled">filled chip</option><option value="text">text</option></select>
-                <span style="justify-self:start; margin-left:0.6rem;" title="Text colour (used by the text style): each chain's colour, or plain black">color</span>
+                <span style="justify-self:start; margin-left:0.6rem;" title="Text color (used by the text style): each chain's color, or plain black">color</span>
                 <select id="map-label-color" onchange="setLabelBlack(this.value==='black')" style="font-size:0.8rem; padding:1px 2px;"><option value="chain">chain</option><option value="black">black</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Chain/gene name font size (1 = default; type any value, e.g. 1.2)">font</span>
                 <input type="number" id="map-label-scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniLabelScale=parseFloat(this.value)||1; redrawMapLabels();">
@@ -309,7 +309,7 @@
                 <input type="checkbox" id="map-label-size" checked onchange="uniShowMapSize=this.checked; redrawMapLabels();" style="justify-self:start;">
                 <span style="justify-self:start; margin-left:0.6rem;" title="Length format: N = residue count (e.g. 746); 1–N = full range (e.g. 1–746)">format</span>
                 <select id="map-size-format" onchange="uniSizeFormat=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="count">N</option><option value="range">1–N</option></select>
-                <span style="justify-self:start; margin-left:0.6rem;" title="Length-number colour: plain black, or each chain's colour">color</span>
+                <span style="justify-self:start; margin-left:0.6rem;" title="Length-number color: plain black, or each chain's color">color</span>
                 <select id="map-size-color" onchange="uniSizeColorMode=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="black">black</option><option value="chain">chain</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Length-number font size (1 = default; type any value)">font</span>
                 <input type="number" id="map-size-scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniSizeScale=parseFloat(this.value)||1; redrawMapLabels();">
@@ -382,9 +382,9 @@
                 <span style="font-size:0.82rem; color:#555; white-space:nowrap; display:inline-flex; align-items:center;">domains:</span>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-domains" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> UniProt/Pfam</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ted" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> TED</label>
-                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;" title="Per-residue pLDDT confidence strip beside each chain bar (AlphaFold colour scale)"><input type="checkbox" id="contact-show-plddt" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> pLDDT</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;" title="Per-residue pLDDT confidence strip beside each chain bar (AlphaFold color scale)"><input type="checkbox" id="contact-show-plddt" checked onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> pLDDT</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-show-ids" checked onchange="uniShowLinearIDs=this.checked; buildLinearContactMaps();"> chain IDs</label>
-                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;" title="Draw chain labels in black instead of each chain's colour (linear map, circular map, and PAE/LIS/cLIS maps)"><input type="checkbox" id="label-black" onchange="setLabelBlack(this.checked)"> black labels</label>
+                <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;" title="Draw chain labels in black instead of each chain's color (linear map, circular map, and PAE/LIS/cLIS maps)"><input type="checkbox" id="label-black" onchange="setLabelBlack(this.checked)"> black labels</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="contact-swap-ab" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"> swap chains (top&harr;bottom)</label>
                 <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="if(uniState.currentPairKey) buildContactMap(uniState.currentPairKey);"></label>
             </div>
@@ -4500,9 +4500,9 @@ function selectPair(key) {
     buildSequenceViewer(key);
     buildContactMap(key);
     buildChordDiagram();
-    // Keep BOTH the Score Matrix and the PAE/LIS/cLIS map labels in sync with chain-colour changes
+    // Keep BOTH the Score Matrix and the PAE/LIS/cLIS map labels in sync with chain-color changes
     // (presets, palette, pickers, custom upload) — those all re-render through here, and the labels read
-    // the live colours. Score matrix can show even for lightweight bundles; maps only when not lightweight.
+    // the live colors. Score matrix can show even for lightweight bundles; maps only when not lightweight.
     if (typeof drawAllScoreMatrices === 'function') drawAllScoreMatrices();
     if (!uniState.lightweight && typeof drawAllMaps === 'function') drawAllMaps();
     updateViewer3d(key);
@@ -5478,7 +5478,7 @@ function drawOneScoreMatrix(canvas, lowerG, upperG, nc, lowerMax, upperMax, lowe
     const S = 2;
     const cellSize = Math.floor(displaySize / nc);
     // Axis labels mirror the PAE maps exactly: names on TOP + LEFT (not bottom), name mode (gene/chain
-    // ID), colour, font scale, placement, and per-axis direction (horizontal/vertical).
+    // ID), color, font scale, placement, and per-axis direction (horizontal/vertical).
     const lf = Math.max(7, Math.min(10, cellSize / 3)) * (uniLabelScale > 0 ? uniLabelScale : 1);
     const smShowLeft = uniLabelAxis === 'both' || uniLabelAxis === 'y';   // row labels (left)
     const smShowTop  = uniLabelAxis === 'both' || uniLabelAxis === 'x';   // column labels (top)
@@ -5493,7 +5493,7 @@ function drawOneScoreMatrix(canvas, lowerG, upperG, nc, lowerMax, upperMax, lowe
     const smEffH = (smFilled ? 0.82 : 1) * lf;              // chip height
     const smGap = smFilled ? lf * 0.34 : 3;                 // gap scales with the font; chip overhang added in the draw code
     const smStagger = smShowTop && !smVertX && smEffW > cellSize * 0.98;   // equal columns: collide only if wider than a cell
-    const smEdge = (smShowTop && !smVertX) ? (smEffW / 2 + 4) : 0;         // centred top names overflow at the first/last column
+    const smEdge = (smShowTop && !smVertX) ? (smEffW / 2 + 4) : 0;         // centerd top names overflow at the first/last column
     // Left (row) names stagger into a 2nd column when their vertical extent exceeds one cell height.
     const smLeftExtent = smVertY ? smEffW : smEffH;
     const smLeftStep = smVertY ? smEffH : smEffW;
@@ -5713,17 +5713,17 @@ function renderCustomLabelInputs() {
     cell.appendChild(ta);
     cell.appendChild(applyBtn);
 }
-let uniLabelBlack = false;   // Maps/chord/linear: draw chain labels in black instead of the chain colour
+let uniLabelBlack = false;   // Maps/chord/linear: draw chain labels in black instead of the chain color
 let uniLabelAxis = 'both';   // Maps: which axis carries the chain/gene NAME — 'both' | 'y' | 'x' (drop one to de-clutter many-chain maps)
 let uniShowMapSize = true;   // Maps: residue-size numbers on the bottom edge — independent of name placement
 let uniLabelScale = 1;   // Maps: chain/gene NAME font-size multiplier (S/M/L), on screen and export
 let uniSizeScale = 1;    // Maps: residue-SIZE number font-size multiplier (S/M/L), on screen and export
 let uniLabelDirY = 'vertical';   // Maps/Score Matrix: left (row) name direction — default vertical (saves width)
 let uniLabelDirX = 'horizontal';   // Maps/Score Matrix: top (column) name direction — 'horizontal' | 'vertical'
-let uniLabelStyle = 'filled';   // Maps/Score Matrix: NAME style — 'filled' (chain-colour chip, contrast text) | 'text' (coloured text)
+let uniLabelStyle = 'filled';   // Maps/Score Matrix: NAME style — 'filled' (chain-color chip, contrast text) | 'text' (colored text)
 let uniSizeFormat = 'count';  // Maps: length number format — 'count' ("746") | 'range' ("1-746")
-let uniSizeColorMode = 'black';   // Maps: length number colour — 'black' | 'chain'
-// Text colour that reads on a given background (luminance split) — for the filled-chip name style.
+let uniSizeColorMode = 'black';   // Maps: length number color — 'black' | 'chain'
+// Text color that reads on a given background (luminance split) — for the filled-chip name style.
 function contrastText(hex) {
     if (!hex || hex[0] !== '#' || hex.length < 7) return '#fff';
     const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
@@ -5738,14 +5738,14 @@ function roundRectPath(ctx, x, y, w, h, r) {
     ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
 // Draw a chain/gene NAME at (cx,cy) with the given alignment. In 'filled' style it paints a rounded
-// chip in chipBg behind the text and picks a contrasting text colour; in 'text' style it's plain
-// coloured text. Used by every map surface (PAE top/left, rotated, Score Matrix) so they stay uniform.
+// chip in chipBg behind the text and picks a contrasting text color; in 'text' style it's plain
+// colored text. Used by every map surface (PAE top/left, rotated, Score Matrix) so they stay uniform.
 function drawMapName(ctx, text, cx, cy, fontPx, align, baseline, plainColor, chipBg) {
     ctx.font = `bold ${fontPx}px sans-serif`;
     ctx.textAlign = align;
     if (uniLabelStyle === 'filled') {
         // Centre the chip on the ACTUAL glyph box (measured ascent/descent), so the text is vertically
-        // centred in the pill rather than hugging the top. Rounded-rectangle, not a full pill.
+        // centerd in the pill rather than hugging the top. Rounded-rectangle, not a full pill.
         ctx.textBaseline = 'alphabetic';
         const m = ctx.measureText(text), w = m.width;
         const asc = m.actualBoundingBoxAscent || fontPx * 0.72;   // fallback for the SVG-export fake ctx
@@ -5753,9 +5753,9 @@ function drawMapName(ctx, text, cx, cy, fontPx, align, baseline, plainColor, chi
         const glyphH = asc + desc;
         const padX = fontPx * 0.3, padY = fontPx * 0.16;
         const rectW = w + 2 * padX, rectH = glyphH + 2 * padY;
-        // Baseline that keeps the requested anchor semantics: block bottom / centre / top at cy.
+        // Baseline that keeps the requested anchor semantics: block bottom / center / top at cy.
         const baseY = baseline === 'middle' ? cy + (asc - desc) / 2 : baseline === 'bottom' ? cy - desc : cy + asc;
-        const glyphCenter = baseY + (desc - asc) / 2;   // exact vertical centre of the glyph box
+        const glyphCenter = baseY + (desc - asc) / 2;   // exact vertical center of the glyph box
         const rx = cx - (align === 'center' ? w / 2 : align === 'right' ? w : 0);
         ctx.fillStyle = chipBg;
         roundRectPath(ctx, rx - padX, glyphCenter - rectH / 2, rectW, rectH, Math.min(fontPx * 0.22, rectH * 0.32));
@@ -5768,14 +5768,14 @@ function drawMapName(ctx, text, cx, cy, fontPx, align, baseline, plainColor, chi
         ctx.fillText(text, cx, cy);
     }
 }
-// Per-chain label colour. Multi-chain (>2) uses multiChainColors; a 2-chain dimer leaves that null
-// and its colours live in the two-chain scheme inputs (clir-a = first chain, clir-b = second).
+// Per-chain label color. Multi-chain (>2) uses multiChainColors; a 2-chain dimer leaves that null
+// and its colors live in the two-chain scheme inputs (clir-a = first chain, clir-b = second).
 function uniMapLabelColor(name, idx) {
     if (uniState.multiChainColors) return uniState.multiChainColors[name] || '#888';
     const el = document.getElementById(idx === 0 ? 'color-clir-a' : 'color-clir-b');
     return (el && el.value) || '#333';
 }
-// Single source of truth for the label colour toggle — the control lives in both the linear-map
+// Single source of truth for the label color toggle — the control lives in both the linear-map
 // controls and the PAE-maps header, so keep both checkboxes and all three map types in sync.
 function setLabelBlack(v) {
     uniLabelBlack = !!v;
@@ -5785,7 +5785,7 @@ function setLabelBlack(v) {
     if (typeof buildChordDiagram === 'function') buildChordDiagram();
     redrawMapLabels();
 }
-// The label controls (name/placement/vertical/colour/font) drive both the PAE·LIS·cLIS maps and the
+// The label controls (name/placement/vertical/color/font) drive both the PAE·LIS·cLIS maps and the
 // Score Matrix, so refresh both from one place.
 function redrawMapLabels() {
     if (typeof drawAllMaps === 'function') drawAllMaps();
@@ -5822,7 +5822,7 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
             baseNameW = Math.max(baseNameW, mctx.measureText(dn).width);
         }
     }
-    // Min adjacent centre-to-centre distance between labels (font-independent) — the room one label has.
+    // Min adjacent center-to-center distance between labels (font-independent) — the room one label has.
     const colScale = displaySize * HIRES / n;
     let minAdjCenter = Infinity;
     for (let k = 0; k < chainSizes.length - 1; k++) minAdjCenter = Math.min(minAdjCenter, (chainSizes[k] + chainSizes[k + 1]) / 2 * colScale);
@@ -5851,14 +5851,14 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
     const nameStagger = showTopName && !vertX && (effNameW * HIRES > minAdjCenter * 0.92);
     const sizeStagger = showSize && (maxSizeW * HIRES > minAdjCenter * 0.92);
     // Left (row) names collide vertically when big: chip height (horizontal) or full width (rotated) must
-    // fit the row centre distance; else stagger alternate names into a SECOND column further left.
+    // fit the row center distance; else stagger alternate names into a SECOND column further left.
     const leftExtent = vertY ? effNameW : effLeftH;
     const leftColStep = vertY ? effLeftH : effNameW;
     const leftStagger = showLeftName && (leftExtent * HIRES > minAdjCenter * 0.92);
     // Small visual gap between a chip and the plot edge. The per-orientation chip overhang (padX / half
     // chip-height) is added in the draw code, so this stays small and the labels sit snug to the heatmap.
     const nameGap = filled ? chainFontBase * 0.34 : 2;   // px (pre-HIRES); scales with the font (dynamic)
-    // Horizontal top names centred on a column overflow the plot at the first/last chain → half-width pad.
+    // Horizontal top names centerd on a column overflow the plot at the first/last chain → half-width pad.
     const edgePad = (showTopName && !vertX) ? (effNameW / 2 + 4) : 0;
     const leftCols = leftStagger ? 2 : 1;
     // Reserve the left band whenever left names show (chain IDs included), and include the plot gap so the
@@ -5936,10 +5936,10 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
         const chainLen = chainSizes[k];
         const chainMid = (chainStart + chainLen / 2) * scale;
         const name = chainNames[k] || String.fromCharCode(65 + k);
-        // "detailed labels" (PAE-Viewer style): resolved gene name in the chain's colour, else 'A'/'B'.
+        // "detailed labels" (PAE-Viewer style): resolved gene name in the chain's color, else 'A'/'B'.
         const displayName = resolveMapName(name);
         const chColor = uniMapLabelColor(name, k);
-        const labelCol = uniLabelBlack ? '#333' : chColor;        // plain-text colour
+        const labelCol = uniLabelBlack ? '#333' : chColor;        // plain-text color
         const chipBg = uniLabelBlack ? '#555' : chColor;          // filled-chip background
 
         // chain/gene NAME on the y-axis (left) — horizontal or rotated; staggered into a 2nd column when tall.
