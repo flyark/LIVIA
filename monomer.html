@@ -2725,7 +2725,12 @@ function updateViewer3d(validRegions) {
     renderSubdomainToggleBar(validRegions);
     let colorComponents = [];
 
-    if (validRegions && validRegions.length >= 2 && monPairResults && monPairResults.length > 0) {
+    // pLDDT / by-chain / by-polymer colour the WHOLE structure, so they must work even for a
+    // single-domain protein (no interaction pairs, <2 regions) — build those components regardless of
+    // region count. Only the default domain-coloured mode needs the ≥2-region interaction analysis.
+    if (monCxcColorMode && monPdbText) {
+        colorComponents = buildMonomerColorComponents(validRegions || []);
+    } else if (validRegions && validRegions.length >= 2 && monPairResults && monPairResults.length > 0) {
         colorComponents = buildMonomerColorComponents(validRegions);
     }
 
