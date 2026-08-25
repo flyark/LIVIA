@@ -257,6 +257,7 @@
                 Looks up each chain in UniProt by sequence and lists any domains found.
             </div>
             <button class="btn" id="identify-btn" onclick="identifyChains()">Identify chains via UniProt</button>
+            <span id="mist-check-status" style="margin-left:0.6rem; font-size:0.82rem; color:#888;"></span>
             <div id="chain-identity-out" style="margin-top:0.6rem; overflow-x:auto;"></div>
         </div>
 
@@ -5237,7 +5238,13 @@ async function identifyChains(){
     if (typeof renderCustomLabelInputs === 'function') renderCustomLabelInputs();   // refresh Custom editor prefill with resolved names
     if (typeof redrawMapLabels === 'function') redrawMapLabels();   // gene names now resolved → refresh PAE maps AND score matrix
     btn.disabled = false; btn.textContent = 'Identify chains via UniProt';
-    queryMistForPair();   // now that accessions are resolved, ask MIST whether this pair is experimentally reported
+    // The identify button resetting reads as "done" — but for a many-chain complex, the MIST lookup
+    // that follows (one query per subunit, with 429-retry) can itself take well over a minute with the
+    // Reported-Interactions card (further down the page, still display:none) as the only sign of progress.
+    // Surface it right next to the button too, and clear it once MIST settles either way.
+    const mistStatus = document.getElementById('mist-check-status');
+    if (mistStatus) mistStatus.textContent = 'Checking MIST for reported interactions…';
+    Promise.resolve(queryMistForPair()).finally(() => { if (mistStatus) mistStatus.textContent = ''; });   // now that accessions are resolved, ask MIST whether this pair is experimentally reported
 }
 
 // ── Reported interactions (MIST). Once Identify has resolved the chains to UniProt accessions, ask MIST
@@ -5788,7 +5795,10 @@ function setLabelBlack(v) {
 // The label controls (name/placement/vertical/color/font) drive both the PAE·LIS·cLIS maps and the
 // Score Matrix, so refresh both from one place.
 function redrawMapLabels() {
-    if (typeof drawAllMaps === 'function') drawAllMaps();
+    // Lightweight/precomputed bundles have no numeric PAE (static images only) — drawAllMaps() calls
+    // drawMapCanvas(), which reads model.pae and throws on the null array. Matches the same guard used
+    // for the identical reason in selectPair().
+    if (!uniState.lightweight && typeof drawAllMaps === 'function') drawAllMaps();
     if (typeof drawAllScoreMatrices === 'function') drawAllScoreMatrices();
 }
 function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, vmax, plotPxTarget, showColorbar, fontScale) {
