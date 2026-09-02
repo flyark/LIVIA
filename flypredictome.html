@@ -985,20 +985,38 @@ async function searchGenePair() {
             return;
         }
 
+        // FlyPredictome's own pair index carries stale entries — a listed SET can return "Not found"
+        // on their server even though the summary page still references it. Check each candidate's
+        // detail page actually exists before offering it, so a click never dead-ends on a broken link.
+        statusEl.textContent = geneA.symbol + ' vs ' + geneB.symbol + ': checking ' + matches.length +
+            (matches.length === 1 ? ' prediction set' : ' prediction sets') + ' against FlyPredictome...';
+        const liveFlags = await Promise.all(matches.map(p => p.detailUrl ? fetchViaProxy(p.detailUrl).then(Boolean) : false));
+        const liveMatches = matches.filter((p, i) => liveFlags[i]);
+        const deadCount = matches.length - liveMatches.length;
+        const deadNote = deadCount ? (' (' + deadCount + ' other listed set' + (deadCount === 1 ? '' : 's') + ' skipped — broken on FlyPredictome)') : '';
+
+        if (liveMatches.length === 0) {
+            statusEl.textContent = geneA.symbol + ' vs ' + geneB.symbol + ': FlyPredictome lists ' + matches.length +
+                (matches.length === 1 ? ' prediction set' : ' prediction sets') +
+                ' for this pair, but every linked page currently returns nothing on their end (stale index entries) — nothing to analyze right now.';
+            statusEl.style.color = '#c0392b';
+            return;
+        }
+
         // Single match → load directly
-        if (matches.length === 1 && matches[0].detailUrl) {
-            statusEl.textContent = geneA.symbol + ' \u2014 ' + geneB.symbol + ': loading analysis...';
+        if (liveMatches.length === 1 && liveMatches[0].detailUrl) {
+            statusEl.textContent = geneA.symbol + ' vs ' + geneB.symbol + ': loading analysis...' + deadNote;
             statusEl.style.color = '#27ae60';
-            document.getElementById('url-input').value = matches[0].detailUrl;
+            document.getElementById('url-input').value = liveMatches[0].detailUrl;
             switchTab('url');
             generate();
             return;
         }
 
         // Multiple matches → show selection table
-        statusEl.textContent = geneA.symbol + ' \u2014 ' + geneB.symbol + ': ' + matches.length + ' prediction sets found. Click a row to analyze.';
+        statusEl.textContent = geneA.symbol + ' vs ' + geneB.symbol + ': ' + liveMatches.length + ' prediction sets found' + deadNote + '. Click a row to analyze.';
         statusEl.style.color = '#27ae60';
-        displayPairResults(matches);
+        displayPairResults(liveMatches);
 
     } catch (e) {
         statusEl.textContent = 'Error: ' + e.message;
