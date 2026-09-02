@@ -15,6 +15,7 @@
  *   lightenColor()         — lighten a hex color by amount
  *   CORS_PROXIES           — array of CORS proxy URL builders
  *   fetchTextViaProxy()    — generic proxy-based fetch with direct-first fallback
+ *   fetchStructureTextViaProxy() — PDB/structure fetch that falls back to a gzipped sibling
  *   AA3TO1                 — amino acid 3-letter to 1-letter mapping
  */
 
@@ -176,6 +177,46 @@ async function fetchTextViaProxy(url) {
             }
         } catch {}
     }
+    return null;
+}
+
+// ── Fetch + gunzip a resource through the same proxy chain as fetchTextViaProxy ──
+// For sources that serve gzip-compressed bytes at a URL, decoded with the browser's built-in
+// DecompressionStream — no external library needed (same technique universal.html uses for
+// dropped .gz files).
+async function fetchGzipTextViaProxy(url) {
+    async function tryDecode(resp) {
+        if (!resp || !resp.ok || !resp.body) return null;
+        try {
+            const ds = new DecompressionStream('gzip');
+            const buf = await new Response(resp.body.pipeThrough(ds)).arrayBuffer();
+            const text = new TextDecoder().decode(buf);
+            return text.length > 100 ? text : null;
+        } catch { return null; }
+    }
+    try {
+        const text = await tryDecode(await fetch(url));
+        if (text) return text;
+    } catch {}
+    for (const makeProxy of CORS_PROXIES) {
+        try {
+            const text = await tryDecode(await fetch(makeProxy(url), { signal: AbortSignal.timeout(15000) }));
+            if (text) return text;
+        } catch {}
+    }
+    return null;
+}
+
+// ── Fetch a structure file (PDB/CIF) that may live at <url> or, if the plain path fails, at
+// <url>.gz (gzip-compressed, same content) — tries plain first, falls back to the gz sibling and
+// gunzips client-side. FlyPredictome moved colabfold-output storage to gzip-on-disk in 2026-09
+// without updating the URLs it advertises in its own HTML, so the plain filename now 500s while
+// the .gz sibling still serves the real file — this is the recovery path for that.
+async function fetchStructureTextViaProxy(url) {
+    const direct = await fetchTextViaProxy(url);
+    if (direct && direct.includes('ATOM')) return direct;
+    const gz = await fetchGzipTextViaProxy(url + '.gz');
+    if (gz && gz.includes('ATOM')) return gz;
     return null;
 }
 

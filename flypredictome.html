@@ -539,7 +539,7 @@
 </div>
 </div>
 
-<script src="js/livia-core.js?v=20260627"></script>
+<script src="js/livia-core.js?v=20260902"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260716e"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
@@ -1563,7 +1563,22 @@ function flyWireDownloads(target, colors) {
     setBtn('dl-script-full', fullScript, base + '_full' + scriptExt);
     setBtn('dl-script-partial', partialScript, base + '_partial' + scriptExt);
     const dlPdb = document.getElementById('dl-pdb');
-    if (dlPdb) { if (flyParsed.pdbUrl) { dlPdb.href = flyParsed.pdbUrl; dlPdb.style.display = ''; } else dlPdb.style.display = 'none'; }
+    if (dlPdb) {
+        // Link to LIVIA's own already-fetched structure text (blob), not straight to FlyPredictome's
+        // raw URL — FlyPredictome's colabfold-output/*.pdb links can 500 while the actual content is
+        // still available via the .gz fallback fetchStructureTextViaProxy() already resolved. This way
+        // the download button always offers the same content the viewer/scripts are using.
+        const fullPdbText = (typeof flyPdbPerRank !== 'undefined' && flyPdbPerRank[flyCurrentRank]) || flyPdbText;
+        if (fullPdbText) {
+            dlPdb.href = URL.createObjectURL(new Blob([fullPdbText], { type: 'text/plain' }));
+            dlPdb.download = pdbFilename;
+            dlPdb.style.display = '';
+        } else if (flyParsed.pdbUrl) {
+            dlPdb.removeAttribute('download');
+            dlPdb.href = flyParsed.pdbUrl;
+            dlPdb.style.display = '';
+        } else dlPdb.style.display = 'none';
+    }
     const dlPdbConf = document.getElementById('dl-pdb-conf');
     if (dlPdbConf) {
         const pdbText = (typeof flyPdbPerRank !== 'undefined' && flyPdbPerRank[flyCurrentRank]) || flyPdbText;
@@ -1990,7 +2005,7 @@ async function generate() {
     flyPdbText = null;
     if (flyParsed.pdbUrl) {
         try {
-            const pdbText = await fetchTextViaProxy(flyParsed.pdbUrl);
+            const pdbText = await fetchStructureTextViaProxy(flyParsed.pdbUrl);
             if (pdbText && pdbText.includes('ATOM')) {
                 flyChainSeqs = parsePdbSequence(pdbText);
                 flyPdbText = pdbText;
@@ -2305,7 +2320,7 @@ async function fetchRankPdb(rankNum) {
             if (pdbMatch) {
                 let pdbUrl = pdbMatch[1];
                 if (!pdbUrl.startsWith('http')) pdbUrl = 'https://www.flyrnai.org' + pdbUrl;
-                const pdbText = await fetchTextViaProxy(pdbUrl);
+                const pdbText = await fetchStructureTextViaProxy(pdbUrl);
                 if (pdbText && pdbText.includes('ATOM')) {
                     flyPdbPerRank[rankNum] = pdbText;
                     return true;
