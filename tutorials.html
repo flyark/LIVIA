@@ -221,7 +221,7 @@
                 </div>
                 <div class="step-item" data-step="1" onclick="goToStep('universal', 1)">
                     <div class="step-badge">2</div>
-                    <div class="step-text">Review confidence metrics &mdash; iLIS, ipSAE, ipTM for each model</div>
+                    <div class="step-text">Review per-model metrics &mdash; iLIS, iLIA, iLISA, ipSAE, actifpTM, ipTM</div>
                 </div>
                 <div class="step-item" data-step="2" onclick="goToStep('universal', 2)">
                     <div class="step-badge">3</div>
@@ -233,30 +233,38 @@
                 </div>
                 <div class="step-item" data-step="4" onclick="goToStep('universal', 4)">
                     <div class="step-badge">5</div>
-                    <div class="step-text">Explore PAE, LIS, and cLIS heatmaps across all models</div>
+                    <div class="step-text">Score Matrix &mdash; pick any metric for each triangle, per model</div>
                 </div>
                 <div class="step-item" data-step="5" onclick="goToStep('universal', 5)">
                     <div class="step-badge">6</div>
-                    <div class="step-text">Sequence Viewer &mdash; interaction residues highlighted</div>
+                    <div class="step-text">Label Settings &mdash; custom axis names and per-chain labels</div>
                 </div>
                 <div class="step-item" data-step="6" onclick="goToStep('universal', 6)">
                     <div class="step-badge">7</div>
-                    <div class="step-text">Linear Contact Map &mdash; cLIR residue pairs within C&beta; 8 &Aring;</div>
+                    <div class="step-text">Explore PAE, LIS, and cLIS heatmaps across all models</div>
                 </div>
                 <div class="step-item" data-step="7" onclick="goToStep('universal', 7)">
                     <div class="step-badge">8</div>
-                    <div class="step-text">Circular Contact Map &mdash; chord diagram with domain and pLDDT rings</div>
+                    <div class="step-text">Sequence Viewer &mdash; interaction residues highlighted</div>
                 </div>
                 <div class="step-item" data-step="8" onclick="goToStep('universal', 8)">
                     <div class="step-badge">9</div>
-                    <div class="step-text">View the 3D structure in Mol* viewer</div>
+                    <div class="step-text">Linear Contact Map &mdash; cLIR pairs, domains, and MIST evidence</div>
                 </div>
                 <div class="step-item" data-step="9" onclick="goToStep('universal', 9)">
                     <div class="step-badge">10</div>
-                    <div class="step-text">Adjust color presets for the visualization</div>
+                    <div class="step-text">Circular Contact Map &mdash; chord diagram with domain and pLDDT rings</div>
                 </div>
                 <div class="step-item" data-step="10" onclick="goToStep('universal', 10)">
                     <div class="step-badge">11</div>
+                    <div class="step-text">View the 3D structure in Mol* viewer</div>
+                </div>
+                <div class="step-item" data-step="11" onclick="goToStep('universal', 11)">
+                    <div class="step-badge">12</div>
+                    <div class="step-text">Visualization Script &mdash; color presets and custom chain colors</div>
+                </div>
+                <div class="step-item" data-step="12" onclick="goToStep('universal', 12)">
+                    <div class="step-badge">13</div>
                     <div class="step-text">Per-Residue intra-chain LIS &amp; pLDDT charts</div>
                 </div>
             </div>
@@ -360,16 +368,18 @@
 const tutorials = {
     universal: {
         steps: [
-            { src: 'screenshots/tut_universal_1.png', caption: 'Upload prediction files or pick a p53\u2013MDM2 example (AlphaFold3, ColabFold, Boltz, Chai-1, OpenFold3, Protenix-v2, ESMFold2)' },
-            { src: 'screenshots/tut_universal_2.png', caption: 'Per-chain-pair metrics \u2014 iLIS, iLIA, iLISA, ipSAE, actifpTM, ipTM' },
+            { src: 'screenshots/tut_universal_1.png', caption: 'Upload prediction files or pick a p53\u2013MDM2 example (AlphaFold3, ColabFold, Boltz-2, Chai-1, OpenFold3, Protenix-v2, ESMFold2), or a 3\u20134 chain AlphaFold3 complex (PRC2, BBSome, MIS12C)' },
+            { src: 'screenshots/tut_universal_2.png', caption: 'Per-model metrics \u2014 iLIS, iLIA, iLISA, ipSAE, actifpTM, ipTM, LIS, cLIS, and LIR/cLIR counts, with iLIS FPR thresholds below' },
             { src: 'screenshots/tut_universal_identity.png', caption: 'Chain identity \u2014 looks up each chain in UniProt by sequence and lists gene, organism, and domains found' },
             { src: 'screenshots/tut_universal_mist.png', caption: 'Reported Interactions (MIST) \u2014 counts of physical (PPI) and genetic (GI) interaction papers already on record for this pair' },
-            { src: 'screenshots/tut_universal_3.png', caption: 'Score matrix and PAE/LIS/cLIS heatmaps across all models' },
+            { src: 'screenshots/tut_universal_score.png', caption: 'Score Matrix \u2014 lower-left and upper-right triangles each pick from iLIS, iLIA, iLISA, ipTM, ipSAE, actifpTM, LIS, cLIS, LIR, or cLIR' },
+            { src: 'screenshots/tut_universal_labels.png', caption: 'Label Settings \u2014 axis name mode, style, and a custom "chain,label" editor that renames chains everywhere they appear' },
+            { src: 'screenshots/tut_universal_3.png', caption: 'PAE, LIS, and cLIS heatmaps across all models' },
             { src: 'screenshots/tut_universal_seq.png', caption: 'LIR (light): PAE \u2264 12 \u00C5 residues. cLIR (dark bold): also within C\u03B2 8 \u00C5' },
-            { src: 'screenshots/tut_universal_linear.png', caption: 'Linear Contact Map \u2014 lines connect cLIR residue pairs' },
+            { src: 'screenshots/tut_universal_linear.png', caption: 'Linear Contact Map \u2014 cLIR contact lines with UniProt/Pfam domain tracks, pLDDT coloring, and MIST-reported interaction counts' },
             { src: 'screenshots/tut_universal_chord.png', caption: 'Circular Contact Map \u2014 chord diagram with cLIR contact lines and optional pLDDT/domain rings, per model or all models combined' },
             { src: 'screenshots/tut_universal_4.png', caption: 'View the 3D structure in Mol* viewer (with LIR/cLIR coloring)' },
-            { src: 'screenshots/tut_universal_5.png', caption: 'Visualization Script (.cxc for ChimeraX, .pml for PyMOL) with color presets' },
+            { src: 'screenshots/tut_universal_5.png', caption: 'Visualization Script \u2014 color presets, custom per-chain colors, and ChimeraX/PyMOL script preview with full/partial structure downloads' },
             { src: 'screenshots/tut_universal_6.png', caption: 'Per-Residue intra-chain LIS & pLDDT for both chains' }
         ],
         current: 0, timer: null, paused: false

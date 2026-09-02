@@ -164,9 +164,10 @@
                 <li><strong>Sequence viewer</strong> &mdash; amino acid letters with LIR/cLIR highlighting</li>
                 <li><strong>Chain identity</strong> &mdash; looks up each chain in UniProt by sequence and lists any domains found (<strong>Identify chains via UniProt</strong> button)</li>
                 <li><strong>Reported Interactions (<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>)</strong> &mdash; once chain identity resolves, checks whether the pair is already reported as a physical or genetic interaction</li>
+                <li><strong>Linear Contact Map</strong> &mdash; lines connect cLIR residue pairs in physical contact, with optional UniProt/Pfam and TED domain tracks, pLDDT coloring, and reported-interaction (MIST) counts alongside</li>
                 <li><strong>Circular Contact Map</strong> &mdash; chord diagram with chain arcs sized by length, cLIR contact lines, and optional pLDDT, UniProt/Pfam, and TED domain rings, plus a Circos-style residue-position tick ruler; view a single model or all models combined</li>
                 <li><strong>Label Settings</strong> &mdash; shared panel controlling axis label mode (gene name or chain ID) and custom per-chain labels across the Score Matrix and the PAE/LIS/cLIS maps</li>
-                <li><strong>Color presets</strong> &mdash; gradient, solid, pLDDT coloring, color bychain, color bypolymer</li>
+                <li><strong>Color presets</strong> &mdash; gradient, high-contrast, solid, and coloring-mode (pLDDT, bychain, bypolymer) presets, plus per-residue custom chain colors via a pasted or uploaded CSV</li>
                 <li><strong>NPZ/NPY parser</strong> &mdash; reads Boltz PAE (.npz) and Chai-1 PAE (.npy) in browser</li>
                 <li><strong>Downloads</strong> &mdash; .cxc script, structure file, CSV with full metrics</li>
             </ul>
@@ -199,7 +200,7 @@
                 <li><strong>Sequence viewer</strong> &mdash; displays actual amino acid letters for each chain with LIR (light color) and cLIR (dark color) highlighting</li>
                 <li><strong>Reported Interactions (<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>)</strong> &mdash; checks whether the pair is already reported as a physical or genetic interaction</li>
                 <li><strong>Visualization script</strong> &mdash; syntax-highlighted preview with color presets (Gradient, Solid, coloring modes); Swap A &harr; B button reverses chain colors</li>
-                <li><strong>Linear Contact Map</strong> &mdash; lines connect cLIR residue pairs in physical contact, with color gradient from chain A to chain B</li>
+                <li><strong>Linear Contact Map</strong> &mdash; lines connect cLIR residue pairs in physical contact, with optional UniProt/Pfam and TED domain tracks, pLDDT coloring, and reported-interaction (MIST) counts alongside</li>
                 <li><strong>Circular Contact Map</strong> &mdash; chord diagram with chain arcs sized by length, cLIR contact lines, and optional pLDDT, UniProt/Pfam, and TED domain rings, plus a Circos-style residue-position tick ruler; view a single model or all models combined</li>
                 <li><strong>Downloads</strong> &mdash; .cxc script, .pdb structure, and CSV of all ranks with full metrics</li>
             </ul>
@@ -263,6 +264,7 @@
                 <li><strong>Score matrix</strong> &mdash; iLIS (Oranges) / cLIR count (Greens)</li>
                 <li><strong>Sequence viewer</strong> &mdash; amino acid letters with LIR (light) and cLIR (dark) highlighting per chain</li>
                 <li><strong>Reported Interactions (<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>)</strong> &mdash; checks whether the pair is already reported as a physical or genetic interaction</li>
+                <li><strong>Linear Contact Map</strong> &mdash; lines connect cLIR residue pairs in physical contact, with optional UniProt/Pfam and TED domain tracks, pLDDT coloring, and reported-interaction (MIST) counts alongside</li>
                 <li><strong>Circular Contact Map</strong> &mdash; chord diagram with chain arcs sized by length, cLIR contact lines, and optional pLDDT, UniProt/Pfam, and TED domain rings, plus a Circos-style residue-position tick ruler; view a single model or all models combined</li>
                 <li><strong>Label Settings</strong> &mdash; shared panel controlling axis label mode (gene name or chain ID) and custom per-chain labels across the Score Matrix and the PAE/LIS/cLIS maps</li>
                 <li><strong>ipSAE metric</strong> &mdash; interaction prediction Score from Aligned Errors (<a href="https://www.biorxiv.org/content/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack, 2025</a>)</li>
