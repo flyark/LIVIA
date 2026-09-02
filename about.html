@@ -159,9 +159,13 @@
                 <li><strong>PAE maps</strong> &mdash; blue-white-red (bwr) colormap, per model/rank</li>
                 <li><strong>LIS maps</strong> &mdash; matplotlib Blues colormap, PAE averaged both directions</li>
                 <li><strong>cLIS maps</strong> &mdash; matplotlib Greens colormap, contact-filtered</li>
-                <li><strong>Score matrix</strong> &mdash; iLIS (Oranges, lower-left) / ipTM (Purples, upper-right)</li>
+                <li><strong>Score matrix</strong> &mdash; lower-left and upper-right triangles are each independently selectable from iLIS, iLIA, iLISA, ipTM, ipSAE, actifpTM, LIS, cLIS, LIR, or cLIR (default: iLIS / iLISA)</li>
                 <li><strong>Residue count matrix</strong> &mdash; LIR (Blues) / cLIR (Greens)</li>
                 <li><strong>Sequence viewer</strong> &mdash; amino acid letters with LIR/cLIR highlighting</li>
+                <li><strong>Chain identity</strong> &mdash; looks up each chain in UniProt by sequence and lists any domains found (<strong>Identify chains via UniProt</strong> button)</li>
+                <li><strong>Reported Interactions (<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>)</strong> &mdash; once chain identity resolves, checks whether the pair is already reported as a physical or genetic interaction</li>
+                <li><strong>Circular Contact Map</strong> &mdash; chord diagram with chain arcs sized by length, cLIR contact lines, and optional pLDDT, UniProt/Pfam, and TED domain rings, plus a Circos-style residue-position tick ruler; view a single model or all models combined</li>
+                <li><strong>Label Settings</strong> &mdash; shared panel controlling axis label mode (gene name or chain ID) and custom per-chain labels across the Score Matrix and the PAE/LIS/cLIS maps</li>
                 <li><strong>Color presets</strong> &mdash; gradient, solid, pLDDT coloring, color bychain, color bypolymer</li>
                 <li><strong>NPZ/NPY parser</strong> &mdash; reads Boltz PAE (.npz) and Chai-1 PAE (.npy) in browser</li>
                 <li><strong>Downloads</strong> &mdash; .cxc script, structure file, CSV with full metrics</li>
@@ -179,10 +183,10 @@
         <div class="subsection">
             <h3>Quick Start</h3>
             <ol class="quick-steps">
-                <li>Go to <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank">FlyPredictome</a>, search for a protein pair, and copy the prediction page URL</li>
-                <li>Open <a href="flypredictome.html">FlyPredictome Analysis</a>, paste the URL, and click <strong>Generate</strong></li>
+                <li>Open <a href="flypredictome.html">FlyPredictome Analysis</a> and search by gene name (<strong>Search by Gene</strong>) or by a gene pair (<strong>Gene Pair</strong>); or paste a FlyPredictome prediction page URL directly (<strong>Paste URL</strong>)</li>
+                <li>Click a result row to load that pair's analysis</li>
                 <li>Review the <strong>All Ranks</strong> table &mdash; click any row to switch between ranks 1&ndash;5</li>
-                <li>Explore metrics (iLIS, ipTM, LIR/cLIR counts), the sequence viewer, and the visualization script preview</li>
+                <li>Explore metrics (iLIS, ipTM, LIR/cLIR counts), reported interactions (MIST), the sequence viewer, and the visualization script preview</li>
                 <li>Download the script (.cxc for ChimeraX or .pml for PyMOL) and structure file, place them in the same folder, then open the script in ChimeraX or PyMOL</li>
             </ol>
         </div>
@@ -190,11 +194,13 @@
         <div class="subsection">
             <h3>Features</h3>
             <ul class="features-list">
+                <li><strong>Search by Gene / Gene Pair</strong> &mdash; look up a gene or a specific gene pair directly by name, with UniProt-backed autocomplete; the Gene Pair tab filters out prediction sets that are no longer available on FlyPredictome's own server</li>
                 <li><strong>All Ranks table</strong> &mdash; shows iLIS, LIS, cLIS, ipTM, LIR/cLIR counts for all 5 ranked models; click any row to load that rank</li>
                 <li><strong>Sequence viewer</strong> &mdash; displays actual amino acid letters for each chain with LIR (light color) and cLIR (dark color) highlighting</li>
+                <li><strong>Reported Interactions (<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>)</strong> &mdash; checks whether the pair is already reported as a physical or genetic interaction</li>
                 <li><strong>Visualization script</strong> &mdash; syntax-highlighted preview with color presets (Gradient, Solid, coloring modes); Swap A &harr; B button reverses chain colors</li>
                 <li><strong>Linear Contact Map</strong> &mdash; lines connect cLIR residue pairs in physical contact, with color gradient from chain A to chain B</li>
-                <li><strong>Circular Contact Map</strong> &mdash; circular chord diagram showing chain arcs (proportional to length) and lines connecting cLIR residue pairs in contact</li>
+                <li><strong>Circular Contact Map</strong> &mdash; chord diagram with chain arcs sized by length, cLIR contact lines, and optional pLDDT, UniProt/Pfam, and TED domain rings, plus a Circos-style residue-position tick ruler; view a single model or all models combined</li>
                 <li><strong>Downloads</strong> &mdash; .cxc script, .pdb structure, and CSV of all ranks with full metrics</li>
             </ul>
         </div>
@@ -222,8 +228,9 @@
                 <li><strong>Gene search</strong> &mdash; UniProt autocomplete with species selector (Human, Mouse, Zebrafish, Worm, Yeast)</li>
                 <li><strong>Partner table</strong> &mdash; shows iLIS (best/avg), ipTM, protein lengths; filterable by iLIS threshold</li>
                 <li><strong>Pre-built examples</strong> &mdash; CDK2&ndash;CCNA2, TP53&ndash;MDM2, MAPK14&ndash;MKNK1, ABL1&ndash;CRK, and more</li>
-                <li><strong>MIST integration</strong> &mdash; shows reported interactions from the MIST database</li>
-                <li><strong>Full analysis pipeline</strong> &mdash; same as FlyPredictome (ranks, contact maps, Mol* viewer, scripts)</li>
+                <li><strong>Reported Interactions (<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>)</strong> &mdash; checks whether the pair is already reported as a physical or genetic interaction</li>
+                <li><strong>Circular Contact Map</strong> &mdash; chord diagram with chain arcs sized by length, cLIR contact lines, and optional pLDDT, UniProt/Pfam, and TED domain rings, plus a Circos-style residue-position tick ruler; view a single model or all models combined</li>
+                <li><strong>Full analysis pipeline</strong> &mdash; same as FlyPredictome (ranks, Linear Contact Map, Mol* viewer, scripts)</li>
             </ul>
         </div>
     </div>
@@ -255,6 +262,9 @@
                 <li><strong>PAE/LIS/cLIS maps</strong> &mdash; same colormaps as the Universal tool (bwr, Blues, Greens)</li>
                 <li><strong>Score matrix</strong> &mdash; iLIS (Oranges) / cLIR count (Greens)</li>
                 <li><strong>Sequence viewer</strong> &mdash; amino acid letters with LIR (light) and cLIR (dark) highlighting per chain</li>
+                <li><strong>Reported Interactions (<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>)</strong> &mdash; checks whether the pair is already reported as a physical or genetic interaction</li>
+                <li><strong>Circular Contact Map</strong> &mdash; chord diagram with chain arcs sized by length, cLIR contact lines, and optional pLDDT, UniProt/Pfam, and TED domain rings, plus a Circos-style residue-position tick ruler; view a single model or all models combined</li>
+                <li><strong>Label Settings</strong> &mdash; shared panel controlling axis label mode (gene name or chain ID) and custom per-chain labels across the Score Matrix and the PAE/LIS/cLIS maps</li>
                 <li><strong>ipSAE metric</strong> &mdash; interaction prediction Score from Aligned Errors (<a href="https://www.biorxiv.org/content/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack, 2025</a>)</li>
                 <li><strong>actifpTM metric</strong> &mdash; actual interface pTM (<a href="https://doi.org/10.1093/bioinformatics/btaf107" target="_blank" style="color:#2471A3;">Varga et al., 2025</a>)</li>
                 <li><strong>Visualization script</strong> &mdash; color presets with Swap A &harr; B support</li>
@@ -296,6 +306,7 @@
                 <li><strong>Intramolecular iLIS</strong> &mdash; calculates iLIS between all detected domain pairs to quantify domain&ndash;domain interactions</li>
                 <li><strong>Score matrix</strong> &mdash; iLIS (Oranges, lower-left) / cLIR count (white-to-green, upper-right) between domains</li>
                 <li><strong>PAE/LIS/cLIS maps</strong> &mdash; same colormaps (bwr, Blues, Greens) with domain boundaries overlaid</li>
+                <li><strong>Circular Contact Map</strong> &mdash; chord diagram with a domain arc per detected subdomain, cLIR contact lines, an optional pLDDT ring, and a residue-position tick ruler</li>
                 <li><strong>Sequence viewer</strong> &mdash; amino acid letters with LIR (light) and cLIR (dark) highlighting per domain pair</li>
                 <li><strong>script presets</strong> &mdash; domain-colored view (default), pLDDT coloring, color by chain, color by polymer</li>
                 <li><strong>Downloads</strong> &mdash; .cxc script, .pdb structure, CSV with domain pair metrics</li>
