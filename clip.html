@@ -440,6 +440,15 @@ wireZone('dz-csv', 'in-csv', 'csv'); wireZone('dz-fasta', 'in-fasta', 'fasta'); 
     if (sel && (h.querySym||h.query)){ const o=[...sel.options].find(o=>o.value===h.querySym) || [...sel.options].find(o=>o.value===h.query); if(o){ sel.value=o.value; PARTNER_EXCLUDE = new Set(); rebuildSubsetPicker(); if ($('run') && !$('run').disabled) $('run').click(); } }
   } catch(e){ console.warn('net2clip', e); }
 })();
+// Report options a hand-off link may carry: ?ilis=<cutoff> and ?topn=<n>. Applied before the run
+// click so the report a site links to opens at the threshold that site means, not the 10% default.
+function applyClipOpts(ilis, topn){
+  if (ilis != null && ilis !== '' && isFinite(+ilis)){
+    $('ilis').value = String(+ilis);
+    if ($('fpr')) $('fpr').value = ['0.223','0.339','0.551'].includes($('ilis').value) ? $('ilis').value : '';
+  }
+  if (topn != null && topn !== '') $('topn').value = String(topn);
+}
 // Direct data hand-off: clip.html?data=<url>[&gene=<symbol>] — fetch a per-gene bundle (a .zip of CSV+FASTA,
 // or a bare CSV/.gz) and cluster it. Used by external sites (e.g. FlyPredictome-network) that link straight in.
 (async function dataParam(){
@@ -467,6 +476,7 @@ wireZone('dz-csv', 'in-csv', 'csv'); wireZone('dz-fasta', 'in-fasta', 'fasta'); 
       const top = Object.keys(c).sort((a,b)=>c[b]-c[a])[0];
       o = [...sel.options].find(x => x.value === top) || sel.options[0];
     }
+    applyClipOpts(params.get('ilis'), params.get('topn'));
     if (o){ sel.value = o.value; rebuildSubsetPicker(); if ($('run') && !$('run').disabled) $('run').click(); }
   } catch(e){ $('status').textContent = '⚠ could not load data: ' + e.message; console.warn('dataParam', e); }
 })();
@@ -502,6 +512,7 @@ wireZone('dz-csv', 'in-csv', 'csv'); wireZone('dz-fasta', 'in-fasta', 'fasta'); 
         const top = Object.keys(c).sort((a,b)=>c[b]-c[a])[0];
         o = [...sel.options].find(x => x.value === top) || sel.options[0];
       }
+      applyClipOpts(m.ilis, m.topn);
       if (o){ sel.value = o.value; rebuildSubsetPicker(); if ($('run') && !$('run').disabled) $('run').click(); }
     } catch (e) { $('status').textContent = '⚠ could not load pushed data: ' + e.message; }
   });
@@ -979,7 +990,8 @@ $('run').onclick = () => {
   if (LAST) LAST._resolved = false;
   const gene = $('gene').value;
   const tn = $('topn').value.trim();   // blank = all partners (no cap)
-  const opts = { ilisCutoff: parseFloat($('ilis').value)||0.223, topN: tn==='' ? Infinity : (parseInt(tn)||Infinity), sortBy:'iLIS',
+  const _cut = parseFloat($('ilis').value);   // 0 is a legitimate cutoff — `||` would swallow it
+  const opts = { ilisCutoff: Number.isFinite(_cut) ? _cut : 0.223, topN: tn==='' ? Infinity : (parseInt(tn)||Infinity), sortBy:'iLIS',
     fastaParse: FASTA_PARSE, alignMap: (window.CLIPResolver && CLIPResolver.alignMap) };   // normalize mixed full/partial constructs onto one frame
   $('status').textContent = 'clustering…';
   setTimeout(() => {
