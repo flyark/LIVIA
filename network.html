@@ -933,6 +933,35 @@ $('layer-mode').addEventListener('change', ()=>{ if(LAYER_ROOT) layerLayout(LAYE
 $('layout').addEventListener('change', ()=>applyLayout($('layout').value));
 $('layiter').addEventListener('change', ()=>{ const L=$('layout').value; if(['fr','kk','drl','force'].includes(L)) applyLayout(L); });
 
+// Report options a hand-off link may carry: ?ilis=<cutoff> and ?species=<taxid>. Applied before the
+// build so the network a site links to opens at the threshold that site means, not the 0.223 default.
+function applyNetOpts(ilis, species){
+  if (ilis != null && ilis !== '' && isFinite(+ilis)){
+    const v = String(+ilis);
+    if ($('cut'))  $('cut').value  = v;
+    if ($('cutv')) $('cutv').value = v;
+  }
+  if (species != null && species !== '' && $('mg-species')) $('mg-species').value = String(species);
+}
+
+// Direct data hand-off: network.html?data=<url>[&ilis=][&species=] — fetch a screen bundle (a .zip of
+// CSV+FASTA, or a bare CSV/.gz) and build the graph. Mirrors clip.html's ?data=, so a site can link
+// into either view over the same contract.
+(async function dataParam(){
+  const params = new URLSearchParams(location.search);
+  const url = params.get('data'); if (!url) return;
+  try {
+    setStatus('loading data…');
+    const resp = await fetch(url); if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const blob = await resp.blob();
+    RAWPAIRS.clear(); FILES_RAW.length=0; FASTA_RAW=''; FILECOUNT=0; META=null; META_COL=null;
+    applyNetOpts(params.get('ilis'), params.get('species'));
+    await routeFiles([new File([blob], (url.split('/').pop() || 'data.zip'), { type: blob.type })]);
+    applyNetOpts(params.get('ilis'), params.get('species'));   // routeFiles may reset the species hint
+    if (RAWPAIRS.size) build(); else setStatus('no interactions found in the data');
+  } catch(e){ setStatus('Could not load data: ' + (e.message || e)); console.warn('dataParam', e); }
+})();
+
 // ── Pushed data via postMessage: network.html?post=1 — an opener (e.g. an offline network index served
 // on localhost) hands over the lis.py bundle's BYTES directly, so hosted LIVIA never fetches the local
 // file (sidesteps file:// / CORS / Private-Network-Access — postMessage is subject to none). Opt-in via
@@ -954,6 +983,7 @@ $('layiter').addEventListener('change', ()=>{ const L=$('layout').value; if(['fr
       setStatus('Loading ' + (m.name || 'network') + '…');
       RAWPAIRS.clear(); FILES_RAW.length=0; FASTA_RAW=''; FILECOUNT=0; META=null; META_COL=null;
       await routeFiles([new File([blob], fname, { type: 'application/zip' })]);
+      applyNetOpts(m.ilis, m.species);
       if (RAWPAIRS.size) build();
     } catch (e) { setStatus('Could not load pushed data: ' + (e.message || e)); }
   });
