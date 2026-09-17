@@ -2295,6 +2295,34 @@ function discoverGeneric(filenames) {
     const jsonFiles = filenames.filter(f => f.endsWith('.json'));
     const npzFiles = filenames.filter(f => f.endsWith('.npz'));
 
+    // A "scores" JSON carries top-level confidence fields (ptm/iptm/etc.) directly. Some third-party
+    // tools ship a scores file alongside a SEPARATE, purely numeric AlphaFold-DB-style PAE sidecar
+    // ([{predicted_aligned_error: [[...]]}], an array with no top-level scores at all) that can
+    // spuriously win the name/index match below — e.g. a structure file "foo_model_1.pdb" and a PAE
+    // sidecar "foo_pae_v1.json" share the digit "1", while the real scores file "foo_scores.json" has
+    // none — leaving confidencePath pointed at a file with no ptm/iptm to read (displays as 0/blank).
+    const looksLikeScores = (f) => {
+        const content = f && uniState.loadedFiles[f];
+        if (typeof content !== 'string') return false;
+        try {
+            const j = JSON.parse(content);
+            if (Array.isArray(j) || !j || typeof j !== 'object') return false;
+            return ['ptm', 'iptm', 'confidence_score', 'ptm_score', 'iptm_score', 'ranking_score', 'ranking_confidence', 'mean_plddt'].some(k => j[k] !== undefined);
+        } catch (e) { return false; }
+    };
+    // A run-config file (job metadata) can ALSO carry final ptm/iptm/mean_plddt at top level alongside
+    // dozens of unrelated settings — structurally indistinguishable from a dedicated scores file. Prefer
+    // whichever candidate's own filename says "score"; only fall back to a config-named file if nothing
+    // else qualifies.
+    const pickBestScores = (cands) => {
+        if (!cands.length) return null;
+        const byNameHint = cands.filter(f => /score/i.test(f.split('/').pop()));
+        if (byNameHint.length) return byNameHint[0];
+        const nonConfig = cands.filter(f => !/config/i.test(f.split('/').pop()));
+        return nonConfig[0] || cands[0];
+    };
+    const scoresFiles = jsonFiles.filter(looksLikeScores);
+
     for (let i = 0; i < structFiles.length; i++) {
         const structBase = structFiles[i].split('/').pop();
         const ext = structBase.split('.').pop();
@@ -2316,11 +2344,21 @@ function discoverGeneric(filenames) {
         if (!paeSource) paeSource = jsonFiles[i] || jsonFiles[0] || null;
         if (!paeSource && npzFiles.length > 0) paeSource = npzFiles[i] || npzFiles[0] || null;
 
+        // confidencePath: paeSource already IS the scores file in the common case (one file serves
+        // both roles) — only look further when it isn't. Prefer a scores JSON matched to this
+        // structure by name/index; else, if the upload only carries one candidate overall, use it.
+        let confidencePath = paeSource;
+        if (scoresFiles.length && !looksLikeScores(paeSource)) {
+            const byName = scoresFiles.find(f => f.split('/').pop().includes(namePrefix));
+            const byIdx = idx ? scoresFiles.find(f => { const fb = f.split('/').pop(); return fb.includes(idx) && !fb.includes('aggregated'); }) : null;
+            confidencePath = byName || byIdx || pickBestScores(scoresFiles) || paeSource;
+        }
+
         if (!predictions['generic']) predictions['generic'] = {};
         predictions['generic'][String(i)] = {
             structurePath: structFiles[i],
             paeSource: paeSource,
-            confidencePath: paeSource,
+            confidencePath: confidencePath,
             format: ext,
             label: structBase,
         };
