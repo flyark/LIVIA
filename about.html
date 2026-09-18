@@ -169,7 +169,7 @@
                 <li><strong>Label Settings</strong> &mdash; shared panel controlling axis label mode (gene name or chain ID) and custom per-chain labels across the Score Matrix and the PAE/LIS/cLIS maps</li>
                 <li><strong>Color presets</strong> &mdash; gradient, high-contrast, solid, and coloring-mode (pLDDT, bychain, bypolymer) presets, plus per-residue custom chain colors via a pasted or uploaded CSV</li>
                 <li><strong>NPZ/NPY parser</strong> &mdash; reads Boltz PAE (.npz) and Chai-1 PAE (.npy) in browser</li>
-                <li><strong>Lightweight bundle</strong> &mdash; shrinks a prediction to a small, share-ready package (scores + structures + static PAE images, no numeric PAE), with adjustable PAE color scale, image size, and font scale</li>
+                <li><strong>Lightweight bundle</strong> &mdash; shrinks a prediction to a small, share-ready package (scores + structures + static PAE images, no numeric PAE), with adjustable PAE color scale, image size, and font scale &mdash; see the <strong>Lightweight Bundle</strong> section further down this page for the command-line route and the full format</li>
                 <li><strong>Downloads</strong> &mdash; .cxc script, structure file, CSV with full metrics</li>
             </ul>
         </div>
@@ -517,6 +517,25 @@
             <div style="background:#fdeaea; border-left:4px solid #c0392b; padding:0.8rem 1rem; border-radius:0 8px 8px 0; font-size:0.9rem; color:#8b1a1a; margin-top:0.8rem;">
                 <strong>Caution:</strong> Computational predictions should be interpreted with care. The iLIS &ge; 0.223 threshold was derived from AlphaFold-Multimer (ColabFold) predictions with specific reference datasets. <strong>Other prediction platforms (AlphaFold 3, Boltz, Chai-1, OpenFold) may require different cutoffs</strong> due to differences in model architecture, training data, and confidence calibration. Each platform produces distinct PAE distributions and ipTM scales, which can affect iLIS values. Optimal thresholds may also vary depending on the species, protein types, and experimental system. <strong>Experimental validation is highly recommended</strong> before drawing biological conclusions from predicted interactions.
             </div>
+        </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- LIGHTWEIGHT BUNDLE -->
+    <!-- ================================================================ -->
+    <div class="tool-section">
+        <h2 class="tool-title">Lightweight Bundle</h2>
+        <div class="subsection">
+            <p>A lightweight bundle shrinks a full prediction &mdash; which for a higher-order complex can be tens to hundreds of MB, dominated by the numeric PAE &mdash; down to a <strong>~1&ndash;3&nbsp;MB</strong> package that LIVIA renders with no loss of any figure: the 3D viewer, chord diagram, contact map, score matrix, and sequence viewer all work exactly like a full load. This works because LIVIA only ever uses the numeric PAE at one point &mdash; computing the LIS metrics and interface residues &mdash; and those are already in the scores CSV; the bundle keeps that CSV and trades the numeric PAE for a static PAE image.</p>
+            <p style="margin-top:0.8rem;"><strong>In-browser, one click:</strong> after loading any prediction, a <strong>&#8595; Lightweight bundle</strong> button appears next to <strong>Download CSV</strong> at the top of the results &mdash; no install, no Python. Adjustable PAE color scale, image size, and font scale before export.</p>
+            <p style="margin-top:0.8rem;"><strong>Command line, for many predictions at once:</strong> use <code>make_lightweight_bundle.py</code> from the <a href="https://github.com/flyark/LIVIA/tree/main/python" target="_blank" style="color:#2471A3; font-weight:600;">python/</a> directory of this repository.</p>
+            <div style="background:#1e1e2e; color:#cdd6f4; border-radius:8px; padding:0.8rem; font-family:monospace; font-size:0.82rem; line-height:1.6; margin-top:0.6rem;">
+                <span style="color:#89b4fa;">python</span> make_lightweight_bundle.py fold_mycomplex.zip -o bundles/<br>
+                <span style="color:#89b4fa;">python</span> make_lightweight_bundle.py preds/*.zip -o bundles/ &nbsp;<span style="color:#6c7086;"># batch, one bundle per prediction</span><br>
+                <span style="color:#89b4fa;">python</span> make_lightweight_bundle.py --check bundles/*.zip &nbsp;<span style="color:#6c7086;"># verify before publishing/sharing</span>
+            </div>
+            <p style="margin-top:0.5rem;">Features: keeps every ranked model&rsquo;s scores in one <code>lis.csv</code>, auto-generates the PAE image, self-validates against the bundle format, and <code>--delete-original</code> only reclaims disk space once a bundle has already passed every check.</p>
+            <p style="margin-top:0.8rem;">For the exact bundle format &mdash; useful if you&rsquo;re hosting your own catalog or building other tooling around it &mdash; see the <a href="https://github.com/flyark/LIVIA/blob/main/docs/lightweight-bundle.md" target="_blank" style="color:#2471A3; font-weight:600;">lightweight bundle authoring guide</a>.</p>
         </div>
     </div>
 
