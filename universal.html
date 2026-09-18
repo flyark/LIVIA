@@ -114,6 +114,7 @@
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260816"></script>
 <script src="js/clip-resolver.js?v=20260715"></script>
+<script src="js/remotezip.js?v=20260918"></script>
 </head>
 <body>
 
@@ -8333,12 +8334,42 @@ function copyScript() {
 
 // ── URL deep-link: universal.html?data=<zip-url>[&name=<label>] — fetch a hosted prediction bundle and load it.
 // Lets external sites (e.g. FlyPredictome-network cluster selection) open a higher-order complex directly.
+//
+// Packed-catalog variant: universal.html?data=<mega-zip-url>&entry=<bundle-name-inside-it> — `data`
+// points at ONE large zip holding many bundles (e.g. to stay under a host's per-record file-count quota,
+// such as Zenodo's 100-files-per-record limit — hundreds of bundles can be packed into a single upload
+// that then counts as one file), and `entry` names the specific bundle to load. Tries RemoteZip's
+// Range-request extraction first (fetches only that one entry's bytes, never the whole archive); falls
+// back to downloading the full archive once and pulling the entry out locally with JSZip if the host
+// doesn't support Range or anything else goes wrong, so this degrades to "slower but still correct"
+// rather than failing outright. See js/remotezip.js.
 (function(){
   const p = new URLSearchParams(location.search);
   const url = p.get('data'); if (!url) return;
+  const entryName = p.get('entry');
   const go = async () => {
     try {
       setStatus('Loading ' + (p.get('name') || 'structure') + '…', 'loading');
+
+      if (entryName) {
+        try {
+          const extracted = await RemoteZip.remoteZipExtract(url, entryName);
+          await handleInputFiles([new File([extracted], entryName, { type: 'application/zip' })]);
+          return;
+        } catch (e) {
+          console.warn('RemoteZip Range extraction failed, falling back to full download:', e.message);
+        }
+        let resp = await fetch(url).catch(() => null);
+        if (!resp || !resp.ok) resp = await fetch('https://livia-proxy.flyark.workers.dev/?url=' + encodeURIComponent(url));
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const archive = await JSZip.loadAsync(await resp.blob());
+        const zipEntry = archive.file(entryName);
+        if (!zipEntry) throw new Error(`entry "${entryName}" not found in ${url}`);
+        const blob = await zipEntry.async('blob');
+        await handleInputFiles([new File([blob], entryName, { type: 'application/zip' })]);
+        return;
+      }
+
       let resp = await fetch(url).catch(() => null);                              // same-origin / CORS-enabled host
       if (!resp || !resp.ok) resp = await fetch('https://livia-proxy.flyark.workers.dev/?url=' + encodeURIComponent(url)); // else proxy
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
