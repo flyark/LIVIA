@@ -1480,6 +1480,12 @@ const SET2 = ['#66c2a5','#fc8d62','#8da0cb','#e78ac3','#a6d854','#ffd92f','#e5c4
 const DARK2 = ['#1b9e77','#d95f02','#7570b3','#e7298a','#66a61e','#e6ab02','#a6761d','#666666'];
 const PAIRED = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b15928'];
 const OKABE_ITO = ['#0072B2','#E69F00','#009E73','#D55E00','#56B4E9','#CC79A7','#F0E442','#000000'];
+// Desaturated categorical palette (S 28%, L 55%), hues stepped by the golden angle (137.508deg)
+// so no two of the 40 entries land near each other regardless of how many chains are colored —
+// unlike TAB10/TAB20 above, which hard-collide (color N+1 repeats color 1) once chain count
+// exceeds the array length. Muted on purpose: distinguishes many subunits without competing
+// visually against a bright pLDDT/interface highlight layered on top.
+const MUTED = ['#ac7c6c','#6cac8f','#a26cac','#a4ac6c','#6c92ac','#ac6c7f','#6cac6c','#7f6cac','#ac926c','#6caca4','#ac6ca2','#8fac6c','#6c7cac','#ac6f6c','#6cac82','#946cac','#aca76c','#6c9fac','#ac6c8c','#79ac6c','#726cac','#ac846c','#6cac97','#aa6cac','#9cac6c','#6c89ac','#ac6c77','#6cac74','#876cac','#ac9a6c','#6cacac','#ac6c99','#87ac6c','#6c74ac','#ac776c','#6cac8a','#9d6cac','#a9ac6c','#6c97ac','#ac6c84'];
 
 function setupMultiChainColors() {
     const isMulti = uniState.chainNames && uniState.chainNames.length > 2;
@@ -1518,7 +1524,7 @@ function setupMultiChainColors() {
         return `#${lr.toString(16).padStart(2,'0')}${lg.toString(16).padStart(2,'0')}${lb.toString(16).padStart(2,'0')}`;
     };
 
-    const PALETTES = { 'Tab10': TAB10, 'Tab20': TAB20, 'Set1': SET1, 'Set2': SET2, 'Dark2': DARK2, 'Paired': PAIRED, 'Okabe-Ito': OKABE_ITO };
+    const PALETTES = { 'Tab10': TAB10, 'Tab20': TAB20, 'Set1': SET1, 'Set2': SET2, 'Dark2': DARK2, 'Paired': PAIRED, 'Okabe-Ito': OKABE_ITO, 'Muted': MUTED };
     const applyColors = (palName) => {
         const pal = PALETTES[palName] || palette;
         uniState.chainNames.forEach((name, i) => { uniState.multiChainColors[name] = pal[i % pal.length]; });
