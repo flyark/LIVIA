@@ -326,8 +326,9 @@
                 <label for="map-label-domains" style="justify-self:start; margin-left:0.6rem; cursor:pointer; font-weight:400; color:#555;" title="UniProt/Pfam domain track along the top and left edges of the PAE/LIS/cLIS maps (same source as the Linear/Circular Contact Map domain tracks)">show</label>
                 <input type="checkbox" id="map-label-domains" checked onchange="uniShowMapDom=this.checked; redrawMapLabels();" style="justify-self:start;">
                 <span style="justify-self:start; margin-left:0.6rem;" title="Which sits closer to the plot: the chain/gene name, or the domain track">order</span>
-                <select id="map-label-dom-order" onchange="uniMapDomOrder=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="outside">name inside</option><option value="inside">domains inside</option></select>
-                <span></span><span></span><span></span><span></span>
+                <select id="map-label-dom-order" onchange="uniMapDomOrder=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="inside" selected>domains inside</option><option value="outside">name inside</option></select>
+                <span style="justify-self:start; margin-left:0.6rem;" title="Domain box colors: cycle a fixed palette by domain index, or match each domain to its own chain's color">color</span>
+                <select id="map-label-dom-color" onchange="uniMapDomColorMode=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="domain" selected>by domain</option><option value="chain">by subunit</option></select>
 
                 <span style="font-weight:600; color:#888;">Custom</span>
                 <!-- Custom-label editor: spans from the sub-label column (col 2) so the hint/textarea start
@@ -5808,8 +5809,13 @@ let uniLabelAxis = 'both';   // Maps: which axis carries the chain/gene NAME —
 let uniShowMapSize = true;   // Maps: residue-size numbers on the bottom edge — independent of name placement
 let uniShowMapDom = true;    // Maps: UniProt/Pfam domain track outside the top/left name bands — reads uniState.chainDomains,
                               // the same auto-fetched data the Linear/Circular Contact Map domain tracks already use
-let uniMapDomOrder = 'outside';   // 'outside': domain track at the far edge, name label closer to the plot (default,
-                                   // matches the reference AF3-paper PAE figure). 'inside': swapped — domain hugs the plot.
+let uniMapDomOrder = 'inside';    // 'inside' (default): domain track sits between the name label and the plot,
+                                   // anchored to the plot edge — tight regardless of label width. 'outside': domain
+                                   // at the far edge instead; on the left axis this can leave a visible gap, since
+                                   // that edge is sized for the (dynamic-width) label, not the (fixed-width) domain box.
+let uniMapDomColorMode = 'domain';   // 'domain': Set2 palette cycling by domain index (matches the Linear/Circular
+                                      // Contact Map domain-track convention). 'chain': each domain takes its parent
+                                      // chain's own display color instead, so the track reads as "part of this subunit."
 let uniLabelScale = 1;   // Maps: chain/gene NAME font-size multiplier (S/M/L), on screen and export
 let uniSizeScale = 1;    // Maps: residue-SIZE number font-size multiplier (S/M/L), on screen and export
 let uniLabelDirY = 'vertical';   // Maps/Score Matrix: left (row) name direction — default vertical (saves width)
@@ -6099,7 +6105,7 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
             doms.forEach((d, di) => {
                 const dStart = Math.max(1, d.start), dEnd = Math.min(chainLen, d.end);
                 if (dEnd < dStart) return;
-                const col = DOM_FILL_MAP[di % DOM_FILL_MAP.length];
+                const col = uniMapDomColorMode === 'chain' ? chColor : DOM_FILL_MAP[di % DOM_FILL_MAP.length];
                 if (showTopName && domBandH) {
                     const x0 = leftPx + (chainStart + dStart - 1) * scale, x1 = leftPx + (chainStart + dEnd) * scale;
                     const y0 = domNear ? (-clr - domLaneH * HIRES) : -topPx, y1 = y0 + domLaneH * HIRES;
