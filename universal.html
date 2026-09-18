@@ -178,7 +178,13 @@
                     <button onclick="loadExample('bbsome')" class="example-btn"><b>BBSome</b> &mdash; BBIP1 / BBS4 / BBS8 (8 MB)</button>
                     <button onclick="loadExample('mis12c')" class="example-btn"><b>MIS12C</b> &mdash; DSN1 / MIS12 / NSL1 / PMF1 (6 MB)</button>
                 </div>
-                <div style="font-size:0.72rem; color:#aaa; margin-top:0.3rem;">AlphaFold3 predicted via <a href="https://alphafoldserver.com" target="_blank" style="color:#aaa;">AlphaFold Server</a>. ColabFold, Boltz-2, Chai-1, OpenFold3, and Protenix-v2 predicted via <a href="https://www.tamarind.bio" target="_blank" style="color:#aaa;">Tamarind Bio</a>. ESMFold2 predicted via <a href="https://biohub.ai" target="_blank" style="color:#aaa;">biohub API</a>.</div>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-top:0.4rem;">
+                    <span style="color:#888; font-size:0.82rem;">6- to 10-chain complexes (AlphaFold3):</span>
+                    <button onclick="loadExample('orc_cdc6')" class="example-btn"><b>ORC&ndash;Cdc6</b> &mdash; Orc1&ndash;5 / Cdc6 (4.6 MB)</button>
+                    <button onclick="loadExample('cct')"      class="example-btn"><b>CCT/TRiC</b> &mdash; CCT1&ndash;8 / mst (5.8 MB)</button>
+                    <button onclick="loadExample('eif3')"     class="example-btn"><b>eIF3</b> &mdash; eIF3a/c/d1/e/f1/h/k/l/m + CG12725 (5.9 MB)</button>
+                </div>
+                <div style="font-size:0.72rem; color:#aaa; margin-top:0.3rem;">AlphaFold3 predicted via <a href="https://alphafoldserver.com" target="_blank" style="color:#aaa;">AlphaFold Server</a>. ColabFold, Boltz-2, Chai-1, OpenFold3, and Protenix-v2 predicted via <a href="https://www.tamarind.bio" target="_blank" style="color:#aaa;">Tamarind Bio</a>. ESMFold2 predicted via <a href="https://biohub.ai" target="_blank" style="color:#aaa;">biohub API</a>. ORC&ndash;Cdc6, CCT/TRiC, and eIF3 are real higher-order complexes from the <a href="https://flyark.github.io/FlyPredictome-network/" target="_blank" style="color:#aaa;">FlyPredictome interactome network</a>, shipped as lightweight-v1 bundles.</div>
                 <div style="margin-top:0.6rem; padding:0.5rem 0.8rem; background:#eaf2f8; border-radius:6px; font-size:0.8rem; color:#555;">
                     For batch analysis, use <code style="background:#d6e9f8; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis.py</code> (PPI scoring) and <code style="background:#d6e9f8; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis_to_cxc.py</code> (ChimeraX script generation) from <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a>.
                 </div>
@@ -796,6 +802,10 @@ const EXAMPLES = {
     'prc2':    { file: 'alphafold3_prc2.zip',    label: 'PRC2 — EZH2 / SUZ12 / EED (AlphaFold3)',                 size: '17 MB' },
     'mis12c':  { file: 'alphafold3_mis12c.zip',  label: 'MIS12C — DSN1 / MIS12 / NSL1 / PMF1 (AlphaFold3)',       size: '6 MB' },
     'bbsome':  { file: 'alphafold3_bbsome.zip',  label: 'BBSome linker — BBIP1 / BBS4 / BBS8 (AlphaFold3)',       size: '8 MB' },
+    // 6- to 10-chain real complexes from the FlyPredictome higher-order-complex catalog (lightweight-v1 bundles)
+    'orc_cdc6': { file: 'flypredictome_orc_cdc6_c6-13_2.zip', label: 'ORC–Cdc6 — Orc1–5 / Cdc6 (FlyPredictome)', size: '4.6 MB' },
+    'cct':      { file: 'flypredictome_cct_c21-6_1.zip',      label: 'CCT/TRiC — CCT1–8 / mst (FlyPredictome)',  size: '5.8 MB' },
+    'eif3':     { file: 'flypredictome_eif3_c11-8_1.zip',     label: 'eIF3 (FlyPredictome)',                     size: '5.9 MB' },
 };
 
 async function loadExample(platform) {
