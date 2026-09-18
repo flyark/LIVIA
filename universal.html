@@ -322,6 +322,13 @@
                 <span style="justify-self:start; margin-left:0.6rem;" title="Length-number font size (1 = default; type any value)">font</span>
                 <input type="number" id="map-size-scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniSizeScale=parseFloat(this.value)||1; redrawMapLabels();">
 
+                <span style="font-weight:600; color:#888;">Domains</span>
+                <label for="map-label-domains" style="justify-self:start; margin-left:0.6rem; cursor:pointer; font-weight:400; color:#555;" title="UniProt/Pfam domain track along the top and left edges of the PAE/LIS/cLIS maps (same source as the Linear/Circular Contact Map domain tracks)">show</label>
+                <input type="checkbox" id="map-label-domains" checked onchange="uniShowMapDom=this.checked; redrawMapLabels();" style="justify-self:start;">
+                <span style="justify-self:start; margin-left:0.6rem;" title="Which sits closer to the plot: the chain/gene name, or the domain track">order</span>
+                <select id="map-label-dom-order" onchange="uniMapDomOrder=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="outside">name inside</option><option value="inside">domains inside</option></select>
+                <span></span><span></span><span></span><span></span>
+
                 <span style="font-weight:600; color:#888;">Custom</span>
                 <!-- Custom-label editor: spans from the sub-label column (col 2) so the hint/textarea start
                      where "show"/"chip" start — same left edge as the other rows' first control. -->
@@ -1619,8 +1626,13 @@ function setupMultiChainColors() {
     row.appendChild(palLabel);
     Object.keys(PALETTES).forEach(pn => row.appendChild(makePaletteChip(pn)));
     const shadeLabel = document.createElement('span'); shadeLabel.textContent = 'Shade:'; shadeLabel.style.cssText = 'font-size:0.78rem; color:#666; margin:0 2px 0 10px;';
-    row.appendChild(shadeLabel);
-    row.appendChild(modeWrap);
+    // Group the label with its chips in one flex child, or a wrap point between them can strand
+    // "Shade:" as the last item on one line while Gradient/Solid land on the next.
+    const shadeGroup = document.createElement('div');
+    shadeGroup.style.cssText = 'display:flex; align-items:center; flex-wrap:wrap;';
+    shadeGroup.appendChild(shadeLabel);
+    shadeGroup.appendChild(modeWrap);
+    row.appendChild(shadeGroup);
 
     // Custom chain colors + labels: upload/paste a "chain,name,color" CSV (chain = ID like A/B/C/D;
     // name = optional display label, blank keeps the current/gene label; also accepts plain "chain,color").
@@ -5794,6 +5806,10 @@ function renderCustomLabelInputs() {
 let uniLabelBlack = false;   // Maps/chord/linear: draw chain labels in black instead of the chain color
 let uniLabelAxis = 'both';   // Maps: which axis carries the chain/gene NAME — 'both' | 'y' | 'x' (drop one to de-clutter many-chain maps)
 let uniShowMapSize = true;   // Maps: residue-size numbers on the bottom edge — independent of name placement
+let uniShowMapDom = true;    // Maps: UniProt/Pfam domain track outside the top/left name bands — reads uniState.chainDomains,
+                              // the same auto-fetched data the Linear/Circular Contact Map domain tracks already use
+let uniMapDomOrder = 'outside';   // 'outside': domain track at the far edge, name label closer to the plot (default,
+                                   // matches the reference AF3-paper PAE figure). 'inside': swapped — domain hugs the plot.
 let uniLabelScale = 1;   // Maps: chain/gene NAME font-size multiplier (S/M/L), on screen and export
 let uniSizeScale = 1;    // Maps: residue-SIZE number font-size multiplier (S/M/L), on screen and export
 let uniLabelDirY = 'vertical';   // Maps/Score Matrix: left (row) name direction — default vertical (saves width)
@@ -5945,14 +5961,33 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
     // Reserve the left band whenever left names show (chain IDs included), and include the plot gap so the
     // chip clears the heatmap. Previously chain-ID mode reserved nothing and its chips touched the edge.
     const leftBandW = showLeftName ? (leftColStep * leftCols + (leftStagger ? 3 : 0) + 4 + nameGap) : 0;
-    const leftMargin = Math.max((exporting ? Math.max(20, chainFontBase * 2.5) : 20) + leftBandW, edgePad);
+    // UniProt/Pfam domain track — a single-lane band drawn OUTSIDE the existing name band, on
+    // whichever axis already shows chain names (no point anchoring it to an axis with no label).
+    // Reads uniState.chainDomains — the same auto-fetched data the Linear/Circular Contact Map
+    // domain tracks already use; no separate UniProt fetch needed here.
+    const domsByChain = uniState.chainDomains || {};
+    const DOM_FILL_MAP = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3'];   // Set2, matches the Linear/Circular Contact Map domain palette
+    const hasAnyDom = chainNames.some(cn => domsByChain[cn] && domsByChain[cn].length);
+    const showDomTrack = uniShowMapDom && hasAnyDom;
+    const domLaneH = Math.max(8, Math.min(14, chainFontBase * 0.8));   // pre-HIRES; loosely follows the label font
+    const domGap = 3;
+    const domBandH = (showDomTrack && showTopName) ? (domLaneH + domGap) : 0;
+    const domBandW = (showDomTrack && showLeftName) ? (domLaneH + domGap) : 0;
+    // Order: 'outside' (default) puts the domain track at the far edge, name label closer to the plot —
+    // matches the reference AF3-paper PAE figure layout. 'inside' swaps them: domain track hugs the plot,
+    // name label pushed out past it. Only the label's own offset needs adjusting either way — the domain
+    // band's position below already branches on domNear directly.
+    const domNear = uniMapDomOrder === 'inside';
+    const labelPushTop = (domBandH && domNear) ? domBandH * HIRES : 0;
+    const labelPushLeft = (domBandW && domNear) ? domBandW * HIRES : 0;
+    const leftMargin = Math.max((exporting ? Math.max(20, chainFontBase * 2.5) : 20) + leftBandW, edgePad) + domBandW;
     const rowH = filled ? effLeftH : chainFontBase;                       // per-row vertical extent of a top name
     const nameRows = nameStagger ? 2 : 1;
     const nameBand = (vertX
         ? effNameW + 4                                          // vertical: band as tall as the longest name/chip
         : rowH * nameRows + (nameStagger ? 3 : 0) + 3)          // horizontal: 1–2 rows
         + nameGap;
-    const topMargin = showTopName ? nameBand : (exporting ? 0 : 4);
+    const topMargin = (showTopName ? nameBand : (exporting ? 0 : 4)) + domBandH;
     const sizeRows = sizeStagger ? 2 : 1;
     const sizeBand = tickFontBase * sizeRows + (sizeStagger ? 2 : 0) + 6;
     const bottomMargin = showSize
@@ -6033,12 +6068,12 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
             const leftOff = (leftStagger && k % 2 === 1) ? (leftColStep + 3) * HIRES : 0;
             if (vertY) {
                 ctx.save();
-                ctx.translate(leftPx - clr - halfH - leftOff, chainMid);
+                ctx.translate(leftPx - clr - halfH - leftOff - labelPushLeft, chainMid);
                 ctx.rotate(-Math.PI / 2);
                 drawMapName(ctx, displayName, 0, 0, chainFont, 'center', 'middle', labelCol, chipBg);
                 ctx.restore();
             } else {
-                drawMapName(ctx, displayName, leftPx - clr - padXpx - leftOff, chainMid, chainFont, 'right', 'middle', labelCol, chipBg);
+                drawMapName(ctx, displayName, leftPx - clr - padXpx - leftOff - labelPushLeft, chainMid, chainFont, 'right', 'middle', labelCol, chipBg);
             }
         }
 
@@ -6046,14 +6081,38 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
         if (showTopName) {
             if (vertX) {
                 ctx.save();
-                ctx.translate(leftPx + chainMid, -clr - padXpx);
+                ctx.translate(leftPx + chainMid, -clr - padXpx - labelPushTop);
                 ctx.rotate(-Math.PI / 2);
                 drawMapName(ctx, displayName, 0, 0, chainFont, 'left', 'middle', labelCol, chipBg);
                 ctx.restore();
             } else {
                 const topOff = (nameStagger && k % 2 === 1) ? (chainFont + 3 * HIRES) : 0;
-                drawMapName(ctx, displayName, leftPx + chainMid, -clr - topOff, chainFont, 'center', 'bottom', labelCol, chipBg);
+                drawMapName(ctx, displayName, leftPx + chainMid, -clr - topOff - labelPushTop, chainFont, 'center', 'bottom', labelCol, chipBg);
             }
+        }
+
+        // UniProt/Pfam domain track — colored segments in the band reserved outside the name labels.
+        // Maps each domain's chain-local 1-based [start,end] into the same global residue-index pixel
+        // space the heatmap and chain-boundary lines already use (0-based index i spans [i*scale, (i+1)*scale)).
+        if (showDomTrack) {
+            const doms = domsByChain[name] || [];
+            doms.forEach((d, di) => {
+                const dStart = Math.max(1, d.start), dEnd = Math.min(chainLen, d.end);
+                if (dEnd < dStart) return;
+                const col = DOM_FILL_MAP[di % DOM_FILL_MAP.length];
+                if (showTopName && domBandH) {
+                    const x0 = leftPx + (chainStart + dStart - 1) * scale, x1 = leftPx + (chainStart + dEnd) * scale;
+                    const y0 = domNear ? (-clr - domLaneH * HIRES) : -topPx, y1 = y0 + domLaneH * HIRES;
+                    ctx.fillStyle = hexToRgba(col, 0.55); ctx.fillRect(x0, y0, Math.max(1, x1 - x0), y1 - y0);
+                    ctx.strokeStyle = hexToRgba(col, 0.95); ctx.lineWidth = 0.5 * HIRES; ctx.strokeRect(x0, y0, Math.max(1, x1 - x0), y1 - y0);
+                }
+                if (showLeftName && domBandW) {
+                    const y0 = (chainStart + dStart - 1) * scale, y1 = (chainStart + dEnd) * scale;
+                    const x0 = domNear ? (leftPx - clr - domLaneH * HIRES) : 0, x1 = x0 + domLaneH * HIRES;
+                    ctx.fillStyle = hexToRgba(col, 0.55); ctx.fillRect(x0, y0, x1 - x0, Math.max(1, y1 - y0));
+                    ctx.strokeStyle = hexToRgba(col, 0.95); ctx.lineWidth = 0.5 * HIRES; ctx.strokeRect(x0, y0, x1 - x0, Math.max(1, y1 - y0));
+                }
+            });
         }
 
         // chain length on the bottom edge — format (count "746" / range "1-746"), color, staggered by its font.
