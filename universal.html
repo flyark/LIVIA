@@ -328,7 +328,7 @@
                 <span style="justify-self:start; margin-left:0.6rem;" title="Which sits closer to the plot: the chain/gene name, or the domain track">order</span>
                 <select id="map-label-dom-order" onchange="uniMapDomOrder=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="inside" selected>domains inside</option><option value="outside">name inside</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Domain box colors: cycle a fixed palette by domain index, or match each domain to its own chain's color">color</span>
-                <select id="map-label-dom-color" onchange="uniMapDomColorMode=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="domain" selected>by domain</option><option value="chain">by subunit</option></select>
+                <select id="map-label-dom-color" onchange="uniMapDomColorMode=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="chain" selected>by subunit</option><option value="domain">by domain</option></select>
 
                 <span style="font-weight:600; color:#888;">Custom</span>
                 <!-- Custom-label editor: spans from the sub-label column (col 2) so the hint/textarea start
@@ -5813,7 +5813,7 @@ let uniMapDomOrder = 'inside';    // 'inside' (default): domain track sits betwe
                                    // anchored to the plot edge — tight regardless of label width. 'outside': domain
                                    // at the far edge instead; on the left axis this can leave a visible gap, since
                                    // that edge is sized for the (dynamic-width) label, not the (fixed-width) domain box.
-let uniMapDomColorMode = 'domain';   // 'domain': Set2 palette cycling by domain index (matches the Linear/Circular
+let uniMapDomColorMode = 'chain';    // 'domain': Set2 palette cycling by domain index (matches the Linear/Circular
                                       // Contact Map domain-track convention). 'chain': each domain takes its parent
                                       // chain's own display color instead, so the track reads as "part of this subunit."
 let uniLabelScale = 1;   // Maps: chain/gene NAME font-size multiplier (S/M/L), on screen and export
@@ -6110,13 +6110,15 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
                     const x0 = leftPx + (chainStart + dStart - 1) * scale, x1 = leftPx + (chainStart + dEnd) * scale;
                     const y0 = domNear ? (-clr - domLaneH * HIRES) : -topPx, y1 = y0 + domLaneH * HIRES;
                     ctx.fillStyle = hexToRgba(col, 0.55); ctx.fillRect(x0, y0, Math.max(1, x1 - x0), y1 - y0);
-                    ctx.strokeStyle = hexToRgba(col, 0.95); ctx.lineWidth = 0.5 * HIRES; ctx.strokeRect(x0, y0, Math.max(1, x1 - x0), y1 - y0);
                 }
                 if (showLeftName && domBandW) {
                     const y0 = (chainStart + dStart - 1) * scale, y1 = (chainStart + dEnd) * scale;
-                    const x0 = domNear ? (leftPx - clr - domLaneH * HIRES) : 0, x1 = x0 + domLaneH * HIRES;
+                    // 'outside' anchors to the label's own OUTER edge (leftPx - leftBandW*HIRES), not canvas x=0 —
+                    // leftBandW is dynamic (depends on label width/stagger), so anchoring to a fixed x=0 left a
+                    // gap whenever leftBandW didn't fill the whole margin. Mirrors the 'inside' branch, which
+                    // already anchors to the plot edge (leftPx) for the same reason.
+                    const x0 = domNear ? (leftPx - clr - domLaneH * HIRES) : (leftPx - (leftBandW + domGap) * HIRES - domLaneH * HIRES), x1 = x0 + domLaneH * HIRES;
                     ctx.fillStyle = hexToRgba(col, 0.55); ctx.fillRect(x0, y0, x1 - x0, Math.max(1, y1 - y0));
-                    ctx.strokeStyle = hexToRgba(col, 0.95); ctx.lineWidth = 0.5 * HIRES; ctx.strokeRect(x0, y0, x1 - x0, Math.max(1, y1 - y0));
                 }
             });
         }
