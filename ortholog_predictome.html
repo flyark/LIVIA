@@ -189,7 +189,7 @@
             <div style="overflow-x:auto;">
                 <table class="data-table" id="ranks-table">
                     <thead>
-                        <tr><th>Rank</th><th>Symbol 1</th><th>Symbol 2</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipTM</th><th title="Bryant et al. 2022, pure geometric interface, no PAE; computed from the fetched structure">pDockQ</th><th title="pDockQ fed this file's own cLIR interface">cpDockQ</th><th>LIR (A/B)</th><th>cLIR (A/B)</th><th>Len (A/B)</th></tr>
+                        <tr><th>Rank</th><th>Symbol 1</th><th>Symbol 2</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipTM</th><th>LIR (A/B)</th><th>cLIR (A/B)</th><th>Len (A/B)</th></tr>
                     </thead>
                     <tbody id="ranks-tbody"></tbody>
                 </table>
@@ -508,79 +508,6 @@
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260816"></script>
 <script>
-// pDockQ (Bryant, Pozzati & Elofsson 2022, author-corrected constants). At zero contacts, the
-// pLDDT term vanishes (log10(1)=0) regardless of its value -- the formula's own floor, evaluated
-// even when avgIfPlddt is NaN (no interface residues to average pLDDT over).
-function calcPdockq(avgIfPlddt, nIfContacts) {
-    if (nIfContacts == null || nIfContacts < 0) return null;
-    if (nIfContacts === 0) return 0.724 / (1 + Math.exp(-0.052 * (0 - 152.611))) + 0.018;
-    if (avgIfPlddt == null || isNaN(avgIfPlddt) || avgIfPlddt === 0) return null;
-    const x = avgIfPlddt * Math.log10(nIfContacts + 1);
-    return 0.724 / (1 + Math.exp(-0.052 * (x - 152.611))) + 0.018;
-}
-function pdqFmt(v) { return v == null || isNaN(v) ? '—' : v.toFixed(3); }
-function weightedPlddt(bfs, set, chain) {
-    let s = 0, n = 0;
-    for (const res of set) { const v = bfs.get(`${chain}:${res}`); if (v != null) { s += v; n++; } }
-    return n > 0 ? s / n : NaN;
-}
-function combinePlddt(pA, pB, wA, wB) {
-    if (!isNaN(pA) && !isNaN(pB) && (wA + wB) > 0) return (pA * wA + pB * wB) / (wA + wB);
-    if (!isNaN(pA)) return pA;
-    if (!isNaN(pB)) return pB;
-    return NaN;
-}
-// cpDockQ: this page's own cLIR interface (already-parsed residue sets, r._cLIR_A/_cLIR_B) + cLIA,
-// weighted like lis.py's _wmean_plddt(cLIpLDDT_i, cLIpLDDT_j, len(clirI), len(clirJ)).
-function cpDockqForRank(r, pdbText) {
-    if (!pdbText) return null;
-    const bfs = parseBfactorsPerResidue(pdbText, 'pdb');
-    const plddt = combinePlddt(weightedPlddt(bfs, r._cLIR_A, 'A'), weightedPlddt(bfs, r._cLIR_B, 'B'), r._cLIR_A.size, r._cLIR_B.size);
-    const clia = parseFloat(r['cLIA'] || 0) || (parseFloat(r['cLIA (AB)'] || 0) + parseFloat(r['cLIA (BA)'] || 0));
-    return calcPdockq(plddt, clia);
-}
-// pDockQ: faithful original (Bryant et al. 2022) -- pure Cb-contact geometric interface, no PAE at
-// all, freshly computed from the fetched structure.
-function parsePdbCbCoordsAB(pdbText) {
-    const out = { A: [], B: [] };
-    const seen = { A: new Set(), B: new Set() };
-    for (const line of pdbText.split('\n')) {
-        if (!line.startsWith('ATOM') || line.length < 54) continue;
-        const chain = line.substring(21, 22).trim();
-        if (chain !== 'A' && chain !== 'B') continue;
-        const atomName = line.substring(12, 16).trim();
-        const resName = line.substring(17, 20).trim();
-        const resnum = parseInt(line.substring(22, 26));
-        if (isNaN(resnum)) continue;
-        const x = parseFloat(line.substring(30, 38)), y = parseFloat(line.substring(38, 46)), z = parseFloat(line.substring(46, 54));
-        if (atomName === 'CB') {
-            const idx = out[chain].findIndex(c => c.resnum === resnum);
-            if (idx >= 0) out[chain][idx] = { resnum, x, y, z }; else out[chain].push({ resnum, x, y, z });
-            seen[chain].add(resnum);
-        } else if (atomName === 'CA' && resName === 'GLY' && !seen[chain].has(resnum)) {
-            out[chain].push({ resnum, x, y, z });
-            seen[chain].add(resnum);
-        }
-    }
-    return out;
-}
-function pDockqForRank(pdbText, cbCutoff) {
-    if (!pdbText) return null;
-    cbCutoff = cbCutoff || 8;
-    const cut2 = cbCutoff * cbCutoff;
-    const coords = parsePdbCbCoordsAB(pdbText);
-    const geomA = new Set(), geomB = new Set();
-    for (const a of coords.A) {
-        for (const b of coords.B) {
-            const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-            if (dx * dx + dy * dy + dz * dz <= cut2) { geomA.add(a.resnum); geomB.add(b.resnum); }
-        }
-    }
-    const bfs = parseBfactorsPerResidue(pdbText, 'pdb');
-    const plddt = combinePlddt(weightedPlddt(bfs, geomA, 'A'), weightedPlddt(bfs, geomB, 'B'), geomA.size, geomB.size);
-    return calcPdockq(plddt, geomA.size + geomB.size);
-}
-
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (flyParsed && flyCurrentRank) { loadRank(flyCurrentRank); updateCombinedChord(); renderChainToggleBar(); } };
 attachChainColorUpload(document.getElementById('chain-color-upload'), {   // CSV/paste chain colors (A/B or gene symbol)
@@ -1616,14 +1543,9 @@ async function generate() {
         const ilisaVal = ilisVal * iliaVal;
         const ilia = iliaVal.toFixed(1);
         const ilisa = ilisaVal.toFixed(1);
-        const rankPdb = flyPdbPerRank[parseInt(rk)];
-        const pdqVal = rankPdb ? pDockqForRank(rankPdb) : null;
-        const cpdqVal = rankPdb ? cpDockqForRank(r, rankPdb) : null;
         return `<tr class="clickable ${parseInt(rk) === rank ? 'selected' : ''}" onclick="loadRank(${parseInt(rk)})">
             <td>${rk}</td><td>${r['Symbol 1']||''}</td><td>${r['Symbol 2']||''}</td>
             <td>${ilisColor(parseFloat(r['iLIS']||0))}</td><td>${ilia}</td><td>${ilisa}</td><td>${r['ipTM']||''}</td>
-            <td id="pdq-rank-${rk}">${pdqVal != null ? pdqFmt(pdqVal) : '…'}</td>
-            <td id="cpdq-rank-${rk}">${cpdqVal != null ? pdqFmt(cpdqVal) : '…'}</td>
             <td>${r._LIR_A.size} / ${r._LIR_B.size}</td>
             <td>${r._cLIR_A.size} / ${r._cLIR_B.size}</td>
             <td>${r['Len A']||'?'} / ${r['Len B']||'?'}</td>
@@ -1670,10 +1592,6 @@ async function generate() {
             _cLIR_A: unionCLIR_A, _cLIR_B: unionCLIR_B
         };
 
-        const avgPdbForRow = flyPdbPerRank[1];
-        const avgPdqVal = avgPdbForRow ? pDockqForRank(avgPdbForRow) : null;
-        const avgCpdqVal = avgPdbForRow ? cpDockqForRank({ _cLIR_A: unionCLIR_A, _cLIR_B: unionCLIR_B, cLIA: sumCLIA / n }, avgPdbForRow) : null;
-
         const tbody = document.getElementById('ranks-tbody');
         const avgTr = document.createElement('tr');
         avgTr.className = 'clickable';
@@ -1683,8 +1601,6 @@ async function generate() {
         avgTr.onclick = () => loadRank('avg');
         avgTr.innerHTML = `<td>Avg</td><td>${rows[0]['Symbol 1']||''}</td><td>${rows[0]['Symbol 2']||''}</td>` +
             `<td>${ilisColor(parseFloat(avgILIS), true)}</td><td>${iliaStr}</td><td>${ilisaStr}</td><td>${avgIpTM}</td>` +
-            `<td id="pdq-rank-avg">${avgPdqVal != null ? pdqFmt(avgPdqVal) : '…'}</td>` +
-            `<td id="cpdq-rank-avg">${avgCpdqVal != null ? pdqFmt(avgCpdqVal) : '…'}</td>` +
             `<td>${avgLirA} / ${avgLirB}</td>` +
             `<td>${avgClirA} / ${avgClirB}</td>` +
             `<td>${rows[0]['Len A']||'?'} / ${rows[0]['Len B']||'?'}</td>`;
@@ -1895,22 +1811,7 @@ async function fetchAllRankPdbs() {
         const rankNum = parseInt(r['Rank']);
         if (flyPdbPerRank[rankNum]) continue;
         const fetched = await fetchRankPdb(rankNum);
-        if (fetched) {
-            updateCombinedChord();
-            const pdbText = flyPdbPerRank[rankNum];
-            const pdqCell = document.getElementById('pdq-rank-' + rankNum);
-            const cpdqCell = document.getElementById('cpdq-rank-' + rankNum);
-            if (pdqCell) pdqCell.textContent = pdqFmt(pDockqForRank(pdbText));
-            if (cpdqCell) cpdqCell.textContent = pdqFmt(cpDockqForRank(r, pdbText));
-        }
-    }
-    // Avg row's cpDockQ needs every rank's cLIA (mean across ranks) — recompute now that all ranks
-    // have been fetched.
-    if (flyAverageRow && flyPdbPerRank[1]) {
-        const n = flyParsed.rows.length;
-        const sumCLIA = flyParsed.rows.reduce((s, rr) => s + (parseFloat(rr['cLIA'] || 0) || (parseFloat(rr['cLIA (AB)'] || 0) + parseFloat(rr['cLIA (BA)'] || 0))), 0);
-        const avgCpdqCell = document.getElementById('cpdq-rank-avg');
-        if (avgCpdqCell) avgCpdqCell.textContent = pdqFmt(cpDockqForRank({ _cLIR_A: flyAverageRow._cLIR_A, _cLIR_B: flyAverageRow._cLIR_B, cLIA: sumCLIA / n }, flyPdbPerRank[1]));
+        if (fetched) updateCombinedChord();
     }
     // Rebuild pLDDT charts now that all rank PDBs are available
     if (flyCurrentRank) {

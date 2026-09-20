@@ -1568,49 +1568,22 @@ function heatOpts(){ const w = $('hm-w'), h = $('hm-h'), f = $('hm-fs'); return 
 function redraw(A){ renderHeatmap(A); renderFreq(A); renderScatter(A); renderTable(A); renderClusterInfo(A); CHIP_CONTAINERS.forEach(id => renderChipBar(id, A)); recolor3D(A); }
 
 
-// pDockQ (Bryant, Pozzati & Elofsson 2022, author-corrected constants), fed this file's own cLIR
-// interface (cLIpLDDT + cLIA) to give cpDockQ -- matches lis.py's calc_pdockq() exactly. Only a
-// fallback for a CSV that predates lis.py's own pDockQ family (no cpDockQ column at all): a CSV
-// that already carries the column hits the literal parseFloat(o[key]) path above and never reaches
-// this. pDockQ (needs a structure-derived geometric interface) and pDockQ2/cpDockQ2 (need raw PAE)
-// are not derivable from a lis.py CSV's columns alone, so no fallback exists for them here.
-function calcPdockqCLIP(avgIfPlddt, nIfContacts){
-  if (nIfContacts == null || isNaN(nIfContacts) || nIfContacts < 0) return NaN;
-  if (nIfContacts === 0) return 0.724/(1+Math.exp(-0.052*(0-152.611)))+0.018;
-  if (avgIfPlddt == null || isNaN(avgIfPlddt)) return NaN;
-  const x = avgIfPlddt * Math.log10(nIfContacts + 1);
-  return 0.724/(1+Math.exp(-0.052*(x-152.611)))+0.018;
-}
 function scVal(o, key){
   const v = (o[key] != null && o[key] !== '') ? parseFloat(o[key]) : NaN;
   if (!isNaN(v)) return v;
   if (key === 'iLISA') { const a = parseFloat(o.iLIS), b = parseFloat(o.iLIA); if (!isNaN(a) && !isNaN(b)) return a * b; }
   if (key === 'pLDDT') { const a = parseFloat(o.pLDDT_A), b = parseFloat(o.pLDDT_B), la = parseFloat(o.Protein_Len_A)||1, lb = parseFloat(o.Protein_Len_B)||1; if (!isNaN(a) && !isNaN(b)) return (a*la + b*lb)/(la+lb); if (!isNaN(a)) return a; if (!isNaN(b)) return b; }
-  if (key === 'cpDockQ') {
-    // Weighted by cLIR residue counts (the interface, not the whole chain) -- matches lis.py's
-    // _wmean_plddt(cLIpLDDT_i, cLIpLDDT_j, len(clirI), len(clirJ)).
-    const a = parseFloat(o.cLIpLDDT_A), b = parseFloat(o.cLIpLDDT_B), wa = parseFloat(o.cLIR_A)||0, wb = parseFloat(o.cLIR_B)||0, n = parseFloat(o.cLIA);
-    const plddt = (!isNaN(a) && !isNaN(b) && (wa+wb)>0) ? (a*wa+b*wb)/(wa+wb) : (!isNaN(a) ? a : (!isNaN(b) ? b : NaN));
-    const r = calcPdockqCLIP(plddt, n);
-    return isNaN(r) ? 0 : r;
-  }
   return 0;
 }
 // Metrics offered on the scatter axes — known AFM-LIS/confidence metrics first (in order),
 // then any other numeric column present in the data. iLISA always available (computed).
-const METRIC_ORDER = ['iLIS','iLIA','iLISA','ipTM','ipSAE','actifpTM','LIS','cLIS','LIA','cLIA','pLDDT','pLDDT_A','pLDDT_B','LIpLDDT_A','LIpLDDT_B','cLIpLDDT_A','cLIpLDDT_B','cpDockQ'];
+const METRIC_ORDER = ['iLIS','iLIA','iLISA','ipTM','ipSAE','actifpTM','LIS','cLIS','LIA','cLIA','pLDDT','pLDDT_A','pLDDT_B','LIpLDDT_A','LIpLDDT_B','cLIpLDDT_A','cLIpLDDT_B'];
 const SKIP_COLS = new Set(['Symbol_1','Symbol_2','Protein_1','Protein_2','Rank','name','chain_i','chain_j','model','structure_file','pae_plot','cLIR_indice_A','cLIR_indice_B','LIR_indice_A','LIR_indice_B','cLIR_A','cLIR_B','LIR_A','LIR_B','Protein_Len_A','Protein_Len_B','deeploc_1','deeploc_2','iLIS_x_iLIA']);
 function availableMetrics(rows){
   const first = rows[0] || {};
   const isNum = (c) => first[c]!=null && first[c]!=='' && !isNaN(parseFloat(first[c]));
   const out = [];
-  for (const m of METRIC_ORDER){
-    // cpDockQ: offered either as a literal column (a lis.py CSV new enough to ship the pDockQ
-    // family) or derived from cLIpLDDT_A + cLIA (any lis.py CSV ever produced) -- never offered
-    // with neither available, so the axis doesn't silently plot a flat zero.
-    if (m === 'cpDockQ' && !isNum(m)) { if (isNum('cLIpLDDT_A') && isNum('cLIA')) out.push(m); continue; }
-    if (m==='iLISA' || m==='pLDDT' || isNum(m)) out.push(m);
-  }
+  for (const m of METRIC_ORDER){ if (m==='iLISA' || m==='pLDDT' || isNum(m)) out.push(m); }
   for (const k in first){ if (!k.startsWith('_') && !SKIP_COLS.has(k) && !out.includes(k) && isNum(k)) out.push(k); }
   return out;
 }
