@@ -10,7 +10,6 @@
         /* ── Page-specific styles for Dimer ── */
         .step-link { color: #2471A3; text-decoration: none; }
         .step-link:hover { text-decoration: underline; }
-        #pairs-table td, #pairs-table th { white-space: nowrap; }
 
         /* Status */
         .status { font-size: 0.85rem; color: #666; min-height: 1.5rem; margin-top: 0.8rem; }
@@ -189,12 +188,10 @@
         <!-- Interaction Analysis Summary -->
         <div class="card result-card">
             <h2>Interaction Analysis Summary</h2>
-            <div style="overflow-x:auto;">
             <table class="data-table" id="pairs-table">
                 <thead><tr><th>Protein A</th><th>Protein B</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipSAE</th><th>actifpTM</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th title="Bryant et al. 2022, pure geometric interface, no PAE">pDockQ</th><th title="pDockQ fed this file's own PAE+contact-gated cLIR interface">cpDockQ</th><th title="Zhu et al. 2023, CA-based interface; mean of the two per-chain directions">pDockQ2</th><th title="pDockQ2's PAE-decay applied to this file's own cLIR interface; mean of the two per-chain directions">cpDockQ2</th><th>LIR (A/B)</th><th>cLIR (A/B)</th></tr></thead>
                 <tbody id="pairs-tbody"></tbody>
             </table>
-            </div>
             <div style="margin-top:0.5rem;">
                 <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem; cursor:pointer;" onclick="downloadCSV()">&#8595; Download CSV</a>
             </div>
