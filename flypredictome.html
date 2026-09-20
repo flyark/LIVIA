@@ -227,7 +227,7 @@
             <div style="overflow-x:auto;">
                 <table class="data-table" id="ranks-table">
                     <thead>
-                        <tr><th>Rank</th><th>Symbol 1</th><th>Symbol 2</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipTM</th><th title="Bryant et al. 2022, pure geometric interface, no PAE; computed from the fetched structure">pDockQ</th><th title="pDockQ fed this file's own cLIR interface">cpDockQ</th><th>LIR (A/B)</th><th>cLIR (A/B)</th><th>Len (A/B)</th></tr>
+                        <tr><th>Rank</th><th>Symbol 1</th><th>Symbol 2</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipTM</th><th title="Bryant et al. 2022, pure geometric interface, no PAE; computed from the fetched structure">pDockQ</th><th title="pDockQ fed this file's own cLIR interface">LIpDockQ</th><th>LIR (A/B)</th><th>cLIR (A/B)</th><th>Len (A/B)</th></tr>
                     </thead>
                     <tbody id="ranks-tbody"></tbody>
                 </table>
@@ -1084,23 +1084,26 @@ function displayPairResults(matches) {
 }
 
 // pDockQ (Bryant, Pozzati & Elofsson 2022, author-corrected constants), fed this file's own cLIR
-// interface (cLIpLDDT + cLIA, both already scraped from FlyPredictome's summary table below) to give
-// cpDockQ -- matches lis.py's calc_pdockq() and universal.html's calcPdockq() exactly. pDockQ2/
-// cpDockQ2 are NOT computable here: FlyPredictome's summary table carries no numeric PAE, only
-// these two already-aggregated scalars.
+// interface to give LIpDockQ -- matches lis.py's calc_pdockq() and universal.html's calcPdockq()
+// exactly. Verified against the authors' own reference implementation (ElofssonLab/FoldDock,
+// src/pdockq.py): nIfContacts must be the COUNT OF CONTACT PAIRS (cells), NOT a residue count and
+// not LIA/cLIA-style double-counted sums -- x = avgIfPlddt * log10(n), no +1. pDockQ2/LIpDockQ2 are
+// NOT computable here: FlyPredictome's summary table carries no numeric PAE, only a PAE image.
 function calcPdockq(avgIfPlddt, nIfContacts) {
     if (nIfContacts == null || nIfContacts < 0) return null;
-    if (nIfContacts === 0) return 0.724 / (1 + Math.exp(-0.052 * (0 - 152.611))) + 0.018;
+    // Matches the reference implementation's own explicit special case (contacts.shape[0]<1 ->
+    // pdockq=0) -- a literal 0, not the sigmoid evaluated at x=0.
+    if (nIfContacts === 0) return 0;
     if (avgIfPlddt == null || isNaN(avgIfPlddt) || avgIfPlddt === 0) return null;
-    const x = avgIfPlddt * Math.log10(nIfContacts + 1);
+    const x = avgIfPlddt * Math.log10(nIfContacts);
     return 0.724 / (1 + Math.exp(-0.052 * (x - 152.611))) + 0.018;
 }
 function pdqFmt(v) { return v == null || isNaN(v) ? '—' : v.toFixed(3); }
 
-// Per-rank pDockQ/cpDockQ: unlike the partner-summary table above (aggregated scalars only), a
+// Per-rank pDockQ/LIpDockQ: unlike the partner-summary table above (aggregated scalars only), a
 // selected pair's actual structure IS fetched (flyPdbPerRank) and its per-rank cLIR residue sets
 // ARE already parsed (r._cLIR_A/_cLIR_B, from parseResidueRanges on the scraped detail table) --
-// so both metrics are fully computable here, not just cpDockQ. pDockQ2/cpDockQ2 still aren't: no
+// so both metrics are fully computable here, not just LIpDockQ. pDockQ2/LIpDockQ2 still aren't: no
 // numeric PAE is ever exposed, only a PAE image.
 function weightedPlddt(bfs, set, chain) {
     let s = 0, n = 0;
@@ -1113,14 +1116,30 @@ function combinePlddt(pA, pB, wA, wB) {
     if (!isNaN(pB)) return pB;
     return NaN;
 }
-// cpDockQ: this file's own cLIR interface (already-known residue sets) + cLIA, weighted like
-// lis.py's _wmean_plddt(cLIpLDDT_i, cLIpLDDT_j, len(clirI), len(clirJ)).
-function cpDockqForRank(r, pdbText) {
-    if (!pdbText) return null;
+// LIpDockQ: this file's own cLIR interface (already-known residue sets, r._cLIR_A/_cLIR_B) + a
+// FRESH Cb contact count restricted to those residues, computed directly from the fetched
+// structure -- not FlyPredictome's own cLIA (which sums both PAE directions, double-counting a
+// cell confident in both, and isn't on the same scale as pDockQ's own N). Restricting a real
+// contact matrix to (row in cLIR_A, col in cLIR_B) recovers a cell count very close to the true
+// either_contact.sum() (validated against live-PAE ground truth on real multi-chain predictions: N
+// off by 0-6 cells out of 40-250, LIpDockQ off by <0.04, usually <0.003) -- still an approximation (a
+// residue's *specific* qualifying partner isn't recoverable without PAE), but much closer than cLIA.
+function LIpDockqForRank(r, pdbText) {
+    if (!pdbText || !r._cLIR_A || !r._cLIR_B || r._cLIR_A.size === 0 || r._cLIR_B.size === 0) return null;
     const bfs = parseBfactorsPerResidue(pdbText, 'pdb');
     const plddt = combinePlddt(weightedPlddt(bfs, r._cLIR_A, 'A'), weightedPlddt(bfs, r._cLIR_B, 'B'), r._cLIR_A.size, r._cLIR_B.size);
-    const clia = parseFloat(r['cLIA'] || 0) || (parseFloat(r['cLIA (AB)'] || 0) + parseFloat(r['cLIA (BA)'] || 0));
-    return calcPdockq(plddt, clia);
+    const coords = parsePdbCbCoordsAB(pdbText);
+    const cut2 = 8 * 8;
+    let n = 0;
+    for (const a of coords.A) {
+        if (!r._cLIR_A.has(a.resnum)) continue;
+        for (const b of coords.B) {
+            if (!r._cLIR_B.has(b.resnum)) continue;
+            const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+            if (dx * dx + dy * dy + dz * dz <= cut2) n++;
+        }
+    }
+    return calcPdockq(plddt, n);
 }
 // pDockQ: faithful original (Bryant et al. 2022) -- pure Cb-contact geometric interface, no PAE at
 // all, freshly computed from the structure (O(lenA*lenB) pairwise distance, trivial at these sizes).
@@ -1153,15 +1172,18 @@ function pDockqForRank(pdbText, cbCutoff) {
     const cut2 = cbCutoff * cbCutoff;
     const coords = parsePdbCbCoordsAB(pdbText);
     const geomA = new Set(), geomB = new Set();
+    let nContacts = 0;
     for (const a of coords.A) {
         for (const b of coords.B) {
             const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-            if (dx * dx + dy * dy + dz * dz <= cut2) { geomA.add(a.resnum); geomB.add(b.resnum); }
+            if (dx * dx + dy * dy + dz * dz <= cut2) { geomA.add(a.resnum); geomB.add(b.resnum); nContacts++; }
         }
     }
     const bfs = parseBfactorsPerResidue(pdbText, 'pdb');
     const plddt = combinePlddt(weightedPlddt(bfs, geomA, 'A'), weightedPlddt(bfs, geomB, 'B'), geomA.size, geomB.size);
-    return calcPdockq(plddt, geomA.size + geomB.size);
+    // N is the contact PAIR count, matching contacts.shape[0] in the reference implementation --
+    // NOT geomA.size+geomB.size (a residue count).
+    return calcPdockq(plddt, nContacts);
 }
 
 // Partner list — scraped client-side from FlyPredictome's famdb_summary page (the pre-redesign approach,
@@ -1437,8 +1459,8 @@ function displayPartnerTable(partners, querySymbol) {
                 '<th>iLIS (avg)</th>' +
                 '<th>ipTM (best)</th>' +
                 '<th>ipTM (avg)</th>' +
-                '<th title="pDockQ formula fed this file\'s own PAE+contact-gated cLIR interface; no numeric PAE here, so pDockQ2/cpDockQ2 are not computable">cpDockQ (best)</th>' +
-                '<th title="pDockQ formula fed this file\'s own PAE+contact-gated cLIR interface; no numeric PAE here, so pDockQ2/cpDockQ2 are not computable">cpDockQ (avg)</th>' +
+                '<th title="pDockQ formula fed this file\'s own PAE+contact-gated cLIR interface; no numeric PAE here, so pDockQ2/LIpDockQ2 are not computable">LIpDockQ (best)</th>' +
+                '<th title="pDockQ formula fed this file\'s own PAE+contact-gated cLIR interface; no numeric PAE here, so pDockQ2/LIpDockQ2 are not computable">LIpDockQ (avg)</th>' +
                 '<th>Len A/B</th>' +
                 '<th>PPI</th>' +
                 '<th>GI</th>' +
@@ -2166,7 +2188,7 @@ async function generate() {
         const ilisa = ilisaVal.toFixed(1);
         const rankPdb = flyPdbPerRank[parseInt(rk)];
         const pdqVal = rankPdb ? pDockqForRank(rankPdb) : null;
-        const cpdqVal = rankPdb ? cpDockqForRank(r, rankPdb) : null;
+        const cpdqVal = rankPdb ? LIpDockqForRank(r, rankPdb) : null;
         return `<tr class="clickable ${parseInt(rk) === rank ? 'selected' : ''}" onclick="loadRank(${parseInt(rk)})">
             <td>${rk}</td><td>${r['Symbol 1']||''}</td><td>${r['Symbol 2']||''}</td>
             <td>${ilisColor(parseFloat(r['iLIS']||0))}</td><td>${ilia}</td><td>${ilisa}</td><td>${r['ipTM']||''}</td>
@@ -2219,12 +2241,12 @@ async function generate() {
             _cLIR_A: unionCLIR_A, _cLIR_B: unionCLIR_B
         };
 
-        // pDockQ/cpDockQ for the Avg row: computed against rank 1's structure (same rank the "Avg"
-        // 3D view itself falls back to, see loadRank('avg')), cpDockQ using the union cLIR set +
+        // pDockQ/LIpDockQ for the Avg row: computed against rank 1's structure (same rank the "Avg"
+        // 3D view itself falls back to, see loadRank('avg')), LIpDockQ using the union cLIR set +
         // mean cLIA across ranks.
         const avgPdbForRow = flyPdbPerRank[1];
         const avgPdqVal = avgPdbForRow ? pDockqForRank(avgPdbForRow) : null;
-        const avgCpdqVal = avgPdbForRow ? cpDockqForRank({ _cLIR_A: unionCLIR_A, _cLIR_B: unionCLIR_B, cLIA: sumCLIA / n }, avgPdbForRow) : null;
+        const avgCpdqVal = avgPdbForRow ? LIpDockqForRank({ _cLIR_A: unionCLIR_A, _cLIR_B: unionCLIR_B, cLIA: sumCLIA / n }, avgPdbForRow) : null;
 
         const tbody = document.getElementById('ranks-tbody');
         const avgTr = document.createElement('tr');
@@ -2463,21 +2485,21 @@ async function fetchAllRankPdbs() {
         if (fetched) {
             // Update combined chord diagram with newly available data
             updateCombinedChord();
-            // Fill in this rank's pDockQ/cpDockQ cells now that its structure has arrived
+            // Fill in this rank's pDockQ/LIpDockQ cells now that its structure has arrived
             const pdbText = flyPdbPerRank[rankNum];
             const pdqCell = document.getElementById('pdq-rank-' + rankNum);
             const cpdqCell = document.getElementById('cpdq-rank-' + rankNum);
             if (pdqCell) pdqCell.textContent = pdqFmt(pDockqForRank(pdbText));
-            if (cpdqCell) cpdqCell.textContent = pdqFmt(cpDockqForRank(r, pdbText));
+            if (cpdqCell) cpdqCell.textContent = pdqFmt(LIpDockqForRank(r, pdbText));
         }
     }
-    // Rank 1's structure was already available at first render, but the Avg row's cpDockQ needs
+    // Rank 1's structure was already available at first render, but the Avg row's LIpDockQ needs
     // every rank's cLIA (mean across ranks) — recompute it now that all ranks have been fetched.
     if (flyAverageRow && flyPdbPerRank[1]) {
         const n = flyParsed.rows.length;
         const sumCLIA = flyParsed.rows.reduce((s, rr) => s + (parseFloat(rr['cLIA'] || 0) || (parseFloat(rr['cLIA (AB)'] || 0) + parseFloat(rr['cLIA (BA)'] || 0))), 0);
         const avgCpdqCell = document.getElementById('cpdq-rank-avg');
-        if (avgCpdqCell) avgCpdqCell.textContent = pdqFmt(cpDockqForRank({ _cLIR_A: flyAverageRow._cLIR_A, _cLIR_B: flyAverageRow._cLIR_B, cLIA: sumCLIA / n }, flyPdbPerRank[1]));
+        if (avgCpdqCell) avgCpdqCell.textContent = pdqFmt(LIpDockqForRank({ _cLIR_A: flyAverageRow._cLIR_A, _cLIR_B: flyAverageRow._cLIR_B, cLIA: sumCLIA / n }, flyPdbPerRank[1]));
     }
     // Rebuild pLDDT charts now that all rank PDBs are available
     if (flyCurrentRank) {

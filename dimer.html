@@ -191,7 +191,7 @@
             <h2>Interaction Analysis Summary</h2>
             <div style="overflow-x:auto;">
             <table class="data-table" id="pairs-table">
-                <thead><tr><th>Protein A</th><th>Protein B</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipSAE</th><th>actifpTM</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th title="Bryant et al. 2022, pure geometric interface, no PAE">pDockQ</th><th title="pDockQ fed this file's own PAE+contact-gated cLIR interface">cpDockQ</th><th title="Zhu et al. 2023, CA-based interface; mean of the two per-chain directions">pDockQ2</th><th title="pDockQ2's PAE-decay applied to this file's own cLIR interface; mean of the two per-chain directions">cpDockQ2</th><th>LIR (A/B)</th><th>cLIR (A/B)</th></tr></thead>
+                <thead><tr><th>Protein A</th><th>Protein B</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipSAE</th><th>actifpTM</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th title="Bryant et al. 2022, pure geometric interface, no PAE">pDockQ</th><th title="pDockQ fed this file's own PAE+contact-gated cLIR interface">LIpDockQ</th><th title="Zhu et al. 2023, CA-based interface; mean of the two per-chain directions">pDockQ2</th><th title="pDockQ2's PAE-decay applied to this file's own cLIR interface; mean of the two per-chain directions">LIpDockQ2</th><th>LIR (A/B)</th><th>cLIR (A/B)</th></tr></thead>
                 <tbody id="pairs-tbody"></tbody>
             </table>
             </div>
@@ -1981,17 +1981,19 @@ function calcActifpTM(pae, contact, nUse, si, ei, sj, ej) {
     return maxScore;
 }
 
-// pDockQ (Bryant, Pozzati & Elofsson 2022, author-corrected constants). Applied to this file's own
-// cLIR interface (PAE-cutoff AND physical-contact filtered) gives cpDockQ, matching lis.py's
-// calc_pdockq() and universal.html's calcPdockq().
+// pDockQ (Bryant, Pozzati & Elofsson 2022, author-corrected constants). Verified against the
+// authors' own reference implementation (ElofssonLab/FoldDock, src/pdockq.py): nIfContacts must be
+// the COUNT OF CONTACT PAIRS (cells), NOT a residue count and not LIA/cLIA-style double-counted
+// sums -- x = avgIfPlddt * log10(n), no +1. Applied to this file's own cLIR interface (PAE-cutoff
+// AND physical-contact filtered, cell count) gives LIpDockQ, matching lis.py's calc_pdockq() and
+// universal.html's calcPdockq().
 function calcPdockq(avgIfPlddt, nIfContacts) {
     if (nIfContacts == null || nIfContacts < 0) return null;
-    // At zero contacts, log10(n+1)=0 makes the pLDDT term vanish regardless of its value -- the
-    // formula's own floor (~0.018), so this still evaluates even when avgIfPlddt is NaN (no
-    // interface residues to average pLDDT over). A missing avgIfPlddt at n>0 stays null.
-    if (nIfContacts === 0) return 0.724 / (1 + Math.exp(-0.052 * (0 - 152.611))) + 0.018;
+    // Matches the reference implementation's own explicit special case (contacts.shape[0]<1 ->
+    // pdockq=0) -- a literal 0, not the sigmoid evaluated at x=0.
+    if (nIfContacts === 0) return 0;
     if (avgIfPlddt == null || isNaN(avgIfPlddt)) return null;
-    const x = avgIfPlddt * Math.log10(nIfContacts + 1);
+    const x = avgIfPlddt * Math.log10(nIfContacts);
     return 0.724 / (1 + Math.exp(-0.052 * (x - 152.611))) + 0.018;
 }
 
@@ -2013,7 +2015,7 @@ function wmeanNum(vi, vj, wi, wj) {
     return (wi * vi + wj * vj) / w;
 }
 
-// pDockQ2/cpDockQ2 are inherently per-chain-direction; mean-of-two collapses to one displayed
+// pDockQ2/LIpDockQ2 are inherently per-chain-direction; mean-of-two collapses to one displayed
 // number, matching universal.html's mean2Nullable() and this session's established convention.
 function mean2Nullable(a, b) {
     if (a == null && b == null) return null;
@@ -2644,13 +2646,13 @@ function processDimer() {
 
     // pDockQ: faithful original (Bryant et al. 2022) -- pure geometric interface, no PAE.
     const geomPlddtPair = wmeanNum(abResult.geomPlddtI, abResult.geomPlddtJ, abResult.geomIfI.size, abResult.geomIfJ.size);
-    const pDockQ = calcPdockq(geomPlddtPair, abResult.geomIfI.size + abResult.geomIfJ.size);
-    // cpDockQ: pDockQ's formula fed this file's own cLIR interface (PAE-cutoff AND
+    const pDockQ = calcPdockq(geomPlddtPair, abResult.geomNContacts);
+    // LIpDockQ: pDockQ's formula fed this file's own cLIR interface (PAE-cutoff AND
     // contact-filtered) instead of pDockQ's own pure-distance one.
     const cliPlddtPair = wmeanNum(abResult.cliPlddtI, abResult.cliPlddtJ, abResult.clirI.size, abResult.clirJ.size);
-    const cpDockQ = calcPdockq(cliPlddtPair, abResult.cliaCount);
+    const LIpDockQ = calcPdockq(cliPlddtPair, abResult.LIpDockQN);
     const pDockQ2 = mean2Nullable(abResult.pdockq2_i, abResult.pdockq2_j);
-    const cpDockQ2 = mean2Nullable(abResult.cpdockq2_i, abResult.cpdockq2_j);
+    const LIpDockQ2 = mean2Nullable(abResult.lipdockq2_i, abResult.lipdockq2_j);
 
     // Metrics from AlphaFold DB API (dataset-provided, not computed by this page) -- kept
     // separate from LIVIA's own live-computed pDockQ2 above to avoid conflating the two.
@@ -2660,9 +2662,9 @@ function processDimer() {
 
     dimerPairResult = {
         ci: chainNames[0], cj: chainNames[1],
-        iLIS, iLIA, iLISA, ipSAE, actifpTM, LIS: abResult.lis, cLIS: abResult.clis, LIA: abResult.liaCount, cLIA: abResult.cliaCount, ipTM, pDockQ, cpDockQ,
+        iLIS, iLIA, iLISA, ipSAE, actifpTM, LIS: abResult.lis, cLIS: abResult.clis, LIA: abResult.liaCount, cLIA: abResult.cliaCount, ipTM, pDockQ, LIpDockQ,
         pDockQ2_i: abResult.pdockq2_i, pDockQ2_j: abResult.pdockq2_j, pDockQ2,
-        cpDockQ2_i: abResult.cpdockq2_i, cpDockQ2_j: abResult.cpdockq2_j, cpDockQ2, afdbPDockQ2, pLDDT,
+        LIpDockQ2_i: abResult.lipdockq2_i, LIpDockQ2_j: abResult.lipdockq2_j, LIpDockQ2, afdbPDockQ2, pLDDT,
         lirI: abResult.lirI, lirJ: abResult.lirJ,
         clirI: abResult.clirI, clirJ: abResult.clirJ,
         lenI: lenA, lenJ: lenB,
@@ -2689,7 +2691,13 @@ function computePairMetrics(pae, contact, nUse, offI, lenI, offJ, lenJ, paeCutof
     const clirI = new Set(), clirJ = new Set();
     // Faithful original pDockQ (Bryant et al. 2022): pure geometric interface (Cb contact, no PAE).
     const geomIfI = new Set(), geomIfJ = new Set();
-    // pDockQ2 (CA-based) and cpDockQ2 (cLIR-gated) running sums -- see pdockq2FromSums() above.
+    // pDockQ's own N: count of contact PAIRS (cells), matching contacts.shape[0] in the reference
+    // implementation -- NOT geomIfI.size+geomIfJ.size (a residue count).
+    let geomNContacts = 0;
+    // LIpDockQ's own N: count of cLIR-qualifying pairs (cells), counted once each -- NOT cliaCount
+    // (sums both PAE directions, double-counting a cell confident in both).
+    let LIpDockQN = 0;
+    // pDockQ2 (CA-based) and LIpDockQ2 (cLIR-gated) running sums -- see pdockq2FromSums() above.
     let pdq2iDecaySum = 0, pdq2iPlddtSum = 0, pdq2iN = 0;
     let pdq2jDecaySum = 0, pdq2jPlddtSum = 0, pdq2jN = 0;
     let cpdq2iDecaySum = 0, cpdq2iPlddtSum = 0, cpdq2iN = 0;
@@ -2704,7 +2712,7 @@ function computePairMetrics(pae, contact, nUse, offI, lenI, offJ, lenJ, paeCutof
             const vAB = pae[ri][rj];
             const vBA = pae[rj][ri];
 
-            if (inContact) { geomIfI.add(i + 1); geomIfJ.add(j + 1); }
+            if (inContact) { geomIfI.add(i + 1); geomIfJ.add(j + 1); geomNContacts++; }
 
             // LIS / cLIS per-direction
             if (vAB < paeCutoff) {
@@ -2733,7 +2741,8 @@ function computePairMetrics(pae, contact, nUse, offI, lenI, offJ, lenJ, paeCutof
                 if (inContact) {
                     clirI.add(i + 1);
                     clirJ.add(j + 1);
-                    // cpDockQ2: same cell-based mask as cLIR, PAE-decay-weighted instead of a hard cutoff.
+                    LIpDockQN++;
+                    // LIpDockQ2: same cell-based mask as cLIR, PAE-decay-weighted instead of a hard cutoff.
                     if (bfs) {
                         const pI = bfs.get(`${chainI}:${i + 1}`);
                         const pJ = bfs.get(`${chainJ}:${j + 1}`);
@@ -2771,11 +2780,11 @@ function computePairMetrics(pae, contact, nUse, offI, lenI, offJ, lenJ, paeCutof
 
     return {
         lis, clis, lirI, lirJ, clirI, clirJ, liaCount, cliaCount,
-        geomIfI, geomIfJ, geomPlddtI, geomPlddtJ, cliPlddtI, cliPlddtJ,
+        geomIfI, geomIfJ, geomPlddtI, geomPlddtJ, cliPlddtI, cliPlddtJ, geomNContacts, LIpDockQN,
         pdockq2_i: pdockq2FromSums(pdq2iDecaySum, pdq2iPlddtSum, pdq2iN),
         pdockq2_j: pdockq2FromSums(pdq2jDecaySum, pdq2jPlddtSum, pdq2jN),
-        cpdockq2_i: pdockq2FromSums(cpdq2iDecaySum, cpdq2iPlddtSum, cpdq2iN),
-        cpdockq2_j: pdockq2FromSums(cpdq2jDecaySum, cpdq2jPlddtSum, cpdq2jN),
+        lipdockq2_i: pdockq2FromSums(cpdq2iDecaySum, cpdq2iPlddtSum, cpdq2iN),
+        lipdockq2_j: pdockq2FromSums(cpdq2jDecaySum, cpdq2jPlddtSum, cpdq2jN),
     };
 }
 
@@ -2814,9 +2823,9 @@ function displayDimerResults() {
             <td>${v.LIS.toFixed(3)}</td>
             <td>${v.cLIS.toFixed(3)}</td>
             <td>${v.pDockQ == null || isNaN(v.pDockQ) ? '' : v.pDockQ.toFixed(3)}</td>
-            <td>${v.cpDockQ == null || isNaN(v.cpDockQ) ? '' : v.cpDockQ.toFixed(3)}</td>
+            <td>${v.LIpDockQ == null || isNaN(v.LIpDockQ) ? '' : v.LIpDockQ.toFixed(3)}</td>
             <td>${v.pDockQ2 == null || isNaN(v.pDockQ2) ? '' : v.pDockQ2.toFixed(3)}</td>
-            <td>${v.cpDockQ2 == null || isNaN(v.cpDockQ2) ? '' : v.cpDockQ2.toFixed(3)}</td>
+            <td>${v.LIpDockQ2 == null || isNaN(v.LIpDockQ2) ? '' : v.LIpDockQ2.toFixed(3)}</td>
             <td>${v.lirI.size} / ${v.lirJ.size}</td>
             <td>${v.clirI.size} / ${v.clirJ.size}</td>
         </tr>
@@ -3815,14 +3824,14 @@ function downloadCSV() {
     const protA = genes[0] || accessions[0] || v.ci;
     const protB = genes[1] || genes[0] || accessions[1] || accessions[0] || v.cj;
     const afdbPlddt = selectedDimer.globalMetricValue || 0;
-    const header = 'name,model,protein_A,protein_B,chain_A,chain_B,iLIS,iLIA,iLISA,ipSAE,actifpTM,LIS,cLIS,LIA,cLIA,ipTM,pLDDT,pTM,pDockQ,cpDockQ,pDockQ2_i,pDockQ2_j,pDockQ2,cpDockQ2_i,cpDockQ2_j,cpDockQ2,afdb_pDockQ2,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
+    const header = 'name,model,protein_A,protein_B,chain_A,chain_B,iLIS,iLIA,iLISA,ipSAE,actifpTM,LIS,cLIS,LIA,cLIA,ipTM,pLDDT,pTM,pDockQ,LIpDockQ,pDockQ2_i,pDockQ2_j,pDockQ2,LIpDockQ2_i,LIpDockQ2_j,LIpDockQ2,afdb_pDockQ2,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
     const fmt4 = (x) => x == null || isNaN(x) ? '' : x.toFixed(4);
     const row = [
         `"${complexName}"`, 'dimer', `"${protA}"`, `"${protB}"`, v.ci, v.cj,
         v.iLIS.toFixed(6), v.iLIA.toFixed(1), v.iLISA.toFixed(1), v.ipSAE.toFixed(6), (v.actifpTM||0).toFixed(6), v.LIS.toFixed(6), v.cLIS.toFixed(6),
         (v.LIA||0).toFixed(1), (v.cLIA||0).toFixed(1),
         v.ipTM.toFixed(6), afdbPlddt.toFixed(1), '',
-        fmt4(v.pDockQ), fmt4(v.cpDockQ), fmt4(v.pDockQ2_i), fmt4(v.pDockQ2_j), fmt4(v.pDockQ2), fmt4(v.cpDockQ2_i), fmt4(v.cpDockQ2_j), fmt4(v.cpDockQ2), fmt4(v.afdbPDockQ2 || null),
+        fmt4(v.pDockQ), fmt4(v.LIpDockQ), fmt4(v.pDockQ2_i), fmt4(v.pDockQ2_j), fmt4(v.pDockQ2), fmt4(v.LIpDockQ2_i), fmt4(v.LIpDockQ2_j), fmt4(v.LIpDockQ2), fmt4(v.afdbPDockQ2 || null),
         v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
         v.lenI, v.lenJ,
         `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
