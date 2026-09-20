@@ -74,9 +74,6 @@
         .colorbar-labels span:nth-child(2) { color: #555; font-weight: 500; }
 
         .data-table tr.avg-row { font-weight: 600; border-top: 2px solid #999; }
-        #pairs-table .col-extra { display: none; }
-        #pairs-table.show-lir-cols .col-extra { display: table-cell; }
-        #pairs-table td, #pairs-table th { white-space: nowrap; padding: 0.5rem 0.55rem; }
 
         .help-content {
             display: grid;
@@ -235,10 +232,9 @@
             <div id="interactome-summary" style="display:none; font-size:0.85rem; color:#334; margin:0.2rem 0 0.1rem;"></div>
             <div class="info-box">Click a row to switch models. This updates all visualizations and the script below.</div>
             <input type="hidden" id="seed-select" value="0">
-            <label style="font-size:0.78rem; color:#666; display:inline-flex; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem;"><input type="checkbox" id="toggle-lir-cols" onchange="document.getElementById('pairs-table').classList.toggle('show-lir-cols', this.checked)"> Show iLIA/LIR/cLIR columns</label>
             <div style="overflow-x:auto;">
             <table class="data-table" id="pairs-table">
-                <thead><tr><th>Rank/Model</th><th>Pair</th><th>iLIS</th><th>iLISA</th><th>ipSAE</th><th>actifpTM</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th title="Bryant et al. 2022, pure geometric interface, no PAE">pDockQ</th><th title="pDockQ fed this file's own PAE+contact-gated cLIR interface">cpDockQ</th><th title="Zhu et al. 2023, CA-based interface; mean of the two per-chain directions">pDockQ2</th><th title="pDockQ2's PAE-decay applied to this file's own cLIR interface; mean of the two per-chain directions">cpDockQ2</th><th class="col-extra">iLIA</th><th class="col-extra">LIR (i/j)</th><th class="col-extra">cLIR (i/j)</th></tr></thead>
+                <thead><tr><th>Rank/Model</th><th>Pair</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipSAE</th><th>actifpTM</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th>LIR (i/j)</th><th>cLIR (i/j)</th></tr></thead>
                 <tbody id="pairs-tbody"></tbody>
             </table>
             </div>
@@ -283,7 +279,7 @@
         <div class="card result-card" id="score-matrix-card" style="display:none;">
             <h2>Score Matrix</h2>
             <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                <span>Lower-left <select id="mtx-lower" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS" selected>iLIS</option><option value="iLIA">iLIA</option><option value="iLISA">iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option><option value="pDockQ">pDockQ</option><option value="cpDockQ">cpDockQ</option><option value="pDockQ2">pDockQ2</option><option value="cpDockQ2">cpDockQ2</option></select> (Oranges) &middot; Upper-right <select id="mtx-upper" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS">iLIS</option><option value="iLIA">iLIA</option><option value="iLISA" selected>iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option><option value="pDockQ">pDockQ</option><option value="cpDockQ">cpDockQ</option><option value="pDockQ2">pDockQ2</option><option value="cpDockQ2">cpDockQ2</option></select> (Greens) &middot; Diagonal: self.</span>
+                <span>Lower-left <select id="mtx-lower" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS" selected>iLIS</option><option value="iLIA">iLIA</option><option value="iLISA">iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option></select> (Oranges) &middot; Upper-right <select id="mtx-upper" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS">iLIS</option><option value="iLIA">iLIA</option><option value="iLISA" selected>iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option></select> (Greens) &middot; Diagonal: self.</span>
                 <span style="margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:0.72rem; color:#888;">figure &middot; W <input id="mtx-exp-w" type="text" list="exp-dim-list" placeholder="auto" style="width:58px; font-size:0.72rem; padding:0 2px"> H <input id="mtx-exp-h" type="text" list="exp-dim-list" placeholder="auto" style="width:58px; font-size:0.72rem; padding:0 2px"> font &times; <input id="mtx-exp-font" type="text" list="exp-font-list" value="1" style="width:52px; font-size:0.72rem; padding:0 2px"></span>
             </div>
             <div class="map-row" id="score-matrix-row"></div>
@@ -2738,72 +2734,6 @@ function parseStructureCoords(text, format) {
     return format === 'pdb' ? parsePdbCoords(text) : parseCifCoords(text);
 }
 
-// CA-only counterparts to parseStructureCoords, mirroring lis.py's parse_pdb_ca_coords /
-// parse_cif_ca_coords: pDockQ2's fitted logistic constants were calibrated against a strictly
-// CA-CA interface, not the Cb-preferred one used everywhere else in this file (Cb points into
-// the interface along the sidechain, so a Cb-Cb cutoff admits more contacts than the same cutoff
-// on CA-CA, silently invalidating the fitted constants).
-function parsePdbCaCoords(pdbText) {
-    const residues = new Map();
-    for (const line of pdbText.split('\n')) {
-        if (!line.startsWith('ATOM') && !line.startsWith('HETATM')) continue;
-        if (line.length < 54) continue;
-        const atomName = line.substring(12, 16).trim();
-        const chain = line.substring(21, 22).trim() || 'A';
-        const resnum = parseInt(line.substring(22, 26).trim());
-        if (isNaN(resnum)) continue;
-        const x = parseFloat(line.substring(30, 38));
-        const y = parseFloat(line.substring(38, 46));
-        const z = parseFloat(line.substring(46, 54));
-        const key = `${chain}:${resnum}`;
-        if (atomName === 'CA') {
-            residues.set(key, { chain, resnum, x, y, z, hasP: false });
-        } else if (atomName === 'P' && !residues.has(key)) {
-            residues.set(key, { chain, resnum, x, y, z, hasP: true });
-        }
-    }
-    return [...residues.values()];
-}
-
-function parseCifCaCoords(cifText) {
-    const residues = new Map();
-    let inAtomSite = false;
-    let colNames = [];
-    for (const line of cifText.split('\n')) {
-        if (line.startsWith('_atom_site.')) {
-            inAtomSite = true;
-            colNames.push(line.trim().split('.')[1]);
-            continue;
-        }
-        if (inAtomSite && !line.startsWith('_atom_site.') && !line.startsWith('#') && line.trim()) {
-            if (line.startsWith('loop_') || line.startsWith('_')) { inAtomSite = false; continue; }
-            const p = line.trim().split(/\s+/);
-            if (p.length < colNames.length) continue;
-            const getCol = (name) => p[colNames.indexOf(name)] || '';
-            const groupPDB = getCol('group_PDB');
-            if (groupPDB !== 'ATOM' && groupPDB !== 'HETATM') continue;
-            const atomName = getCol('label_atom_id');
-            const chain = getCol('label_asym_id');
-            const resnum = parseInt(getCol('label_seq_id'));
-            const x = parseFloat(getCol('Cartn_x'));
-            const y = parseFloat(getCol('Cartn_y'));
-            const z = parseFloat(getCol('Cartn_z'));
-            if (isNaN(x) || isNaN(resnum)) continue;
-            const key = `${chain}:${resnum}`;
-            if (atomName === 'CA') {
-                residues.set(key, { chain, resnum, x, y, z, hasP: false });
-            } else if (atomName === 'P' && !residues.has(key)) {
-                residues.set(key, { chain, resnum, x, y, z, hasP: true });
-            }
-        }
-    }
-    return [...residues.values()];
-}
-
-function parseStructureCaCoords(text, format) {
-    return format === 'pdb' ? parsePdbCaCoords(text) : parseCifCaCoords(text);
-}
-
 function getChainsFromCoords(coords) {
     const chainMap = new Map();
     for (const c of coords) {
@@ -3049,64 +2979,6 @@ function calcActifpTM(pae, contact, nUse, si, ei, sj, ej, contactCutoff) {
     }
 
     return maxScore;
-}
-
-// pDockQ (Bryant, Pozzati & Elofsson 2022, author-corrected constants), mirrors lis.py's
-// calc_pdockq(). Applied here to the file's own cLIpLDDT/cLIA (PAE-cutoff AND physical-contact
-// filtered interface) to give cpDockQ -- only metric in the pDockQ family computable client-side
-// for a lightweight bundle, since cpDockQ2 (and pDockQ2) need the raw numeric PAE matrix that
-// lightweight bundles deliberately drop.
-function calcPdockq(avgIfPlddt, nIfContacts) {
-    if (nIfContacts == null || nIfContacts < 0) return null;
-    // At zero contacts, log10(n+1)=0 makes the pLDDT term vanish regardless of its value -- the
-    // formula's own floor (~0.018), not a hack -- so this still evaluates even when avgIfPlddt is
-    // NaN (there being no interface residues to average pLDDT over in the first place). A missing
-    // avgIfPlddt at n>0 is a genuine data gap and stays null.
-    if (nIfContacts === 0) return 0.724 / (1 + Math.exp(-0.052 * (0 - 152.611))) + 0.018;
-    if (avgIfPlddt == null || isNaN(avgIfPlddt)) return null;
-    const x = avgIfPlddt * Math.log10(nIfContacts + 1);
-    return 0.724 / (1 + Math.exp(-0.052 * (x - 152.611))) + 0.018;
-}
-
-// Weighted mean of two per-chain numeric values (e.g. cLIpLDDT_i/j weighted by interface-residue
-// count), matching lis.py's _wmean_plddt. Returns NaN if either value or the total weight is missing.
-function wmeanNum(vi, vj, wi, wj) {
-    if (vi == null || vj == null || isNaN(vi) || isNaN(vj)) return NaN;
-    const w = (wi || 0) + (wj || 0);
-    if (w <= 0) return NaN;
-    return (wi * vi + wj * vj) / w;
-}
-
-// pDockQ2 (Zhu, Shenoy, Kundrotas & Elofsson 2023), from running sums accumulated cell-by-cell
-// during the per-pair loop below -- equivalent to lis.py's calc_pdockq2_chain(), just expressed as
-// scalar accumulators (decaySum, plddtSum, n) instead of arrays, since this file iterates residue
-// pairs one cell at a time rather than building numpy submatrices. mean(decay) and mean(plddt) are
-// each cell's PAE-decay/pLDDT averaged separately, then multiplied -- not a per-cell product
-// averaged afterward (see lis.py's calc_pdockq2_chain docstring for why this order matters and how
-// it was verified against the ElofssonLab reference implementation).
-function pdockq2FromSums(decaySum, plddtSum, n) {
-    // n=0 here always means "zero qualifying interface cells found" (this function is only ever
-    // called during the live per-pair loop, where PAE is available) -- a real finding of no
-    // interface, not a missing-capability case, so 0 rather than null (unlike a lightweight
-    // bundle's pDockQ2/cpDockQ2, which stay null in pairFromCsvRow when the CSV lacks the column
-    // entirely -- there, we never even checked).
-    if (n === 0) return 0;
-    const x = (decaySum / n) * (plddtSum / n);
-    return 1.31034849 / (1 + Math.exp(-0.07471577 * (x - 84.73262390))) + 0.00501886;
-}
-
-// pDockQ2/cpDockQ2 are inherently per-chain-direction (Zhu et al. 2023's own definition), unlike
-// every other metric in this file which is naturally symmetric. Mean-of-two-directions collapses
-// them to one displayed number -- verified against real DockQ-labeled benchmark data to perform
-// equivalently to max/min (ColabFold 1.6.3's own console log uses max, for reference), and chosen
-// over max/min because it matches how every other metric here already symmetrizes (ipTM, ipSAE,
-// actifpTM are all (fwd+rev)/2). Returns null only when both inputs are null (e.g. lightweight
-// bundle with no numeric PAE at all); a single missing side falls back to the other.
-function mean2Nullable(a, b) {
-    if (a == null && b == null) return null;
-    if (a == null) return b;
-    if (b == null) return a;
-    return (a + b) / 2;
 }
 
 // PAE-based per-chain-pair iPTM matrix (used when the platform doesn't ship one).
@@ -3360,18 +3232,6 @@ async function processFiles() {
             const { contact, n: nCoords } = computeContactMap(coords, cbCutoff);
             const nUse = Math.min(nTotal, nCoords);
 
-            // pDockQ2's own interface: CA-CA, hardcoded 8A regardless of --cb-cutoff -- its fitted
-            // logistic constants are only valid for the exact interface definition they were
-            // calibrated against. Matches lis.py exactly (not ColabFold 1.6.3's own pDockQ2, which
-            // reuses the Cb contact map as a simplification).
-            const caCoords = parseStructureCaCoords(structText, model.format);
-            const { contact: caContact, n: nCa } = computeContactMap(caCoords, 8);
-            const nUseCa = Math.min(nTotal, nCa);
-
-            // B-factors (pLDDT per residue) -- needed per-cell inside the pair loop below for
-            // pDockQ2/cpDockQ2, so parsed once here rather than per-pair.
-            const bfsAll = structText ? parseBfactorsPerResidue(structText, model.format) : new Map();
-
             // ipTM: per-chain-pair matrix (AF3) or global value (ColabFold/Boltz/etc)
             let iptmMatrix = scores.chainPairIptm || null;
             const globalIptm = scores.ipTM || 0;
@@ -3414,15 +3274,6 @@ async function processFiles() {
                     // guarantees every LIR_A residue has a paired LIR_B residue.
                     const lirI = new Set(), lirJ = new Set();
                     const clirI = new Set(), clirJ = new Set();
-                    // Faithful original pDockQ (Bryant et al. 2022): pure geometric interface
-                    // (Cb<cbCutoff, NO PAE at all) -- independent of the PAE-gated LIR/cLIR above.
-                    const geomIfI = new Set(), geomIfJ = new Set();
-                    // pDockQ2 (CA-based) and cpDockQ2 (cLIR-gated) running sums -- see
-                    // pdockq2FromSums() above for why decay/pLDDT are summed separately.
-                    let pdq2iDecaySum = 0, pdq2iPlddtSum = 0, pdq2iN = 0;
-                    let pdq2jDecaySum = 0, pdq2jPlddtSum = 0, pdq2jN = 0;
-                    let cpdq2iDecaySum = 0, cpdq2iPlddtSum = 0, cpdq2iN = 0;
-                    let cpdq2jDecaySum = 0, cpdq2jPlddtSum = 0, cpdq2jN = 0;
 
                     for (let ri = si; ri < ei; ri++) {
                         for (let rj = sj; rj < ej; rj++) {
@@ -3434,10 +3285,6 @@ async function processFiles() {
                                     clisSum += tv;
                                     clisCountAvg++;
                                 }
-                            }
-                            if (ri < nUse && rj < nUse && contact[ri * nCoords + rj]) {
-                                geomIfI.add(ri - si + 1);
-                                geomIfJ.add(rj - sj + 1);
                             }
                             if (ri < pae.length && rj < pae.length) {
                                 const paeAB = pae[ri][rj];
@@ -3459,44 +3306,11 @@ async function processFiles() {
                                     if (inContact) {
                                         clirI.add(ri - si + 1);
                                         clirJ.add(rj - sj + 1);
-                                        // cpDockQ2: same cell-based mask as cLIR (PAE-cutoff AND
-                                        // physical-contact), PAE-decay-weighted instead of hard cutoff.
-                                        const pI = bfsAll.get(`${chainNames[i]}:${ri - si + 1}`);
-                                        const pJ = bfsAll.get(`${chainNames[j]}:${rj - sj + 1}`);
-                                        if (pI != null && !isNaN(pI)) {
-                                            cpdq2iDecaySum += 1 / (1 + (paeAB / 10) ** 2);
-                                            cpdq2iPlddtSum += pI; cpdq2iN++;
-                                        }
-                                        if (pJ != null && !isNaN(pJ)) {
-                                            cpdq2jDecaySum += 1 / (1 + (paeBA / 10) ** 2);
-                                            cpdq2jPlddtSum += pJ; cpdq2jN++;
-                                        }
-                                    }
-                                }
-
-                                // pDockQ2: own CA-based interface (see caContact above), decoupled
-                                // from the Cb-based cLIS/cLIR block -- cbCutoff must never change
-                                // which contacts feed pDockQ2's fitted constants.
-                                if (ri < nUseCa && rj < nUseCa && caContact[ri * nCa + rj]) {
-                                    const pI = bfsAll.get(`${chainNames[i]}:${ri - si + 1}`);
-                                    const pJ = bfsAll.get(`${chainNames[j]}:${rj - sj + 1}`);
-                                    if (pI != null && !isNaN(pI)) {
-                                        pdq2iDecaySum += 1 / (1 + (paeAB / 10) ** 2);
-                                        pdq2iPlddtSum += pI; pdq2iN++;
-                                    }
-                                    if (pJ != null && !isNaN(pJ)) {
-                                        pdq2jDecaySum += 1 / (1 + (paeBA / 10) ** 2);
-                                        pdq2jPlddtSum += pJ; pdq2jN++;
                                     }
                                 }
                             }
                         }
                     }
-
-                    const pdockq2_i = pdockq2FromSums(pdq2iDecaySum, pdq2iPlddtSum, pdq2iN);
-                    const pdockq2_j = pdockq2FromSums(pdq2jDecaySum, pdq2jPlddtSum, pdq2jN);
-                    const cpdockq2_i = pdockq2FromSums(cpdq2iDecaySum, cpdq2iPlddtSum, cpdq2iN);
-                    const cpdockq2_j = pdockq2FromSums(cpdq2jDecaySum, cpdq2jPlddtSum, cpdq2jN);
 
                     const lis = lisCountAvg > 0 ? lisSum / lisCountAvg : 0;
                     const clis = clisCountAvg > 0 ? clisSum / clisCountAvg : 0;
@@ -3521,26 +3335,15 @@ async function processFiles() {
 
                     // Compute per-chain LIpLDDT and cLIpLDDT from B-factors
                     let liplddtI = NaN, liplddtJ = NaN, cliplddtI = NaN, cliplddtJ = NaN;
-                    let geomplddtI = NaN, geomplddtJ = NaN;
                     if (structText) {
-                        const bfs = bfsAll;
+                        const bfs = parseBfactorsPerResidue(structText, model.format);
                         const avg = arr => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : NaN;
                         const collect = (resSet, chain) => { const a = []; for (const r of resSet) { const v = bfs.get(`${chain}:${r}`); if (v != null) a.push(v); } return a; };
                         liplddtI = avg(collect(lirI, chainNames[i]));
                         liplddtJ = avg(collect(lirJ, chainNames[j]));
                         cliplddtI = avg(collect(clirI, chainNames[i]));
                         cliplddtJ = avg(collect(clirJ, chainNames[j]));
-                        geomplddtI = avg(collect(geomIfI, chainNames[i]));
-                        geomplddtJ = avg(collect(geomIfJ, chainNames[j]));
                     }
-
-                    // pDockQ: faithful original (Bryant et al. 2022) -- pure geometric interface.
-                    const geomplddtPair = wmeanNum(geomplddtI, geomplddtJ, geomIfI.size, geomIfJ.size);
-                    const pdockq = calcPdockq(geomplddtPair, geomIfI.size + geomIfJ.size);
-                    // cpDockQ: pDockQ's formula fed this file's own cLIR interface (PAE-cutoff AND
-                    // contact-filtered) instead of pDockQ's own pure-distance one.
-                    const cliplddtPair = wmeanNum(cliplddtI, cliplddtJ, clirI.size, clirJ.size);
-                    const cpdockq = calcPdockq(cliplddtPair, cliaCount);
 
                     pairs[`${chainNames[i]},${chainNames[j]}`] = {
                         ci: chainNames[i], cj: chainNames[j],
@@ -3548,9 +3351,6 @@ async function processFiles() {
                         LIA: liaCount, cLIA: cliaCount,
                         LIpLDDT_i: liplddtI, LIpLDDT_j: liplddtJ,
                         cLIpLDDT_i: cliplddtI, cLIpLDDT_j: cliplddtJ,
-                        pDockQ: pdockq, cpDockQ: cpdockq,
-                        pDockQ2_i: pdockq2_i, pDockQ2_j: pdockq2_j,
-                        cpDockQ2_i: cpdockq2_i, cpDockQ2_j: cpdockq2_j,
                         lirI, lirJ, clirI, clirJ,
                         lenI: sizes[i], lenJ: sizes[j],
                     };
@@ -3577,11 +3377,8 @@ async function processFiles() {
             }
 
             // Build one grid per metric (Score Matrix can display any of them)
-            const MG = {}; const MKEYS = ['iLIS','iLIA','iLISA','ipTM','ipSAE','actifpTM','LIS','cLIS','LIR','cLIR','pDockQ','cpDockQ','pDockQ2','cpDockQ2'];
+            const MG = {}; const MKEYS = ['iLIS','iLIA','iLISA','ipTM','ipSAE','actifpTM','LIS','cLIS','LIR','cLIR'];
             for (const mk of MKEYS) MG[mk] = Array.from({ length: nc }, () => Array(nc).fill(0));
-            // mean of two (possibly-null) values, matching how pDockQ2/cpDockQ2 are collapsed from
-            // their two per-chain-direction values everywhere else (see mean2() usage below).
-            const mean2 = (a, b) => (a == null && b == null) ? 0 : (a == null ? b : (b == null ? a : (a + b) / 2));
             for (let i = 0; i < nc; i++) {
                 for (let j = 0; j < nc; j++) {
                     if (i === j) { MG.ipTM[i][j] = iptmMatrix?.[i]?.[j] ?? globalIptm ?? 0; continue; }
@@ -3598,21 +3395,11 @@ async function processFiles() {
                         MG.actifpTM[i][j] = ((fwd.actifpTM||0) + (rev.actifpTM||0)) / 2;
                         MG.LIS[i][j] = avgLIS; MG.cLIS[i][j] = avgCLIS;
                         MG.LIR[i][j] = fwd.lirI.size; MG.cLIR[i][j] = fwd.clirI.size;
-                        // pDockQ/cpDockQ are already symmetric (same value from either direction);
-                        // pDockQ2/cpDockQ2 collapse their two per-chain values via mean (matches
-                        // LIVIA's own ipTM/ipSAE/actifpTM symmetrization convention above).
-                        MG.pDockQ[i][j] = fwd.pDockQ ?? rev.pDockQ ?? 0;
-                        MG.cpDockQ[i][j] = fwd.cpDockQ ?? rev.cpDockQ ?? 0;
-                        MG.pDockQ2[i][j] = mean2(fwd.pDockQ2_i, fwd.pDockQ2_j);
-                        MG.cpDockQ2[i][j] = mean2(fwd.cpDockQ2_i, fwd.cpDockQ2_j);
                     } else if (fwd) {
                         MG.iLIS[i][j] = fwd.iLIS; MG.iLIA[i][j] = fwd.iLIA; MG.iLISA[i][j] = fwd.iLISA || 0;
                         MG.ipTM[i][j] = fwd.ipTM; MG.ipSAE[i][j] = fwd.ipSAE || 0; MG.actifpTM[i][j] = fwd.actifpTM || 0;
                         MG.LIS[i][j] = fwd.LIS; MG.cLIS[i][j] = fwd.cLIS;
                         MG.LIR[i][j] = fwd.lirI.size; MG.cLIR[i][j] = fwd.clirI.size;
-                        MG.pDockQ[i][j] = fwd.pDockQ ?? 0; MG.cpDockQ[i][j] = fwd.cpDockQ ?? 0;
-                        MG.pDockQ2[i][j] = mean2(fwd.pDockQ2_i, fwd.pDockQ2_j);
-                        MG.cpDockQ2[i][j] = mean2(fwd.cpDockQ2_i, fwd.cpDockQ2_j);
                     }
                 }
             }
@@ -3793,23 +3580,7 @@ function parseIndexRanges(s) {
 function pairFromCsvRow(r, swap) {
     const num = (x) => { const v = parseFloat(x); return isNaN(v) ? 0 : v; };
     const nanNum = (x) => { if (x === '' || x == null) return NaN; const v = parseFloat(x); return isNaN(v) ? NaN : v; };
-    const nullNum = (x) => { if (x === '' || x == null) return null; const v = parseFloat(x); return isNaN(v) ? null : v; };
     const A = swap ? 'j' : 'i', B = swap ? 'i' : 'j';
-    // pDockQ2_i/cpDockQ2_i are only present in a lis.csv regenerated with a lis.py new enough to
-    // ship the pDockQ family natively -- read them straight from the CSV when present (this is a
-    // hard PAE-dependent computation, not reproducible client-side without the raw PAE this
-    // lightweight bundle deliberately dropped, so there's no fallback for these two).
-    const pdockq2A = nullNum(r['pDockQ2_' + A]), pdockq2B = nullNum(r['pDockQ2_' + B]);
-    const cpdockq2A = nullNum(r['cpDockQ2_' + A]), cpdockq2B = nullNum(r['cpDockQ2_' + B]);
-    // cpDockQ: prefer the native column when present; otherwise it's still derivable from columns
-    // every lightweight bundle has always shipped (cLIpLDDT_i/j, cLIA), even bundles built before
-    // lis.py had a pDockQ family at all -- no numeric PAE needed. cLIA in the CSV is already the
-    // file's own symmetrized total (see lis.py's symmetrization comment), not per-direction.
-    const cpdockqNative = nullNum(r.cpDockQ);
-    const cpdockq = cpdockqNative != null ? cpdockqNative : calcPdockq(
-        wmeanNum(nanNum(r['cLIpLDDT_' + A]), nanNum(r['cLIpLDDT_' + B]),
-                 parseIndexRanges(r['cLIR_indices_' + A]).size, parseIndexRanges(r['cLIR_indices_' + B]).size),
-        num(r.cLIA));
     return {
         ci: swap ? r.chain_j : r.chain_i,
         cj: swap ? r.chain_i : r.chain_j,
@@ -3823,12 +3594,6 @@ function pairFromCsvRow(r, swap) {
         clirI: parseIndexRanges(r['cLIR_indices_' + A]), clirJ: parseIndexRanges(r['cLIR_indices_' + B]),
         lenI: swap ? num(r.len_j) : num(r.len_i),
         lenJ: swap ? num(r.len_i) : num(r.len_j),
-        // pDockQ (geometric) has no CSV-independent fallback here (would need to re-parse the
-        // bundle's structure coordinates, not just this row) -- only present for a regenerated CSV.
-        pDockQ: nullNum(r.pDockQ),
-        cpDockQ: cpdockq,
-        pDockQ2_i: pdockq2A, pDockQ2_j: pdockq2B,
-        cpDockQ2_i: cpdockq2A, cpDockQ2_j: cpdockq2B,
     };
 }
 
@@ -3836,11 +3601,9 @@ function pairFromCsvRow(r, swap) {
 // dict. Mirrors the inline grid build in processFiles (no numeric PAE needed).
 function buildMetricGridsFromPairs(pairs, chainNames) {
     const nc = chainNames.length;
-    const MKEYS = ['iLIS', 'iLIA', 'iLISA', 'ipTM', 'ipSAE', 'actifpTM', 'LIS', 'cLIS', 'LIR', 'cLIR', 'pDockQ', 'cpDockQ', 'pDockQ2', 'cpDockQ2'];
+    const MKEYS = ['iLIS', 'iLIA', 'iLISA', 'ipTM', 'ipSAE', 'actifpTM', 'LIS', 'cLIS', 'LIR', 'cLIR'];
     const MG = {};
     for (const mk of MKEYS) MG[mk] = Array.from({ length: nc }, () => Array(nc).fill(0));
-    // mean of two (possibly-null/undefined) values -- see the live-load MG build for why mean.
-    const mean2 = (a, b) => (a == null && b == null) ? 0 : (a == null ? b : (b == null ? a : (a + b) / 2));
     for (let i = 0; i < nc; i++) {
         for (let j = 0; j < nc; j++) {
             if (i === j) continue;
@@ -3857,21 +3620,11 @@ function buildMetricGridsFromPairs(pairs, chainNames) {
                 MG.actifpTM[i][j] = ((fwd.actifpTM || 0) + (rev.actifpTM || 0)) / 2;
                 MG.LIS[i][j] = avgLIS; MG.cLIS[i][j] = avgCLIS;
                 MG.LIR[i][j] = fwd.lirI.size; MG.cLIR[i][j] = fwd.clirI.size;
-                // fwd/rev come from the same CSV row (lis.py's row values are already
-                // symmetrized), so fwd.cpDockQ === rev.cpDockQ; either one is the pair's value.
-                MG.pDockQ[i][j] = fwd.pDockQ != null ? fwd.pDockQ : (rev.pDockQ != null ? rev.pDockQ : 0);
-                MG.cpDockQ[i][j] = fwd.cpDockQ != null ? fwd.cpDockQ : (rev.cpDockQ != null ? rev.cpDockQ : 0);
-                MG.pDockQ2[i][j] = mean2(fwd.pDockQ2_i, fwd.pDockQ2_j);
-                MG.cpDockQ2[i][j] = mean2(fwd.cpDockQ2_i, fwd.cpDockQ2_j);
             } else if (fwd) {
                 MG.iLIS[i][j] = fwd.iLIS; MG.iLIA[i][j] = fwd.iLIA; MG.iLISA[i][j] = fwd.iLISA || 0;
                 MG.ipTM[i][j] = fwd.ipTM; MG.ipSAE[i][j] = fwd.ipSAE || 0; MG.actifpTM[i][j] = fwd.actifpTM || 0;
                 MG.LIS[i][j] = fwd.LIS; MG.cLIS[i][j] = fwd.cLIS;
                 MG.LIR[i][j] = fwd.lirI.size; MG.cLIR[i][j] = fwd.clirI.size;
-                MG.pDockQ[i][j] = fwd.pDockQ != null ? fwd.pDockQ : 0;
-                MG.cpDockQ[i][j] = fwd.cpDockQ != null ? fwd.cpDockQ : 0;
-                MG.pDockQ2[i][j] = mean2(fwd.pDockQ2_i, fwd.pDockQ2_j);
-                MG.cpDockQ2[i][j] = mean2(fwd.cpDockQ2_i, fwd.cpDockQ2_j);
             }
         }
     }
@@ -4019,41 +3772,6 @@ async function processPrecomputedBundle() {
         // (basename, .gz/.xz stripped) → the shared representative structure.
         const sf = ((mrows[0] && mrows[0].structure_file) || '').split('/').pop().replace(/\.(gz|xz)$/i, '');
         const st = structsByModel[mk] || (sf && structsByBase[sf]) || { text: structText, format: fmt, name: lw.structName };
-
-        // pDockQ (faithful original, Bryant et al. 2022) needs only Cb coordinates + pLDDT, no
-        // PAE at all -- unlike cpDockQ2/pDockQ2, it IS computable client-side even for a
-        // lightweight bundle, since the structure (just not the numeric PAE array) is shipped.
-        // Only fills in pairs whose CSV row had no native `pDockQ` column (an older bundle, built
-        // before lis.py shipped the pDockQ family) -- a regenerated bundle's own column wins.
-        if (!lw.noStructure && st.text) {
-            const cbCutoffLw = parseFloat(document.getElementById('cb-cutoff')?.value) || 8;
-            const coordsLw = parseStructureCoords(st.text, st.format);
-            const { contact: contactLw, n: nCoordsLw } = computeContactMap(coordsLw, cbCutoffLw);
-            const bfsLw = parseBfactorsPerResidue(st.text, st.format);
-            const cumSumLw = []; let accLw = 0;
-            for (const s of sizes) { accLw += s; cumSumLw.push(accLw); }
-            const startsLw = [0, ...cumSumLw.slice(0, -1)];
-            const nUseLw = Math.min(nTotal, nCoordsLw);
-            for (const key of Object.keys(pairs)) {
-                if (pairs[key].pDockQ != null) continue;
-                const [ci, cj] = key.split(',');
-                const gi = chainNames.indexOf(ci), gj = chainNames.indexOf(cj);
-                if (gi < 0 || gj < 0) continue;
-                const si = startsLw[gi], ei = Math.min(cumSumLw[gi], nTotal, nUseLw);
-                const sj = startsLw[gj], ej = Math.min(cumSumLw[gj], nTotal, nUseLw);
-                const geomIfI = new Set(), geomIfJ = new Set();
-                for (let ri = si; ri < ei; ri++) {
-                    for (let rj = sj; rj < ej; rj++) {
-                        if (contactLw[ri * nCoordsLw + rj]) { geomIfI.add(ri - si + 1); geomIfJ.add(rj - sj + 1); }
-                    }
-                }
-                const avg = arr => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : NaN;
-                const collect = (resSet, chain) => { const a = []; for (const r of resSet) { const v = bfsLw.get(`${chain}:${r}`); if (v != null) a.push(v); } return a; };
-                const geomPlddtPair = wmeanNum(avg(collect(geomIfI, ci)), avg(collect(geomIfJ, cj)), geomIfI.size, geomIfJ.size);
-                pairs[key].pDockQ = calcPdockq(geomPlddtPair, geomIfI.size + geomIfJ.size);
-            }
-        }
-
         const MG = buildMetricGridsFromPairs(pairs, chainNames);
         allPairs.push(pairs);
         uniState.modelPairs.push(pairs);
@@ -4111,23 +3829,12 @@ function averageModels(allPairs) {
     const allKeys = new Set();
     for (const mp of allPairs) for (const k of Object.keys(mp)) allKeys.add(k);
 
-    // Mean across models, ignoring models where this metric is null/NaN (e.g. no PAE -> no
-    // pDockQ2 for a lightweight bundle model). Returns null (not NaN/0) when nothing is present,
-    // so downstream mean2()/table rendering can distinguish "not computable" from "computed as 0".
-    const meanFilt = (arr) => { const f = arr.filter(v => v != null && !isNaN(v)); return f.length > 0 ? f.reduce((a, b) => a + b, 0) / f.length : null; };
-
     const averaged = {};
     for (const key of allKeys) {
         const vals = allPairs.filter(mp => mp[key]).map(mp => mp[key]);
         if (vals.length === 0) continue;
         const n = vals.length;
         averaged[key] = {
-            pDockQ: meanFilt(vals.map(v => v.pDockQ)),
-            cpDockQ: meanFilt(vals.map(v => v.cpDockQ)),
-            pDockQ2_i: meanFilt(vals.map(v => v.pDockQ2_i)),
-            pDockQ2_j: meanFilt(vals.map(v => v.pDockQ2_j)),
-            cpDockQ2_i: meanFilt(vals.map(v => v.cpDockQ2_i)),
-            cpDockQ2_j: meanFilt(vals.map(v => v.cpDockQ2_j)),
             ci: vals[0].ci, cj: vals[0].cj,
             LIS: vals.reduce((s, v) => s + v.LIS, 0) / n,
             cLIS: vals.reduce((s, v) => s + v.cLIS, 0) / n,
@@ -4189,13 +3896,6 @@ function symmetrizePairsFromComma(pairs) {
                 avgClirI: val.avgClirI, avgClirJ: rv.avgClirI,
                 LIpLDDT_i: val.LIpLDDT_i, LIpLDDT_j: rv.LIpLDDT_i,
                 cLIpLDDT_i: val.cLIpLDDT_i, cLIpLDDT_j: rv.cLIpLDDT_i,
-                // pDockQ/cpDockQ are already symmetric (same value from either direction);
-                // pDockQ2_i/cpDockQ2_i are genuinely per-chain-direction, same swap convention as
-                // LIpLDDT_i/j above (val's own "_i" is this pair's "_i", rv's own "_i" is chain j's).
-                pDockQ: val.pDockQ != null ? val.pDockQ : rv.pDockQ,
-                cpDockQ: val.cpDockQ != null ? val.cpDockQ : rv.cpDockQ,
-                pDockQ2_i: val.pDockQ2_i, pDockQ2_j: rv.pDockQ2_i,
-                cpDockQ2_i: val.cpDockQ2_i, cpDockQ2_j: rv.cpDockQ2_i,
             };
             s.iLIS = Math.sqrt(s.LIS * s.cLIS);
             s.iLIA = Math.sqrt(s.LIA * s.cLIA);
@@ -4243,16 +3943,6 @@ function iptmCell(val) {
         return `<td title="iPTM+pTM ranking confidence (0.8·iPTM + 0.2·pTM). Pure iPTM is not available for this prediction format.">${v}*</td>`;
     }
     return `<td>${v}</td>`;
-}
-
-// pDockQ-family table cell: blank (not '0.000') only when genuinely not computable for this row
-// -- e.g. pDockQ2/cpDockQ2 on a lightweight-bundle model with no numeric PAE at all (a missing
-// capability, not a computed result). A true zero-interface case is handled upstream by
-// calcPdockq()/pdockq2FromSums() returning a real (near-)zero value, not null, so it still prints
-// here. extraCol=true adds the col-extra class (hidden unless "Show iLIA/pDockQ columns" is on).
-function pdqCell(val, extraCol) {
-    const cls = extraCol ? ' class="col-extra"' : '';
-    return (val == null || isNaN(val)) ? `<td${cls}></td>` : `<td${cls}>${val.toFixed(3)}</td>`;
 }
 
 // Whole-interactome summary over the POSITIVE chain pairs (iLIS >= posCut): mean ± std of the
@@ -4386,7 +4076,7 @@ function displayResults(results, jobName) {
                 if (sortedMi.indexOf(mi) === 0 && pi > 0) tr.style.borderTop = '3px solid #2471A3';
                 tr.dataset.pairkey = key; tr.dataset.model = String(mi);
                 tr.onclick = () => selectRow(key, String(mi), tr);
-                tr.innerHTML = `<td>${uniState.modelData[mi]?.label || 'model_' + mi}</td><td>${mv.ci} / ${mv.cj}</td><td>${ilisHtml(mv.iLIS)}</td><td>${(mv.iLISA||0).toFixed(1)}</td><td>${(mv.ipSAE||0).toFixed(3)}</td><td>${(mv.actifpTM||0).toFixed(3)}</td>${iptmCell(mv.ipTM)}<td>${mv.LIS.toFixed(3)}</td><td>${mv.cLIS.toFixed(3)}</td>${pdqCell(mv.pDockQ)}${pdqCell(mv.cpDockQ)}${pdqCell(mean2Nullable(mv.pDockQ2_i, mv.pDockQ2_j))}${pdqCell(mean2Nullable(mv.cpDockQ2_i, mv.cpDockQ2_j))}<td class="col-extra">${(mv.iLIA||0).toFixed(1)}</td><td class="col-extra">${mv.lirI.size} / ${mv.lirJ.size}</td><td class="col-extra">${mv.clirI.size} / ${mv.clirJ.size}</td>`;
+                tr.innerHTML = `<td>${uniState.modelData[mi]?.label || 'model_' + mi}</td><td>${mv.ci} \u2014 ${mv.cj}</td><td>${ilisHtml(mv.iLIS)}</td><td>${(mv.iLIA||0).toFixed(1)}</td><td>${(mv.iLISA||0).toFixed(1)}</td><td>${(mv.ipSAE||0).toFixed(3)}</td><td>${(mv.actifpTM||0).toFixed(3)}</td>${iptmCell(mv.ipTM)}<td>${mv.LIS.toFixed(3)}</td><td>${mv.cLIS.toFixed(3)}</td><td>${mv.lirI.size} / ${mv.lirJ.size}</td><td>${mv.clirI.size} / ${mv.clirJ.size}</td>`;
                 tbody.appendChild(tr);
             }
             // Average row — auto-selected for first pair
@@ -4395,7 +4085,7 @@ function displayResults(results, jobName) {
             avgTr.dataset.pinned = 'true';
             avgTr.dataset.pairkey = key; avgTr.dataset.model = 'avg';
             avgTr.onclick = () => selectRow(key, 'avg', avgTr);
-            avgTr.innerHTML = `<td>Average</td><td>${avg.ci} / ${avg.cj}</td><td>${ilisHtml(avg.iLIS, true)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td>${pdqCell(avg.pDockQ)}${pdqCell(avg.cpDockQ)}${pdqCell(mean2Nullable(avg.pDockQ2_i, avg.pDockQ2_j))}${pdqCell(mean2Nullable(avg.cpDockQ2_i, avg.cpDockQ2_j))}<td class="col-extra">${(avg.iLIA||0).toFixed(1)}</td><td class="col-extra">${avg.avgLirI ?? avg.lirI.size} / ${avg.avgLirJ ?? avg.lirJ.size}</td><td class="col-extra">${avg.avgClirI ?? avg.clirI.size} / ${avg.avgClirJ ?? avg.clirJ.size}</td>`;
+            avgTr.innerHTML = `<td>Average</td><td>${avg.ci} \u2014 ${avg.cj}</td><td>${ilisHtml(avg.iLIS, true)}</td><td>${(avg.iLIA||0).toFixed(1)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td><td>${avg.avgLirI ?? avg.lirI.size} / ${avg.avgLirJ ?? avg.lirJ.size}</td><td>${avg.avgClirI ?? avg.clirI.size} / ${avg.avgClirJ ?? avg.clirJ.size}</td>`;
             tbody.appendChild(avgTr);
         } else {
             // Single model row — auto-selected for first pair
@@ -4403,7 +4093,7 @@ function displayResults(results, jobName) {
             tr.className = isFirstPair ? 'clickable selected' : 'clickable';
             tr.dataset.pairkey = key; tr.dataset.model = '0';
             tr.onclick = () => selectRow(key, '0', tr);
-            tr.innerHTML = `<td>${uniState.modelData[0]?.label || '0'}</td><td>${avg.ci} / ${avg.cj}</td><td>${ilisHtml(avg.iLIS)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td>${pdqCell(avg.pDockQ)}${pdqCell(avg.cpDockQ)}${pdqCell(mean2Nullable(avg.pDockQ2_i, avg.pDockQ2_j))}${pdqCell(mean2Nullable(avg.cpDockQ2_i, avg.cpDockQ2_j))}<td class="col-extra">${(avg.iLIA||0).toFixed(1)}</td><td class="col-extra">${avg.lirI.size} / ${avg.lirJ.size}</td><td class="col-extra">${avg.clirI.size} / ${avg.clirJ.size}</td>`;
+            tr.innerHTML = `<td>${uniState.modelData[0]?.label || '0'}</td><td>${avg.ci} \u2014 ${avg.cj}</td><td>${ilisHtml(avg.iLIS)}</td><td>${(avg.iLIA||0).toFixed(1)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td><td>${avg.lirI.size} / ${avg.lirJ.size}</td><td>${avg.clirI.size} / ${avg.clirJ.size}</td>`;
             tbody.appendChild(tr);
         }
     }
@@ -5659,29 +5349,10 @@ async function _mistInteractions(geneId){   // all MIST interactions for one gen
     const resp = await fetchTextViaProxy('https://www.flyrnai.org/tools/mist/api/get_interactions/' + geneId + '/ppi,interolog,genetic,interolog-genetic');
     const data = _fpJson(resp); return (data && data.mist_data && data.mist_data.results) || [];
 }
-async function _accToXrefs(acc){   // NCBI Gene ID (for MIST) + BioGRID id/interactor-count + taxon id (for the pairwise check below) — one combined UniProt call
-    try { const d = await (await fetch('https://rest.uniprot.org/uniprotkb/' + encodeURIComponent(acc) + '?fields=xref_geneid,xref_biogrid,organism_id&format=json')).json();
-          const xrefs = d.uniProtKBCrossReferences || [];
-          const gid = xrefs.find(r => r.database === 'GeneID');
-          const bg = xrefs.find(r => r.database === 'BioGRID');
-          const bgN = bg && (bg.properties || []).find(p => p.key === 'Interactions');
-          return { geneId: gid ? gid.id : null, bioGridId: bg ? bg.id : null, bioGridN: bgN ? bgN.value : null, taxId: (d.organism && d.organism.taxonId) || null }; }
-    catch (e){ return { geneId: null, bioGridId: null, bioGridN: null, taxId: null }; }
-}
-// Which of THIS complex's resolved subunit pairs does BioGRID report as interacting? Calls LIVIA's
-// own proxy Worker (tools/cloudflare-worker/worker.js), which holds the BioGRID access key as a
-// server-side secret and attaches it there — the browser only ever sends gene symbols + taxon id,
-// never a key. See that file's handleBiogrid() for the server side of this contract.
-async function _biogridPairCheck(subs, taxId){
-    const syms = subs.map(s => s.sym).filter(Boolean);
-    if (!taxId || syms.length < 2) return null;
-    try {
-        const url = 'https://livia-proxy.flyark.workers.dev/?biogrid=1&genes=' + encodeURIComponent(syms.join(',')) + '&taxId=' + encodeURIComponent(taxId);
-        const resp = await fetch(url);
-        const data = await resp.json();
-        if (!resp.ok || data.error) return { error: data.error || ('proxy returned ' + resp.status) };
-        return { pairs: new Map(Object.entries(data.pairs || {})) };
-    } catch (e){ return { error: String(e.message || e) }; }
+async function _accToGeneId(acc){
+    try { const d = await (await fetch('https://rest.uniprot.org/uniprotkb/' + encodeURIComponent(acc) + '?fields=xref_geneid&format=json')).json();
+          const x = (d.uniProtKBCrossReferences || []).find(r => r.database === 'GeneID'); return x ? x.id : null; }
+    catch (e){ return null; }
 }
 const _mistEsc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const _MIST_TYPES = [['ppi', 'PPI'], ['interolog', 'Interolog PPI'], ['genetic', 'Genetic (GI)'], ['interolog-genetic', 'Interolog GI']];
@@ -5694,32 +5365,8 @@ async function queryMistForPair(){   // name kept (called from identifyChains); 
     card.style.display = ''; if (linkEl) linkEl.innerHTML = '';
     content.innerHTML = '<span style="color:#888; font-size:0.85rem;">Querying MIST for ' + subs.map(s => esc(s.sym)).join(', ') + '…</span>';
     const epoch = uniState.loadEpoch;
-    await Promise.all(subs.map(async s => { const x = await _accToXrefs(s.acc); s.geneId = x.geneId; s.bioGridId = x.bioGridId; s.bioGridN = x.bioGridN; s.taxId = x.taxId; }));   // accession → NCBI Gene ID (MIST) + BioGRID xref
+    await Promise.all(subs.map(async s => { s.geneId = await _accToGeneId(s.acc); }));   // accession → NCBI Gene ID
     if (uniState.loadEpoch !== epoch) return;                          // a new prediction loaded mid-query
-    if (linkEl){                                                        // BioGRID cross-reference — shown independent of MIST outcome, since MIST's coverage skews toward a few reference organisms
-        const withBg = subs.filter(s => s.bioGridId);
-        linkEl.innerHTML = withBg.length ? '<div style="color:#888;">Also on <a href="https://thebiogrid.org/" target="_blank" style="color:#2471A3;">BioGRID</a>: '
-            + withBg.map(s => esc(s.sym) + ' (<a href="https://thebiogrid.org/' + encodeURIComponent(s.bioGridId) + '" target="_blank" style="color:#2471A3;">'
-                + (s.bioGridN != null ? s.bioGridN + ' interactor' + (s.bioGridN == 1 ? '' : 's') : s.bioGridId) + '</a>)').join(', ') + '</div>' : '';
-        const taxId = withBg.map(s => s.taxId).find(Boolean);
-        if (withBg.length >= 2 && taxId){
-            linkEl.innerHTML += '<div id="bg-pairs" style="color:#888; margin-top:2px;">Checking BioGRID for reported pairs among these subunits…</div>';
-            _biogridPairCheck(withBg, taxId).then(res => {
-                if (uniState.loadEpoch !== epoch) return;
-                const el = document.getElementById('bg-pairs'); if (!el) return;
-                if (!res){ el.remove(); return; }
-                if (res.error){ el.remove(); return; }   // proxy unavailable/unconfigured — fail quiet, the free BioGRID link-out above still stands
-                const found = [], missing = [];
-                for (let i = 0; i < withBg.length; i++) for (let j = i + 1; j < withBg.length; j++){
-                    const a = withBg[i], b = withBg[j], k = [a.sym.toUpperCase(), b.sym.toUpperCase()].sort().join('|');
-                    const n = res.pairs.get(k);
-                    (n ? found : missing).push(esc(a.sym) + '–' + esc(b.sym) + (n ? ' (' + n + ' record' + (n === 1 ? '' : 's') + ')' : ''));
-                }
-                el.innerHTML = (found.length ? '<b style="color:#1a5276;">Predicted pairs reported in BioGRID:</b> ' + found.join(', ') : '<span style="color:#999;">None of the predicted pairs are directly reported in BioGRID.</span>')
-                    + (missing.length ? '<div style="color:#aaa; margin-top:2px;">Not found: ' + missing.join(', ') + '</div>' : '');
-            });
-        }
-    }
     const withId = subs.filter(s => s.geneId);
     if (!withId.length){ content.innerHTML = '<span style="color:#999; font-size:0.85rem;">No NCBI Gene ID for these chains — cannot query MIST.</span>'; return; }
     try {
@@ -5891,7 +5538,7 @@ function drawAllScoreMatrices() {
     const displaySize = calcMapDisplaySize();
 
     // selectable metric per triangle (default iLIS lower-left, iLIA upper-right)
-    const MTX_UNIT = { iLIS:1, iLIA:0, iLISA:0, ipTM:1, ipSAE:1, actifpTM:1, LIS:1, cLIS:1, LIR:0, cLIR:0, pDockQ:1, cpDockQ:1, pDockQ2:1, cpDockQ2:1 };  // 1 = 0..1 scale, 0 = count (scale by global max)
+    const MTX_UNIT = { iLIS:1, iLIA:0, iLISA:0, ipTM:1, ipSAE:1, actifpTM:1, LIS:1, cLIS:1, LIR:0, cLIR:0 };  // 1 = 0..1 scale, 0 = count (scale by global max)
     const lowerM = (document.getElementById('mtx-lower')||{}).value || 'iLIS';
     const upperM = (document.getElementById('mtx-upper')||{}).value || 'iLISA';
     const gridOf = (md, m) => (md.metricGrids && md.metricGrids[m]) || md.ilisGrid;
@@ -6630,7 +6277,7 @@ function drawColorbar(canvasId, colorFn, vmin, vmax) {
 
 // lis.py CSV column header (after name,model,chain_i,chain_j). The bundle builder appends
 // `,structure_file`; the CSV export uses it as-is.
-const LIS_CSV_HEADER = 'name,model,chain_i,chain_j,iLIS,iLIA,iLISA,ipSAE,actifpTM,LIS,cLIS,LIA,cLIA,ipTM,pLDDT_i,pLDDT_j,pLDDT,pTM,LIR_i,LIR_j,cLIR_i,cLIR_j,LIpLDDT_i,LIpLDDT_j,LIpLDDT,cLIpLDDT_i,cLIpLDDT_j,cLIpLDDT,pDockQ,cpDockQ,pDockQ2_i,pDockQ2_j,pDockQ2,cpDockQ2_i,cpDockQ2_j,cpDockQ2,len_i,len_j,LIR_indices_i,LIR_indices_j,cLIR_indices_i,cLIR_indices_j';
+const LIS_CSV_HEADER = 'name,model,chain_i,chain_j,iLIS,iLIA,iLISA,ipSAE,actifpTM,LIS,cLIS,LIA,cLIA,ipTM,pLDDT_i,pLDDT_j,pLDDT,pTM,LIR_i,LIR_j,cLIR_i,cLIR_j,LIpLDDT_i,LIpLDDT_j,LIpLDDT,cLIpLDDT_i,cLIpLDDT_j,cLIpLDDT,len_i,len_j,LIR_indices_i,LIR_indices_j,cLIR_indices_i,cLIR_indices_j';
 // weighted mean of two chains' pLDDT (length- or interface-count-weighted), matching lis.py.
 function csvWmeanPlddt(vi, vj, wi, wj) {
     vi = +vi; vj = +vj; wi = +wi; wj = +wj;
@@ -6653,14 +6300,6 @@ function lisScoreCols(v, plddtI, plddtJ, pi, pj, ptmStr) {
         isNaN(v.cLIpLDDT_i) ? '' : v.cLIpLDDT_i.toFixed(1),
         isNaN(v.cLIpLDDT_j) ? '' : v.cLIpLDDT_j.toFixed(1),
         csvWmeanPlddt(v.cLIpLDDT_i, v.cLIpLDDT_j, v.clirI.size, v.clirJ.size),
-        v.pDockQ == null || isNaN(v.pDockQ) ? '' : v.pDockQ.toFixed(4),
-        v.cpDockQ == null || isNaN(v.cpDockQ) ? '' : v.cpDockQ.toFixed(4),
-        v.pDockQ2_i == null || isNaN(v.pDockQ2_i) ? '' : v.pDockQ2_i.toFixed(4),
-        v.pDockQ2_j == null || isNaN(v.pDockQ2_j) ? '' : v.pDockQ2_j.toFixed(4),
-        (() => { const m = mean2Nullable(v.pDockQ2_i, v.pDockQ2_j); return m == null || isNaN(m) ? '' : m.toFixed(4); })(),
-        v.cpDockQ2_i == null || isNaN(v.cpDockQ2_i) ? '' : v.cpDockQ2_i.toFixed(4),
-        v.cpDockQ2_j == null || isNaN(v.cpDockQ2_j) ? '' : v.cpDockQ2_j.toFixed(4),
-        (() => { const m = mean2Nullable(v.cpDockQ2_i, v.cpDockQ2_j); return m == null || isNaN(m) ? '' : m.toFixed(4); })(),
         v.lenI, v.lenJ,
         `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
         `"[${[...v.lirJ].sort((a,b)=>a-b).join(', ')}]"`,
