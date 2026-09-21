@@ -236,6 +236,8 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-length" checked onchange="monShowChordLength=this.checked; if(monLastRegions) drawChordDiagram(monLastRegions);"> length</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Residue-position ruler (absolute coordinates) around each subdomain arc"><input type="checkbox" id="chord-show-ticks" checked onchange="monShowChordTicks=this.checked; if(monLastRegions) drawChordDiagram(monLastRegions);"> ticks</label>
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="Per-residue AlphaFold confidence (pLDDT) ring around each subdomain arc"><input type="checkbox" id="chord-show-plddt" checked onchange="monShowChordPlddt=this.checked; if(monLastRegions) drawChordDiagram(monLastRegions);"> pLDDT</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="UniProt/Pfam domain ring on each subdomain arc"><input type="checkbox" id="chord-show-dom" checked onchange="monShowChordDom=this.checked; if(monLastRegions) drawChordDiagram(monLastRegions);"> UniProt/Pfam</label>
+                <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="TED domain ring on each subdomain arc"><input type="checkbox" id="chord-show-ted" onchange="monShowChordTed=this.checked; if(monLastRegions) drawChordDiagram(monLastRegions);"> TED</label>
                 <span style="display:inline-flex; align-items:center; gap:5px; margin-bottom:0.4rem; font-size:0.8rem; color:#555;" title="Direction of the arc labels: along the arc, or pointing outward"><span style="font-weight:600;">label direction</span><span style="display:inline-flex; align-items:center; border:1px solid #ccd; border-radius:5px; overflow:hidden; font-size:0.78rem;"><button type="button" onclick="monShowChordRadial=false; LiviaMaps.segPick(this); if(monLastRegions) drawChordDiagram(monLastRegions);" style="border:0; padding:2px 8px; cursor:pointer; background:#2471A3; color:#fff; font:inherit;">along arc</button><button type="button" onclick="monShowChordRadial=true; LiviaMaps.segPick(this); if(monLastRegions) drawChordDiagram(monLastRegions);" style="border:0; padding:2px 8px; cursor:pointer; background:transparent; color:#555; font:inherit;">outward</button></span></span>
             </div>
             <div style="text-align:center;">
@@ -517,6 +519,7 @@ const DOMAIN_PALETTE_LIGHT = [
     'rgba(231,138,195,0.35)', 'rgba(166,216,84,0.35)', 'rgba(255,217,47,0.35)',
     'rgba(229,196,148,0.35)', 'rgba(179,179,179,0.35)'
 ];
+const TED_PALETTE = ['#7E57C2', '#5C6BC0', '#26A69A', '#8D6E63', '#EC407A', '#42A5F5', '#AB47BC', '#66BB6A'];
 
 const TAB10 = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
 const TAB20 = ['#1f77b4','#aec7e8','#ff7f0e','#ffbb78','#2ca02c','#98df8a','#d62728','#ff9896','#9467bd','#c5b0d5','#8c564b','#c49c94','#e377c2','#f7b6d2','#7f7f7f','#c7c7c7','#bcbd22','#dbdb8d','#17becf','#9edae5'];
@@ -1810,7 +1813,6 @@ function drawDomainMap(validRegions) {
         ctx.textBaseline = 'middle';
         ctx.fillText('TED Domains', labelW - 6, yTed + barH / 2);
 
-        const TED_PALETTE = ['#7E57C2', '#5C6BC0', '#26A69A', '#8D6E63', '#EC407A', '#42A5F5', '#AB47BC', '#66BB6A'];
         for (let di = 0; di < monTedDomains.length; di++) {
             const d = monTedDomains[di];
             // Draw each segment (TED domains can be discontinuous)
@@ -3272,6 +3274,8 @@ let monShowChordRadial = false;   // Subdomain map: arc labels along the arc (ta
 let monShowChordLabels = true;   // Subdomain map: show the subdomain name
 let monShowChordLength = true;   // Subdomain map: show the residue range
 let monShowChordPlddt = true;    // Subdomain map: per-residue pLDDT confidence ring (default on)
+let monShowChordDom = true;      // Subdomain map: UniProt/Pfam domain ring (default on)
+let monShowChordTed = false;     // Subdomain map: TED domain ring (off by default -- TED clutters the view)
 function drawChordDiagram(validRegions) {
     monLastRegions = validRegions;
     const container = document.getElementById('chord-diagram-container');
@@ -3301,15 +3305,33 @@ function drawChordDiagram(validRegions) {
         name: monShowChordLabels ? `${r.name}` : '',
         length: monShowChordLength ? `${r.start}-${r.end}` : '',
     })), { ticks: monShowChordTicks, radial: monShowChordRadial });
-    // Per-residue pLDDT ring sits just OUTSIDE each arc (like the linear track and the universal chord).
-    // Reserve radial space for it and push the ruler + labels beyond it. Only when B-factor/pLDDT is present.
+    // Per-residue pLDDT ring, and UniProt/Pfam + TED domain rings, all sit just OUTSIDE each arc (like
+    // the linear track and the universal chord). Reserve radial space for whichever are on and push the
+    // ruler + labels beyond them.
     const _plddtMap = (monShowChordPlddt && monPdbText) ? parsePdbPlddtMonomer(monPdbText) : null;
     const _plddtOn = !!(_plddtMap && _plddtMap.size);
-    const _domSpace = _plddtOn ? 10 : 0;   // one ring: 6 px band + 3 px inset + 1 px breathing room
+    const _domOn = !!(monShowChordDom && monDomains && monDomains.length);
+    const _tedOn = !!(monShowChordTed && monTedDomains && monTedDomains.length);
+    const _nRings = (_plddtOn ? 1 : 0) + (_domOn ? 1 : 0) + (_tedOn ? 1 : 0);
+    const _domSpace = _nRings ? (_nRings * 7 + 3) : 0;   // each ring: 6 px band + 1 px gap; +3 px breathing room
     const outerR = Math.max(40, Math.min(size / 2 - (monShowChordTicks ? 62 : 48) - _domSpace, size / 2 - 4 - _labelExt - _domSpace));
     const innerR = outerR - 12;
     const chordR = innerR - 4;
+    const _domHits = [];
+    canvas._domHits = _domHits; canvas._domGeom = { cx, cy, size };   // hover: hit-regions + geometry
     { const _lg = document.getElementById('chord-plddt-legend'); if (_lg) { _lg.innerHTML = LiviaMaps.plddtLegendHtml(); _lg.style.display = _plddtOn ? 'flex' : 'none'; } }
+    // Absolute-coordinate domains (UniProt canonical numbering, which equals AlphaFold DB structure
+    // numbering for a full-length monomer prediction) clipped to one subdomain arc's residue span and
+    // reindexed to that arc's own 1-based local numbering, as paintChordDomainRing expects.
+    function _localDomains(domains, reg) {
+        const out = [];
+        for (const d of domains) {
+            if (d.end < reg.start || d.start > reg.end) continue;
+            const s = Math.max(d.start, reg.start), e = Math.min(d.end, reg.end);
+            out.push({ name: d.name, start: s - reg.start + 1, end: e - reg.start + 1 });
+        }
+        return out;
+    }
 
     // Total residues for proportional arc sizing
     const totalRes = validRegions.reduce((sum, r) => sum + (r.end - r.start + 1), 0);
@@ -3358,10 +3380,22 @@ function drawChordDiagram(validRegions) {
         const arcLen = arc.region.end - arc.region.start + 1;
         LiviaMaps.paintChordArcBand(ctx, cx, cy, outerR, innerR, arc.start, arc.end, arcLen,
             lirByRegion[arc.idx], clirByRegion[arc.idx], lightCol, darkCol);
-        if (_plddtOn) {   // per-residue pLDDT ring (absolute coords: arc-local index r → residue region.start+r-1)
-            const reg = arc.region, arr = [];
-            for (let rr = reg.start; rr <= reg.end; rr++) { const v = _plddtMap.get(rr); arr.push(v == null ? null : v); }
-            LiviaMaps.paintChordPlddtRing(ctx, cx, cy, outerR + 3, outerR + 9, arc.start, arc.end, arcLen, arr, false);
+        { // pLDDT + UniProt/Pfam + TED rings stack outward from outerR, one 6px band + 1px gap each
+            let _rr = outerR + 3;
+            if (_plddtOn) {   // per-residue pLDDT ring (absolute coords: arc-local index r → residue region.start+r-1)
+                const reg = arc.region, arr = [];
+                for (let rr = reg.start; rr <= reg.end; rr++) { const v = _plddtMap.get(rr); arr.push(v == null ? null : v); }
+                LiviaMaps.paintChordPlddtRing(ctx, cx, cy, _rr, _rr + 6, arc.start, arc.end, arcLen, arr, false);
+                _rr += 7;
+            }
+            if (_domOn) {
+                for (const _h of LiviaMaps.paintChordDomainRing(ctx, cx, cy, _rr, _rr + 6, arc.start, arc.end, arcLen, _localDomains(monDomains, arc.region), DOMAIN_PALETTE, false)) _domHits.push(Object.assign({ chain: arc.region.name, src: 'UniProt/Pfam' }, _h));
+                _rr += 7;
+            }
+            if (_tedOn) {
+                for (const _h of LiviaMaps.paintChordDomainRing(ctx, cx, cy, _rr, _rr + 6, arc.start, arc.end, arcLen, _localDomains(monTedDomains, arc.region), TED_PALETTE, false)) _domHits.push(Object.assign({ chain: arc.region.name, src: 'TED' }, _h));
+                _rr += 7;
+            }
         }
         if (monShowChordTicks) LiviaMaps.drawChordRuler(ctx, cx, cy, outerR + _domSpace, arc.start, arc.end, arcLen, { offset: arc.region.start - 1 });   // absolute residue coords, outside the pLDDT ring
 
@@ -3441,6 +3475,7 @@ function drawChordDiagram(validRegions) {
     }
 
     ctx.restore();
+    LiviaMaps.attachChordDomainHover(['chord-canvas']);
 }
 
 function drawScoreMatrix(validRegions) {
