@@ -98,8 +98,10 @@ The CSV has one row **per chain pair per model** (a 4-chain complex → C(4,2)=6
 models = 30 rows). Its header is exactly:
 
 ```
-name,rank,model,chain_i,chain_j,iLIS,iLIA,iLISA,ipSAE,actifpTM,LIS,cLIS,LIA,cLIA,ipTM,
-pLDDT_i,pLDDT_j,pTM,LIR_i,LIR_j,cLIR_i,cLIR_j,LIpLDDT_i,LIpLDDT_j,cLIpLDDT_i,cLIpLDDT_j,
+name,rank,model,chain_i,chain_j,iLIS,iLIA,iLISA,ipSAE,actifpTM,LIS,cLIS,LIA,cLIA,
+ipTM,pLDDT_i,pLDDT_j,pLDDT,pTM,LIR_i,LIR_j,cLIR_i,cLIR_j,
+LIpLDDT_i,LIpLDDT_j,LIpLDDT,cLIpLDDT_i,cLIpLDDT_j,cLIpLDDT,
+pDockQ,LIpDockQ,pDockQ2_i,pDockQ2_j,LIpDockQ2_i,LIpDockQ2_j,
 len_i,len_j,LIR_indices_i,LIR_indices_j,cLIR_indices_i,cLIR_indices_j,structure_file
 ```
 
