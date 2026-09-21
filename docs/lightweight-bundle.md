@@ -106,7 +106,7 @@ models = 30 rows). Its header is exactly:
 name,rank,model,chain_i,chain_j,iLIS,iLIA,iLISA,ipSAE,actifpTM,LIS,cLIS,LIA,cLIA,
 ipTM,pLDDT_i,pLDDT_j,pLDDT,pTM,LIR_i,LIR_j,cLIR_i,cLIR_j,
 LIpLDDT_i,LIpLDDT_j,LIpLDDT,cLIpLDDT_i,cLIpLDDT_j,cLIpLDDT,
-pDockQ,LIpDockQ,pDockQ2_i,pDockQ2_j,LIpDockQ2_i,LIpDockQ2_j,
+pDockQ,LIpDockQ,pDockQ2_i,pDockQ2_j,pDockQ2,LIpDockQ2_i,LIpDockQ2_j,LIpDockQ2,
 len_i,len_j,LIR_indices_i,LIR_indices_j,cLIR_indices_i,cLIR_indices_j,structure_file
 ```
 
