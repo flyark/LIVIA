@@ -11,6 +11,8 @@
         .step-link { color: #2471A3; text-decoration: none; }
         .step-link:hover { text-decoration: underline; }
         #pairs-table td, #pairs-table th { white-space: nowrap; }
+        #pairs-table .col-extra { display: none; }
+        #pairs-table.show-lir-cols .col-extra { display: table-cell; }
 
         /* Status */
         .status { font-size: 0.85rem; color: #666; min-height: 1.5rem; margin-top: 0.8rem; }
@@ -189,9 +191,10 @@
         <!-- Interaction Analysis Summary -->
         <div class="card result-card">
             <h2>Interaction Analysis Summary</h2>
+            <label style="font-size:0.78rem; color:#666; display:inline-flex; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem;"><input type="checkbox" id="toggle-lir-cols" onchange="document.getElementById('pairs-table').classList.toggle('show-lir-cols', this.checked)"> Show iLIA/LIR/cLIR columns</label>
             <div style="overflow-x:auto;">
             <table class="data-table" id="pairs-table">
-                <thead><tr><th>Protein A</th><th>Protein B</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipSAE</th><th>actifpTM</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th title="Bryant et al. 2022, pure geometric interface, no PAE">pDockQ</th><th title="pDockQ fed this file's own PAE+contact-gated cLIR interface">LIpDockQ</th><th title="Zhu et al. 2023, CA-based interface; mean of the two per-chain directions">pDockQ2</th><th title="pDockQ2's PAE-decay applied to this file's own cLIR interface; mean of the two per-chain directions">LIpDockQ2</th><th>LIR (A/B)</th><th>cLIR (A/B)</th></tr></thead>
+                <thead><tr><th>Protein A</th><th>Protein B</th><th>iLIS</th><th>iLISA</th><th>ipSAE</th><th>actifpTM</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th title="Bryant et al. 2022, pure geometric interface, no PAE">pDockQ</th><th title="pDockQ fed this file's own PAE+contact-gated cLIR interface">LIpDockQ</th><th title="Zhu et al. 2023, CA-based interface; mean of the two per-chain directions">pDockQ2</th><th title="pDockQ2's PAE-decay applied to this file's own cLIR interface; mean of the two per-chain directions">LIpDockQ2</th><th class="col-extra">iLIA</th><th class="col-extra">LIR (A/B)</th><th class="col-extra">cLIR (A/B)</th></tr></thead>
                 <tbody id="pairs-tbody"></tbody>
             </table>
             </div>
@@ -2815,7 +2818,6 @@ function displayDimerResults() {
             <td>${esc(geneA)}</td>
             <td>${esc(geneB)}</td>
             <td>${ilisColor(v.iLIS)}</td>
-            <td>${v.iLIA.toFixed(1)}</td>
             <td>${v.iLISA.toFixed(1)}</td>
             <td>${v.ipSAE.toFixed(3)}</td>
             <td>${(v.actifpTM||0).toFixed(3)}</td>
@@ -2826,8 +2828,9 @@ function displayDimerResults() {
             <td>${v.LIpDockQ == null || isNaN(v.LIpDockQ) ? '' : v.LIpDockQ.toFixed(3)}</td>
             <td>${v.pDockQ2 == null || isNaN(v.pDockQ2) ? '' : v.pDockQ2.toFixed(3)}</td>
             <td>${v.LIpDockQ2 == null || isNaN(v.LIpDockQ2) ? '' : v.LIpDockQ2.toFixed(3)}</td>
-            <td>${v.lirI.size} / ${v.lirJ.size}</td>
-            <td>${v.clirI.size} / ${v.clirJ.size}</td>
+            <td class="col-extra">${v.iLIA.toFixed(1)}</td>
+            <td class="col-extra">${v.lirI.size} / ${v.lirJ.size}</td>
+            <td class="col-extra">${v.clirI.size} / ${v.clirJ.size}</td>
         </tr>
     `;
 
