@@ -11,6 +11,11 @@ or one per model — + a PAE *image*, and every card (3D viewer, chord, contact 
 matrix, sequence viewer) is identical to a full load. The PAE image is a bonus: the full path
 shows no PAE at all.
 
+Once a bundle is built, publish it somewhere LIVIA can deep-link to: see
+[`hosting-github-pages.md`](hosting-github-pages.md) (the default — one file per bundle) or
+[`hosting-zenodo-packed-bundles.md`](hosting-zenodo-packed-bundles.md) (many bundles packed into
+one Zenodo-hosted zip, for a permanent DOI).
+
 ---
 
 ## 1. The bundle
