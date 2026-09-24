@@ -1,6 +1,8 @@
 /*
  * cLIP structure resolver — bait identity → UniProt accession → AlphaFold DB CIF.
- * Two paths, tried in order:
+ * Paths, tried in order:
+ *   0. hosted sequence index (flyark.github.io/LIVIA-seqindex; tools/seqindex/build_seqindex.py):
+ *      exact sequence → accession with no UniProt call; fragments / point mutants → seed placement
  *   1. exact sequence (FASTA)  → SwissProt CRC64 → UniParc checksum search → accession
  *   2. gene symbol + organism + length → UniProtKB search → accession (length-disambiguated)
  * Then accession → AFDB api/prediction → current cifUrl. All client-side (CORS-open).
@@ -184,6 +186,138 @@
     return null;
   }
 
+  // canonical sequence + primary gene + organism of an accession: one UniProt call, shared by the
+  // seed check below and resolveStructure (a failed call is not remembered, so a retry can succeed)
+  const _uniSeqMemo = new Map();
+  function _uniSeq(acc) {
+    if (!_uniSeqMemo.has(acc)) _uniSeqMemo.set(acc, _json(`https://rest.uniprot.org/uniprotkb/${acc}?fields=sequence,gene_names,organism_name&format=json`)
+      .catch(() => { _uniSeqMemo.delete(acc); return null; }));
+    return _uniSeqMemo.get(acc);
+  }
+
+  // ---- Hosted sequence index: plain-text shards on GitHub Pages, one small file per lookup, fetched
+  //      outside the UniProt throttle (it is our own static host). File layout and hashes are defined
+  //      in tools/seqindex/build_seqindex.py. Unreachable or no match → null/[], and the caller falls
+  //      through to the UniProt path exactly as before. ----
+  const _idxBase = () => (typeof self !== 'undefined' && self.LIVIA_SEQINDEX_BASE) || 'https://flyark.github.io/LIVIA-seqindex/';
+  const _idxFiles = new Map();
+  function _idxText(path) {
+    if (!_idxFiles.has(path)) _idxFiles.set(path, _fetch(_idxBase() + path).then((r) => (r.ok ? r.text() : null), () => null));
+    return _idxFiles.get(path);
+  }
+  const _cleanSeq = (s) => String(s || '').toUpperCase().replace(/[^A-Z]/g, '');
+  const _rows = (text, key) => (text || '').split('\n').filter((l) => l.startsWith(key + '\t')).map((l) => l.split('\t'));
+  async function _sha256hex(s) {
+    const c = (typeof crypto !== 'undefined') && crypto.subtle; if (!c) return null;
+    const b = new Uint8Array(await c.digest('SHA-256', new TextEncoder().encode(s)));
+    let h = ''; for (const x of b) h += x.toString(16).padStart(2, '0'); return h;
+  }
+  // When identical sequences exist in several species and nothing else decides: model organisms first.
+  const _ORG_ORDER = ['9606', '10090', '7227', '559292', '6239', '7955', '10116', '3702', '83333', '284812'];
+  const _orgOrder = (tax) => { const i = _ORG_ORDER.indexOf(String(tax)); return i < 0 ? 99 : i; };
+  // Same preference as the UniParc path (canonical > organism match > Swiss-Prot), then a fixed
+  // organism order and the accession, so a tie is decided the same way every time.
+  const _scoreBy = (orgId) => (x) => (!/-\d+$/.test(x.acc) ? 4 : 0) + (orgId && String(x.tax) === String(orgId) ? 2 : 0) + (x.reviewed ? 1 : 0);
+  const _rankBy = (orgId) => {
+    const s = _scoreBy(orgId);
+    return (a, b) => s(b) - s(a) || _orgOrder(a.tax) - _orgOrder(b.tax) || (a.acc < b.acc ? -1 : a.acc > b.acc ? 1 : 0);
+  };
+  async function _orgName(tax) {
+    const t = await _idxText('t/' + String(Number(tax) % 100).padStart(2, '0') + '.txt');
+    const f = _rows(t, String(tax))[0]; return f ? f[1] : null;
+  }
+  async function _withOrganisms(list) {
+    const names = new Map(await Promise.all([...new Set(list.map((x) => x.tax))].map(async (t) => [t, await _orgName(t)])));
+    return list.map((x) => Object.assign({}, x, { organism: names.get(x.tax) || null }));
+  }
+
+  // Every index entry whose sequence is exactly `seq` → [{acc, gene, tax, reviewed, length}];
+  // [] = not in the index; null = index unreachable.
+  async function indexExact(seq) {
+    seq = _cleanSeq(seq); if (!seq) return [];
+    const h = await _sha256hex(seq); if (!h) return null;
+    const t = await _idxText('x/' + h.slice(0, 3) + '.txt'); if (t == null) return null;
+    return _rows(t, h.slice(3, 16)).filter((f) => +f[5] === seq.length)
+      .map((f) => ({ acc: f[1], gene: f[2], tax: f[3], reviewed: f[4] === 's', length: +f[5], afdb: f[6] == null ? undefined : f[6] === '1' }));
+  }
+  async function _byIndexExact(seq, orgId) {
+    const hits = await indexExact(seq); if (!hits || !hits.length) return null;
+    hits.sort(_rankBy(orgId));
+    const cands = await _withOrganisms(hits.slice(0, 12));
+    return { by: 'sequence (exact, LIVIA index)', exact: true,
+             candidates: cands.map((x) => ({ acc: x.acc.split('-')[0], isoform: /-\d+$/.test(x.acc) ? x.acc : null,
+               length: x.length, organism: x.organism, gene: x.gene || null, tax: x.tax, reviewed: x.reviewed, afdb: x.afdb })) };
+  }
+
+  // Seeds: a 12-mer is one when the low 4 bits of H1 are zero (1 in 16 positions, chosen by content,
+  // so a fragment picks the same seeds as its parent). FNV-1a + murmur3 fmix32, bit-identical to the build.
+  const _FNV = 16777619, _B1 = 2166136261, _B2 = (2166136261 ^ 0x5BD1E995) >>> 0;
+  function _kmerHash(s, i, basis) {
+    let h = basis;
+    for (let j = 0; j < 12; j++) { h ^= s.charCodeAt(i + j); h = Math.imul(h, _FNV); }
+    h ^= h >>> 16; h = Math.imul(h, 0x85EBCA6B); h ^= h >>> 13; h = Math.imul(h, 0xC2B2AE35); h ^= h >>> 16;
+    return h >>> 0;
+  }
+  // Place a fragment / point mutant / tagged construct: look up up to `max` of its seeds, spread along the
+  // query (a mutation or a tag only spoils the seeds it overlaps), and vote per (protein, diagonal).
+  // → [{acc, gene, tax, reviewed, length, votes, offset}] best first; [] no seed hit; null index unreachable.
+  async function indexSeeds(seq, max) {
+    seq = _cleanSeq(seq); max = max || 12;
+    const all = [];
+    for (let i = 0; i + 12 <= seq.length; i++) {
+      const h1 = _kmerHash(seq, i, _B1);
+      if ((h1 & 15) === 0) all.push({ file: ((h1 >>> 4) & 0x3FFF).toString(16).padStart(4, '0'), key: _kmerHash(seq, i, _B2).toString(16).padStart(8, '0'), q: i });
+    }
+    if (!all.length) return [];
+    const pick = all.length <= max ? all : Array.from({ length: max }, (_, k) => all[Math.floor(k * all.length / max)]);
+    const texts = await Promise.all(pick.map((s) => _idxText('s/' + s.file + '.txt')));
+    if (texts.every((t) => t == null)) return null;
+    const votes = new Map();
+    pick.forEach((s, k) => { for (const f of _rows(texts[k], s.key)) { const id = f[1] + ':' + (parseInt(f[2], 16) - s.q); votes.set(id, (votes.get(id) || 0) + 1); } });
+    const out = [];
+    for (const [id, n] of [...votes.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)) {
+      const [pidHex, off] = id.split(':'), pid = parseInt(pidHex, 16);
+      const line = ((await _idxText('p/' + (pid >> 8).toString(16).padStart(3, '0') + '.txt')) || '').split('\n')[pid & 255];
+      const f = line ? line.split('\t') : [];
+      if (f.length >= 5) out.push({ acc: f[0], gene: f[1], tax: f[2], reviewed: f[3] === 's', length: +f[4], afdb: f[5] == null ? undefined : f[5] === '1', votes: n, offset: +off });
+    }
+    return out;
+  }
+  // Accept a seed placement only if the query really is that protein: along the voted diagonal, the
+  // best-scoring stretch (+1 match, -3 mismatch; a tag or linker falls outside it) must cover half the
+  // query at >= 90% identity. Checked against the parent's canonical UniProt sequence.
+  async function _byIndexSeeds(seq, orgId) {
+    const q = _cleanSeq(seq);
+    const hits = await indexSeeds(q); if (!hits || !hits.length || hits[0].votes < 2) return null;   // one lone seed is not evidence
+    const best = hits.filter((x) => x.votes === hits[0].votes).sort(_rankBy(orgId))[0];
+    const sd = await _uniSeq(best.acc), p = sd && sd.sequence && sd.sequence.value;
+    if (!p) return null;
+    let run = 0, runM = 0, runN = 0, top = 0, topM = 0, topN = 0;
+    for (let i = 0; i < q.length; i++) {
+      const j = i + best.offset; if (j < 0 || j >= p.length) continue;
+      const m = q[i] === p[j];
+      run += m ? 1 : -3; runM += m ? 1 : 0; runN++;
+      if (run <= 0) { run = 0; runM = 0; runN = 0; } else if (run > top) { top = run; topM = runM; topN = runN; }
+    }
+    if (!(topN >= 0.5 * q.length && topM >= 0.9 * topN)) return null;
+    const [c] = await _withOrganisms([best]);
+    return { by: 'sequence (seed match, LIVIA index)', seed: true, parentSeq: p,
+             candidates: [{ acc: c.acc.split('-')[0], length: c.length, organism: c.organism, gene: c.gene || null, tax: c.tax, reviewed: c.reviewed, afdb: c.afdb }] };
+  }
+  // A complex is almost always one organism: the species the unambiguous chains resolve to settles the
+  // chains whose exact sequence exists in several species. → { hint: taxid|null, ambiguous: Map(seq → bool) }
+  async function organismHint(seqs) {
+    const tally = new Map(), ambiguous = new Map();
+    const all = await Promise.all(seqs.map((s) => indexExact(s).catch(() => null)));
+    all.forEach((hits, i) => {
+      const taxa = new Set((hits || []).map((h) => h.tax));
+      ambiguous.set(seqs[i], taxa.size > 1);
+      if (taxa.size === 1) { const t = [...taxa][0]; tally.set(t, (tally.get(t) || 0) + 1); }
+    });
+    let hint = null, n = 0; for (const [t, c] of tally) if (c > n) { hint = t; n = c; }
+    return { hint, ambiguous };
+  }
+
   // Partial-protein construct named BASE_start_end (+ optional _MUT…), e.g. GENE_1_300
   // or GENE_301_600_A45G (point mutation). Validated by (end-start+1) === fragment length. The AFDB
   // structure is the full BASE protein; cLIR coords get shifted by (start-1) to full numbering.
@@ -197,16 +331,22 @@
   }
 
   // Resolve one bait → {accession, cifUrl, matchedBy, …, lengthOk, fragment} | null
-  async function resolveStructure({ gene, length, seq, species, blast }) {
+  // needCif: false for a caller that never uses the AFDB model URL (universal); an index candidate
+  // already known to have a model is then taken without asking AFDB.
+  async function resolveStructure({ gene, length, seq, species, blast, needCif }) {
     if (!_fetch) throw new Error('fetch unavailable');
     const orgId = SPECIES[species] || species || '';
     const frag = parseFragmentRange(gene, length);      // partial protein? resolve the BASE, offset coords
     let found = null;
+    // Hosted index first: an exact match needs no UniProt call at all.
+    if (seq && seq.length && !frag) { try { found = await _byIndexExact(seq, orgId); } catch (e) {} }
     // A fragment's sequence isn't a full UniParc entry → checksum won't match; resolve BASE by name.
-    if (seq && seq.length && !frag) { try { found = await _bySequence(seq, orgId, length); } catch (e) {} }
+    if ((!found || !found.candidates.length) && seq && seq.length && !frag) { try { found = await _bySequence(seq, orgId, length); } catch (e) {} }
     const _symName = frag ? frag.base : gene;
     if ((!found || !found.candidates.length) && _symName) { try { found = await _bySymbol(_symName, orgId, frag ? null : length); } catch (e) {} }
-    if ((!found || !found.candidates.length) && seq && seq.length) { try { found = await _bySequence(seq, orgId, length); } catch (e) {} }
+    if ((!found || !found.candidates.length) && seq && seq.length && frag) { try { found = await _bySequence(seq, orgId, length); } catch (e) {} }   // (without a fragment name UniParc was already asked above)
+    // Point mutant / tagged construct / unnamed fragment: place it by the index's sampled 12-mer seeds.
+    if ((!found || !found.candidates.length) && seq && seq.length >= 20 && !frag) { try { found = await _byIndexSeeds(seq, orgId); } catch (e) {} }
     if ((!found || !found.candidates.length) && seq && seq.length >= 60) { try { found = await _byTrimmedSequence(seq, orgId); } catch (e) {} }   // Tier 2: canonical +/- terminal residues
     if ((!found || !found.candidates.length) && blast && seq && seq.length >= 25) {   // Tier 2 (Swiss-Prot) -> Tier 3 (full UniProtKB) similarity BLAST
       try { found = await _byBlast(seq, 'uniprotkb_swissprot'); } catch (e) {}
@@ -215,15 +355,45 @@
     if (!found || !found.candidates.length) return null;
     // Among tied candidates, prefer one that actually has an AFDB structure (e.g. two 112-aa
     // TrEMBL entries where only one is in AlphaFold DB).
-    let chosen = null, cifUrl = null;
-    for (const c of found.candidates.slice(0, 6)) { const cu = await _afdbCif(c.acc); if (cu) { chosen = c; cifUrl = cu; break; } }
+    // First candidate (in preference order) that has an AFDB model. Index candidates carry UniProt's
+    // AlphaFoldDB cross-reference, so one known to have no model is skipped without a request (no 404).
+    const pickModel = async (cands) => {
+      for (const c of cands.slice(0, 12)) {
+        if (c.afdb === false) continue;
+        if (c.afdb === true && needCif === false) return [c, null];
+        const cu = await _afdbCif(c.acc); if (cu) return [c, cu];
+      }
+      return [null, null];
+    };
+    let [chosen, cifUrl] = await pickModel(found.candidates);
+    // A gene's reference-proteome entry can lack the AFDB model that an identical-sequence entry outside
+    // the reference proteome has (fly Orc3: A1Z996 has none, Q7K2L1 has one). The exact index holds those
+    // entries too, so a seed match looks its parent's own sequence up there.
+    if (!chosen && found.seed && found.parentSeq) {
+      const org = found.candidates[0].organism, sib = await _byIndexExact(found.parentSeq, orgId).catch(() => null);
+      if (sib) { [chosen, cifUrl] = await pickModel(sib.candidates.filter((c) => !org || c.organism === org)); if (chosen) chosen = Object.assign({}, chosen, { viaSibling: true }); }
+    }
+    // Still none: UniParc sees every UniProt entry; take the first of the same organism with a model.
+    if (!chosen && (found.exact || found.seed)) {
+      try {
+        const same = found.exact ? _cleanSeq(seq) : found.parentSeq, org = found.candidates[0].organism;
+        const up = same ? await _bySequence(same, orgId, same.length) : null;
+        for (const c of ((up && up.candidates) || []).filter((c) => !org || c.organism === org).slice(0, 6)) {
+          const cu = await _afdbCif(c.acc); if (cu) { chosen = Object.assign({}, c, { viaUniParc: true }); cifUrl = cu; break; }
+        }
+      } catch (e) {}
+    }
     if (!chosen) chosen = found.candidates[0];
     const acc = chosen.acc;
     // canonical UniProt sequence == the AFDB structure's sequence/numbering; used to align
     // the predicted (isoform/construct) sequence and remap cLIR residue coordinates.
     let structSeq = null, structLen = null, geneName = chosen.gene || null, organism = chosen.organism || null;
-    try {
-      const sd = await _json(`https://rest.uniprot.org/uniprotkb/${acc}?fields=sequence,gene_names,organism_name&format=json`);
+    if (found.exact && !chosen.isoform && !chosen.viaUniParc && organism) {   // the chain IS this entry's canonical sequence: nothing to fetch
+      structSeq = _cleanSeq(seq); structLen = structSeq.length;
+    } else if (chosen.viaSibling && organism) {                                 // same canonical sequence as the verified parent
+      structSeq = found.parentSeq; structLen = structSeq.length;
+    } else try {
+      const sd = await _uniSeq(acc);
       if (sd && sd.sequence) { structSeq = sd.sequence.value; structLen = sd.sequence.length; }
       if (sd && sd.genes && sd.genes[0] && sd.genes[0].geneName) geneName = sd.genes[0].geneName.value;
       if (sd && sd.organism && sd.organism.scientificName) organism = sd.organism.scientificName;
@@ -335,5 +505,6 @@
       return out.length ? out : null;
     } catch (e) { return null; }
   }
-  return { crc64, parseFastaToSeqMap, baitSequence, resolveStructure, parseFragmentRange, alignMap, nwAlign, fetchDomains, fetchPfam, fetchTed, fetchAlphaMissense, SPECIES };
+  return { crc64, parseFastaToSeqMap, baitSequence, resolveStructure, parseFragmentRange, alignMap, nwAlign, fetchDomains, fetchPfam, fetchTed, fetchAlphaMissense, SPECIES,
+           indexExact, indexSeeds, organismHint };
 });

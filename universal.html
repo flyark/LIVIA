@@ -117,7 +117,7 @@
     </style>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260816"></script>
-<script src="js/clip-resolver.js?v=20260715"></script>
+<script src="js/clip-resolver.js?v=20260924"></script>
 <script src="js/remotezip.js?v=20260918"></script>
 </head>
 <body>
@@ -5678,11 +5678,15 @@ async function identifyChains(){
     for (const n of names){ const s = seqOf(n); if (s && !seqAcc.has(s)){ const a = accHint(n); if (a) seqAcc.set(s, a); } }
     const nHint = [...uniq.keys()].filter(s => seqAcc.has(s)).length;
     btn.disabled = true; btn.textContent = 'Identifying ' + uniq.size + ' sequence' + (uniq.size > 1 ? 's' : '') + '\u2026' + (nHint < uniq.size ? ' (BLAST fallback may take ~20s)' : '');
+    // A complex is almost always one organism: a chain whose exact sequence exists in several species
+    // takes the species its unambiguous partner chains resolve to (hosted index, no UniProt call).
+    const orgPick = CLIPResolver.organismHint ? await CLIPResolver.organismHint([...uniq.keys()]).catch(() => null) : null;
     const resolveOne = async (s) => {
         try {
             const hint = seqAcc.get(s);
-            let r = hint ? await CLIPResolver.resolveStructure({ gene: hint, seq: s, length: s.length }).catch(() => null) : null;   // accession \u2192 direct query, no BLAST, right organism
-            if (!r) r = await CLIPResolver.resolveStructure({ seq: s, length: s.length, blast: true });                              // else sequence match, BLAST fallback (also species-correct)
+            const species = orgPick && orgPick.hint && orgPick.ambiguous.get(s) ? orgPick.hint : undefined;
+            let r = hint ? await CLIPResolver.resolveStructure({ gene: hint, seq: s, length: s.length, species, needCif: false }).catch(() => null) : null;   // accession \u2192 direct query, no BLAST, right organism
+            if (!r) r = await CLIPResolver.resolveStructure({ seq: s, length: s.length, blast: true, species, needCif: false });                              // else sequence match, BLAST fallback (also species-correct)
             const dd = r ? await resolveChainDomains(r, s) : { dom: [], ted: [], info: null };
             resolved.set(s, { r, dom: dd.dom, ted: dd.ted, info: dd.info });
         } catch(e){ resolved.set(s, resolved.get(s) || { r: null, dom: [], ted: [], info: null }); }
