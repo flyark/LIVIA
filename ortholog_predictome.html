@@ -3383,17 +3383,6 @@ function copyScript() {
         setTimeout(() => { btn.textContent = 'Copy to Clipboard'; }, 1500);
     });
 }
-
-// Auto-load from URL parameter
-(function() {
-    const params = new URLSearchParams(window.location.search);
-    const url = params.get('url');
-    if (url) {
-        switchTab('url');
-        document.getElementById('url-input').value = url;
-        setTimeout(() => generate(), 300);
-    }
-})();
 </script>
 
 <script data-goatcounter="https://livia.goatcounter.com/count"
