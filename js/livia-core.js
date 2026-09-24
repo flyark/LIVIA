@@ -14,6 +14,7 @@
  *   hexToRgba()            — hex color to rgba string
  *   lightenColor()         — lighten a hex color by amount
  *   CORS_PROXIES           — array of CORS proxy URL builders
+ *   skipDirectFetch()      — true for hosts that never send CORS headers (go straight to the proxy)
  *   fetchTextViaProxy()    — generic proxy-based fetch with direct-first fallback
  *   fetchStructureTextViaProxy() — PDB/structure fetch that falls back to a gzipped sibling
  *   AA3TO1                 — amino acid 3-letter to 1-letter mapping
@@ -160,13 +161,24 @@ const CORS_PROXIES = [
     url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
 ];
 
+// ── Hosts that never send CORS headers ──
+// A direct browser fetch to these always fails, and only after their server has done the full
+// work (0.2-1 s per call), so trying direct first just adds that time to every call before the
+// proxy retry. Requests to them go straight to the proxy.
+const NO_CORS_HOSTS = ['www.flyrnai.org', 'flyrnai.org'];
+function skipDirectFetch(url) {
+    try { return NO_CORS_HOSTS.includes(new URL(url, location.href).hostname); } catch { return false; }
+}
+
 // ── Generic proxy fetch (tries direct first, then each proxy) ──
 async function fetchTextViaProxy(url) {
-    // Try direct first
-    try {
-        const resp = await fetch(url);
-        if (resp.ok) return await resp.text();
-    } catch {}
+    // Try direct first, unless the host is known to refuse cross-site requests
+    if (!skipDirectFetch(url)) {
+        try {
+            const resp = await fetch(url);
+            if (resp.ok) return await resp.text();
+        } catch {}
+    }
     // Try proxies
     for (const makeProxy of CORS_PROXIES) {
         try {
@@ -194,10 +206,12 @@ async function fetchGzipTextViaProxy(url) {
             return text.length > 100 ? text : null;
         } catch { return null; }
     }
-    try {
-        const text = await tryDecode(await fetch(url));
-        if (text) return text;
-    } catch {}
+    if (!skipDirectFetch(url)) {
+        try {
+            const text = await tryDecode(await fetch(url));
+            if (text) return text;
+        } catch {}
+    }
     for (const makeProxy of CORS_PROXIES) {
         try {
             const text = await tryDecode(await fetch(makeProxy(url), { signal: AbortSignal.timeout(15000) }));

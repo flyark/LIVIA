@@ -524,7 +524,7 @@
 </div>
 </div>
 
-<script src="js/livia-core.js?v=20260902"></script>
+<script src="js/livia-core.js?v=20260924"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260716e"></script>
 <script src="js/livia-colors.js?v=20260716b"></script>
@@ -636,20 +636,25 @@ async function fetchViaProxy(url) {
 }
 
 async function fetchJsonViaProxy(url) {
-    // Try direct first (in case CORS is added), then proxy
-    try {
-        const resp = await fetch(url);
-        if (resp.ok) return await resp.json();
-    } catch {}
+    // Try direct first (in case CORS is added), then proxy; hosts known to refuse
+    // cross-site requests (skipDirectFetch, livia-core.js) go straight to the proxy
+    if (!skipDirectFetch(url)) {
+        try {
+            const resp = await fetch(url);
+            if (resp.ok) return await resp.json();
+        } catch {}
+    }
     const proxyResp = await fetchViaProxy(url);
     return await proxyResp.json();
 }
 
 async function fetchTextViaProxy(url) {
-    try {
-        const resp = await fetch(url);
-        if (resp.ok) return await resp.text();
-    } catch {}
+    if (!skipDirectFetch(url)) {
+        try {
+            const resp = await fetch(url);
+            if (resp.ok) return await resp.text();
+        } catch {}
+    }
     const proxyResp = await fetchViaProxy(url);
     return await proxyResp.text();
 }
