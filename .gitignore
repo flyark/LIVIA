@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 CLAUDE.md
 tools/cloudflare-worker/.wrangler/
+tools/cloudflare-worker/.dev.vars

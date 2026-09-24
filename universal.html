@@ -5758,17 +5758,19 @@ async function _accToXrefs(acc){   // NCBI Gene ID (for MIST) + BioGRID id/inter
 }
 // Which of THIS complex's resolved subunit pairs does BioGRID report as interacting? Calls LIVIA's
 // own proxy Worker (tools/cloudflare-worker/worker.js), which holds the BioGRID access key as a
-// server-side secret and attaches it there — the browser only ever sends gene symbols + taxon id,
-// never a key. See that file's handleBiogrid() for the server side of this contract.
-async function _biogridPairCheck(subs, taxId){
-    const syms = subs.map(s => s.sym).filter(Boolean);
-    if (!taxId || syms.length < 2) return null;
+// server-side secret and attaches it there — the browser only ever sends NCBI Gene IDs + taxon ids,
+// never a key. Gene IDs rather than UniProt's BioGRID links: only reviewed UniProt entries link to
+// BioGRID, so most subunits of e.g. a fly complex would drop out. See worker.js handleBiogrid().
+async function _biogridPairCheck(subs){
+    const ids = [...new Set(subs.map(s => s.geneId).filter(Boolean).map(String))];
+    const taxa = [...new Set(subs.map(s => s.taxId).filter(Boolean).map(String))];
+    if (ids.length < 2 || !taxa.length) return null;
     try {
-        const url = 'https://livia-proxy.flyark.workers.dev/?biogrid=1&genes=' + encodeURIComponent(syms.join(',')) + '&taxId=' + encodeURIComponent(taxId);
+        const url = 'https://livia-proxy.flyark.workers.dev/?biogrid=1&ids=' + encodeURIComponent(ids.join(',')) + '&taxId=' + encodeURIComponent(taxa.join('|'));
         const resp = await fetch(url);
         const data = await resp.json();
         if (!resp.ok || data.error) return { error: data.error || ('proxy returned ' + resp.status) };
-        return { pairs: new Map(Object.entries(data.pairs || {})) };
+        return { pairs: new Map(Object.entries(data.pairs || {})), biogridIds: data.biogridIds || {} };
     } catch (e){ return { error: String(e.message || e) }; }
 }
 const _mistEsc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -5785,23 +5787,31 @@ async function queryMistForPair(){   // name kept (called from identifyChains); 
     await Promise.all(subs.map(async s => { const x = await _accToXrefs(s.acc); s.geneId = x.geneId; s.bioGridId = x.bioGridId; s.bioGridN = x.bioGridN; s.taxId = x.taxId; }));   // accession → NCBI Gene ID (MIST) + BioGRID xref
     if (uniState.loadEpoch !== epoch) return;                          // a new prediction loaded mid-query
     if (linkEl){                                                        // BioGRID cross-reference — shown independent of MIST outcome, since MIST's coverage skews toward a few reference organisms
-        const withBg = subs.filter(s => s.bioGridId);
-        linkEl.innerHTML = withBg.length ? '<div style="color:#888;">Also on <a href="https://thebiogrid.org/" target="_blank" style="color:#2471A3;">BioGRID</a>: '
-            + withBg.map(s => esc(s.sym) + ' (<a href="https://thebiogrid.org/' + encodeURIComponent(s.bioGridId) + '" target="_blank" style="color:#2471A3;">'
-                + (s.bioGridN != null ? s.bioGridN + ' interactor' + (s.bioGridN == 1 ? '' : 's') : s.bioGridId) + '</a>)').join(', ') + '</div>' : '';
-        const taxId = withBg.map(s => s.taxId).find(Boolean);
-        if (withBg.length >= 2 && taxId){
+        // A subunit is linked when UniProt cross-references its BioGRID entry (with UniProt's interactor
+        // count) or when the Gene-ID pair check below finds it in BioGRID.
+        const bgLine = (found) => {
+            const shown = subs.filter(s => s.bioGridId || (s.geneId && found[s.geneId]));
+            return shown.length ? 'Also on <a href="https://thebiogrid.org/" target="_blank" style="color:#2471A3;">BioGRID</a>: '
+                + shown.map(s => '<a href="https://thebiogrid.org/' + encodeURIComponent(s.bioGridId || found[s.geneId]) + '" target="_blank" style="color:#2471A3;">' + esc(s.sym) + '</a>'
+                    + (s.bioGridN != null ? ' (' + s.bioGridN + ' interactor' + (s.bioGridN == 1 ? '' : 's') + ')' : '')).join(', ') : '';
+        };
+        linkEl.innerHTML = '<div id="bg-also" style="color:#888;">' + bgLine({}) + '</div>';
+        const withGid = subs.filter(s => s.geneId);
+        if (withGid.length >= 2){
             linkEl.innerHTML += '<div id="bg-pairs" style="color:#888; margin-top:2px;">Checking BioGRID for reported pairs among these subunits…</div>';
-            _biogridPairCheck(withBg, taxId).then(res => {
+            _biogridPairCheck(withGid).then(res => {
                 if (uniState.loadEpoch !== epoch) return;
                 const el = document.getElementById('bg-pairs'); if (!el) return;
-                if (!res){ el.remove(); return; }
-                if (res.error){ el.remove(); return; }   // proxy unavailable/unconfigured — fail quiet, the free BioGRID link-out above still stands
+                if (!res || res.error){ el.remove(); return; }   // proxy unavailable/unconfigured — fail quiet, the UniProt link-outs above still stand
+                const also = document.getElementById('bg-also'); if (also) also.innerHTML = bgLine(res.biogridIds);
                 const found = [], missing = [];
-                for (let i = 0; i < withBg.length; i++) for (let j = i + 1; j < withBg.length; j++){
-                    const a = withBg[i], b = withBg[j], k = [a.sym.toUpperCase(), b.sym.toUpperCase()].sort().join('|');
-                    const n = res.pairs.get(k);
-                    (n ? found : missing).push(esc(a.sym) + '–' + esc(b.sym) + (n ? ' (' + n + ' record' + (n === 1 ? '' : 's') + ')' : ''));
+                for (let i = 0; i < withGid.length; i++) for (let j = i + 1; j < withGid.length; j++){
+                    const a = withGid[i], b = withGid[j], name = esc(a.sym) + '–' + esc(b.sym);
+                    const p = res.pairs.get([String(a.geneId), String(b.geneId)].sort((x, y) => x - y).join('|'));
+                    if (!p){ missing.push(name); continue; }
+                    const kind = p.physical && p.genetic ? 'physical + genetic' : (p.genetic ? 'genetic' : 'physical');
+                    const n = p.pmids.length, label = n ? n + ' paper' + (n === 1 ? '' : 's') + ', ' + kind : kind;
+                    found.push((n ? '<a href="https://pubmed.ncbi.nlm.nih.gov/?term=' + p.pmids.join(',') + '" target="_blank" style="color:#2471A3;">' + name + '</a>' : name) + ' (' + label + ')');
                 }
                 el.innerHTML = (found.length ? '<b style="color:#1a5276;">Predicted pairs reported in BioGRID:</b> ' + found.join(', ') : '<span style="color:#999;">None of the predicted pairs are directly reported in BioGRID.</span>')
                     + (missing.length ? '<div style="color:#aaa; margin-top:2px;">Not found: ' + missing.join(', ') + '</div>' : '');

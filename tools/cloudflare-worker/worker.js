@@ -137,6 +137,74 @@ async function handleFpSummary(fbgn, allowOrigin, ctx) {
   return resp;
 }
 
+// BioGRID pairwise-interaction check (?biogrid=1&ids=35686,41703,36454&taxId=7227).
+//
+// The BioGRID key never reaches the client: it lives only as a Cloudflare secret binding
+// (env.BIOGRID_KEY, set via `wrangler secret put BIOGRID_KEY` — never in this file, never in
+// wrangler.toml, never returned in any response). The client sends only NCBI Gene IDs + taxon ids.
+// Gene IDs, not symbols or UniProt's BioGRID links: an ID names one gene in one organism, while only
+// reviewed UniProt entries link to BioGRID, so most subunits of e.g. a fly complex would drop out.
+// This handler attaches the key server-side and asks BioGRID only for interactions AMONG the listed
+// genes (includeInteractors=false), then returns per-pair physical/genetic record counts and PubMed
+// ids, plus each gene's BioGRID id for linking — never the key, never the raw BioGRID records.
+// Cached per (sorted ids, taxId), since the data changes on BioGRID's release cadence, not per request.
+const BG_MAX_GENES = 40;          // a complex catalog page, not a bulk-export endpoint
+async function handleBiogrid(reqUrl, allowOrigin, env, ctx) {
+  const jsonHeaders = (extra) => ({ ...corsHeaders(allowOrigin), 'Content-Type': 'application/json; charset=utf-8', ...(extra || {}) });
+  if (!env.BIOGRID_KEY) {
+    return new Response(JSON.stringify({ error: 'BioGRID lookup not configured on this proxy' }), { status: 501, headers: jsonHeaders() });
+  }
+  const ids = [...new Set((reqUrl.searchParams.get('ids') || '').split(/[,|]/).map(s => s.trim()).filter(s => /^\d+$/.test(s)))].slice(0, BG_MAX_GENES);
+  const taxId = (reqUrl.searchParams.get('taxId') || '').trim();
+  if (ids.length < 2 || !/^\d+(\|\d+)*$/.test(taxId)) {
+    return new Response(JSON.stringify({ error: 'expects ids=GENEID1,GENEID2,... (>=2 NCBI Gene IDs) and taxId=N (or N|M)' }), { status: 400, headers: jsonHeaders() });
+  }
+
+  const cache = caches.default;
+  const cacheKey = new Request('https://livia-proxy.internal/biogrid-ids/' + taxId + '/' + ids.slice().sort((a, b) => a - b).join(','));
+  const hit = await cache.match(cacheKey);
+  if (hit) {
+    const h = new Headers(hit.headers);
+    for (const [k, v] of Object.entries(corsHeaders(allowOrigin))) h.set(k, v);
+    h.set('X-BG-Cache', 'HIT');
+    return new Response(hit.body, { status: hit.status, headers: h });
+  }
+
+  const target = 'https://webservice.thebiogrid.org/interactions/?searchIds=true&includeInteractors=false&geneList='
+    + encodeURIComponent(ids.join('|')) + '&taxId=' + encodeURIComponent(taxId)
+    + '&format=json&accessKey=' + encodeURIComponent(env.BIOGRID_KEY);   // key attached here only, server-side
+  let data;
+  try {
+    const upstream = await fetch(target, { cf: { cacheTtl: 86400, cacheEverything: true } });
+    data = await upstream.json();
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'BioGRID request failed', detail: String(e && e.message || e) }), { status: 502, headers: jsonHeaders() });
+  }
+  if (data && data.STATUS === 'ERROR') {
+    // BioGRID's own error payload may echo query params but never the key — safe to relay as-is.
+    return new Response(JSON.stringify({ error: (data.MESSAGES || ['BioGRID request failed']).join(' ') }), { status: 502, headers: jsonHeaders() });
+  }
+
+  const idSet = new Set(ids);
+  const pairs = {};        // "idA|idB" (numeric order) -> { physical, genetic, pmids }, only genes we were asked about
+  const biogridIds = {};   // NCBI Gene ID -> BioGRID gene id (for the page's link-outs)
+  for (const rec of Object.values(data || {})) {
+    const a = String(rec.ENTREZ_GENE_A || ''), b = String(rec.ENTREZ_GENE_B || '');
+    if (!idSet.has(a) || !idSet.has(b)) continue;
+    if (rec.BIOGRID_ID_A) biogridIds[a] = String(rec.BIOGRID_ID_A);
+    if (rec.BIOGRID_ID_B) biogridIds[b] = String(rec.BIOGRID_ID_B);
+    if (a === b) continue;                                  // a self-interaction is not a subunit pair
+    const k = [a, b].sort((x, y) => x - y).join('|');
+    const p = pairs[k] || (pairs[k] = { physical: 0, genetic: 0, pmids: [] });
+    if (String(rec.EXPERIMENTAL_SYSTEM_TYPE || '').toLowerCase() === 'genetic') p.genetic++; else p.physical++;
+    const pm = String(rec.PUBMED_ID || '');
+    if (/^\d+$/.test(pm) && !p.pmids.includes(pm)) p.pmids.push(pm);
+  }
+  const resp = new Response(JSON.stringify({ ids, taxId, pairs, biogridIds }), { status: 200, headers: jsonHeaders({ 'Cache-Control': 'public, max-age=86400', 'X-BG-Cache': 'MISS' }) });
+  if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+  return resp;
+}
+
 function corsHeaders(allowOrigin) {
   return {
     'Access-Control-Allow-Origin': allowOrigin,
@@ -165,6 +233,9 @@ export default {
     // Fast FlyPredictome partner-list endpoint (server-side extract + cache; see handleFpSummary).
     const fpSummaryFbgn = reqUrl.searchParams.get('fpSummary');
     if (fpSummaryFbgn) return handleFpSummary(fpSummaryFbgn, allowOrigin, ctx);
+
+    // BioGRID pairwise-interaction check by NCBI Gene ID — key attached server-side only; see handleBiogrid.
+    if (reqUrl.searchParams.get('biogrid')) return handleBiogrid(reqUrl, allowOrigin, env, ctx);
 
     const target = reqUrl.searchParams.get('url');
     if (!target) {
