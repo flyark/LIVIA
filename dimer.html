@@ -527,7 +527,7 @@
 <script src="js/livia-core.js?v=20260924"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260716e"></script>
-<script src="js/livia-colors.js?v=20260716b"></script>
+<script src="js/livia-colors.js?v=20260924"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260816"></script>
 <script>
@@ -535,6 +535,7 @@
 onColorChange = () => { if (dimerPairResult) { generateAndDisplayScript(); buildDimerSequenceViewer(); buildDimerContactMap(); buildChordDiagram(); buildComparisonCharts(); updateViewer3d(); renderChainToggleBar(); } };
 attachChainColorUpload(document.getElementById('chain-color-upload'), {});   // CSV/paste chain colors (A/B)
 onScriptTabSwitch = () => { if (dimerPairResult) generateAndDisplayScript(); };
+onPaeScaleChange = () => { if (dimerPairResult) drawAllMaps(); };   // "PAE colors" control (livia-colors.js)
 document.addEventListener('DOMContentLoaded', () => {
     initColorPickers();
     // Deep link: ?id=AF-... or ?id=<UniProt acc> loads the entry on page open
@@ -3517,10 +3518,14 @@ function drawAllMaps() {
         container.style.alignItems = '';
     }
 
-    // PAE
+    // PAE — in the scale chosen with the "PAE colors" control under it (livia-colors.js)
+    const paePal = typeof paeColorFn === 'function' ? paeColorFn() : bwrColor;
     const paeCanvas = document.createElement('canvas');
-    drawFullMapCanvas(paeCanvas, v.paeMatrix, v.nTotal, v.chainSizes, v.chainNames, bwrColor, 0, 30, displaySize);
-    createMapPanel(container, 'PAE', paeCanvas, displaySize, bwrColor, 0, 30, ['30', '15', '0']);
+    drawFullMapCanvas(paeCanvas, v.paeMatrix, v.nTotal, v.chainSizes, v.chainNames, paePal, 0, 30, displaySize);
+    createMapPanel(container, 'PAE', paeCanvas, displaySize, paePal, 0, 30, ['30', '15', '0']);
+    // the control sits above the panels row (once), so opening Custom never widens the PAE panel
+    if (typeof paeScaleControl === 'function' && !(container.previousElementSibling && container.previousElementSibling.classList.contains('pae-scale-ctl')))
+        container.parentNode.insertBefore(paeScaleControl({ align: 'center' }), container);
 
     // LIS (Blues)
     const lisMap = buildFullLisMap(v.paeMatrix, v.nTotal, v.paeCutoff);

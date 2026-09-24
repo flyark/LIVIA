@@ -460,7 +460,7 @@
 <script src="js/livia-core.js?v=20260924"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260716e"></script>
-<script src="js/livia-colors.js?v=20260716b"></script>
+<script src="js/livia-colors.js?v=20260924"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260816"></script>
 <script>
@@ -1376,6 +1376,8 @@ function updateColorStrip() {
         strip.appendChild(d);
     }
 }
+
+onPaeScaleChange = () => { if (monPae) drawPaeMap(); };   // "PAE colors" control (livia-colors.js)
 
 onColorChange = function() {
     // Update hex labels if they exist
@@ -3099,8 +3101,11 @@ function drawPaeMap() {
         container.style.alignItems = '';
     }
 
-    // PAE
-    createMonomerMapPanel(container, 'PAE', monPae, bwrColor, 0, 30, ['30', '15', '0'], displaySize);
+    // PAE — in the scale chosen with the "PAE colors" control under it (livia-colors.js)
+    createMonomerMapPanel(container, 'PAE', monPae, typeof paeColorFn === 'function' ? paeColorFn() : bwrColor, 0, 30, ['30', '15', '0'], displaySize);
+    // the control sits above the panels row (once), so opening Custom never widens the PAE panel
+    if (typeof paeScaleControl === 'function' && !(container.previousElementSibling && container.previousElementSibling.classList.contains('pae-scale-ctl')))
+        container.parentNode.insertBefore(paeScaleControl({ align: 'center' }), container);
 
     // LIS (Blues) — only if PAE is loaded
     const lisMap = buildMonomerLisMap();

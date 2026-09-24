@@ -235,3 +235,100 @@ function attachChainColorUpload(container, opts) {
         },
     });
 }
+
+// ── PAE color scale ──
+// Every PAE map LIVIA draws from numeric PAE (universal after a full upload, dimer, monomer), with its
+// color bar and exports, takes its colors from paeColorFn(). FlyPredictome data and lightweight bundles
+// carry PAE only as images, which cannot be recolored, so those views never show paeScaleControl().
+// Scales run from low PAE (confident) to high PAE (uncertain); the choice is remembered per browser.
+const PAE_SCALES = [
+    ['bwr', 'Blue–white–red (default)'],
+    ['alphafold', 'AlphaFold (green)'],
+    ['blues', 'Blues'],
+    ['viridis', 'Viridis'],
+    ['greys', 'Greys'],
+    ['custom', 'Custom'],
+];
+const _PAE_STOPS = {
+    alphafold: ['#00441b', '#74c476', '#f7fcf5'],      // dark green = confident, as in AlphaFold DB / AlphaFold 3 PAE plots
+    blues: ['#08306b', '#6baed6', '#f7fbff'],
+    viridis: ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'],
+    greys: ['#000000', '#ffffff'],
+};
+let paeScale = { name: 'bwr', custom: ['#00897b', '#ffffff'] };
+try {
+    const saved = JSON.parse(localStorage.getItem('livia.paeScale') || 'null');
+    if (saved && typeof saved.name === 'string') paeScale = { name: saved.name, custom: Array.isArray(saved.custom) && saved.custom.length >= 2 ? saved.custom : paeScale.custom };
+} catch (e) { /* storage blocked: keep the default */ }
+let onPaeScaleChange = null;   // page sets this to redraw its PAE maps and color bars
+
+function _paeHex6(h) {   // '#abc' / 'ABC' / '#aabbcc' → '#aabbcc'
+    h = String(h || '').replace('#', '').toLowerCase();
+    return '#' + (h.length === 3 ? h.split('').map(c => c + c).join('') : h.padEnd(6, '0').slice(0, 6));
+}
+// The default is the original blue-white-red, computed exactly as before so default maps stay pixel-identical.
+function _paeBwr(value, vmin, vmax) {
+    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
+    let r, g, b;
+    if (t < 0.5) { const s = t / 0.5; r = Math.round(s * 255); g = Math.round(s * 255); b = 255; }
+    else { const s = (t - 0.5) / 0.5; r = 255; g = Math.round((1 - s) * 255); b = Math.round((1 - s) * 255); }
+    return [r, g, b];
+}
+function _paeRamp(hexStops) {   // piecewise-linear across 2+ color stops, low PAE → high PAE
+    const stops = hexStops.map(h => { const x = _paeHex6(h); return [parseInt(x.slice(1, 3), 16), parseInt(x.slice(3, 5), 16), parseInt(x.slice(5, 7), 16)]; });
+    const seg = stops.length - 1;
+    return (value, vmin, vmax) => {
+        const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
+        const f = t * seg, i = Math.min(seg - 1, Math.floor(f)), u = f - i, a = stops[i], b = stops[i + 1];
+        return [Math.round(a[0] + (b[0] - a[0]) * u), Math.round(a[1] + (b[1] - a[1]) * u), Math.round(a[2] + (b[2] - a[2]) * u)];
+    };
+}
+function paeColorFn() {
+    const stops = paeScale.name === 'custom' ? paeScale.custom : _PAE_STOPS[paeScale.name];
+    return stops && stops.length >= 2 ? _paeRamp(stops) : _paeBwr;
+}
+function setPaeScale(name, custom) {
+    paeScale = { name: name || 'bwr', custom: custom && custom.length >= 2 ? custom.map(_paeHex6) : paeScale.custom };
+    try { localStorage.setItem('livia.paeScale', JSON.stringify(paeScale)); } catch (e) {}
+    document.querySelectorAll('.pae-scale-ctl').forEach(_syncPaeControl);
+    if (typeof onPaeScaleChange === 'function') onPaeScaleChange();
+}
+// "PAE colors" control: a preset list plus Custom (2 or 3 picked colors, or pasted hex codes).
+// opts.align: 'start' (default) or 'center', to line up with the maps it sits above.
+function paeScaleControl(opts) {
+    const el = document.createElement('div');
+    el.className = 'pae-scale-ctl';
+    el.style.cssText = 'display:flex; align-items:center; justify-content:' + (opts && opts.align === 'center' ? 'center' : 'flex-start') + '; gap:6px; flex-wrap:wrap; font-size:0.78rem; color:#555; margin:0.35rem 0;';
+    const pick = (i, title) => '<input type="color" class="pae-stop" data-i="' + i + '" title="' + title + '" style="width:24px; height:18px; padding:0; border:1px solid #ccd; border-radius:3px; cursor:pointer;">';
+    el.innerHTML = '<span>PAE colors</span>'
+        + '<select class="pae-scale-sel" title="Color scale for the PAE maps, low (confident) to high (uncertain)" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;">'
+        + PAE_SCALES.map(([v, l]) => '<option value="' + v + '">' + l + '</option>').join('') + '</select>'
+        + '<span class="pae-custom" style="display:none; align-items:center; gap:4px;">'
+        + pick(0, 'low PAE (confident)') + '<span style="color:#aaa;">&rarr;</span>'
+        + '<span class="pae-mid" style="display:none; align-items:center; gap:4px;">' + pick(1, 'middle') + '<span style="color:#aaa;">&rarr;</span></span>'
+        + pick(2, 'high PAE (uncertain)')
+        + '<label style="display:inline-flex; align-items:center; gap:3px; cursor:pointer; margin:0;"><input type="checkbox" class="pae-3" style="margin:0;"> 3 colors</label>'
+        + '<input type="text" class="pae-hex" placeholder="or paste hex: #00897b, #fff, #b2182b" title="2 or 3 hex colors, low to high PAE" style="width:200px; font-size:0.72rem; padding:1px 4px; border:1px solid #ccd; border-radius:4px;">'
+        + '</span>';
+    const stop = (i) => el.querySelector('.pae-stop[data-i="' + i + '"]').value;
+    const custom = () => el.querySelector('.pae-3').checked ? [stop(0), stop(1), stop(2)] : [stop(0), stop(2)];
+    el.querySelector('.pae-scale-sel').onchange = (e) => setPaeScale(e.target.value, paeScale.custom);
+    el.querySelectorAll('.pae-stop').forEach(x => { x.onchange = () => setPaeScale('custom', custom()); });   // 'change' = on release, not every drag step
+    el.querySelector('.pae-3').onchange = () => setPaeScale('custom', custom());
+    el.querySelector('.pae-hex').oninput = (e) => {
+        const toks = (String(e.target.value).match(/#?[0-9a-fA-F]+/g) || []).map(h => h.replace('#', '')).filter(h => h.length === 3 || h.length === 6);
+        if (toks.length >= 2) setPaeScale('custom', toks.slice(0, 3));
+    };
+    _syncPaeControl(el);
+    return el;
+}
+function _syncPaeControl(el) {
+    const c = paeScale.custom, three = c.length >= 3;
+    el.querySelector('.pae-scale-sel').value = paeScale.name;
+    el.querySelector('.pae-custom').style.display = paeScale.name === 'custom' ? 'inline-flex' : 'none';
+    el.querySelector('.pae-mid').style.display = three ? 'inline-flex' : 'none';
+    el.querySelector('.pae-3').checked = three;
+    el.querySelector('.pae-stop[data-i="0"]').value = _paeHex6(c[0]);
+    el.querySelector('.pae-stop[data-i="1"]').value = _paeHex6(three ? c[1] : '#ffffff');
+    el.querySelector('.pae-stop[data-i="2"]').value = _paeHex6(c[c.length - 1]);
+}

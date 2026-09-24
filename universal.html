@@ -346,6 +346,7 @@
         <!-- PAE Maps -->
         <div class="card result-card" id="pae-maps-card">
             <h2 style="margin:0 0 0.5rem;">Predicted Aligned Error (PAE) Maps</h2>
+            <div id="pae-scale-slot"></div>
             <div class="map-row" id="pae-row"></div>
             <div class="colorbar-row">
                 <canvas id="colorbar-pae" width="300" height="14"></canvas>
@@ -661,7 +662,7 @@
 <script src="js/livia-core.js?v=20260924"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260716e"></script>
-<script src="js/livia-colors.js?v=20260716b"></script>
+<script src="js/livia-colors.js?v=20260924"></script>
 <script>
 // ── Callbacks for shared modules ──
 // selectPair calls renderChainToggleBar, and sel.click() flows through selectPair.
@@ -6673,11 +6674,15 @@ function dilateMap(map2d, radius) {
     return result;
 }
 
-function drawAllMaps() {
+// PAE maps + their color bar, in the scale chosen with the card's "PAE colors" control (livia-colors.js).
+// Redrawn on their own when only the scale changes. The card holds numeric PAE only; lightweight
+// bundles show static PAE images in a separate card instead, so they never get the control.
+function drawPaeMaps() {
     const chainNames = uniState.chainNames || [];
     const chainSizes = uniState.chainSizes || [];
-
-    // PAE Maps
+    const pal = typeof paeColorFn === 'function' ? paeColorFn() : bwrColor;
+    const slot = document.getElementById('pae-scale-slot');
+    if (slot && !slot.firstChild && typeof paeScaleControl === 'function') slot.appendChild(paeScaleControl());
     const paeRow = document.getElementById('pae-row');
     paeRow.innerHTML = '';
     for (let mi = 0; mi < uniState.modelData.length; mi++) {
@@ -6691,9 +6696,19 @@ function drawAllMaps() {
         item.appendChild(label);
         item.appendChild(canvas);
         paeRow.appendChild(item);
-        drawMapCanvas(canvas, model.pae, model.nTotal, chainSizes, chainNames, bwrColor, 0, 30);
+        drawMapCanvas(canvas, model.pae, model.nTotal, chainSizes, chainNames, pal, 0, 30);
         addPngBtn(item, 'PAE_' + model.label, canvas);
     }
+    drawColorbar('colorbar-pae', pal, 0, 30);
+}
+onPaeScaleChange = () => { if (uniState.modelData && uniState.modelData.length && uniState.modelData[0].pae) drawPaeMaps(); };
+
+function drawAllMaps() {
+    const chainNames = uniState.chainNames || [];
+    const chainSizes = uniState.chainSizes || [];
+
+    // PAE Maps
+    drawPaeMaps();
 
     // LIS Maps
     const lisRow = document.getElementById('lis-row');
@@ -6733,8 +6748,7 @@ function drawAllMaps() {
         addPngBtn(item, 'cLIS_' + model.label, canvas);
     }
 
-    // Colorbars
-    drawColorbar('colorbar-pae', bwrColor, 0, 30);
+    // Colorbars (the PAE bar is drawn by drawPaeMaps, in the chosen scale)
     drawColorbar('colorbar-lis', bluesColor, 0, 1);
     drawColorbar('colorbar-clis', greensColor, 0, 1);
 }
