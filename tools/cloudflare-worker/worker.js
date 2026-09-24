@@ -161,7 +161,8 @@ async function handleBiogrid(reqUrl, allowOrigin, env, ctx) {
   }
 
   const cache = caches.default;
-  const cacheKey = new Request('https://livia-proxy.internal/biogrid-ids/' + taxId + '/' + ids.slice().sort((a, b) => a - b).join(','));
+  // v2: responses carry per-type PubMed ids; bump when the response shape changes so a cached older shape is not served
+  const cacheKey = new Request('https://livia-proxy.internal/biogrid-ids-v2/' + taxId + '/' + ids.slice().sort((a, b) => a - b).join(','));
   const hit = await cache.match(cacheKey);
   if (hit) {
     const h = new Headers(hit.headers);
@@ -195,10 +196,15 @@ async function handleBiogrid(reqUrl, allowOrigin, env, ctx) {
     if (rec.BIOGRID_ID_B) biogridIds[b] = String(rec.BIOGRID_ID_B);
     if (a === b) continue;                                  // a self-interaction is not a subunit pair
     const k = [a, b].sort((x, y) => x - y).join('|');
-    const p = pairs[k] || (pairs[k] = { physical: 0, genetic: 0, pmids: [] });
-    if (String(rec.EXPERIMENTAL_SYSTEM_TYPE || '').toLowerCase() === 'genetic') p.genetic++; else p.physical++;
+    const p = pairs[k] || (pairs[k] = { physical: 0, genetic: 0, pmids: [], pmidsPhysical: [], pmidsGenetic: [] });
+    const genetic = String(rec.EXPERIMENTAL_SYSTEM_TYPE || '').toLowerCase() === 'genetic';
+    if (genetic) p.genetic++; else p.physical++;
     const pm = String(rec.PUBMED_ID || '');
-    if (/^\d+$/.test(pm) && !p.pmids.includes(pm)) p.pmids.push(pm);
+    if (/^\d+$/.test(pm)) {
+      if (!p.pmids.includes(pm)) p.pmids.push(pm);
+      const byType = genetic ? p.pmidsGenetic : p.pmidsPhysical;   // per-type papers for the page's heatmaps
+      if (!byType.includes(pm)) byType.push(pm);
+    }
   }
   const resp = new Response(JSON.stringify({ ids, taxId, pairs, biogridIds }), { status: 200, headers: jsonHeaders({ 'Cache-Control': 'public, max-age=86400', 'X-BG-Cache': 'MISS' }) });
   if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(cacheKey, resp.clone()));

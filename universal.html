@@ -276,7 +276,7 @@
 
         <!-- Reported interactions (MIST) — is this predicted pair already experimentally reported? -->
         <div class="card result-card" id="mist-card" style="display:none;">
-            <h2>Reported Interactions <span style="font-weight:400; font-size:0.8rem; color:#888;">(<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>)</span></h2>
+            <h2>Reported Interactions <span style="font-weight:400; font-size:0.8rem; color:#888;">(<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>, <a href="https://thebiogrid.org/" target="_blank" style="color:#2471A3;">BioGRID</a>)</span></h2>
             <div id="mist-content"></div>
             <div id="mist-link" style="margin-top:0.5rem; font-size:0.82rem;"></div>
         </div>
@@ -5804,17 +5804,23 @@ async function queryMistForPair(){   // name kept (called from identifyChains); 
                 const el = document.getElementById('bg-pairs'); if (!el) return;
                 if (!res || res.error){ el.remove(); return; }   // proxy unavailable/unconfigured — fail quiet, the UniProt link-outs above still stand
                 const also = document.getElementById('bg-also'); if (also) also.innerHTML = bgLine(res.biogridIds);
-                const found = [], missing = [];
+                // The same heatmaps as the MIST card, one per BioGRID evidence type (cell = papers). The proxy
+                // splits PubMed ids by type; a proxy that does not yet is shown as one combined matrix.
+                const split = [...res.pairs.values()].some(p => p.pmidsPhysical || p.pmidsGenetic);
+                const types = split ? [['physical', 'Physical'], ['genetic', 'Genetic']] : [['all', 'Physical + genetic']];
+                const bgMap = new Map();
                 for (let i = 0; i < withGid.length; i++) for (let j = i + 1; j < withGid.length; j++){
-                    const a = withGid[i], b = withGid[j], name = esc(a.sym) + '–' + esc(b.sym);
+                    const a = withGid[i], b = withGid[j];
                     const p = res.pairs.get([String(a.geneId), String(b.geneId)].sort((x, y) => x - y).join('|'));
-                    if (!p){ missing.push(name); continue; }
-                    const kind = p.physical && p.genetic ? 'physical + genetic' : (p.genetic ? 'genetic' : 'physical');
-                    const n = p.pmids.length, label = n ? n + ' paper' + (n === 1 ? '' : 's') + ', ' + kind : kind;
-                    found.push((n ? '<a href="https://pubmed.ncbi.nlm.nih.gov/?term=' + p.pmids.join(',') + '" target="_blank" style="color:#2471A3;">' + name + '</a>' : name) + ' (' + label + ')');
+                    if (!p) continue;
+                    const byType = split ? { physical: new Set(p.pmidsPhysical || []), genetic: new Set(p.pmidsGenetic || []) } : { all: new Set(p.pmids || []) };
+                    for (const t of Object.keys(byType)) if (!byType[t].size) delete byType[t];
+                    if (Object.keys(byType).length) bgMap.set([a.acc, b.acc].sort().join('|'), byType);
                 }
-                el.innerHTML = (found.length ? '<b style="color:#1a5276;">Predicted pairs reported in BioGRID:</b> ' + found.join(', ') : '<span style="color:#999;">None of the predicted pairs are directly reported in BioGRID.</span>')
-                    + (missing.length ? '<div style="color:#aaa; margin-top:2px;">Not found: ' + missing.join(', ') + '</div>' : '');
+                el.style.color = '';
+                el.innerHTML = '<div style="font-size:0.85rem; font-weight:700; color:#1a5276; margin:0.7rem 0 0.35rem;">BioGRID <span style="font-weight:400; font-size:0.78rem; color:#777;">— papers reporting each subunit pair; click a cell to open them in PubMed</span></div>'
+                    + _renderMist(withGid, subs, bgMap, esc, { types, source: 'BioGRID', intro: false });
+                requestAnimationFrame(_layoutMistHeatmaps);
             });
         }
     }
@@ -5870,7 +5876,10 @@ function _mistPairHtml(byType){
         + parts.join(' &middot; ')
         + ' &nbsp;<a href="javascript:void(0)" onclick="var c=document.getElementById(\'mist-card\'); if(c){ c.style.display=\'\'; c.scrollIntoView({behavior:\'smooth\', block:\'center\'}); }" style="color:#2471A3; font-size:0.74rem; white-space:nowrap;">full PMIDs &uarr;</a></div>';
 }
-function _renderMist(withId, subs, pairMap, esc){
+// opts: { types, source, intro } — defaults render the MIST card; the BioGRID matrices below reuse the
+// same heatmaps with their own evidence types and source name.
+function _renderMist(withId, subs, pairMap, esc, opts){
+    const types = (opts && opts.types) || _MIST_TYPES, source = (opts && opts.source) || 'MIST', intro = !(opts && opts.intro === false);
     const pmidLink = (p) => '<a href="https://pubmed.ncbi.nlm.nih.gov/' + p + '/" target="_blank" style="color:#2471A3;">' + p + '</a>';
     const pubmedSet = (ids) => 'https://pubmed.ncbi.nlm.nih.gov/?term=' + ids.join(',');   // comma-joined PMIDs → PubMed shows exactly that set
     const pmidRefs = (list) => {                                        // inline list; ">5" collapses behind a "+N more" toggle so every PMID is viewable
@@ -5895,8 +5904,8 @@ function _renderMist(withId, subs, pairMap, esc){
     const reported = pairs.filter(p => p.byType && Object.keys(p.byType).length);
     const unreported = pairs.filter(p => !(p.byType && Object.keys(p.byType).length));
     if (!reported.length) return warn(pairs.length === 1
-        ? '<strong>No reported interaction</strong> between ' + esc(pairs[0].a.sym) + ' and ' + esc(pairs[0].b.sym) + ' in MIST.'
-        : 'None of the ' + pairs.length + ' subunit pairs is reported in MIST.');
+        ? '<strong>No reported interaction</strong> between ' + esc(pairs[0].a.sym) + ' and ' + esc(pairs[0].b.sym) + ' in ' + source + '.'
+        : 'None of the ' + pairs.length + ' subunit pairs is reported in ' + source + '.');
     // Four heatmaps — one per interaction type. N×N subunit grid; each cell = PMID count for that
     // pair, colored by magnitude (number shown), clickable → PubMed. Scales to large complexes
     // far better than a per-pair row list (a 14-mer is 91 rows but a 14×14 grid).
@@ -5905,7 +5914,7 @@ function _renderMist(withId, subs, pairMap, esc){
     const cnt = (a, b, t) => { const bt = pairMap.get(keyOf(a, b)); const s = bt && bt[t]; return s ? s.size : 0; };
     const idsOf = (a, b, t) => { const bt = pairMap.get(keyOf(a, b)); const s = bt && bt[t]; return s ? [...s] : []; };
     const maxOf = {};                                                  // per-type max, for color normalisation
-    for (const [t] of _MIST_TYPES){ let m = 0; for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) m = Math.max(m, cnt(withId[i], withId[j], t)); maxOf[t] = m; }
+    for (const [t] of types){ let m = 0; for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) m = Math.max(m, cnt(withId[i], withId[j], t)); maxOf[t] = m; }
     const cs = n <= 6 ? 30 : (n <= 10 ? 24 : 19);                      // cell size (px), adaptive to subunit count
     const fs = n <= 10 ? '0.72rem' : '0.64rem';
     const maxLen = withId.reduce((m, s) => Math.max(m, String(s.sym).length), 0);
@@ -5932,21 +5941,21 @@ function _renderMist(withId, subs, pairMap, esc){
     }
     // overflow:hidden (not auto) — we never want a horizontal scrollbar; _layoutMistHeatmaps shrinks
     // --cs so even a single very wide heatmap fits the card. flex-wrap picks 4-up / 2×2 by width.
-    let html = '<div style="font-size:0.78rem; color:#777; margin:0 0 0.5rem;">Each cell is the number of reported papers for that subunit pair (darker = more). <b style="color:#2471A3;">Click a cell to open those papers in PubMed</b>, or expand “Show PMIDs” below to copy the IDs.</div>';
-    html += '<div data-mist-wrap data-natcs="' + cs + '" style="display:flex; flex-wrap:wrap; align-items:flex-start; overflow:hidden; --cs:' + cs + 'px;">' + _MIST_TYPES.map(([t, label]) => heatmap(t, label)).join('') + '</div>';
+    let html = intro ? '<div style="font-size:0.78rem; color:#777; margin:0 0 0.5rem;">Each cell is the number of reported papers for that subunit pair (darker = more). <b style="color:#2471A3;">Click a cell to open those papers in PubMed</b>, or expand “Show PMIDs” below to copy the IDs.</div>' : '';
+    html += '<div data-mist-wrap data-natcs="' + cs + '" style="display:flex; flex-wrap:wrap; align-items:flex-start; overflow:hidden; --cs:' + cs + 'px;">' + types.map(([t, label]) => heatmap(t, label)).join('') + '</div>';
     // PMIDs — collapsed by default so the card stays compact; click a count above to open all papers in
     // PubMed, or expand here to read/copy the raw PMIDs (each links to its paper; Copy grabs them all).
     html += '<details style="margin-top:0.5rem;"><summary style="cursor:pointer; color:#2471A3; font-size:0.8rem;">Show PMIDs</summary><div style="margin-top:0.3rem; font-size:0.78rem; color:#555;">';
     const copyLink = (ids) => '<a href="javascript:void(0)" onclick="navigator.clipboard&&navigator.clipboard.writeText(\'' + ids.join(', ') + '\');this.textContent=\'copied\';setTimeout(()=>this.textContent=\'copy\',1200)" style="color:#888; font-size:0.72rem;">copy</a>';
     for (const p of reported){
         html += '<div style="margin:0.4rem 0;"><b>' + esc(p.a.sym) + ' — ' + esc(p.b.sym) + '</b>';
-        for (const [t, label] of _MIST_TYPES){ const set = p.byType[t]; if (!set || !set.size) continue; const list = [...set];   // one line per evidence category: "copy — Label: pmids", each separately copyable
+        for (const [t, label] of types){ const set = p.byType[t]; if (!set || !set.size) continue; const list = [...set];   // one line per evidence category: "copy — Label: pmids", each separately copyable
             html += '<div style="margin:0.12rem 0 0.12rem 1rem;">' + copyLink(list) + ' — <a href="' + pubmedSet(list) + '" target="_blank" style="color:#2471A3;">' + label + '</a>: ' + pmidRefs(list) + '</div>';
         }
         html += '</div>';
     }
     html += '</div></details>';
-    if (unreported.length) html += '<div style="margin-top:0.4rem; font-size:0.78rem; color:#999;">Not reported in MIST: ' + unreported.map(p => esc(p.a.sym) + '–' + esc(p.b.sym)).join(', ') + '</div>';
+    if (unreported.length) html += '<div style="margin-top:0.4rem; font-size:0.78rem; color:#999;">Not reported in ' + source + ': ' + unreported.map(p => esc(p.a.sym) + '–' + esc(p.b.sym)).join(', ') + '</div>';
     return html;
 }
 // Fit the MIST heatmaps to the card width without ever producing a horizontal scrollbar.
@@ -5954,9 +5963,10 @@ function _renderMist(withId, subs, pairMap, esc){
 // case where a SINGLE heatmap is still wider than the card (very large complexes) — then it
 // shrinks the shared --cs cell size just enough to fit, instead of scrolling or clipping.
 let _mistResizeBound = false;
-function _layoutMistHeatmaps(){
-    const content = document.getElementById('mist-content'); if (!content) return;
-    const wrap = content.querySelector('[data-mist-wrap]'); if (!wrap) return;
+function _layoutMistHeatmaps(){   // every heatmap group in the card: MIST's and BioGRID's
+    document.querySelectorAll('#mist-card [data-mist-wrap]').forEach(_fitMistWrap);
+}
+function _fitMistWrap(wrap){
     const boxes = [...wrap.querySelectorAll('[data-mist-hm]')]; if (!boxes.length) return;
     const avail = wrap.clientWidth; if (avail < 60) return;                 // card hidden / not laid out yet
     const natCs = parseFloat(wrap.dataset.natcs) || 19;
