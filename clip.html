@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LIVIA — cLIP</title>
-<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2/plotly.min.js"></script>
+<script async id="plotly-lib" src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.3/plotly.min.js" onerror="window.__PLOTLY_FAILED = true"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260816"></script>
@@ -1652,6 +1652,24 @@ function pearson(xs, ys){
   return (dx&&dy) ? num/Math.sqrt(dx*dy) : NaN;
 }
 function renderScatter(A){
+  // Plotly (1.2 MB) loads async, so a first visit no longer sits on a blank page until it
+  // arrives. Until it has, hold this plot and redraw from LAST when its script loads; the other
+  // panels render meanwhile. If it cannot load at all (offline report, blocked CDN), say so here
+  // instead of throwing, which used to take the table and cluster panels down with it.
+  if (typeof Plotly === 'undefined'){
+    const el = $('scatter'), tag = $('plotly-lib');
+    const note = (msg) => { if (el) el.innerHTML = '<div class="plotly-wait" style="padding:24px; color:#888; font-size:0.85rem;">' + msg + '</div>'; };
+    if (window.__PLOTLY_FAILED || !tag){ note('Scatter unavailable: the plotting library (Plotly) could not be loaded.'); return; }
+    note('Loading plot…');
+    if (!tag.dataset.waiting){
+      tag.dataset.waiting = '1';
+      const again = () => { if (LAST) renderScatter(LAST); };
+      tag.addEventListener('load', again, { once: true });
+      tag.addEventListener('error', again, { once: true });
+    }
+    return;
+  }
+  { const w = $('scatter') && $('scatter').querySelector('.plotly-wait'); if (w) w.remove(); }
   const { pipe, cl } = A, k = cl.optimalK;
   const cutoff = (A.opts && A.opts.ilisCutoff) || 0.223;
   const xKey = ($('scatter-x') && $('scatter-x').value) || 'iLISA';
