@@ -237,7 +237,7 @@
             <div class="info-box">Click a row to switch models. This updates all visualizations and the script below.</div>
             <input type="hidden" id="seed-select" value="0">
             <label style="font-size:0.78rem; color:#666; display:inline-flex; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem;"><input type="checkbox" id="toggle-lir-cols" onchange="document.getElementById('pairs-table').classList.toggle('show-lir-cols', this.checked)"> Show iLIA/LIR/cLIR columns</label>
-            <label id="toggle-neg-pairs-label" style="display:none; font-size:0.78rem; color:#666; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem 1rem;" title="A pair is negative when none of its models reaches iLIS 0.223 (10% FPR)"><input type="checkbox" id="toggle-neg-pairs" onchange="setNegPairsShown(this.checked)"> Show <span id="neg-pairs-count"></span> negative pairs (best iLIS &lt; 0.223)</label>
+            <label id="toggle-neg-pairs-label" style="display:none; font-size:0.78rem; color:#666; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem 1rem;" title="A pair is negative when it misses both 10% FPR cutoffs: best-model iLIS below 0.223 and average-of-models iLIS below 0.073"><input type="checkbox" id="toggle-neg-pairs" onchange="setNegPairsShown(this.checked)"> Show <span id="neg-pairs-count"></span> negative pairs (best iLIS &lt; 0.223 and average iLIS &lt; 0.073)</label>
             <div style="overflow-x:auto;">
             <table class="data-table" id="pairs-table">
                 <thead><tr><th>Rank/Model</th><th>Pair</th><th>iLIS</th><th>iLISA</th><th>ipSAE</th><th>actifpTM</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th title="Bryant et al. 2022, pure geometric interface, no PAE">pDockQ</th><th title="pDockQ fed this file's own PAE+contact-gated cLIR interface">LIpDockQ</th><th title="Zhu et al. 2023, CA-based interface; mean of the two per-chain directions">pDockQ2</th><th title="pDockQ2's PAE-decay applied to this file's own cLIR interface; mean of the two per-chain directions">LIpDockQ2</th><th class="col-extra">iLIA</th><th class="col-extra">LIR (i/j)</th><th class="col-extra">cLIR (i/j)</th></tr></thead>
@@ -4413,16 +4413,18 @@ function displayResults(results, jobName) {
     }
     const autoSelectIdx = String(bestIdx);
 
-    // A pair is negative when none of its models reaches the 10% FPR iLIS cutoff (best-model iLIS,
-    // same convention the rest of LIVIA's threshold bands use). Collected so larger complexes can
-    // hide them by default -- a 9-subunit complex has 36 pairs x (models + average) rows.
-    const NEG_ILIS = 0.223;
+    // A pair is negative when it misses BOTH 10% FPR iLIS cutoffs: best model < 0.223 and average of
+    // models < 0.073 (either one reaching its cutoff keeps the pair). With a single model there is no
+    // average, so only the best-model cutoff applies. Collected so larger complexes can hide them by
+    // default -- a 9-subunit complex has 36 pairs x (models + average) rows.
+    const NEG_ILIS = 0.223, NEG_ILIS_AVG = 0.073;
     const negPairs = new Set();
     for (const key of pairKeys) {
         const best = hasMultipleModels
             ? Math.max(...perModelSym.map(m => m[key]?.iLIS || 0))
             : (results[key]?.iLIS || 0);
-        if (best < NEG_ILIS - 0.0005) negPairs.add(key);
+        const avgMiss = !hasMultipleModels || (results[key]?.iLIS || 0) < NEG_ILIS_AVG - 0.0005;
+        if (best < NEG_ILIS - 0.0005 && avgMiss) negPairs.add(key);
     }
 
     for (let pi = 0; pi < pairKeys.length; pi++) {
