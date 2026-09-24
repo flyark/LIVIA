@@ -3057,24 +3057,29 @@ function createMonomerMapPanel(container, label, map2d, colorFn, vmin, vmax, tic
     container.appendChild(panel);
 }
 
-// Composite a heatmap canvas + its vertical colorbar + scale labels into a single PNG.
+// Composite a heatmap canvas + its vertical colorbar + scale labels into a single PNG. As on screen, the
+// bar spans the plot (not the whole canvas with its tick-label band) and sits MAP_CBAR_GAP right of it.
+const MAP_CBAR_GAP = 11;   // px between the plot and its colorbar on screen (8px canvas margin + 3px row gap)
 function exportMapWithColorbar(mapCanvas, cbar, tickLabels, displaySize, name) {
-    const S = Math.max(1, Math.round(mapCanvas.height / (displaySize || mapCanvas.height)));
-    const pad = 6 * S, cbarW = cbar.width * S, gap = 8 * S, tickGap = 4 * S;
+    const pb = mapCanvas._plotBox;
+    const S = pb ? mapCanvas.width / (pb.left + pb.size + pb.right) : Math.max(1, Math.round(mapCanvas.height / (displaySize || mapCanvas.height)));
+    const pad = 6 * S, cbarW = cbar.width * S, gap = MAP_CBAR_GAP * S, tickGap = 4 * S;
+    const barX = pb ? (pb.left + pb.size) * S + gap : mapCanvas.width + gap;
+    const barY = pb ? pb.top * S : 0, barH = pb ? pb.size * S : mapCanvas.height;
     const meas = document.createElement('canvas').getContext('2d');
     meas.font = `${11 * S}px sans-serif`;
     let tickW = 0; for (const t of tickLabels) tickW = Math.max(tickW, meas.measureText(String(t)).width);
-    const W = mapCanvas.width + gap + cbarW + tickGap + Math.ceil(tickW) + pad;
+    const W = Math.max(mapCanvas.width, barX + cbarW + tickGap + Math.ceil(tickW)) + pad;
     const H = mapCanvas.height + pad;
     const out = document.createElement('canvas'); out.width = W; out.height = H;
     const ctx = out.getContext('2d');
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
     ctx.drawImage(mapCanvas, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(cbar, 0, 0, cbar.width, cbar.height, mapCanvas.width + gap, 0, cbarW, mapCanvas.height);
+    ctx.drawImage(cbar, 0, 0, cbar.width, cbar.height, barX, barY, cbarW, barH);
     ctx.fillStyle = '#888'; ctx.font = `${11 * S}px sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    const tx = mapCanvas.width + gap + cbarW + tickGap, n = tickLabels.length;
-    tickLabels.forEach((t, i) => { const y = n <= 1 ? mapCanvas.height / 2 : (i / (n - 1)) * mapCanvas.height; ctx.fillText(String(t), tx, Math.max(7 * S, Math.min(mapCanvas.height - 7 * S, y))); });
+    const tx = barX + cbarW + tickGap, n = tickLabels.length;
+    tickLabels.forEach((t, i) => { const y = barY + (n <= 1 ? barH / 2 : (i / (n - 1)) * barH); ctx.fillText(String(t), tx, Math.max(7 * S, Math.min(H - 7 * S, y))); });
     const a = document.createElement('a'); a.href = out.toDataURL('image/png'); a.download = String(name).replace(/[^\w.-]+/g, '_') + '.png'; a.click();
 }
 
@@ -3156,6 +3161,7 @@ function drawMapCanvasSingle(canvas, map2d, n, colorFn, vmin, vmax, regions, ove
     canvas.height = plotPx + topPx + bottomPx;
     canvas.style.width = (displaySize + leftMargin + rightMargin) + 'px';
     canvas.style.height = (displaySize + topMargin + bottomMargin) + 'px';
+    canvas._plotBox = { left: leftMargin, top: topMargin, size: displaySize, right: rightMargin };   // for the PNG export's colorbar
 
     const ctx = canvas.getContext('2d');
     if (!ctx.getSerializedSvg) { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height); }   // white bg for screen/PNG only — SVG export stays transparent

@@ -250,6 +250,15 @@
                 <span style="justify-self:start; margin-left:0.6rem;" title="Length-number font size (1 = default; type any value)">font</span>
                 <input type="number" id="map-size-scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniSizeScale=parseFloat(this.value)||1; redrawMapLabels();">
 
+                <span style="font-weight:600; color:#888;">Domains</span>
+                <label for="map-label-domains" style="justify-self:start; margin-left:0.6rem; cursor:pointer; font-weight:400; color:#555;" title="UniProt/Pfam domain track along the top and left edges of the PAE/LIS/cLIS maps (same source as the Linear/Circular Contact Map domain tracks)">show</label>
+                <input type="checkbox" id="map-label-domains" checked onchange="uniShowMapDom=this.checked; redrawMapLabels();" style="justify-self:start;">
+                <span style="justify-self:start; margin-left:0.6rem;" title="Which sits closer to the plot: the chain/gene name, or the domain track">order</span>
+                <select id="map-label-dom-order" onchange="uniMapDomOrder=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="inside" selected>domains inside</option><option value="outside">name inside</option></select>
+                <span style="justify-self:start; margin-left:0.6rem;" title="Domain box colors: cycle a fixed palette by domain index, or match each domain to its own chain's color">color</span>
+                <select id="map-label-dom-color" onchange="uniMapDomColorMode=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="chain" selected>by subunit</option><option value="domain">by domain</option></select>
+                <span></span><span></span>
+
                 <span style="font-weight:600; color:#888;">Custom</span>
                 <!-- Custom-label editor: spans from the sub-label column (col 2) so the hint/textarea start
                      where "show"/"chip" start — same left edge as the other rows' first control. -->
@@ -2876,6 +2885,7 @@ function displayDimerResults() {
 // MAP DRAWING
 // ============================================================================
 const HIRES = 2;
+const MAP_CBAR_GAP = 11;   // px between a map's plot and its vertical colorbar (same as monomer: 8px margin + 3px gap)
 
 // ---------------------------------------------------------------------------
 // Label Settings — chain/gene NAME + LENGTH rendering on the PAE/LIS/cLIS maps,
@@ -2975,6 +2985,10 @@ let uniLabelDirX = 'horizontal';   // Maps: top (column) name direction — 'hor
 let uniLabelStyle = 'filled';   // Maps: NAME style — 'filled' (chain-color chip, contrast text) | 'text'
 let uniSizeFormat = 'count';  // Maps: length number format — 'count' ("746") | 'range' ("1-746")
 let uniSizeColorMode = 'black';   // Maps: length number color — 'black' | 'chain'
+let uniShowMapDom = true;    // Maps: UniProt/Pfam domain track along the top/left edges — reads chainDomains,
+                              // the same data the Linear/Circular Contact Map domain tracks already use
+let uniMapDomOrder = 'inside';    // 'inside': domain track between the name and the plot; 'outside': at the far edge
+let uniMapDomColorMode = 'chain';    // 'chain': each domain in its chain's color; 'domain': Set2 palette by domain index
 // Text color that reads on a given background (luminance split) — for the filled-chip name style.
 function contrastText(hex) {
     if (!hex || hex[0] !== '#' || hex.length < 7) return '#fff';
@@ -3186,23 +3200,51 @@ function drawFullMapCanvas(canvas, pae, nTotal, chainSizes, chainNames, colorFn,
     const leftStagger = showLeftName && (leftExtent * HIRES > minAdjCenter * 0.92);
     // Small visual gap between a chip and the plot edge.
     const nameGap = filled ? chainFontBase * 0.34 : 2;   // px (pre-HIRES); scales with the font (dynamic)
-    // Horizontal top names centered on a column overflow the plot at the first/last chain → half-width pad.
-    const edgePad = (showTopName && !vertX) ? (effNameW / 2 + 4) : 0;
+    // Horizontal top names are centered on their chain's column, so only the part of a chip that actually
+    // runs past the plot's left/right edge needs a margin. (Reserving half the widest chip on both sides
+    // left ~40px of blank canvas between the plot and its colorbar whenever a gene name was long.)
+    let overL = 0, overR = 0;
+    if (showTopName && !vertX) {
+        const mctx = canvas.getContext('2d'); mctx.font = `bold ${nameFontRaw}px sans-serif`;
+        let c0 = 0;
+        for (let k = 0; k < chainSizes.length; k++) {
+            const mid = (c0 + chainSizes[k] / 2) * displaySize / n;
+            const halfW = (mctx.measureText(resolveMapName(chainNames[k] || String.fromCharCode(65 + k))).width * nameScale + chipWperFont * chainFontBase) / 2;
+            overL = Math.max(overL, halfW - mid);
+            overR = Math.max(overR, mid + halfW - displaySize);
+            c0 += chainSizes[k];
+        }
+    }
+    const edgePadL = overL > 0 ? overL + 2 : 0, edgePadR = overR > 0 ? overR + 2 : 0;
     const leftCols = leftStagger ? 2 : 1;
     // Reserve the left band whenever left names show (chain IDs included), and include the plot gap.
     const leftBandW = showLeftName ? (leftColStep * leftCols + (leftStagger ? 3 : 0) + 4 + nameGap) : 0;
-    const leftMargin = Math.max(20 + leftBandW, edgePad);
+    // UniProt/Pfam domain track (as on universal): one lane on each axis that carries names. ci/cj take
+    // chainDomains.A/B — the same pairing the gene labels and the linear/circular contact maps use.
+    const domsOf = (k) => (k === 0 ? chainDomains.A : k === 1 ? chainDomains.B : null) || [];
+    const DOM_FILL_MAP = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3'];   // Set2, matches the Linear/Circular Contact Map domain palette
+    const showDomTrack = uniShowMapDom && chainSizes.some((_, k) => domsOf(k).length);
+    const domLaneH = Math.max(8, Math.min(14, chainFontBase * 0.8));   // pre-HIRES; loosely follows the label font
+    const domGap = 3;
+    const domBandH = (showDomTrack && showTopName) ? (domLaneH + domGap) : 0;
+    const domBandW = (showDomTrack && showLeftName) ? (domLaneH + domGap) : 0;
+    const domNear = uniMapDomOrder === 'inside';   // 'inside': the track hugs the plot and pushes the name out
+    const labelPushTop = (domBandH && domNear) ? domBandH * HIRES : 0;
+    const labelPushLeft = (domBandW && domNear) ? domBandW * HIRES : 0;
+    const leftMargin = Math.max(20 + leftBandW, edgePadL) + domBandW;
     const rowH = filled ? effLeftH : chainFontBase;                       // per-row vertical extent of a top name
     const nameRows = nameStagger ? 2 : 1;
     const nameBand = (vertX
         ? effNameW + 4                                          // vertical: band as tall as the longest name/chip
         : rowH * nameRows + (nameStagger ? 3 : 0) + 3)          // horizontal: 1–2 rows
         + nameGap;
-    const topMargin = showTopName ? nameBand : 4;
+    const topMargin = (showTopName ? nameBand : 4) + domBandH;
     const sizeRows = sizeStagger ? 2 : 1;
     const sizeBand = tickFontBase * sizeRows + (sizeStagger ? 2 : 0) + 6;
     const bottomMargin = showSize ? Math.max(16, sizeBand) : 6;
-    const rightMargin = edgePad;   // horizontal top names overflow on the right at the last chain
+    const rightMargin = edgePadR;   // only a top name that runs past the plot's right edge
+    // Where the plot sits in the canvas (CSS px) — createMapPanel hangs the colorbar off the plot, not the canvas.
+    canvas._plotBox = { left: leftMargin, top: topMargin, size: displaySize, right: rightMargin };
     const plotPx = displaySize * HIRES;
     const leftPx = leftMargin * HIRES;
     const topPx = topMargin * HIRES;
@@ -3272,12 +3314,12 @@ function drawFullMapCanvas(canvas, pae, nTotal, chainSizes, chainNames, colorFn,
             const leftOff = (leftStagger && k % 2 === 1) ? (leftColStep + 3) * HIRES : 0;
             if (vertY) {
                 ctx.save();
-                ctx.translate(leftPx - clr - halfH - leftOff, chainMid);
+                ctx.translate(leftPx - clr - halfH - leftOff - labelPushLeft, chainMid);
                 ctx.rotate(-Math.PI / 2);
                 drawMapName(ctx, displayName, 0, 0, chainFont, 'center', 'middle', labelCol, chipBg);
                 ctx.restore();
             } else {
-                drawMapName(ctx, displayName, leftPx - clr - padXpx - leftOff, chainMid, chainFont, 'right', 'middle', labelCol, chipBg);
+                drawMapName(ctx, displayName, leftPx - clr - padXpx - leftOff - labelPushLeft, chainMid, chainFont, 'right', 'middle', labelCol, chipBg);
             }
         }
 
@@ -3285,14 +3327,34 @@ function drawFullMapCanvas(canvas, pae, nTotal, chainSizes, chainNames, colorFn,
         if (showTopName) {
             if (vertX) {
                 ctx.save();
-                ctx.translate(leftPx + chainMid, -clr - padXpx);
+                ctx.translate(leftPx + chainMid, -clr - padXpx - labelPushTop);
                 ctx.rotate(-Math.PI / 2);
                 drawMapName(ctx, displayName, 0, 0, chainFont, 'left', 'middle', labelCol, chipBg);
                 ctx.restore();
             } else {
                 const topOff = (nameStagger && k % 2 === 1) ? (chainFont + 3 * HIRES) : 0;
-                drawMapName(ctx, displayName, leftPx + chainMid, -clr - topOff, chainFont, 'center', 'bottom', labelCol, chipBg);
+                drawMapName(ctx, displayName, leftPx + chainMid, -clr - topOff - labelPushTop, chainFont, 'center', 'bottom', labelCol, chipBg);
             }
+        }
+
+        // UniProt/Pfam domain track — chain-local 1-based [start,end] mapped into the same residue-index
+        // pixel space as the heatmap (0-based index i spans [i*scale, (i+1)*scale)).
+        if (showDomTrack) {
+            domsOf(k).forEach((d, di) => {
+                const dStart = Math.max(1, d.start), dEnd = Math.min(chainLen, d.end);
+                if (dEnd < dStart) return;
+                ctx.fillStyle = hexToRgba(uniMapDomColorMode === 'chain' ? chColor : DOM_FILL_MAP[di % DOM_FILL_MAP.length], 0.55);
+                if (domBandH) {
+                    const x0 = leftPx + (chainStart + dStart - 1) * scale, x1 = leftPx + (chainStart + dEnd) * scale;
+                    const y0 = domNear ? (-clr - domLaneH * HIRES) : -topPx;
+                    ctx.fillRect(x0, y0, Math.max(1, x1 - x0), domLaneH * HIRES);
+                }
+                if (domBandW) {
+                    const y0 = (chainStart + dStart - 1) * scale, y1 = (chainStart + dEnd) * scale;
+                    const x0 = domNear ? (leftPx - clr - domLaneH * HIRES) : (leftPx - (leftBandW + domGap) * HIRES - domLaneH * HIRES);
+                    ctx.fillRect(x0, y0, domLaneH * HIRES, Math.max(1, y1 - y0));
+                }
+            });
         }
 
         // chain length on the bottom edge — format (count "746" / range "1-746"), color, staggered by its font.
@@ -3379,13 +3441,17 @@ function createMapPanel(parentEl, label, mapCanvas, displaySize, colorFn, vmin, 
     panel.appendChild(lbl);
 
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex; align-items:flex-start; gap:3px;';
+    row.style.cssText = 'display:flex; align-items:flex-start;';
 
     row.appendChild(mapCanvas);
 
-    // Vertical colorbar + tick labels
+    // Vertical colorbar + tick labels, hung off the PLOT rather than the canvas: its top meets the plot's
+    // top edge (below the name/domain bands) and it sits MAP_CBAR_GAP right of the plot. The negative
+    // margin reaches over any blank top-name overhang on the canvas's right, which lies above the plot.
+    const pb = mapCanvas._plotBox || { top: 0, right: 0 };
+    row.style.minWidth = mapCanvas.style.width;   // never narrower than the canvas itself
     const cbarWrap = document.createElement('div');
-    cbarWrap.style.cssText = 'display:flex; gap:2px;';
+    cbarWrap.style.cssText = `display:flex; gap:2px; margin-top:${pb.top}px; margin-left:${MAP_CBAR_GAP - pb.right}px;`;
 
     const cbar = document.createElement('canvas');
     cbar.width = 14;
@@ -3423,24 +3489,28 @@ function createMapPanel(parentEl, label, mapCanvas, displaySize, colorFn, vmin, 
     parentEl.appendChild(panel);
 }
 
-// Composite a heatmap canvas + its vertical colorbar + scale labels into a single PNG.
+// Composite a heatmap canvas + its vertical colorbar + scale labels into a single PNG. As on screen, the
+// bar spans the plot (not the whole canvas with its label bands) and sits MAP_CBAR_GAP right of it.
 function exportMapWithColorbar(mapCanvas, cbar, tickLabels, displaySize, name) {
-    const S = Math.max(1, Math.round(mapCanvas.height / (displaySize || mapCanvas.height)));
-    const pad = 6 * S, cbarW = cbar.width * S, gap = 8 * S, tickGap = 4 * S;
+    const pb = mapCanvas._plotBox;
+    const S = pb ? mapCanvas.width / (pb.left + pb.size + pb.right) : Math.max(1, Math.round(mapCanvas.height / (displaySize || mapCanvas.height)));
+    const pad = 6 * S, cbarW = cbar.width * S, gap = MAP_CBAR_GAP * S, tickGap = 4 * S;
+    const barX = pb ? (pb.left + pb.size) * S + gap : mapCanvas.width + gap;
+    const barY = pb ? pb.top * S : 0, barH = pb ? pb.size * S : mapCanvas.height;
     const meas = document.createElement('canvas').getContext('2d');
     meas.font = `${11 * S}px sans-serif`;
     let tickW = 0; for (const t of tickLabels) tickW = Math.max(tickW, meas.measureText(String(t)).width);
-    const W = mapCanvas.width + gap + cbarW + tickGap + Math.ceil(tickW) + pad;
+    const W = Math.max(mapCanvas.width, barX + cbarW + tickGap + Math.ceil(tickW)) + pad;
     const H = mapCanvas.height + pad;
     const out = document.createElement('canvas'); out.width = W; out.height = H;
     const ctx = out.getContext('2d');
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
     ctx.drawImage(mapCanvas, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(cbar, 0, 0, cbar.width, cbar.height, mapCanvas.width + gap, 0, cbarW, mapCanvas.height);
+    ctx.drawImage(cbar, 0, 0, cbar.width, cbar.height, barX, barY, cbarW, barH);
     ctx.fillStyle = '#888'; ctx.font = `${11 * S}px sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    const tx = mapCanvas.width + gap + cbarW + tickGap, n = tickLabels.length;
-    tickLabels.forEach((t, i) => { const y = n <= 1 ? mapCanvas.height / 2 : (i / (n - 1)) * mapCanvas.height; ctx.fillText(String(t), tx, Math.max(7 * S, Math.min(mapCanvas.height - 7 * S, y))); });
+    const tx = barX + cbarW + tickGap, n = tickLabels.length;
+    tickLabels.forEach((t, i) => { const y = barY + (n <= 1 ? barH / 2 : (i / (n - 1)) * barH); ctx.fillText(String(t), tx, Math.max(7 * S, Math.min(H - 7 * S, y))); });
     const a = document.createElement('a'); a.href = out.toDataURL('image/png'); a.download = String(name).replace(/[^\w.-]+/g, '_') + '.png'; a.click();
 }
 
@@ -3470,9 +3540,10 @@ function buildFullClisMap(pae, contact, nUse, nTotal, paeCutoff) {
     return map;
 }
 
-// Estimate the per-panel horizontal label footprint (left + right margin) at the max on-screen name
-// font, so drawAllMaps can reserve it and the panels don't overflow the card. Mirrors the leftMargin /
-// rightMargin math inside drawFullMapCanvas; over-estimating only shrinks the maps slightly (safe).
+// Estimate the per-panel horizontal label footprint at the max on-screen name font, so drawAllMaps can
+// reserve it and the panels don't overflow the card. Mirrors the leftMargin math inside
+// drawFullMapCanvas (the right overhang doesn't widen a panel: its colorbar reaches over it);
+// over-estimating only shrinks the maps slightly (safe).
 function estimateMapLabelMargin(chainNames) {
     const font = 12 * (uniLabelScale > 0 ? uniLabelScale : 1);   // max on-screen name font
     const mc = document.createElement('canvas').getContext('2d');
@@ -3489,8 +3560,9 @@ function estimateMapLabelMargin(chainNames) {
     const edgePad = (showTopName && uniLabelDirX !== 'vertical') ? (effNameW / 2 + 4) : 0;
     const leftColStep = vertY ? effLeftH : effNameW;
     const leftBandW = showLeftName ? (leftColStep * 2 + 3 + 4 + nameGap) : 0;   // allow for a staggered 2nd column
-    const leftMargin = Math.max(20 + leftBandW, edgePad);
-    return leftMargin + edgePad;   // rightMargin == edgePad
+    const hasDom = uniShowMapDom && showLeftName && ((chainDomains.A || []).length || (chainDomains.B || []).length);
+    const domBandW = hasDom ? Math.max(8, Math.min(14, font * 0.8)) + 3 : 0;
+    return Math.max(20 + leftBandW, edgePad) + domBandW;
 }
 
 function drawAllMaps() {
