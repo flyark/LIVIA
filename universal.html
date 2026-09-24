@@ -5786,6 +5786,29 @@ async function queryMistForPair(){   // name kept (called from identifyChains); 
     const epoch = uniState.loadEpoch;
     await Promise.all(subs.map(async s => { const x = await _accToXrefs(s.acc); s.geneId = x.geneId; s.bioGridId = x.bioGridId; s.bioGridN = x.bioGridN; s.taxId = x.taxId; }));   // accession → NCBI Gene ID (MIST) + BioGRID xref
     if (uniState.loadEpoch !== epoch) return;                          // a new prediction loaded mid-query
+    const withId = subs.filter(s => s.geneId);
+    // MIST and BioGRID answer independently. The card shows ONE set of heatmaps with both merged — BioGRID's
+    // physical evidence joins MIST's PPI, its genetic evidence MIST's Genetic (GI); a paper reported by both
+    // counts once — drawn when MIST settles and redrawn if BioGRID arrives later.
+    const rep = { mist: null, mistError: null, mistDone: false, bg: null };
+    const drawReported = () => {
+        if (uniState.loadEpoch !== epoch || !rep.mistDone) return;
+        if (!rep.mist && !rep.bg){ content.innerHTML = '<span style="color:#999; font-size:0.85rem;">Could not query MIST: ' + esc(rep.mistError || 'no answer') + '</span>'; return; }
+        const merged = new Map(), src = new Map();                     // src: pair → type → { MIST: n, BioGRID: n } for the cell tooltips
+        const add = (map, name) => { if (!map) return; for (const [key, byType] of map){
+            const m = merged.get(key) || {}, s = src.get(key) || {}; merged.set(key, m); src.set(key, s);
+            for (const [t, set] of Object.entries(byType)){ const u = m[t] || (m[t] = new Set()); set.forEach(p => u.add(p)); (s[t] || (s[t] = {}))[name] = set.size; } } };
+        add(rep.mist, 'MIST'); add(rep.bg, 'BioGRID');
+        const names = rep.bg ? (rep.mist ? 'MIST + BioGRID' : 'BioGRID') : 'MIST';
+        content.innerHTML = _renderMist(withId, subs, merged, esc, {
+            source: rep.bg && rep.mist ? 'MIST or BioGRID' : names,
+            introExtra: rep.bg ? (rep.mist ? ' MIST and BioGRID are combined; a paper reported by both counts once.' : ' From BioGRID (MIST did not answer).') : '',
+            cellNote: rep.bg ? (a, b, t) => { const s = (src.get([a.acc, b.acc].sort().join('|')) || {})[t] || {}; return ' (' + Object.entries(s).map(([k, n]) => k + ' ' + n).join(' · ') + ')'; } : null,
+        });
+        _bindMistResize(); requestAnimationFrame(_layoutMistHeatmaps);   // fit heatmaps to card width, no h-scroll
+        uniState.mistPairMap = merged; uniState.reportedSources = names;   // per-pair reported interactions → also surfaced under each linear contact map
+        if (typeof buildLinearContactMaps === 'function') buildLinearContactMaps();
+    };
     if (linkEl){                                                        // BioGRID cross-reference — shown independent of MIST outcome, since MIST's coverage skews toward a few reference organisms
         // A subunit is linked when UniProt cross-references its BioGRID entry (with UniProt's interactor
         // count) or when the Gene-ID pair check below finds it in BioGRID.
@@ -5796,35 +5819,26 @@ async function queryMistForPair(){   // name kept (called from identifyChains); 
                     + (s.bioGridN != null ? ' (' + s.bioGridN + ' interactor' + (s.bioGridN == 1 ? '' : 's') + ')' : '')).join(', ') : '';
         };
         linkEl.innerHTML = '<div id="bg-also" style="color:#888;">' + bgLine({}) + '</div>';
-        const withGid = subs.filter(s => s.geneId);
-        if (withGid.length >= 2){
+        if (withId.length >= 2){
             linkEl.innerHTML += '<div id="bg-pairs" style="color:#888; margin-top:2px;">Checking BioGRID for reported pairs among these subunits…</div>';
-            _biogridPairCheck(withGid).then(res => {
+            _biogridPairCheck(withId).then(res => {
                 if (uniState.loadEpoch !== epoch) return;
-                const el = document.getElementById('bg-pairs'); if (!el) return;
-                if (!res || res.error){ el.remove(); return; }   // proxy unavailable/unconfigured — fail quiet, the UniProt link-outs above still stand
+                const el = document.getElementById('bg-pairs'); if (el) el.remove();
+                if (!res || res.error) return;                          // proxy unavailable/unconfigured — fail quiet, MIST and the UniProt link-outs still stand
                 const also = document.getElementById('bg-also'); if (also) also.innerHTML = bgLine(res.biogridIds);
-                // The same heatmaps as the MIST card, one per BioGRID evidence type (cell = papers). The proxy
-                // splits PubMed ids by type; a proxy that does not yet is shown as one combined matrix.
-                const split = [...res.pairs.values()].some(p => p.pmidsPhysical || p.pmidsGenetic);
-                const types = split ? [['physical', 'Physical'], ['genetic', 'Genetic']] : [['all', 'Physical + genetic']];
-                const bgMap = new Map();
-                for (let i = 0; i < withGid.length; i++) for (let j = i + 1; j < withGid.length; j++){
-                    const a = withGid[i], b = withGid[j];
+                const bgMap = new Map();                                // same keys and type names as MIST's map, so the two merge cell for cell
+                for (let i = 0; i < withId.length; i++) for (let j = i + 1; j < withId.length; j++){
+                    const a = withId[i], b = withId[j];
                     const p = res.pairs.get([String(a.geneId), String(b.geneId)].sort((x, y) => x - y).join('|'));
                     if (!p) continue;
-                    const byType = split ? { physical: new Set(p.pmidsPhysical || []), genetic: new Set(p.pmidsGenetic || []) } : { all: new Set(p.pmids || []) };
+                    const byType = { ppi: new Set(p.pmidsPhysical || []), genetic: new Set(p.pmidsGenetic || []) };
                     for (const t of Object.keys(byType)) if (!byType[t].size) delete byType[t];
                     if (Object.keys(byType).length) bgMap.set([a.acc, b.acc].sort().join('|'), byType);
                 }
-                el.style.color = '';
-                el.innerHTML = '<div style="font-size:0.85rem; font-weight:700; color:#1a5276; margin:0.7rem 0 0.35rem;">BioGRID <span style="font-weight:400; font-size:0.78rem; color:#777;">— papers reporting each subunit pair; click a cell to open them in PubMed</span></div>'
-                    + _renderMist(withGid, subs, bgMap, esc, { types, source: 'BioGRID', intro: false });
-                requestAnimationFrame(_layoutMistHeatmaps);
+                rep.bg = bgMap; drawReported();
             });
         }
     }
-    const withId = subs.filter(s => s.geneId);
     if (!withId.length){ content.innerHTML = '<span style="color:#999; font-size:0.85rem;">No NCBI Gene ID for these chains — cannot query MIST.</span>'; return; }
     try {
         await Promise.all(withId.map(async s => { s.results = await _mistInteractions(s.geneId); }));   // one query per subunit
@@ -5844,13 +5858,12 @@ async function queryMistForPair(){   // name kept (called from identifyChains); 
                 if (r.Reference) String(r.Reference).split(';').map(p => p.trim()).filter(Boolean).forEach(p => bt[t].add(p));
             }
         }
-        content.innerHTML = _renderMist(withId, subs, pairMap, esc);
-        _bindMistResize(); requestAnimationFrame(_layoutMistHeatmaps);   // fit heatmaps to card width, no h-scroll
-        uniState.mistPairMap = pairMap;   // per-pair reported interactions → also surfaced under each linear contact map
-        if (typeof buildLinearContactMaps === 'function') buildLinearContactMaps();
+        rep.mist = pairMap;
         // (no per-protein deep link: MIST is a JS app with no stable gene-page URL. The header links to
         //  the MIST tool, and each count links to PubMed for that pair's papers.)
-    } catch (e){ content.innerHTML = '<span style="color:#999; font-size:0.85rem;">Could not query MIST: ' + esc(e.message) + '</span>'; }
+    } catch (e){ rep.mistError = e.message; }
+    if (uniState.loadEpoch !== epoch) return;
+    rep.mistDone = true; drawReported();
 }
 let _mistUid = 0;
 // Per-pair MIST for the Linear Contact Map: look up a pair's reported interactions (built by
@@ -5872,14 +5885,17 @@ function _mistPairHtml(byType){
     for (const [t, label] of _MIST_TYPES){ const set = byType[t]; if (set && set.size){ const list = [...set];
         parts.push(_mistEsc(label) + ' <a href="' + pubmedSet(list) + '" target="_blank" title="Open all ' + list.length + ' papers in PubMed" style="color:#2471A3; font-weight:700; text-decoration:none;">' + list.length + '</a>'); } }
     return '<div style="margin-top:6px; font-size:0.78rem; color:#555; background:#f6f9fc; border-left:3px solid #2471A3; padding:6px 10px; border-radius:0 5px 5px 0;">'
-        + '<b style="color:#1a5276;">Reported in <a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#1a5276;">MIST</a></b>: '
+        + '<b style="color:#1a5276;">Reported in ' + (uniState.reportedSources || 'MIST').split(' + ').map(s => s === 'BioGRID'
+            ? '<a href="https://thebiogrid.org/" target="_blank" style="color:#1a5276;">BioGRID</a>'
+            : '<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#1a5276;">MIST</a>').join(' + ') + '</b>: '
         + parts.join(' &middot; ')
         + ' &nbsp;<a href="javascript:void(0)" onclick="var c=document.getElementById(\'mist-card\'); if(c){ c.style.display=\'\'; c.scrollIntoView({behavior:\'smooth\', block:\'center\'}); }" style="color:#2471A3; font-size:0.74rem; white-space:nowrap;">full PMIDs &uarr;</a></div>';
 }
-// opts: { types, source, intro } — defaults render the MIST card; the BioGRID matrices below reuse the
-// same heatmaps with their own evidence types and source name.
+// opts: { types, source, intro, introExtra, cellNote } — defaults render MIST alone; queryMistForPair passes
+// the merged MIST + BioGRID map with its source name, an intro sentence, and a per-source cell tooltip.
 function _renderMist(withId, subs, pairMap, esc, opts){
     const types = (opts && opts.types) || _MIST_TYPES, source = (opts && opts.source) || 'MIST', intro = !(opts && opts.intro === false);
+    const introExtra = (opts && opts.introExtra) || '', cellNote = (opts && opts.cellNote) || null;
     const pmidLink = (p) => '<a href="https://pubmed.ncbi.nlm.nih.gov/' + p + '/" target="_blank" style="color:#2471A3;">' + p + '</a>';
     const pubmedSet = (ids) => 'https://pubmed.ncbi.nlm.nih.gov/?term=' + ids.join(',');   // comma-joined PMIDs → PubMed shows exactly that set
     const pmidRefs = (list) => {                                        // inline list; ">5" collapses behind a "+N more" toggle so every PMID is viewable
@@ -5932,7 +5948,7 @@ function _renderMist(withId, subs, pairMap, esc, opts){
             for (let j = 0; j < n; j++){
                 if (i === j){ h += '<td style="width:var(--cs); height:var(--cs); background:#eceff2; border:1px solid #fff;"></td>'; continue; }
                 const c = cnt(withId[i], withId[j], t);
-                if (c) h += '<td style="padding:0; border:1px solid #fff;"><a href="' + pubmedSet(idsOf(withId[i], withId[j], t)) + '" target="_blank" title="' + esc(withId[i].sym) + ' – ' + esc(withId[j].sym) + ': ' + c + ' paper' + (c > 1 ? 's' : '') + ' — open in PubMed" style="display:flex; align-items:center; justify-content:center; width:var(--cs); height:var(--cs); font-size:min(0.72rem, calc(var(--cs) * 0.5)); text-decoration:none; font-weight:700; ' + heat(c, max) + '">' + c + '</a></td>';
+                if (c) h += '<td style="padding:0; border:1px solid #fff;"><a href="' + pubmedSet(idsOf(withId[i], withId[j], t)) + '" target="_blank" title="' + esc(withId[i].sym) + ' – ' + esc(withId[j].sym) + ': ' + c + ' paper' + (c > 1 ? 's' : '') + (cellNote ? cellNote(withId[i], withId[j], t) : '') + ' — open in PubMed" style="display:flex; align-items:center; justify-content:center; width:var(--cs); height:var(--cs); font-size:min(0.72rem, calc(var(--cs) * 0.5)); text-decoration:none; font-weight:700; ' + heat(c, max) + '">' + c + '</a></td>';
                 else h += '<td style="width:var(--cs); height:var(--cs); border:1px solid #fff; text-align:center; ' + heat(0, max) + '">·</td>';
             }
             h += '</tr>';
@@ -5941,7 +5957,7 @@ function _renderMist(withId, subs, pairMap, esc, opts){
     }
     // overflow:hidden (not auto) — we never want a horizontal scrollbar; _layoutMistHeatmaps shrinks
     // --cs so even a single very wide heatmap fits the card. flex-wrap picks 4-up / 2×2 by width.
-    let html = intro ? '<div style="font-size:0.78rem; color:#777; margin:0 0 0.5rem;">Each cell is the number of reported papers for that subunit pair (darker = more). <b style="color:#2471A3;">Click a cell to open those papers in PubMed</b>, or expand “Show PMIDs” below to copy the IDs.</div>' : '';
+    let html = intro ? '<div style="font-size:0.78rem; color:#777; margin:0 0 0.5rem;">Each cell is the number of reported papers for that subunit pair (darker = more).' + introExtra + ' <b style="color:#2471A3;">Click a cell to open those papers in PubMed</b>, or expand “Show PMIDs” below to copy the IDs.</div>' : '';
     html += '<div data-mist-wrap data-natcs="' + cs + '" style="display:flex; flex-wrap:wrap; align-items:flex-start; overflow:hidden; --cs:' + cs + 'px;">' + types.map(([t, label]) => heatmap(t, label)).join('') + '</div>';
     // PMIDs — collapsed by default so the card stays compact; click a count above to open all papers in
     // PubMed, or expand here to read/copy the raw PMIDs (each links to its paper; Copy grabs them all).
