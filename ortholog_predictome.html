@@ -213,9 +213,9 @@
             </div>
         </div>
 
-        <!-- Known Interactions (MIST) -->
+        <!-- Reported Interactions (MIST + BioGRID, js/livia-reported.js) -->
         <div class="card result-card" id="mist-card" style="display:none;">
-            <h2>Reported Interactions <span style="font-weight:400; font-size:0.8rem; color:#888;">(<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>)</span></h2>
+            <h2>Reported Interactions <span style="font-weight:400; font-size:0.8rem; color:#888;">(<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>, <a href="https://thebiogrid.org/" target="_blank" style="color:#2471A3;">BioGRID</a>)</span></h2>
             <div id="mist-content"></div>
             <div id="mist-link" style="margin-top:0.5rem; font-size:0.82rem;"></div>
         </div>
@@ -502,6 +502,7 @@
 </div>
 
 <script src="js/livia-core.js?v=20260924"></script>
+<script src="js/livia-reported.js?v=20260924"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260716e"></script>
 <script src="js/livia-colors.js?v=20260924"></script>
@@ -1772,6 +1773,7 @@ async function showPaeMap() {
     }
 }
 
+let _flyMistToken = 0;   // a newer pair's query supersedes an older one still in flight
 async function queryMIST() {
     const card = document.getElementById('mist-card');
     const content = document.getElementById('mist-content');
@@ -1802,81 +1804,17 @@ async function queryMIST() {
 
     if (!id1 || !id2) { card.style.display = 'none'; return; }
 
-    content.innerHTML = '<span style="color:#888; font-size:0.85rem;">Querying MIST for ' + esc(sym1) + ' \u2014 ' + esc(sym2) + '...</span>';
+    // MIST + BioGRID, merged into the same heatmap card as universal (js/livia-reported.js). Keyed by NCBI
+    // Gene ID, which this page already has; a homodimer is one gene in two copies (its self-interaction).
     card.style.display = '';
-
-    try {
-        const types = 'ppi,interolog,genetic,interolog-genetic';
-        const resp = await fetchTextViaProxy(`https://www.flyrnai.org/tools/mist/api/get_interactions/${id1}/${types}`);
-        const data = resp ? JSON.parse(resp) : null;
-        const allResults = data?.mist_data?.results || [];
-
-        const seen = new Set();
-        const pairResults = allResults.filter(r => {
-            if (r.GeneA != id2 && r.GeneB != id2) return false;
-            const key = [r.Interaction_type, r.Rank, r.Reference, r.TaxID_interolog || ''].join('|');
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
-
-        const byType = { ppi: [], genetic: [], interolog: [], 'interolog-genetic': [] };
-        for (const r of pairResults) byType[r.Interaction_type]?.push(r);
-
-        const hasPPI = byType.ppi.length > 0;
-        const hasGenetic = byType.genetic.length > 0;
-        const hasInterolog = byType.interolog.length > 0;
-        const hasInterologGI = byType['interolog-genetic'].length > 0;
-        const hasAny = hasPPI || hasGenetic || hasInterolog || hasInterologGI;
-
-        let html = '';
-
-        if (!hasAny) {
-            html += '<div style="background:#fff3cd; border-left:4px solid #ffc107; padding:0.6rem 0.8rem; border-radius:0 6px 6px 0; font-size:0.85rem; color:#856404;">';
-            html += '<strong>No reported interaction</strong> between ' + esc(sym1) + ' and ' + esc(sym2) + ' in MIST.';
-            html += '</div>';
-        } else {
-            html += '<table style="font-size:0.82rem; width:100%; border-collapse:collapse;">';
-            html += '<thead><tr style="background:#f8f9fa;"><th style="padding:0.4rem 0.6rem; text-align:left;">Type</th><th style="padding:0.4rem 0.6rem; text-align:center;">Papers</th><th style="padding:0.4rem 0.6rem; text-align:left;">PMID</th></tr></thead>';
-            html += '<tbody>';
-
-            const typeLabels = { ppi: 'PPI', genetic: 'Genetic', interolog: 'Interolog PPI', 'interolog-genetic': 'Interolog GI' };
-            const makePmidLink = (p) => '<a href="https://pubmed.ncbi.nlm.nih.gov/' + p + '/" target="_blank" style="color:#2471A3;">' + p + '</a>';
-
-            for (const [type, records] of Object.entries(byType)) {
-                if (records.length === 0) continue;
-                const allPmids = new Set();
-                for (const r of records) {
-                    if (r.Reference) String(r.Reference).split(';').map(p => p.trim()).filter(Boolean).forEach(p => allPmids.add(p));
-                }
-                const pmids = [...allPmids];
-                let pmidHtml = '\u2014';
-                if (pmids.length > 0) {
-                    if (pmids.length <= 5) {
-                        pmidHtml = pmids.map(makePmidLink).join(', ');
-                    } else {
-                        const id = 'pmid_' + Math.random().toString(36).slice(2, 8);
-                        pmidHtml = pmids.slice(0, 5).map(makePmidLink).join(', ') +
-                            ' <a href="javascript:void(0)" onclick="document.getElementById(\'' + id + '\').style.display=\'\';this.style.display=\'none\'" style="color:#888; font-size:0.72rem;">+' + (pmids.length - 5) + ' more</a>' +
-                            '<span id="' + id + '" style="display:none;">, ' + pmids.slice(5).map(makePmidLink).join(', ') + '</span>';
-                    }
-                }
-
-                html += '<tr style="border-top:1px solid #eee;">';
-                html += '<td style="padding:0.4rem 0.6rem; white-space:nowrap;">' + typeLabels[type] + '</td>';
-                html += '<td style="padding:0.4rem 0.6rem; text-align:center; font-weight:600;">' + pmids.length + '</td>';
-                html += '<td style="padding:0.4rem 0.6rem; font-size:0.78rem;">' + pmidHtml + '</td>';
-                html += '</tr>';
-            }
-            html += '</tbody></table>';
-        }
-
-        content.innerHTML = html;
-        linkEl.innerHTML = '';
-
-    } catch (e) {
-        content.innerHTML = '<span style="color:#999; font-size:0.85rem;">Could not query MIST: ' + esc(e.message) + '</span>';
-    }
+    const token = ++_flyMistToken;
+    // Each gene's species: the two taxa ending its details URL (…/SET_n/<taxon1>/<taxon2>/), else the species picker.
+    const tx = (flyBaseUrl || '').match(/\/(\d+)\/(\d+)\/?$/) || [];
+    const tax1 = tx[1] || getSpeciesId(), tax2 = tx[2] || tax1;
+    const g1 = String(id1), g2 = String(id2);
+    const subs = g1 === g2 ? [{ key: 'g' + g1, geneId: g1, sym: sym1, taxId: tax1, copies: 2 }]
+        : [{ key: 'g' + g1, geneId: g1, sym: sym1, taxId: tax1 }, { key: 'g' + g2, geneId: g2, sym: sym2, taxId: tax2 }];
+    return LiviaReported.query({ subs, content, linkEl, isStale: () => token !== _flyMistToken });
 }
 
 async function fetchRankPdb(rankNum) {
