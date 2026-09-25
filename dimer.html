@@ -1344,7 +1344,7 @@ function buildDimerContactMap() {
         LiviaMaps.strokeFadeCubic(ctx, ax, barY_A + barH, ax, midY, bx, midY, bx, barY_B, hexToRgba(colors.clir_a, alpha), hexToRgba(colors.clir_b, alpha), 1);
     }
 
-    { const _cc = document.getElementById('contact-count-text'); if (_cc) _cc.textContent = `${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`; }
+    { const _cc = document.getElementById('contact-count-text'); if (_cc) _cc.textContent = `${contacts.length} cLIR contact pairs (C\u03B2 \u2264 ${contactDist} \u00C5)`; }
 
     // Domain palettes (used for both canvas drawing and legend)
     const domPalette = [

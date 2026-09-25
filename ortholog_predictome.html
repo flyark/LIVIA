@@ -2610,7 +2610,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
         LiviaMaps.strokeFadeCubic(ctx, ax, barY_A + barH, ax, midY, bx, midY, bx, barY_B, hexToRgba(colA, alpha), hexToRgba(colB, alpha), 1);
     }
 
-    { const _cc = document.getElementById('contact-count-text'); if (_cc) _cc.textContent = `${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`; }
+    { const _cc = document.getElementById('contact-count-text'); if (_cc) _cc.textContent = `${contacts.length} cLIR contact pairs (C\u03B2 \u2264 ${contactDist} \u00C5)`; }
 
     // Domain annotations
     const domPalette = ['rgba(102,194,165,0.35)','rgba(252,141,98,0.35)','rgba(141,160,203,0.35)','rgba(231,138,195,0.35)','rgba(166,216,84,0.35)','rgba(255,217,47,0.35)','rgba(229,196,148,0.35)','rgba(179,179,179,0.35)'];

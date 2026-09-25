@@ -3260,7 +3260,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     }
 
     // Contact-count line moved to the HTML below (kept out of the exported figure)
-    { const _cc = document.getElementById('contact-count-text'); if (_cc) _cc.textContent = `${contacts.length} cLIR contact pairs (C\u03B2 < ${contactDist} \u00C5)`; }
+    { const _cc = document.getElementById('contact-count-text'); if (_cc) _cc.textContent = `${contacts.length} cLIR contact pairs (C\u03B2 \u2264 ${contactDist} \u00C5)`; }
 
     // Domain annotations
     const domPalette = [

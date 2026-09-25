@@ -260,7 +260,7 @@
     <div class="card" id="pair-card">
       <h2>Interaction Residues</h2>
       <div class="muted">The interface residues on each protein, taken from the lis.py indices. No structure file needed.<br>
-        <b>LIR</b> = local interaction residue (PAE &lt; 12&nbsp;&Aring;); <b>cLIR</b> = contact LIR (PAE &lt; 12&nbsp;&Aring; &amp; C&beta; &lt; 8&nbsp;&Aring;).</div>
+        <b>LIR</b> = local interaction residue (PAE &le; 12&nbsp;&Aring;); <b>cLIR</b> = contact LIR (PAE &le; 12&nbsp;&Aring; &amp; C&beta; &le; 8&nbsp;&Aring;).</div>
       <h3 style="margin-top:.9rem">Interface map</h3>
       <div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin:.4rem 0 .2rem">
         <label style="margin:0">partner <select id="pair-partner" style="max-width:340px"></select></label>
@@ -271,7 +271,7 @@
       <div id="pair-map-wrap"><canvas id="pair-canvas"></canvas></div>
       <div id="pair-seq" style="margin-top:1rem; border-top:1px solid var(--line, #e2e6ea); padding-top:.8rem">
         <h3 style="margin:0 0 .2rem; display:flex; align-items:baseline; gap:.55rem; flex-wrap:wrap">Sequence viewer <label style="font-size:.78rem; font-weight:400; color:#556"><select id="pair-seq-rank" title="model rank from the prediction — ColabFold/AlphaFold-Multimer rank by ipTM (rank 1 = top model)" style="font:inherit; padding:1px 5px"></select></label></h3>
-        <div class="muted" style="font-size:.8rem">Light background = LIR (PAE &lt; 12&nbsp;&Aring;). Dark background with white text = cLIR (PAE &lt; 12&nbsp;&Aring; &amp; C&beta; &lt; 8&nbsp;&Aring;).</div>
+        <div class="muted" style="font-size:.8rem">Light background = LIR (PAE &le; 12&nbsp;&Aring;). Dark background with white text = cLIR (PAE &le; 12&nbsp;&Aring; &amp; C&beta; &le; 8&nbsp;&Aring;).</div>
         <div id="pair-seq-msg" class="muted" style="font-size:.82rem; margin-top:.5rem"></div>
         <div id="pair-seq-body" style="font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace; margin-top:.5rem; overflow-x:auto"></div>
       </div>
@@ -1281,8 +1281,8 @@ function drawPairTracks(cv, A, partner){
   };
   let x = padL;
   x = chip(x, [PAIR_COL.q.base], 'not in interface');
-  x = chip(x, [PAIR_COL.q.lir, PAIR_COL.p.lir], 'LIR (PAE<12Å)');
-  x = chip(x, [PAIR_COL.q.clir, PAIR_COL.p.clir], 'cLIR (PAE<12Å & Cβ<8Å)');
+  x = chip(x, [PAIR_COL.q.lir, PAIR_COL.p.lir], 'LIR (PAE≤12Å)');
+  x = chip(x, [PAIR_COL.q.clir, PAIR_COL.p.clir], 'cLIR (PAE≤12Å & Cβ≤8Å)');
   if (qDoms.length || pDoms.length){ ctx.fillStyle = '#8579b8'; ctx.fillRect(x, y, 10, 10);
     ctx.fillStyle = '#333'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('domain (UniProt)', x + 13, y + 5.5); }
   y += 20;

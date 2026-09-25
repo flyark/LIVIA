@@ -8133,7 +8133,7 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
     ctx.restore();
     if (countEl) countEl.textContent = uniState.noStructure
         ? `${clirI_f.size} + ${clirJ_f.size} cLIR interface residues (no structure in bundle \u2014 contact lines omitted)`
-        : `${contacts.length} cLIR contact pairs (C\u03B2 < 8 \u00C5)`;
+        : `${contacts.length} cLIR contact pairs (C\u03B2 \u2264 8 \u00C5)`;
     renderContactHtmlLegend([top, bot], DOM_FILL, TED_FILL, legendEl);   // clickable HTML legend below
     return true;
 }
