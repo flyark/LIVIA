@@ -226,11 +226,11 @@
     <div class="error-msg" id="error-msg"></div>
 
     <!-- Results -->
-    <div class="results" id="results">
+    <div class="results" id="results" data-subnav>
         <!-- Region Pair Summary — the first result: positive region pairs, in the same layout as the
              dimer/universal summary tables (iLIA/LIR/cLIR behind the toggle) -->
         <div class="card result-card">
-            <h2 id="result-title">Region Pair Summary</h2>
+            <h2 data-nav="Summary" id="result-title">Region Pair Summary</h2>
             <label style="font-size:0.78rem; color:#666; display:inline-flex; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem;"><input type="checkbox" id="toggle-lir-cols" onchange="document.getElementById('pairs-table').classList.toggle('show-lir-cols', this.checked)"> Show iLIA/LIR/cLIR columns</label>
             <div style="overflow-x:auto;">
             <table class="data-table" id="pairs-table">
@@ -255,7 +255,7 @@
         </div>
         <!-- Subdomain Interaction Map (chord diagram) -->
         <div class="card result-card" id="chord-diagram-container" style="display:none;">
-            <h2>Subdomain Interaction Map</h2>
+            <h2 data-nav="Subdomain map">Subdomain Interaction Map</h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Arcs represent subdomains (proportional to length). Lines connect cLIR residue pairs in physical contact.
             </div>
@@ -276,7 +276,7 @@
 
         <!-- Sequence Viewer -->
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
-            <h2>Sequence Viewer</h2>
+            <h2 data-nav="Sequence">Sequence Viewer</h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Light background = LIR (PAE &le; 12 &Aring;). Dark background with white text = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each region uses its own color.
                 <span id="seq-uniprot-link"></span>
@@ -286,7 +286,7 @@
 
         <!-- Domain Map -->
         <div class="card result-card" id="domain-comparison-card" style="display:none;">
-            <h2>Region &amp; Domain Map</h2>
+            <h2 data-nav="Region map">Region &amp; Domain Map</h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Auto-detected regions vs UniProt domains and <a href="https://ted.cathdb.info" target="_blank" style="color:#2471A3;">TED</a> domains (AlphaFold DB). Aligned to residue position.
             </div>
@@ -296,7 +296,7 @@
 
         <!-- 3D Structure Viewer -->
         <div class="card result-card" id="viewer3d-card" style="display:none;">
-            <h2>3D Structure Viewer</h2>
+            <h2 data-nav="3D structure">3D Structure Viewer</h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Interactive 3D preview powered by <a href="https://molstar.org" target="_blank" style="color:#2471A3;">Mol*</a> (<a href="https://doi.org/10.1093/nar/gkab314" target="_blank" style="color:#2471A3;">Sehnal et al. 2021</a>). LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom. <span style="color:#999;">If the viewer appears empty, refresh the page.</span>
             </div>
@@ -313,7 +313,7 @@
 
         <!-- Script -->
         <div class="card result-card" id="script-card">
-            <h2>Visualization Script</h2>
+            <h2 data-nav="Scripts">Visualization Script</h2>
             <div style="margin-bottom:1rem;">
 
                 <label>Local Interaction Residue (LIR) Display</label>
@@ -423,7 +423,7 @@
 
         <!-- Per-Residue pLDDT & Intra-chain LIS -->
         <div class="card result-card" id="per-residue-card" style="display:none;">
-            <h2>Per-Residue Intra-chain LIS &amp; pLDDT</h2>
+            <h2 data-nav="Per-residue">Per-Residue Intra-chain LIS &amp; pLDDT</h2>
             <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
                 Per-residue metrics for the monomer prediction.
             </div>
@@ -476,6 +476,7 @@
 <script src="js/livia-colors.js?v=20260924c"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260816"></script>
+<script src="js/livia-subnav.js?v=20260925"></script>
 <script>
 // ── Callbacks for shared modules (monomer overrides most of these) ──
 onScriptTabSwitch = () => { /* handled by page-specific switchScriptTab override */ };

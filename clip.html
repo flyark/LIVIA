@@ -13,6 +13,7 @@
 <script src="js/clip-pipeline.js?v=20260726"></script>
 <script src="js/clip-resolver.js?v=20260924"></script>
 <script src="js/livia-viewer.js?v=20260716e"></script>
+<script src="js/livia-subnav.js?v=20260925"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="css/livia.css?v=20260717">
 <style>
@@ -203,10 +204,10 @@
     </div>
   </div>
 
-  <div id="report" class="hidden">
+  <div id="report" class="hidden" data-subnav>
     <div class="card">
       <div class="row" style="justify-content:space-between">
-        <div><h2 id="title" style="margin:0"></h2><div class="muted" id="subtitle"></div><div class="muted" id="query-uniprot" style="margin-top:3px"></div>
+        <div><h2 data-nav="Summary" id="title" style="margin:0"></h2><div class="muted" id="subtitle"></div><div class="muted" id="query-uniprot" style="margin-top:3px"></div>
           <div class="muted" id="uniprot-fix" style="margin-top:3px; font-size:.78rem">
             Resolved from the names in your file, so it might land on the wrong protein or species. Not right?
             <input id="uniprot-force" placeholder="UniProt accession, e.g. Q7KU87" style="font-size:.78rem; padding:1px 4px; width:190px">
@@ -231,7 +232,7 @@
     </div>
 
     <div class="card">
-      <h2 style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap">Contact residue frequency
+      <h2 data-nav="Frequency" style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap">Contact residue frequency
         <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem">SVG&nbsp; w<input id="svg-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="svg-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="svg-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"> &middot; x-ticks<input id="clip-xticks" type="number" value="15" min="2" max="40" step="1" title="residue x-tick count (frequency + fingerprint)" style="width:44px" onchange="if(LAST){renderFreq(LAST);renderHeatmap(LAST);}"> <button class="ghost" id="svg-freq">&#8595; SVG</button></span>
       </h2>
       <div class="muted">How often each query residue is a contact Local Interaction Residue (cLIR) across partners, colored by the dominant cluster · click clusters to filter.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.<br>Tracks below the bars: AlphaFold <b>pLDDT</b> (0&ndash;100) &mdash; <span style="white-space:nowrap"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#FF7D45"></span> &lt;50 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#FFDB13"></span> 50&ndash;70 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#65CBF3"></span> 70&ndash;90 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#0053D6"></span> &ge;90</span><span class="am-only hidden"><br><b style="color:#a33">AM path.</b> = AlphaMissense mean pathogenicity per residue (averaged over all ~19 substitutions at that position; blue = benign &rarr; red = pathogenic; human only, from AlphaFold DB).</span></div>
@@ -242,7 +243,7 @@
 
 
     <div class="card">
-      <h2 style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap">Clustered interaction fingerprint
+      <h2 data-nav="Fingerprint" style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap">Clustered interaction fingerprint
         <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem">SVG w<input id="hm-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="hm-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="hm-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"> <button class="ghost" id="svg-heatmap">&#8595; SVG</button></span>
       </h2>
       <div class="muted">Rows = partners (dendrogram order), columns = query residues. <span style="color:#08306b;font-weight:600">Dark blue</span> = cLIR contact, very light = none; left: dendrogram + cluster strip.</div>
@@ -251,14 +252,14 @@
     </div>
 
     <div class="card">
-      <h2>Cluster info</h2>
+      <h2 data-nav="Clusters">Cluster info</h2>
       <div class="muted">Partners in each cluster (dendrogram order) — <b>(proteins / predictions)</b>. A partner can have several AlphaFold ranks, so it may appear at multiple rows and across clusters.</div>
       <div id="cluster-info" style="margin-top:.5rem; font-size:.85rem; line-height:1.55"></div>
     </div>
 
 
     <div class="card" id="pair-card">
-      <h2>Interaction Residues</h2>
+      <h2 data-nav="Residues">Interaction Residues</h2>
       <div class="muted">The interface residues on each protein, taken from the lis.py indices. No structure file needed.<br>
         <b>LIR</b> = local interaction residue (PAE &le; 12&nbsp;&Aring;); <b>cLIR</b> = contact LIR (PAE &le; 12&nbsp;&Aring; &amp; C&beta; &le; 8&nbsp;&Aring;).</div>
       <h3 style="margin-top:.9rem">Interface map</h3>
@@ -277,7 +278,7 @@
       </div>
     </div>
     <div class="card">
-      <h2>3D structure <span id="struct-badge" class="muted" style="font-weight:400; font-size:.8rem"></span></h2>
+      <h2 data-nav="3D structure">3D structure <span id="struct-badge" class="muted" style="font-weight:400; font-size:.8rem"></span></h2>
       <div class="muted">Query protein structure, residues colored by the cluster that consensus-contacts them · click clusters to isolate.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.</div>
       <div class="muted" style="margin-top:.35rem">Highlight residues contacted by &ge; <select id="commonality" style="font-size:.82rem; padding:1px 4px"><option value="0.5">50%</option><option value="0.6">60%</option><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option></select> of a cluster's members (consensus / core residues).</div>
       <div class="muted" style="margin-top:.25rem">Color only clusters with &ge; <input id="min-cluster" type="number" min="1" value="5" style="width:46px; font-size:.82rem; padding:1px 4px"> predictions (hides tiny clusters).</div>
@@ -294,7 +295,7 @@
     </div>
 
     <div class="card">
-      <h2>Interaction scatter plot</h2>
+      <h2 data-nav="Scatter">Interaction scatter plot</h2>
       <div class="row" style="font-size:.85rem; margin-bottom:.5rem">
         <label style="margin:0">Y <select id="scatter-y"></select></label>
         <label style="margin:0">X <select id="scatter-x"></select></label>
@@ -307,7 +308,7 @@
     </div>
 
     <div class="card">
-      <h2 style="display:flex; align-items:center; gap:.4rem; flex-wrap:wrap;">Partners <input id="ptable-search" type="search" list="ptable-list" placeholder="🔍 filter partner…" autocomplete="off" spellcheck="false" style="font:inherit; font-size:.8rem; font-weight:400; padding:2px 8px; width:150px; border:1px solid #ccd6e0; border-radius:6px; vertical-align:middle"><span id="ptable-count" class="muted" style="font-size:.72rem; font-weight:400"></span> <button id="export" class="ghost" style="margin-left:auto">⬇ Download report HTML</button><datalist id="ptable-list"></datalist></h2>
+      <h2 data-nav="Partners" style="display:flex; align-items:center; gap:.4rem; flex-wrap:wrap;">Partners <input id="ptable-search" type="search" list="ptable-list" placeholder="🔍 filter partner…" autocomplete="off" spellcheck="false" style="font:inherit; font-size:.8rem; font-weight:400; padding:2px 8px; width:150px; border:1px solid #ccd6e0; border-radius:6px; vertical-align:middle"><span id="ptable-count" class="muted" style="font-size:.72rem; font-weight:400"></span> <button id="export" class="ghost" style="margin-left:auto">⬇ Download report HTML</button><datalist id="ptable-list"></datalist></h2>
       <div style="max-height:360px; overflow:auto"><table id="ptable"></table></div>
     </div>
   </div>
@@ -1799,7 +1800,7 @@ $('export').onclick = async () => {
     let out = await (await fetch(location.href)).text();
     const navBase = location.origin + location.pathname.replace(/[^/]*$/, '');   // downloaded nav points back at the live site
     out = out.replace(/href="(?!https?:|#|mailto:)([^"]+\.html[^"]*)"/g, 'href="' + navBase + '$1"');
-    const locals = ['js/canvas2svg.js', 'js/livia-maps.js', 'js/livia-xlsx.js', 'js/clip-clustering.js', 'js/clip-pipeline.js', 'js/clip-resolver.js', 'js/livia-viewer.js'];
+    const locals = ['js/canvas2svg.js', 'js/livia-maps.js', 'js/livia-xlsx.js', 'js/clip-clustering.js', 'js/clip-pipeline.js', 'js/clip-resolver.js', 'js/livia-viewer.js', 'js/livia-subnav.js'];
     // Match the tag with a pattern, not a literal: these <script src> carry ?v= cache-busts,
     // and a literal target stops matching the moment a module is bumped — which silently
     // dropped that module from the downloaded report with no error.
