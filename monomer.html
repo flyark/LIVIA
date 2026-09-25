@@ -473,7 +473,7 @@
 <script src="js/livia-core.js?v=20260924"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260716e"></script>
-<script src="js/livia-colors.js?v=20260924"></script>
+<script src="js/livia-colors.js?v=20260924b"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260816"></script>
 <script>
@@ -1390,7 +1390,7 @@ function updateColorStrip() {
     }
 }
 
-onPaeScaleChange = () => { if (monPae) drawPaeMap(); };   // "PAE colors" control (livia-colors.js)
+onMapScaleChange = () => { if (monPae) drawPaeMap(); };   // "PAE / LIS / cLIS colors" controls (livia-colors.js)
 
 onColorChange = function() {
     // Update hex labels if they exist
@@ -2991,41 +2991,6 @@ function generatePmlMono(validRegions) {
 
 const HIRES = 2;
 
-function bwrColor(value, vmin, vmax) {
-    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
-    if (t < 0.5) {
-        const s = t / 0.5;
-        return [Math.round(s * 255), Math.round(s * 255), 255];
-    } else {
-        const s = (t - 0.5) / 0.5;
-        return [255, Math.round((1 - s) * 255), Math.round((1 - s) * 255)];
-    }
-}
-
-// matplotlib Blues
-function bluesColor(value, vmin, vmax) {
-    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
-    if (t < 0.5) {
-        const s = t / 0.5;
-        return [Math.round(247 - s * 140), Math.round(251 - s * 77), Math.round(255 - s * 41)];
-    } else {
-        const s = (t - 0.5) / 0.5;
-        return [Math.round(107 - s * 99), Math.round(174 - s * 126), Math.round(214 - s * 107)];
-    }
-}
-
-// matplotlib Greens
-function greensColor(value, vmin, vmax) {
-    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
-    if (t < 0.5) {
-        const s = t / 0.5;
-        return [Math.round(247 - s * 131), Math.round(252 - s * 56), Math.round(245 - s * 127)];
-    } else {
-        const s = (t - 0.5) / 0.5;
-        return [Math.round(116 - s * 116), Math.round(196 - s * 128), Math.round(118 - s * 91)];
-    }
-}
-
 function orangesColor(value, vmin, vmax) {
     const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
     return [255, Math.round(255 - t * 128), Math.round(255 - t * 220)];
@@ -3173,20 +3138,22 @@ function drawPaeMap() {
         container.style.alignItems = '';
     }
 
-    // PAE — in the scale chosen with the "PAE colors" control under it (livia-colors.js)
-    createMonomerMapPanel(container, 'PAE', monPae, typeof paeColorFn === 'function' ? paeColorFn() : bwrColor, 0, 30, ['30', '15', '0'], displaySize);
-    // the control sits above the panels row (once), so opening Custom never widens the PAE panel
-    if (typeof paeScaleControl === 'function' && !(container.previousElementSibling && container.previousElementSibling.classList.contains('pae-scale-ctl')))
-        container.parentNode.insertBefore(paeScaleControl({ align: 'center' }), container);
+    // Each map in the scale chosen with its "<map> colors" control (livia-colors.js). The controls share one row
+    // above the panels (added once), so opening Custom never widens a panel.
+    if (!(container.previousElementSibling && container.previousElementSibling.classList.contains('map-scale-row')))
+        container.parentNode.insertBefore(mapScaleRow(['pae', 'lis', 'clis'], { align: 'center' }), container);
 
-    // LIS (Blues) — only if PAE is loaded
+    // PAE
+    createMonomerMapPanel(container, 'PAE', monPae, mapColorFn('pae'), 0, 30, ['30', '15', '0'], displaySize);
+
+    // LIS — only if PAE is loaded
     const lisMap = buildMonomerLisMap();
-    createMonomerMapPanel(container, 'LIS', lisMap, bluesColor, 0, 1, ['1', '0.5', '0'], displaySize);
+    createMonomerMapPanel(container, 'LIS', lisMap, mapColorFn('lis'), 0, 1, ['1', '0.5', '0'], displaySize);
 
-    // cLIS (Greens)
+    // cLIS
     const clisMap = buildMonomerClisMap();
     const dilated = dilateMapMono(clisMap, 1);
-    createMonomerMapPanel(container, 'cLIS', dilated, greensColor, 0, 1, ['1', '0.5', '0'], displaySize);
+    createMonomerMapPanel(container, 'cLIS', dilated, mapColorFn('clis'), 0, 1, ['1', '0.5', '0'], displaySize);
     // (map + colorbar exported together via each panel's own ↓ PNG button — no per-canvas buttons)
 }
 

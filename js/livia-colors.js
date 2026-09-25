@@ -236,46 +236,18 @@ function attachChainColorUpload(container, opts) {
     });
 }
 
-// ── PAE color scale ──
-// Every PAE map LIVIA draws from numeric PAE (universal after a full upload, dimer, monomer), with its
-// color bar and exports, takes its colors from paeColorFn(). FlyPredictome data and lightweight bundles
-// carry PAE only as images, which cannot be recolored, so those views never show paeScaleControl().
-// Scales run from low PAE (confident) to high PAE (uncertain); the choice is remembered per browser.
-const PAE_SCALES = [
-    ['bwr', 'Blue–white–red (default)'],
-    ['alphafold', 'AlphaFold (green)'],
-    ['blues', 'Blues'],
-    ['viridis', 'Viridis'],
-    ['greys', 'Greys'],
-    ['custom', 'Custom'],
-];
-const _PAE_STOPS = {
-    alphafold: ['#00441b', '#74c476', '#f7fcf5'],      // dark green = confident, as in AlphaFold DB / AlphaFold 3 PAE plots
-    blues: ['#08306b', '#6baed6', '#f7fbff'],
-    viridis: ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'],
-    greys: ['#000000', '#ffffff'],
-};
-let paeScale = { name: 'bwr', custom: ['#00897b', '#ffffff'] };
-try {
-    const saved = JSON.parse(localStorage.getItem('livia.paeScale') || 'null');
-    if (saved && typeof saved.name === 'string') paeScale = { name: saved.name, custom: Array.isArray(saved.custom) && saved.custom.length >= 2 ? saved.custom : paeScale.custom };
-} catch (e) { /* storage blocked: keep the default */ }
-let onPaeScaleChange = null;   // page sets this to redraw its PAE maps and color bars
-
-function _paeHex6(h) {   // '#abc' / 'ABC' / '#aabbcc' → '#aabbcc'
+// ── Map color scales: PAE, LIS, cLIS ──
+// Every PAE / LIS / cLIS map LIVIA draws from numeric PAE (universal after a full upload, dimer, monomer), with
+// its color bar and exports, takes its colors from mapColorFn(kind). FlyPredictome data and lightweight bundles
+// carry these maps only as images, which cannot be recolored, so those views never show mapScaleControl().
+// A scale runs from the low end of the map's range to the high end — PAE low (confident) → high (uncertain);
+// LIS / cLIS 0 → 1 (confident) — and each map's choice is remembered per browser.
+function _mapHex6(h) {   // '#abc' / 'ABC' / '#aabbcc' → '#aabbcc'
     h = String(h || '').replace('#', '').toLowerCase();
     return '#' + (h.length === 3 ? h.split('').map(c => c + c).join('') : h.padEnd(6, '0').slice(0, 6));
 }
-// The default is the original blue-white-red, computed exactly as before so default maps stay pixel-identical.
-function _paeBwr(value, vmin, vmax) {
-    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
-    let r, g, b;
-    if (t < 0.5) { const s = t / 0.5; r = Math.round(s * 255); g = Math.round(s * 255); b = 255; }
-    else { const s = (t - 0.5) / 0.5; r = 255; g = Math.round((1 - s) * 255); b = Math.round((1 - s) * 255); }
-    return [r, g, b];
-}
-function _paeRamp(hexStops) {   // piecewise-linear across 2+ color stops, low PAE → high PAE
-    const stops = hexStops.map(h => { const x = _paeHex6(h); return [parseInt(x.slice(1, 3), 16), parseInt(x.slice(3, 5), 16), parseInt(x.slice(5, 7), 16)]; });
+function _mapRamp(hexStops) {   // piecewise-linear across 2+ color stops, low → high
+    const stops = hexStops.map(h => { const x = _mapHex6(h); return [parseInt(x.slice(1, 3), 16), parseInt(x.slice(3, 5), 16), parseInt(x.slice(5, 7), 16)]; });
     const seg = stops.length - 1;
     return (value, vmin, vmax) => {
         const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
@@ -283,52 +255,119 @@ function _paeRamp(hexStops) {   // piecewise-linear across 2+ color stops, low P
         return [Math.round(a[0] + (b[0] - a[0]) * u), Math.round(a[1] + (b[1] - a[1]) * u), Math.round(a[2] + (b[2] - a[2]) * u)];
     };
 }
-function paeColorFn() {
-    const stops = paeScale.name === 'custom' ? paeScale.custom : _PAE_STOPS[paeScale.name];
-    return stops && stops.length >= 2 ? _paeRamp(stops) : _paeBwr;
+// The defaults are the pages' original bwrColor / bluesColor / greensColor, computed exactly as before so
+// default maps stay pixel-identical.
+function _mapBwr(value, vmin, vmax) {
+    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
+    let r, g, b;
+    if (t < 0.5) { const s = t / 0.5; r = Math.round(s * 255); g = Math.round(s * 255); b = 255; }
+    else { const s = (t - 0.5) / 0.5; r = 255; g = Math.round((1 - s) * 255); b = Math.round((1 - s) * 255); }
+    return [r, g, b];
 }
-function setPaeScale(name, custom) {
-    paeScale = { name: name || 'bwr', custom: custom && custom.length >= 2 ? custom.map(_paeHex6) : paeScale.custom };
-    try { localStorage.setItem('livia.paeScale', JSON.stringify(paeScale)); } catch (e) {}
-    document.querySelectorAll('.pae-scale-ctl').forEach(_syncPaeControl);
-    if (typeof onPaeScaleChange === 'function') onPaeScaleChange();
+function _mapBlues(value, vmin, vmax) {   // matplotlib Blues: (247,251,255) → (107,174,214) → (8,48,107)
+    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
+    if (t < 0.5) { const s = t / 0.5; return [Math.round(247 - s * 140), Math.round(251 - s * 77), Math.round(255 - s * 41)]; }
+    const s = (t - 0.5) / 0.5; return [Math.round(107 - s * 99), Math.round(174 - s * 126), Math.round(214 - s * 107)];
 }
-// "PAE colors" control: a preset list plus Custom (2 or 3 picked colors, or pasted hex codes).
-// opts.align: 'start' (default) or 'center', to line up with the maps it sits above.
-function paeScaleControl(opts) {
+function _mapGreens(value, vmin, vmax) {   // matplotlib Greens: (247,252,245) → (116,196,118) → (0,68,27)
+    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
+    if (t < 0.5) { const s = t / 0.5; return [Math.round(247 - s * 131), Math.round(252 - s * 56), Math.round(245 - s * 127)]; }
+    const s = (t - 0.5) / 0.5; return [Math.round(116 - s * 116), Math.round(196 - s * 128), Math.round(118 - s * 91)];
+}
+const _MAP_SEQ = {   // LIS / cLIS ramps, 0 (white) → 1 (dark); ColorBrewer anchors
+    purples: ['#fcfbfd', '#9e9ac8', '#3f007d'],
+    oranges: ['#fff5eb', '#fd8d3c', '#7f2704'],
+    reds: ['#fff5f0', '#fb6a4a', '#67000d'],
+    greys: ['#ffffff', '#969696', '#000000'],
+    viridis: ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'],
+};
+const MAP_SCALES = {
+    pae: { label: 'PAE', low: 'low PAE (confident)', high: 'high PAE (uncertain)', key: 'livia.paeScale', def: 'bwr', custom: ['#00897b', '#ffffff'],
+        options: [['bwr', 'Blue–white–red (default)'], ['alphafold', 'AlphaFold (green)'], ['blues', 'Blues'], ['viridis', 'Viridis'], ['greys', 'Greys'], ['custom', 'Custom']],
+        fns: { bwr: _mapBwr },
+        stops: {
+            alphafold: ['#00441b', '#74c476', '#f7fcf5'],      // dark green = confident, as in AlphaFold DB / AlphaFold 3 PAE plots
+            blues: ['#08306b', '#6baed6', '#f7fbff'],
+            viridis: ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'],
+            greys: ['#000000', '#ffffff'],
+        } },
+    lis: { label: 'LIS', low: 'LIS 0', high: 'LIS 1 (confident)', key: 'livia.lisScale', def: 'blues', custom: ['#ffffff', '#2471a3'],
+        options: [['blues', 'Blues (default)'], ['greens', 'Greens'], ['purples', 'Purples'], ['oranges', 'Oranges'], ['reds', 'Reds'], ['greys', 'Greys'], ['viridis', 'Viridis'], ['custom', 'Custom']],
+        fns: { blues: _mapBlues, greens: _mapGreens }, stops: _MAP_SEQ },
+    clis: { label: 'cLIS', low: 'cLIS 0', high: 'cLIS 1 (confident)', key: 'livia.clisScale', def: 'greens', custom: ['#ffffff', '#00897b'],
+        options: [['greens', 'Greens (default)'], ['blues', 'Blues'], ['purples', 'Purples'], ['oranges', 'Oranges'], ['reds', 'Reds'], ['greys', 'Greys'], ['viridis', 'Viridis'], ['custom', 'Custom']],
+        fns: { blues: _mapBlues, greens: _mapGreens }, stops: _MAP_SEQ },
+};
+const mapScale = {};
+for (const k of Object.keys(MAP_SCALES)) {
+    const c = MAP_SCALES[k];
+    mapScale[k] = { name: c.def, custom: c.custom.slice() };
+    try {
+        const saved = JSON.parse(localStorage.getItem(c.key) || 'null');
+        if (saved && (saved.name === 'custom' || c.fns[saved.name] || c.stops[saved.name]))
+            mapScale[k] = { name: saved.name, custom: Array.isArray(saved.custom) && saved.custom.length >= 2 ? saved.custom : c.custom.slice() };
+    } catch (e) { /* storage blocked: keep the default */ }
+}
+let onMapScaleChange = null;   // page sets this: (kind) => redraw that kind's maps and color bars
+
+function mapColorFn(kind) {
+    const c = MAP_SCALES[kind], s = mapScale[kind];
+    if (s.name === 'custom') return _mapRamp(s.custom);
+    return c.fns[s.name] || (c.stops[s.name] ? _mapRamp(c.stops[s.name]) : c.fns[c.def]);
+}
+function setMapScale(kind, name, custom) {
+    const c = MAP_SCALES[kind];
+    mapScale[kind] = { name: name || c.def, custom: custom && custom.length >= 2 ? custom.map(_mapHex6) : mapScale[kind].custom };
+    try { localStorage.setItem(c.key, JSON.stringify(mapScale[kind])); } catch (e) {}
+    document.querySelectorAll('.map-scale-ctl[data-kind="' + kind + '"]').forEach(_syncMapControl);
+    if (typeof onMapScaleChange === 'function') onMapScaleChange(kind);
+}
+// "<map> colors" control: the map's preset list plus Custom (2 or 3 picked colors, or pasted hex codes).
+function mapScaleControl(kind) {
+    const c = MAP_SCALES[kind];
     const el = document.createElement('div');
-    el.className = 'pae-scale-ctl';
-    el.style.cssText = 'display:flex; align-items:center; justify-content:' + (opts && opts.align === 'center' ? 'center' : 'flex-start') + '; gap:6px; flex-wrap:wrap; font-size:0.78rem; color:#555; margin:0.35rem 0;';
-    const pick = (i, title) => '<input type="color" class="pae-stop" data-i="' + i + '" title="' + title + '" style="width:24px; height:18px; padding:0; border:1px solid #ccd; border-radius:3px; cursor:pointer;">';
-    el.innerHTML = '<span>PAE colors</span>'
-        + '<select class="pae-scale-sel" title="Color scale for the PAE maps, low (confident) to high (uncertain)" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;">'
-        + PAE_SCALES.map(([v, l]) => '<option value="' + v + '">' + l + '</option>').join('') + '</select>'
-        + '<span class="pae-custom" style="display:none; align-items:center; gap:4px;">'
-        + pick(0, 'low PAE (confident)') + '<span style="color:#aaa;">&rarr;</span>'
-        + '<span class="pae-mid" style="display:none; align-items:center; gap:4px;">' + pick(1, 'middle') + '<span style="color:#aaa;">&rarr;</span></span>'
-        + pick(2, 'high PAE (uncertain)')
-        + '<label style="display:inline-flex; align-items:center; gap:3px; cursor:pointer; margin:0;"><input type="checkbox" class="pae-3" style="margin:0;"> 3 colors</label>'
-        + '<input type="text" class="pae-hex" placeholder="or paste hex: #00897b, #fff, #b2182b" title="2 or 3 hex colors, low to high PAE" style="width:200px; font-size:0.72rem; padding:1px 4px; border:1px solid #ccd; border-radius:4px;">'
+    el.className = 'map-scale-ctl';
+    el.dataset.kind = kind;
+    el.style.cssText = 'display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:0.78rem; color:#555;';
+    const pick = (i, title) => '<input type="color" class="map-stop" data-i="' + i + '" title="' + title + '" style="width:24px; height:18px; padding:0; border:1px solid #ccd; border-radius:3px; cursor:pointer;">';
+    el.innerHTML = '<span>' + c.label + ' colors</span>'
+        + '<select class="map-scale-sel" title="Color scale for the ' + c.label + ' maps, ' + c.low + ' to ' + c.high + '" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;">'
+        + c.options.map(([v, l]) => '<option value="' + v + '">' + l + '</option>').join('') + '</select>'
+        + '<span class="map-custom" style="display:none; align-items:center; gap:4px;">'
+        + pick(0, c.low) + '<span style="color:#aaa;">&rarr;</span>'
+        + '<span class="map-mid" style="display:none; align-items:center; gap:4px;">' + pick(1, 'middle') + '<span style="color:#aaa;">&rarr;</span></span>'
+        + pick(2, c.high)
+        + '<label style="display:inline-flex; align-items:center; gap:3px; cursor:pointer; margin:0;"><input type="checkbox" class="map-3" style="margin:0;"> 3 colors</label>'
+        + '<input type="text" class="map-hex" placeholder="or paste hex: ' + c.custom.join(', ') + '" title="2 or 3 hex colors, ' + c.low + ' to ' + c.high + '" style="width:180px; font-size:0.72rem; padding:1px 4px; border:1px solid #ccd; border-radius:4px;">'
         + '</span>';
-    const stop = (i) => el.querySelector('.pae-stop[data-i="' + i + '"]').value;
-    const custom = () => el.querySelector('.pae-3').checked ? [stop(0), stop(1), stop(2)] : [stop(0), stop(2)];
-    el.querySelector('.pae-scale-sel').onchange = (e) => setPaeScale(e.target.value, paeScale.custom);
-    el.querySelectorAll('.pae-stop').forEach(x => { x.onchange = () => setPaeScale('custom', custom()); });   // 'change' = on release, not every drag step
-    el.querySelector('.pae-3').onchange = () => setPaeScale('custom', custom());
-    el.querySelector('.pae-hex').oninput = (e) => {
+    const stop = (i) => el.querySelector('.map-stop[data-i="' + i + '"]').value;
+    const custom = () => el.querySelector('.map-3').checked ? [stop(0), stop(1), stop(2)] : [stop(0), stop(2)];
+    el.querySelector('.map-scale-sel').onchange = (e) => setMapScale(kind, e.target.value, mapScale[kind].custom);
+    el.querySelectorAll('.map-stop').forEach(x => { x.onchange = () => setMapScale(kind, 'custom', custom()); });   // 'change' = on release, not every drag step
+    el.querySelector('.map-3').onchange = () => setMapScale(kind, 'custom', custom());
+    el.querySelector('.map-hex').oninput = (e) => {
         const toks = (String(e.target.value).match(/#?[0-9a-fA-F]+/g) || []).map(h => h.replace('#', '')).filter(h => h.length === 3 || h.length === 6);
-        if (toks.length >= 2) setPaeScale('custom', toks.slice(0, 3));
+        if (toks.length >= 2) setMapScale(kind, 'custom', toks.slice(0, 3));
     };
-    _syncPaeControl(el);
+    _syncMapControl(el);
     return el;
 }
-function _syncPaeControl(el) {
-    const c = paeScale.custom, three = c.length >= 3;
-    el.querySelector('.pae-scale-sel').value = paeScale.name;
-    el.querySelector('.pae-custom').style.display = paeScale.name === 'custom' ? 'inline-flex' : 'none';
-    el.querySelector('.pae-mid').style.display = three ? 'inline-flex' : 'none';
-    el.querySelector('.pae-3').checked = three;
-    el.querySelector('.pae-stop[data-i="0"]').value = _paeHex6(c[0]);
-    el.querySelector('.pae-stop[data-i="1"]').value = _paeHex6(three ? c[1] : '#ffffff');
-    el.querySelector('.pae-stop[data-i="2"]').value = _paeHex6(c[c.length - 1]);
+// One row of controls for several maps (dimer / monomer, whose PAE, LIS and cLIS panels share a row);
+// it sits above the panels, so opening Custom never widens a panel. opts.align: 'start' | 'center'.
+function mapScaleRow(kinds, opts) {
+    const row = document.createElement('div');
+    row.className = 'map-scale-row';
+    row.style.cssText = 'display:flex; align-items:center; justify-content:' + (opts && opts.align === 'center' ? 'center' : 'flex-start') + '; gap:6px 18px; flex-wrap:wrap; margin:0.35rem 0;';
+    for (const k of kinds) row.appendChild(mapScaleControl(k));
+    return row;
+}
+function _syncMapControl(el) {
+    const s = mapScale[el.dataset.kind], c = s.custom, three = c.length >= 3;
+    el.querySelector('.map-scale-sel').value = s.name;
+    el.querySelector('.map-custom').style.display = s.name === 'custom' ? 'inline-flex' : 'none';
+    el.querySelector('.map-mid').style.display = three ? 'inline-flex' : 'none';
+    el.querySelector('.map-3').checked = three;
+    el.querySelector('.map-stop[data-i="0"]').value = _mapHex6(c[0]);
+    el.querySelector('.map-stop[data-i="1"]').value = _mapHex6(three ? c[1] : '#ffffff');
+    el.querySelector('.map-stop[data-i="2"]').value = _mapHex6(c[c.length - 1]);
 }

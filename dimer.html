@@ -538,7 +538,7 @@
 <script src="js/livia-reported.js?v=20260924"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260716e"></script>
-<script src="js/livia-colors.js?v=20260924"></script>
+<script src="js/livia-colors.js?v=20260924b"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260816"></script>
 <script>
@@ -546,7 +546,7 @@
 onColorChange = () => { if (dimerPairResult) { generateAndDisplayScript(); buildDimerSequenceViewer(); buildDimerContactMap(); buildChordDiagram(); buildComparisonCharts(); updateViewer3d(); renderChainToggleBar(); } };
 attachChainColorUpload(document.getElementById('chain-color-upload'), {});   // CSV/paste chain colors (A/B)
 onScriptTabSwitch = () => { if (dimerPairResult) generateAndDisplayScript(); };
-onPaeScaleChange = () => { if (dimerPairResult) drawAllMaps(); };   // "PAE colors" control (livia-colors.js)
+onMapScaleChange = () => { if (dimerPairResult) drawAllMaps(); };   // "PAE / LIS / cLIS colors" controls (livia-colors.js)
 document.addEventListener('DOMContentLoaded', () => {
     initColorPickers();
     // Deep link: ?id=AF-... or ?id=<UniProt acc> loads the entry on page open
@@ -3005,43 +3005,6 @@ function redrawMapLabels() {
     if (typeof drawAllMaps === 'function' && dimerPairResult) drawAllMaps();
 }
 
-function bwrColor(value, vmin, vmax) {
-    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
-    if (t < 0.5) {
-        const s = t / 0.5;
-        return [Math.round(s * 255), Math.round(s * 255), 255];
-    } else {
-        const s = (t - 0.5) / 0.5;
-        return [255, Math.round((1 - s) * 255), Math.round((1 - s) * 255)];
-    }
-}
-
-// matplotlib Blues: white → light blue → dark blue
-function bluesColor(value, vmin, vmax) {
-    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
-    // Approximate matplotlib Blues: (247,251,255) → (107,174,214) → (8,48,107)
-    if (t < 0.5) {
-        const s = t / 0.5;
-        return [Math.round(247 - s * 140), Math.round(251 - s * 77), Math.round(255 - s * 41)];
-    } else {
-        const s = (t - 0.5) / 0.5;
-        return [Math.round(107 - s * 99), Math.round(174 - s * 126), Math.round(214 - s * 107)];
-    }
-}
-
-// matplotlib Greens: white → light green → dark green
-function greensColor(value, vmin, vmax) {
-    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
-    // Approximate matplotlib Greens: (247,252,245) → (116,196,118) → (0,68,27)
-    if (t < 0.5) {
-        const s = t / 0.5;
-        return [Math.round(247 - s * 131), Math.round(252 - s * 56), Math.round(245 - s * 127)];
-    } else {
-        const s = (t - 0.5) / 0.5;
-        return [Math.round(116 - s * 116), Math.round(196 - s * 128), Math.round(118 - s * 91)];
-    }
-}
-
 function drawColorbar(canvasId, colorFn, vmin, vmax) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
@@ -3545,28 +3508,30 @@ function drawAllMaps() {
         container.style.alignItems = '';
     }
 
-    // PAE — in the scale chosen with the "PAE colors" control under it (livia-colors.js)
-    const paePal = typeof paeColorFn === 'function' ? paeColorFn() : bwrColor;
+    // Each map in the scale chosen with its "<map> colors" control (livia-colors.js). The controls share one row
+    // above the panels (added once), so opening Custom never widens a panel.
+    if (!(container.previousElementSibling && container.previousElementSibling.classList.contains('map-scale-row')))
+        container.parentNode.insertBefore(mapScaleRow(['pae', 'lis', 'clis'], { align: 'center' }), container);
+    const paePal = mapColorFn('pae'), lisPal = mapColorFn('lis'), clisPal = mapColorFn('clis');
+
+    // PAE
     const paeCanvas = document.createElement('canvas');
     drawFullMapCanvas(paeCanvas, v.paeMatrix, v.nTotal, v.chainSizes, v.chainNames, paePal, 0, 30, displaySize);
     createMapPanel(container, 'PAE', paeCanvas, displaySize, paePal, 0, 30, ['30', '15', '0']);
-    // the control sits above the panels row (once), so opening Custom never widens the PAE panel
-    if (typeof paeScaleControl === 'function' && !(container.previousElementSibling && container.previousElementSibling.classList.contains('pae-scale-ctl')))
-        container.parentNode.insertBefore(paeScaleControl({ align: 'center' }), container);
 
-    // LIS (Blues)
+    // LIS
     const lisMap = buildFullLisMap(v.paeMatrix, v.nTotal, v.paeCutoff);
     const lisCanvas = document.createElement('canvas');
-    drawFullMapCanvas(lisCanvas, lisMap, v.nTotal, v.chainSizes, v.chainNames, bluesColor, 0, 1, displaySize);
-    createMapPanel(container, 'LIS', lisCanvas, displaySize, bluesColor, 0, 1, ['1', '0.5', '0']);
+    drawFullMapCanvas(lisCanvas, lisMap, v.nTotal, v.chainSizes, v.chainNames, lisPal, 0, 1, displaySize);
+    createMapPanel(container, 'LIS', lisCanvas, displaySize, lisPal, 0, 1, ['1', '0.5', '0']);
 
-    // cLIS (Greens, dilated)
+    // cLIS (dilated)
     const clisMap = buildFullClisMap(v.paeMatrix, v.contact, v.nUse, v.nTotal, v.paeCutoff);
     const clisDilateRadius = v.nTotal > 500 ? 2 : 1;
     const dilated = dilateMap(clisMap, clisDilateRadius);
     const clisCanvas = document.createElement('canvas');
-    drawFullMapCanvas(clisCanvas, dilated, v.nTotal, v.chainSizes, v.chainNames, greensColor, 0, 1, displaySize);
-    createMapPanel(container, 'cLIS', clisCanvas, displaySize, greensColor, 0, 1, ['1', '0.5', '0']);
+    drawFullMapCanvas(clisCanvas, dilated, v.nTotal, v.chainSizes, v.chainNames, clisPal, 0, 1, displaySize);
+    createMapPanel(container, 'cLIS', clisCanvas, displaySize, clisPal, 0, 1, ['1', '0.5', '0']);
     // (map + colorbar exported together via each panel's own ↓ PNG button — no per-canvas buttons)
 }
 

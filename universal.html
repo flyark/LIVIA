@@ -357,7 +357,8 @@
 
         <!-- LIS Maps -->
         <div class="card result-card" id="lis-maps-card">
-            <h2>Local Interaction Score (LIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#888;">(PAE &le; 12 &Aring;)</span></h2>
+            <h2 style="margin:0 0 0.5rem;">Local Interaction Score (LIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#888;">(PAE &le; 12 &Aring;)</span></h2>
+            <div id="lis-scale-slot"></div>
             <div class="map-row" id="lis-row"></div>
             <div class="colorbar-row">
                 <canvas id="colorbar-lis" width="300" height="14"></canvas>
@@ -367,7 +368,8 @@
 
         <!-- cLIS Maps -->
         <div class="card result-card" id="clis-maps-card">
-            <h2>contact Local Interaction Score (cLIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#888;">(PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</span></h2>
+            <h2 style="margin:0 0 0.5rem;">contact Local Interaction Score (cLIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#888;">(PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</span></h2>
+            <div id="clis-scale-slot"></div>
             <div class="map-row" id="clis-row"></div>
             <div class="colorbar-row">
                 <canvas id="colorbar-clis" width="300" height="14"></canvas>
@@ -664,7 +666,7 @@
 <script src="js/livia-reported.js?v=20260924"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260716e"></script>
-<script src="js/livia-colors.js?v=20260924"></script>
+<script src="js/livia-colors.js?v=20260924b"></script>
 <script>
 // ── Callbacks for shared modules ──
 // selectPair calls renderChainToggleBar, and sel.click() flows through selectPair.
@@ -5504,17 +5506,6 @@ function bwrColor(value, vmin, vmax) {
     return [r, g, b];
 }
 
-function bluesColor(value, vmin, vmax) {
-    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
-    if (t < 0.5) {
-        const s = t / 0.5;
-        return [Math.round(247 - s * 140), Math.round(251 - s * 77), Math.round(255 - s * 41)];
-    } else {
-        const s = (t - 0.5) / 0.5;
-        return [Math.round(107 - s * 99), Math.round(174 - s * 126), Math.round(214 - s * 107)];
-    }
-}
-
 function greensColor(value, vmin, vmax) {
     const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
     if (t < 0.5) {
@@ -6435,15 +6426,18 @@ function dilateMap(map2d, radius) {
     return result;
 }
 
-// PAE maps + their color bar, in the scale chosen with the card's "PAE colors" control (livia-colors.js).
-// Redrawn on their own when only the scale changes. The card holds numeric PAE only; lightweight
-// bundles show static PAE images in a separate card instead, so they never get the control.
+// PAE / LIS / cLIS maps + their color bars, each in the scale chosen with its card's "<map> colors" control
+// (livia-colors.js), and redrawn on its own when only that scale changes. These cards hold numeric maps only;
+// lightweight bundles show static PAE images in a separate card instead, so they never get the controls.
+function _mapScaleSlot(kind) {
+    const slot = document.getElementById(kind + '-scale-slot');
+    if (slot && !slot.firstChild) slot.appendChild(mapScaleRow([kind]));
+}
 function drawPaeMaps() {
     const chainNames = uniState.chainNames || [];
     const chainSizes = uniState.chainSizes || [];
-    const pal = typeof paeColorFn === 'function' ? paeColorFn() : bwrColor;
-    const slot = document.getElementById('pae-scale-slot');
-    if (slot && !slot.firstChild && typeof paeScaleControl === 'function') slot.appendChild(paeScaleControl());
+    const pal = mapColorFn('pae');
+    _mapScaleSlot('pae');
     const paeRow = document.getElementById('pae-row');
     paeRow.innerHTML = '';
     for (let mi = 0; mi < uniState.modelData.length; mi++) {
@@ -6462,16 +6456,11 @@ function drawPaeMaps() {
     }
     drawColorbar('colorbar-pae', pal, 0, 30);
 }
-onPaeScaleChange = () => { if (uniState.modelData && uniState.modelData.length && uniState.modelData[0].pae) drawPaeMaps(); };
-
-function drawAllMaps() {
+function drawLisMaps() {
     const chainNames = uniState.chainNames || [];
     const chainSizes = uniState.chainSizes || [];
-
-    // PAE Maps
-    drawPaeMaps();
-
-    // LIS Maps
+    const pal = mapColorFn('lis');
+    _mapScaleSlot('lis');
     const lisRow = document.getElementById('lis-row');
     lisRow.innerHTML = '';
     for (let mi = 0; mi < uniState.modelData.length; mi++) {
@@ -6485,11 +6474,16 @@ function drawAllMaps() {
         item.appendChild(label);
         item.appendChild(canvas);
         lisRow.appendChild(item);
-        drawMapCanvas(canvas, model.lisMap, model.nTotal, chainSizes, chainNames, bluesColor, 0, 1);
+        drawMapCanvas(canvas, model.lisMap, model.nTotal, chainSizes, chainNames, pal, 0, 1);
         addPngBtn(item, 'LIS_' + model.label, canvas);
     }
-
-    // cLIS Maps (dilated)
+    drawColorbar('colorbar-lis', pal, 0, 1);
+}
+function drawClisMaps() {   // dilated, so single contact cells stay visible
+    const chainNames = uniState.chainNames || [];
+    const chainSizes = uniState.chainSizes || [];
+    const pal = mapColorFn('clis');
+    _mapScaleSlot('clis');
     const clisRow = document.getElementById('clis-row');
     clisRow.innerHTML = '';
     const clisDilateRadius = uniState.nTotal > 1000 ? 3 : uniState.nTotal > 500 ? 2 : 1;
@@ -6505,13 +6499,20 @@ function drawAllMaps() {
         item.appendChild(canvas);
         clisRow.appendChild(item);
         const dilated = dilateMap(model.clisMap, clisDilateRadius);
-        drawMapCanvas(canvas, dilated, model.nTotal, chainSizes, chainNames, greensColor, 0, 1);
+        drawMapCanvas(canvas, dilated, model.nTotal, chainSizes, chainNames, pal, 0, 1);
         addPngBtn(item, 'cLIS_' + model.label, canvas);
     }
+    drawColorbar('colorbar-clis', pal, 0, 1);
+}
+onMapScaleChange = (kind) => {
+    if (!(uniState.modelData && uniState.modelData.length && uniState.modelData[0].pae)) return;
+    ({ pae: drawPaeMaps, lis: drawLisMaps, clis: drawClisMaps })[kind]();
+};
 
-    // Colorbars (the PAE bar is drawn by drawPaeMaps, in the chosen scale)
-    drawColorbar('colorbar-lis', bluesColor, 0, 1);
-    drawColorbar('colorbar-clis', greensColor, 0, 1);
+function drawAllMaps() {
+    drawPaeMaps();
+    drawLisMaps();
+    drawClisMaps();
 }
 
 function drawColorbar(canvasId, colorFn, vmin, vmax) {
