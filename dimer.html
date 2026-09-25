@@ -3150,7 +3150,7 @@ function drawFullMapCanvas(canvas, pae, nTotal, chainSizes, chainNames, colorFn,
     const domNear = uniMapDomOrder === 'inside';   // 'inside': the track hugs the plot and pushes the name out
     const labelPushTop = (domBandH && domNear) ? domBandH * HIRES : 0;
     const labelPushLeft = (domBandW && domNear) ? domBandW * HIRES : 0;
-    const leftMargin = Math.max(20 + leftBandW, edgePadL) + domBandW;
+    const leftMargin = Math.max((showLeftName ? 2 : 4) + leftBandW, edgePadL) + domBandW;   // just the name band + domain lane (a fixed 20px on top was dead space)
     const rowH = filled ? effLeftH : chainFontBase;                       // per-row vertical extent of a top name
     const nameRows = nameStagger ? 2 : 1;
     const nameBand = (vertX
@@ -3481,7 +3481,7 @@ function estimateMapLabelMargin(chainNames) {
     const leftBandW = showLeftName ? (leftColStep * 2 + 3 + 4 + nameGap) : 0;   // allow for a staggered 2nd column
     const hasDom = uniShowMapDom && showLeftName && ((chainDomains.A || []).length || (chainDomains.B || []).length);
     const domBandW = hasDom ? Math.max(8, Math.min(14, font * 0.8)) + 3 : 0;
-    return Math.max(20 + leftBandW, edgePad) + domBandW;
+    return Math.max((showLeftName ? 2 : 4) + leftBandW, edgePad) + domBandW;
 }
 
 function drawAllMaps() {

@@ -5768,7 +5768,6 @@ function drawAllScoreMatrices() {
     if (nc < 2) { if (card) card.style.display = 'none'; return; }
 
     card.style.display = '';
-    row.innerHTML = '';
     const displaySize = calcMapDisplaySize();
 
     // selectable metric per triangle (default iLIS lower-left, iLIA upper-right)
@@ -5782,6 +5781,10 @@ function drawAllScoreMatrices() {
     const fmtOf = (m) => unitOf(m) === 1 ? ((v)=>v.toFixed(2)) : ((v)=>v.toFixed(0));
     const zeros = Array.from({length:nc}, () => Array(nc).fill(0));
 
+    // The matrices share the maps' size when they fit; their name bands differ from the maps', so at that size
+    // the row can overflow — then shrink them just enough to fit (a couple of passes at most).
+    const renderAt = (size) => {
+    row.innerHTML = '';
     for (let mi = 0; mi < uniState.modelData.length; mi++) {
         const md = uniState.modelData[mi];
         if (!md.ilisGrid) continue;
@@ -5792,10 +5795,19 @@ function drawAllScoreMatrices() {
         title.textContent = md.label || ('model_' + mi);
         wrap.appendChild(title);
         const canvas = document.createElement('canvas');
-        drawOneScoreMatrix(canvas, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), displaySize);
+        drawOneScoreMatrix(canvas, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), size);
         wrap.appendChild(canvas);
-        addSharedExport(wrap, 'score_matrix_' + (md.label || mi), () => canvas, () => svgFromDraw((c) => drawOneScoreMatrix(c, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), displaySize)), 'mtx-exp');
+        addSharedExport(wrap, 'score_matrix_' + (md.label || mi), () => canvas, () => svgFromDraw((c) => drawOneScoreMatrix(c, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), size)), 'mtx-exp');
         row.appendChild(wrap);
+    }
+    };
+    let size = displaySize;
+    renderAt(size);
+    for (let pass = 0; pass < 3 && row.clientWidth > 0; pass++) {
+        const over = row.scrollWidth - row.clientWidth;
+        if (over <= 1 || size <= 60) break;
+        size = Math.max(60, size - Math.ceil(over / Math.max(1, row.children.length)) - 1);
+        renderAt(size);
     }
 }
 
@@ -5941,26 +5953,47 @@ function calcMapDisplaySize() {
     if (!card || card.clientWidth <= 0) card = document.querySelector("#score-matrix-card");
     if (!card || card.clientWidth <= 0) card = document.querySelector(".container");
     const containerW = ((card && card.clientWidth > 0) ? card.clientWidth : 1100) - 64;
-    // Detailed labels add a gene-name band to each map's left; account for it so N maps still fit
-    // the row width (else they overflow). Estimate at the max on-screen font — a slight over-estimate,
-    // which only makes the maps a touch smaller (safe).
-    let leftMargin = 20, edgePad = 0;
+    // Per-map margins exactly as drawMapCanvas lays them out on screen — the name band (a second column when
+    // the left names stagger), the domain lane, and only the top-name overhang that crosses the plot's edge —
+    // so N maps fit the row. Margins depend on the plot size (label font, stagger, overhang), so settle it
+    // over a few passes.
+    const sizes = uniState.chainSizes || [], names = uniState.chainNames || [];
+    const nRes = sizes.reduce((a, b) => a + b, 0) || 1;
     const showTopName = uniLabelAxis === 'both' || uniLabelAxis === 'x', showLeftName = uniLabelAxis === 'both' || uniLabelAxis === 'y';
-    if (uniMapDetailedLabels || showTopName) {
-        const mc = document.createElement('canvas').getContext('2d'); mc.font = `bold ${12 * (uniLabelScale > 0 ? uniLabelScale : 1)}px sans-serif`;
-        let gw = 0;
-        for (const cn of (uniState.chainNames || [])) { const dn = resolveMapName(cn); gw = Math.max(gw, mc.measureText(dn).width); }
-        if (uniMapDetailedLabels && showLeftName) leftMargin = 20 + (uniLabelDirY === 'vertical' ? 12 * (uniLabelScale > 0 ? uniLabelScale : 1) + 6 : gw + 4);
-        if (showTopName && uniLabelDirX !== 'vertical') edgePad = gw / 2 + 4;   // horizontal top names overflow at the first/last chain
-    }
-    leftMargin = Math.max(leftMargin, edgePad);
+    const vertY = uniLabelDirY === 'vertical', vertX = uniLabelDirX === 'vertical', filled = uniLabelStyle === 'filled';
+    const nameMul = uniLabelScale > 0 ? uniLabelScale : 1;
+    const doms = uniState.chainDomains || {};
+    const hasDom = uniShowMapDom && names.some(cn => doms[cn] && doms[cn].length);
+    const mc = document.createElement('canvas').getContext('2d');
+    const marginsAt = (D) => {
+        if (!sizes.length) return 24;
+        const nameFontRaw = Math.max(9, Math.min(12, Math.floor(D / sizes.length / 3)));
+        const font = nameFontRaw * nameMul;
+        mc.font = `bold ${nameFontRaw}px sans-serif`;
+        const chipW = names.map(cn => mc.measureText(resolveMapName(cn)).width * nameMul + (filled ? 0.68 : 0) * font);
+        const effNameW = Math.max(0, ...chipW), effLeftH = (filled ? 0.82 : 1) * font;
+        const colScale = D / nRes;
+        let minAdj = Infinity;
+        for (let k = 0; k < sizes.length - 1; k++) minAdj = Math.min(minAdj, (sizes[k] + sizes[k + 1]) / 2 * colScale);
+        if (!isFinite(minAdj)) minAdj = D;
+        const leftStagger = showLeftName && (vertY ? effNameW : effLeftH) > minAdj * 0.92;
+        const leftColStep = vertY ? effLeftH : effNameW;
+        const leftBandW = showLeftName ? leftColStep * (leftStagger ? 2 : 1) + (leftStagger ? 3 : 0) + 4 + (filled ? font * 0.34 : 2) : 0;
+        const domBandW = hasDom && showLeftName ? Math.max(8, Math.min(14, font * 0.8)) + 3 : 0;
+        let overL = 0, overR = 0;
+        if (showTopName && !vertX) {
+            let c0 = 0;
+            sizes.forEach((sz, k) => { const mid = (c0 + sz / 2) * colScale, half = chipW[k] / 2; overL = Math.max(overL, half - mid); overR = Math.max(overR, mid + half - D); c0 += sz; });
+        }
+        return Math.max((showLeftName ? 2 : 4) + leftBandW, overL > 0 ? overL + 2 : 0) + domBandW + (overR > 0 ? overR + 2 : 0);
+    };
     // On phones the maps stack one-per-row (mobile .map-row rule), so each uses the full width
     // rather than being divided across all models (which shrank them to an unreadable ~80px).
     const nMaps = (typeof window !== 'undefined' && window.innerWidth <= 768) ? 1 : (uniState.modelData.length || 1);
-    const gap = 6;
+    const gap = 6.4;   // .map-row gap: 0.4rem
     const totalGaps = gap * (nMaps - 1);
-    const totalMargins = (leftMargin + edgePad) * nMaps;   // edgePad on the right too
-    const raw = Math.floor((containerW - totalGaps - totalMargins) / nMaps);
+    let raw = 350;
+    for (let pass = 0; pass < 3; pass++) raw = Math.floor((containerW - totalGaps - (marginsAt(Math.max(80, Math.min(raw, 350))) + 1) * nMaps) / nMaps);
     return Math.max(80, Math.min(raw, 350)); // clamp: >= 80px, cap 350px per map
 }
 
@@ -6196,7 +6229,23 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
     // chip-height) is added in the draw code, so this stays small and the labels sit snug to the heatmap.
     const nameGap = filled ? chainFontBase * 0.34 : 2;   // px (pre-HIRES); scales with the font (dynamic)
     // Horizontal top names centerd on a column overflow the plot at the first/last chain → half-width pad.
+    // On screen, only the part of a chip that actually runs past the plot's left/right edge is reserved
+    // (half the widest chip on both sides left ~25px of blank canvas between neighbouring maps).
     const edgePad = (showTopName && !vertX) ? (effNameW / 2 + 4) : 0;
+    let overL = 0, overR = 0;
+    if (!exporting && showTopName && !vertX) {
+        const mctx = canvas.getContext('2d'); mctx.font = `bold ${nameFontRaw}px sans-serif`;
+        let c0 = 0;
+        for (let k = 0; k < chainSizes.length; k++) {
+            const mid = (c0 + chainSizes[k] / 2) * displaySize / n;
+            const halfW = (mctx.measureText(resolveMapName(chainNames[k] || String.fromCharCode(65 + k))).width * nameScale + chipWperFont * chainFontBase) / 2;
+            overL = Math.max(overL, halfW - mid);
+            overR = Math.max(overR, mid + halfW - displaySize);
+            c0 += chainSizes[k];
+        }
+    }
+    const padL = exporting ? edgePad : (overL > 0 ? overL + 2 : 0);
+    const padR = exporting ? edgePad : (overR > 0 ? overR + 2 : 0);
     const leftCols = leftStagger ? 2 : 1;
     // Reserve the left band whenever left names show (chain IDs included), and include the plot gap so the
     // chip clears the heatmap. Previously chain-ID mode reserved nothing and its chips touched the edge.
@@ -6220,7 +6269,8 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
     const domNear = uniMapDomOrder === 'inside';
     const labelPushTop = (domBandH && domNear) ? domBandH * HIRES : 0;
     const labelPushLeft = (domBandW && domNear) ? domBandW * HIRES : 0;
-    const leftMargin = Math.max((exporting ? Math.max(20, chainFontBase * 2.5) : 20) + leftBandW, edgePad) + domBandW;
+    // On screen the left margin is just the name band + domain lane (a fixed 20px on top of them was dead space).
+    const leftMargin = Math.max((exporting ? Math.max(20, chainFontBase * 2.5) : (showLeftName ? 2 : 4)) + leftBandW, padL) + domBandW;
     const rowH = filled ? effLeftH : chainFontBase;                       // per-row vertical extent of a top name
     const nameRows = nameStagger ? 2 : 1;
     const nameBand = (vertX
@@ -6237,7 +6287,7 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
     const showBar = exporting && showColorbar;
     const barGapBase = displaySize * 0.02;
     const barWBase = Math.max(10, displaySize * 0.035);
-    const rightMargin = Math.max(showBar ? (barGapBase + barWBase + 6 + tickFontBase * 1.8 + chainFontBase + 4) : 0, edgePad);
+    const rightMargin = Math.max(showBar ? (barGapBase + barWBase + 6 + tickFontBase * 1.8 + chainFontBase + 4) : 0, padR);
     const plotPx = displaySize * HIRES;
     const leftPx = leftMargin * HIRES;
     const topPx = topMargin * HIRES;
