@@ -282,7 +282,8 @@ const _MAP_SEQ = {   // LIS / cLIS ramps, 0 (white) → 1 (dark); ColorBrewer an
     viridis: ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'],
 };
 const MAP_SCALES = {
-    pae: { label: 'PAE', low: 'low PAE (confident)', high: 'high PAE (uncertain)', key: 'livia.paeScale', def: 'bwr', custom: ['#00897b', '#ffffff'],
+    pae: { label: 'PAE', low: 'low PAE (confident)', high: 'high PAE (uncertain)', key: 'livia.paeScale', def: 'bwr', custom: ['#00897b', '#ffffff', '#ff0000'],
+        oldDefaultCustom: ['#00897b', '#ffffff'],   // the 2-color default before 3 became the default — a saved copy of it was never customized
         options: [['bwr', 'Blue–white–red (default)'], ['alphafold', 'AlphaFold (green)'], ['blues', 'Blues'], ['viridis', 'Viridis'], ['greys', 'Greys'], ['custom', 'Custom']],
         fns: { bwr: _mapBwr },
         stops: {
@@ -304,8 +305,11 @@ for (const k of Object.keys(MAP_SCALES)) {
     mapScale[k] = { name: c.def, custom: c.custom.slice() };
     try {
         const saved = JSON.parse(localStorage.getItem(c.key) || 'null');
-        if (saved && (saved.name === 'custom' || c.fns[saved.name] || c.stops[saved.name]))
-            mapScale[k] = { name: saved.name, custom: Array.isArray(saved.custom) && saved.custom.length >= 2 ? saved.custom : c.custom.slice() };
+        if (saved && (saved.name === 'custom' || c.fns[saved.name] || c.stops[saved.name])) {
+            const own = Array.isArray(saved.custom) && saved.custom.length >= 2
+                && !(c.oldDefaultCustom && saved.custom.join() === c.oldDefaultCustom.join());
+            mapScale[k] = { name: saved.name, custom: own ? saved.custom : c.custom.slice() };
+        }
     } catch (e) { /* storage blocked: keep the default */ }
 }
 let onMapScaleChange = null;   // page sets this: (kind) => redraw that kind's maps and color bars
@@ -329,6 +333,7 @@ function mapScaleControl(kind) {
     el.className = 'map-scale-ctl';
     el.dataset.kind = kind;
     el.style.cssText = 'display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:0.78rem; color:#555;';
+    const hexHint = 'or paste hex: ' + c.custom.join(', ');   // the box is sized to show it whole
     const pick = (i, title) => '<input type="color" class="map-stop" data-i="' + i + '" title="' + title + '" style="width:24px; height:18px; padding:0; border:1px solid #ccd; border-radius:3px; cursor:pointer;">';
     el.innerHTML = '<span>' + c.label + ' colors</span>'
         + '<select class="map-scale-sel" title="Color scale for the ' + c.label + ' maps, ' + c.low + ' to ' + c.high + '" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;">'
@@ -338,7 +343,7 @@ function mapScaleControl(kind) {
         + '<span class="map-mid" style="display:none; align-items:center; gap:4px;">' + pick(1, 'middle') + '<span style="color:#aaa;">&rarr;</span></span>'
         + pick(2, c.high)
         + '<label style="display:inline-flex; align-items:center; gap:3px; cursor:pointer; margin:0;"><input type="checkbox" class="map-3" style="margin:0;"> 3 colors</label>'
-        + '<input type="text" class="map-hex" placeholder="or paste hex: ' + c.custom.join(', ') + '" title="2 or 3 hex colors, ' + c.low + ' to ' + c.high + '" style="width:180px; font-size:0.72rem; padding:1px 4px; border:1px solid #ccd; border-radius:4px;">'
+        + '<input type="text" class="map-hex" placeholder="' + hexHint + '" title="2 or 3 hex colors, ' + c.low + ' to ' + c.high + '" style="width:' + Math.round(hexHint.length * 6.2 + 10) + 'px; font-size:0.72rem; padding:1px 4px; border:1px solid #ccd; border-radius:4px;">'
         + '</span>';
     const stop = (i) => el.querySelector('.map-stop[data-i="' + i + '"]').value;
     const custom = () => el.querySelector('.map-3').checked ? [stop(0), stop(1), stop(2)] : [stop(0), stop(2)];
