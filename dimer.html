@@ -2810,7 +2810,9 @@ function displayDimerResults() {
     { const lc = document.getElementById('map-labels-card'); if (lc) lc.style.display = ''; }
     renderCustomLabelInputs();
 
-    // Draw maps
+    // Draw maps — with the results shown first, so they are sized to the card they sit in (drawn while
+    // hidden, they measured the wider page container and shrank on the first redraw)
+    document.getElementById('results').classList.add('active');
     drawAllMaps();
 
     // Dimer vs Monomer comparison (if data already fetched)
@@ -2833,7 +2835,6 @@ function displayDimerResults() {
     generateAndDisplayScript();
 
     makeSortable(document.getElementById('pairs-table'));
-    document.getElementById('results').classList.add('active');
 }
 
 // ============================================================================
@@ -3489,9 +3490,9 @@ function drawAllMaps() {
     const mapsCard = document.getElementById('maps-flex')?.closest('.card');
     const containerEl = document.querySelector('.container');
     const cardW = (mapsCard && mapsCard.clientWidth > 100 ? mapsCard.clientWidth : containerEl ? containerEl.clientWidth : 1052) - 48;
-    // Overhead = colorbar + tick labels + gaps (~56) + the dynamic chain/gene-name label margins.
+    // Overhead = plot→colorbar gap (MAP_CBAR_GAP) + colorbar (14) + tick labels (~18) + the dynamic chain/gene-name label margin.
     const nPanels = 3, panelGap = 6;
-    const panelOverhead = 56 + estimateMapLabelMargin(v.chainNames);
+    const panelOverhead = MAP_CBAR_GAP + 14 + 19 + estimateMapLabelMargin(v.chainNames);
     const horizSize = Math.floor((cardW - panelGap * (nPanels - 1)) / nPanels - panelOverhead);
     const stackVertical = window.innerWidth <= 768 || horizSize < 150;
     const displaySize = stackVertical
