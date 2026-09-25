@@ -28,7 +28,9 @@
         .preset-strip { display: flex; width: 60px; height: 12px; border-radius: 3px; overflow: hidden; flex-shrink: 0; }
         .preset-strip span { flex: 1; }
         .script-preview { font-size: 0.72rem; line-height: 1.4; }
-        .metrics-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+        #pairs-table td, #pairs-table th { white-space: nowrap; padding: 0.5rem 0.55rem; }
+        #pairs-table .col-extra { display: none; }
+        #pairs-table.show-lir-cols .col-extra { display: table-cell; }
         .data-table tr.selected { background: #faf8f4; box-shadow: inset 4px 0 0 #c4a35a; }
 
         /* Map */
@@ -225,6 +227,32 @@
 
     <!-- Results -->
     <div class="results" id="results">
+        <!-- Region Pair Summary — the first result: positive region pairs, in the same layout as the
+             dimer/universal summary tables (iLIA/LIR/cLIR behind the toggle) -->
+        <div class="card result-card">
+            <h2 id="result-title">Region Pair Summary</h2>
+            <label style="font-size:0.78rem; color:#666; display:inline-flex; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem;"><input type="checkbox" id="toggle-lir-cols" onchange="document.getElementById('pairs-table').classList.toggle('show-lir-cols', this.checked)"> Show iLIA/LIR/cLIR columns</label>
+            <div style="overflow-x:auto;">
+            <table class="data-table" id="pairs-table">
+                <thead><tr><th>Region i</th><th>Region j</th><th>iLIS</th><th>iLISA</th><th>LIS</th><th>cLIS</th><th title="pDockQ fed this model's own PAE+contact-gated cLIR interface between the two regions">LIpDockQ</th><th title="pDockQ2's PAE-decay applied to the cLIR interface between the two regions; mean of the two directions">LIpDockQ2</th><th class="col-extra">iLIA</th><th class="col-extra">LIR (i/j)</th><th class="col-extra">cLIR (i/j)</th></tr></thead>
+                <tbody id="pairs-tbody"></tbody>
+            </table>
+            </div>
+            <div id="pairs-note" style="font-size:0.78rem; color:#888; margin:-0.4rem 0 0.2rem;"></div>
+            <div style="margin-top:0.5rem;">
+                <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem; cursor:pointer;" onclick="downloadCSV()">&#8595; Download CSV</a>
+            </div>
+            <div style="margin-top:0.6rem; font-size:0.75rem; color:#999; line-height:1.8;">
+                <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
+                    <strong>iLIS:</strong>
+                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.551</span> (1% FPR)</span>
+                    <span><span style="color:#0e8a6e; font-weight:700;">&ge;0.339</span> (5% FPR)</span>
+                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.223</span> (10% FPR)</span>
+                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.223</span> (below threshold)</span>
+                </div>
+                <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details.</div>
+            </div>
+        </div>
         <!-- Subdomain Interaction Map (chord diagram) -->
         <div class="card result-card" id="chord-diagram-container" style="display:none;">
             <h2>Subdomain Interaction Map</h2>
@@ -264,21 +292,6 @@
             </div>
             <canvas id="domain-map-canvas" style="width:100%; max-width:900px; display:block; margin:0 auto;"></canvas>
             <div id="domain-comparison-content" style="margin-top:1rem;"></div>
-        </div>
-
-        <!-- Region Pair Table -->
-        <div class="card result-card">
-            <h2 id="result-title">Region Pair Summary</h2>
-            <div class="metrics-grid" id="pair-metrics"></div>
-            <div style="overflow-x:auto;">
-            <table class="data-table" id="pairs-table">
-                <thead><tr><th>Region Pair</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>LIS</th><th>cLIS</th><th>LIR (i/j)</th><th>cLIR (i/j)</th></tr></thead>
-                <tbody id="pairs-tbody"></tbody>
-            </table>
-            </div>
-            <div style="margin-top:0.5rem;">
-                <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem; cursor:pointer;" onclick="downloadCSV()">&#8595; Download CSV</a>
-            </div>
         </div>
 
         <!-- 3D Structure Viewer -->
@@ -1505,6 +1518,51 @@ function calculate() {
     displayResults(validRegions);
 }
 
+// pDockQ (Bryant, Pozzati & Elofsson 2022) from an interface's mean pLDDT and its count of contact
+// cells; fed the cLIR interface between two regions it gives LIpDockQ. Same as dimer.html's and
+// universal.html's calcPdockq().
+function calcPdockq(avgIfPlddt, nIfContacts) {
+    if (nIfContacts == null || nIfContacts < 0) return null;
+    if (nIfContacts === 0) return 0;
+    if (avgIfPlddt == null || isNaN(avgIfPlddt)) return null;
+    const x = avgIfPlddt * Math.log10(nIfContacts);
+    return 0.724 / (1 + Math.exp(-0.052 * (x - 152.611))) + 0.018;
+}
+// pDockQ2 (Zhu, Shenoy, Kundrotas & Elofsson 2023) from running sums over interface cells; n=0 is a
+// real "no interface" finding here, so 0. Same as dimer.html's and universal.html's pdockq2FromSums().
+function pdockq2FromSums(decaySum, plddtSum, n) {
+    if (n === 0) return 0;
+    const x = (decaySum / n) * (plddtSum / n);
+    return 1.31034849 / (1 + Math.exp(-0.07471577 * (x - 84.73262390))) + 0.00501886;
+}
+// Weighted mean of two per-side values (lis.py's _wmean_plddt); mean of two nullable per-direction values.
+function wmeanNum(vi, vj, wi, wj) {
+    if (vi == null || vj == null || isNaN(vi) || isNaN(vj)) return NaN;
+    const w = (wi || 0) + (wj || 0);
+    if (w <= 0) return NaN;
+    return (wi * vi + wj * vj) / w;
+}
+function mean2Nullable(a, b) {
+    if (a == null && b == null) return null;
+    if (a == null) return b;
+    if (b == null) return a;
+    return (a + b) / 2;
+}
+// resnum → pLDDT (CA B-factor) of the loaded model, keyed by residue number like the PAE indices.
+let _monPlddtSrc = null, _monPlddtByRes = new Map();
+function monPlddtByRes() {
+    if (_monPlddtSrc !== monPdbText) {
+        const m = new Map();
+        for (const line of (monPdbText || '').split('\n')) {
+            if (!line.startsWith('ATOM') || line.length < 66 || line.substring(12, 16).trim() !== 'CA') continue;
+            const rn = parseInt(line.substring(22, 26)), bf = parseFloat(line.substring(60, 66));
+            if (!isNaN(rn) && !isNaN(bf)) m.set(rn, bf);
+        }
+        _monPlddtByRes = m; _monPlddtSrc = monPdbText;
+    }
+    return _monPlddtByRes;
+}
+
 function calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap, boundaryMargin) {
     const margin = boundaryMargin || 0;
     // Per-direction LIS:
@@ -1518,11 +1576,17 @@ function calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap, boundaryMargin) {
     let clisCountAB = 0, clisCountBA = 0;
     const lirI = new Set(), lirJ = new Set();
     const clirI = new Set(), clirJ = new Set();
+    // LIpDockQ: count of cLIR cells (each counted once); LIpDockQ2: per-direction PAE-decay and pLDDT sums
+    // over the same cells — as in dimer.html's computePairMetrics.
+    let LIpDockQN = 0;
+    let cpdq2iDecaySum = 0, cpdq2iPlddtSum = 0, cpdq2iN = 0;
+    let cpdq2jDecaySum = 0, cpdq2jPlddtSum = 0, cpdq2jN = 0;
+    const plddt = monPlddtByRes();
 
     // Exclude boundary residues (margin from each edge)
     const startI = ri.start + margin, endI = ri.end - margin;
     const startJ = rj.start + margin, endJ = rj.end - margin;
-    if (startI > endI || startJ > endJ) return { iLIS: 0, iLIA: 0, iLISA: 0, LIS: 0, cLIS: 0, LIA: 0, cLIA: 0, lirI, lirJ, clirI, clirJ, lenI: ri.end - ri.start + 1, lenJ: rj.end - rj.start + 1 };
+    if (startI > endI || startJ > endJ) return { ri, rj, iLIS: 0, iLIA: 0, iLISA: 0, LIS: 0, cLIS: 0, LIA: 0, cLIA: 0, LIpDockQ: 0, LIpDockQ2_i: 0, LIpDockQ2_j: 0, LIpDockQ2: 0, lirI, lirJ, clirI, clirJ, lenI: ri.end - ri.start + 1, lenJ: rj.end - rj.start + 1 };
 
     for (let a = startI; a <= endI; a++) {
         for (let b = startJ; b <= endJ; b++) {
@@ -1566,6 +1630,10 @@ function calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap, boundaryMargin) {
                 if (inContact) {
                     clirI.add(a);
                     clirJ.add(b);
+                    LIpDockQN++;
+                    const pI = plddt.get(a), pJ = plddt.get(b);
+                    if (pI != null && !isNaN(pI)) { cpdq2iDecaySum += 1 / (1 + (paeAB / 10) ** 2); cpdq2iPlddtSum += pI; cpdq2iN++; }
+                    if (pJ != null && !isNaN(pJ)) { cpdq2jDecaySum += 1 / (1 + (paeBA / 10) ** 2); cpdq2jPlddtSum += pJ; cpdq2jN++; }
                 }
             }
         }
@@ -1582,11 +1650,15 @@ function calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap, boundaryMargin) {
     const cliaCount = clisCountAB + clisCountBA;
     const ilia = Math.sqrt(liaCount * cliaCount);
     const ilisa = ilis * ilia;
-
+    const meanPlddt = (set) => { let sum = 0, n = 0; for (const r of set) { const v = plddt.get(r); if (v != null) { sum += v; n++; } } return n ? sum / n : NaN; };
+    const LIpDockQ = calcPdockq(wmeanNum(meanPlddt(clirI), meanPlddt(clirJ), clirI.size, clirJ.size), LIpDockQN);
+    const LIpDockQ2_i = pdockq2FromSums(cpdq2iDecaySum, cpdq2iPlddtSum, cpdq2iN);
+    const LIpDockQ2_j = pdockq2FromSums(cpdq2jDecaySum, cpdq2jPlddtSum, cpdq2jN);
 
     return {
         ri, rj,
         iLIS: ilis, iLIA: ilia, iLISA: ilisa, LIS: lis, cLIS: clis, LIA: liaCount, cLIA: cliaCount,
+        LIpDockQ, LIpDockQ2_i, LIpDockQ2_j, LIpDockQ2: mean2Nullable(LIpDockQ2_i, LIpDockQ2_j),
         lirI, lirJ, clirI, clirJ,
         lenI: ri.end - ri.start + 1,
         lenJ: rj.end - rj.start + 1,
@@ -1980,10 +2052,10 @@ function displayResults(validRegions) {
 
     // Check if any pair has interaction
     const hasInteraction = monPairResults.some(v => v.iLIS > 0);
-    const metricsDiv = document.getElementById('pair-metrics');
+    const note = document.getElementById('pairs-note');
 
     if (!hasInteraction) {
-        metricsDiv.innerHTML = '<div style="color:#888; font-size:0.9rem; padding:0.5rem 0;">No intramolecular interaction detected between the defined regions.</div>';
+        note.textContent = 'No intramolecular interaction detected between the defined regions.';
         document.getElementById('pairs-tbody').innerHTML = '';
         // Auto-enable complete structure view since there's nothing to selectively show
         showComplete = true;
@@ -2001,31 +2073,24 @@ function displayResults(validRegions) {
         return;
     }
 
-    // Metrics for first/primary pair (only show cards for single pair)
-    if (monPairResults.length === 1 && hasInteraction) {
-        const v = monPairResults[0];
-        metricsDiv.innerHTML = `
-            <div class="metric"><div class="value">${v.iLIS.toFixed(3)}</div><div class="label">iLIS</div></div>
-            <div class="metric"><div class="value">${v.iLIA.toFixed(1)}</div><div class="label">iLIA</div></div>
-            <div class="metric"><div class="value">${v.iLISA.toFixed(1)}</div><div class="label">iLISA</div></div>
-            <div class="metric"><div class="value">${v.LIS.toFixed(3)}</div><div class="label">LIS</div></div>
-            <div class="metric"><div class="value">${v.cLIS.toFixed(3)}</div><div class="label">cLIS</div></div>
-            <div class="metric"><div class="value">${v.lirI.size} / ${v.lirJ.size}</div><div class="label">LIR (${v.ri.name}/${v.rj.name})</div></div>
-            <div class="metric"><div class="value">${v.clirI.size} / ${v.clirJ.size}</div><div class="label">cLIR (${v.ri.name}/${v.rj.name})</div></div>
-        `;
-    } else {
-        metricsDiv.innerHTML = '';
-    }
-
-    // Table
+    // Table — positive pairs only: iLIS at or above the 10% FPR cutoff (0.223, with the same 0.0005 rounding
+    // tolerance as universal's negative-pair filter). Every pair's score stays in the iLIS / iLISA matrix.
+    const POS_ILIS = 0.223;
+    const regionCell = (r) => `<span style="display:inline-block; width:0.6em; height:0.6em; border-radius:2px; background:${r.color || '#999'}; margin-right:0.35em;"></span><strong>${esc(String(r.name))}</strong> <span style="color:#888;">${r.start}&ndash;${r.end}</span>`;
+    const pdq = (x) => (x == null || isNaN(x)) ? '' : x.toFixed(3);
     const tbody = document.getElementById('pairs-tbody');
     tbody.innerHTML = '';
+    let nPos = 0;
     for (const v of monPairResults) {
-        if (v.iLIS === 0) continue;
+        if (!(v.iLIS >= POS_ILIS - 0.0005)) continue;
+        nPos++;
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${v.ri.name} (${v.ri.start}-${v.ri.end}) &mdash; ${v.rj.name} (${v.rj.start}-${v.rj.end})</td><td>${ilisColor(v.iLIS)}</td><td>${v.iLIA.toFixed(1)}</td><td>${v.iLISA.toFixed(1)}</td><td>${v.LIS.toFixed(3)}</td><td>${v.cLIS.toFixed(3)}</td><td>${v.lirI.size} / ${v.lirJ.size}</td><td>${v.clirI.size} / ${v.clirJ.size}</td>`;
+        tr.innerHTML = `<td>${regionCell(v.ri)}</td><td>${regionCell(v.rj)}</td><td>${ilisColor(v.iLIS)}</td><td>${v.iLISA.toFixed(1)}</td><td>${v.LIS.toFixed(3)}</td><td>${v.cLIS.toFixed(3)}</td><td>${pdq(v.LIpDockQ)}</td><td>${pdq(v.LIpDockQ2)}</td><td class="col-extra">${v.iLIA.toFixed(1)}</td><td class="col-extra">${v.lirI.size} / ${v.lirJ.size}</td><td class="col-extra">${v.clirI.size} / ${v.clirJ.size}</td>`;
         tbody.appendChild(tr);
     }
+    note.textContent = nPos
+        ? 'Positive region pairs only (iLIS ≥ 0.223). Every pair\'s score is in the iLIS / iLISA matrix above.'
+        : 'No region pair reaches iLIS 0.223 (10% FPR). Every pair\'s score is in the iLIS / iLISA matrix above.';
 
     // Show iLIS score matrix next to PAE map in step 2
     const matrixInline = document.getElementById('score-matrix-inline');
@@ -2374,14 +2439,16 @@ function generateAndShowScript(validRegions) {
 
 function downloadCSV() {
     if (!monPairResults.length) return;
-    const header = 'name,model,protein_A,protein_B,chain_A,chain_B,iLIS,iLIA,iLISA,LIS,cLIS,LIA,cLIA,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
+    // Every region pair (the table shows the positive ones). One value per header column.
+    const header = 'name,model,protein_A,protein_B,chain_A,chain_B,iLIS,iLIA,iLISA,LIS,cLIS,LIA,cLIA,LIpDockQ,LIpDockQ2_A,LIpDockQ2_B,LIpDockQ2,LIR_A,LIR_B,cLIR_A,cLIR_B,len_A,len_B,LIR_indices_A,LIR_indices_B,cLIR_indices_A,cLIR_indices_B';
     const rows = [header];
+    const num = (x) => (x == null || isNaN(x)) ? '' : x.toFixed(6);
     for (const v of monPairResults) {
         rows.push([
             monUniprotId, 'monomer', v.ri.name, v.rj.name, v.ri.name, v.rj.name,
             v.iLIS.toFixed(6), v.iLIA.toFixed(1), v.iLISA.toFixed(1), v.LIS.toFixed(6), v.cLIS.toFixed(6),
             (v.LIA||0).toFixed(1), (v.cLIA||0).toFixed(1),
-            '', '', '',
+            num(v.LIpDockQ), num(v.LIpDockQ2_i), num(v.LIpDockQ2_j), num(v.LIpDockQ2),
             v.lirI.size, v.lirJ.size, v.clirI.size, v.clirJ.size,
             v.lenI, v.lenJ,
             `"[${[...v.lirI].sort((a,b)=>a-b).join(', ')}]"`,
