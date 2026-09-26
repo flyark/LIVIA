@@ -41,6 +41,14 @@
         .hero-cta:hover { background: #1a5276; }
         .hero-hint { font-size: 0.8rem; color: #888; margin-top: 0.6rem; }
         .hero-pair { display: grid; grid-template-columns: 3fr 2fr; gap: 1.5rem; margin-bottom: 2rem; }
+        /* the 34-second tour (files on flyark.github.io/livia-media; nothing downloads until play) */
+        .tour-card { display: grid; grid-template-columns: 2fr 3fr; gap: 1.75rem; align-items: center; background: white; border-radius: 14px; padding: 1.5rem 1.75rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 2rem; }
+        .tour-card h2 { font-size: 1.35rem; color: #1a5276; margin-bottom: 0.4rem; }
+        .tour-card p { font-size: 0.92rem; color: #555; line-height: 1.5; margin-bottom: 0.8rem; }
+        .tour-card .tour-meta { display: block; font-size: 0.78rem; color: #888; margin-bottom: 0.8rem; }
+        .tour-more { font-size: 0.88rem; font-weight: 600; color: #2471A3; text-decoration: none; }
+        .tour-more:hover { text-decoration: underline; }
+        .tour-video { width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; background: #0d1b2a; display: block; }
         .hero-pair .hero-card { margin-bottom: 0; }
 
         /* Section divider */
@@ -74,6 +82,7 @@
             .cards-grid { grid-template-columns: 1fr; }
             .hero-card { padding: 1.5rem; }
             .hero-pair { grid-template-columns: 1fr; }
+            .tour-card { grid-template-columns: 1fr; gap: 1rem; padding: 1.25rem; }
             .hero-card h2 { font-size: 1.2rem; }
             .bottom-row { flex-direction: column; }
         }
@@ -107,6 +116,19 @@
         <span class="paper-cite">Kim &amp; Perrimon (2026). LIVIA: a browser-based tool for assessing and visualizing predicted protein interactions. <em>bioRxiv</em>.</span>
         <span class="paper-arrow">&rarr;</span>
     </a>
+
+    <!-- The 34-second tour -->
+    <div class="tour-card">
+        <div class="tour-text">
+            <h2>See LIVIA in 34 seconds</h2>
+            <p>Drop in a prediction and see its interface: iLIS beside every other metric, contact maps and 3D, even for big complexes.</p>
+            <span class="tour-meta">34 s &middot; no sound</span>
+            <a class="tour-more" href="tutorials.html#tour">Full tour (69 s) on the Tutorials page &rarr;</a>
+        </div>
+        <video class="tour-video" controls playsinline loop preload="none" poster="https://flyark.github.io/livia-media/livia-light.webp" aria-label="LIVIA in 34 seconds (no sound)">
+            <source src="https://flyark.github.io/livia-media/livia-light.mp4" type="video/mp4">
+        </video>
+    </div>
 
     <!-- Hero: Prediction Analysis -->
     <a class="hero-card" href="universal.html">

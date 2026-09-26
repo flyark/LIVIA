@@ -23,6 +23,10 @@
         .page-intro p { font-size: 0.92rem; color: #666; line-height: 1.5; }
 
         /* Tutorial card */
+        .tour-full { background: white; border-radius: 14px; padding: 1.5rem 1.75rem 1.75rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 2rem; }
+        .tour-full h2 { font-size: 1.3rem; color: #1a5276; margin-bottom: 0.3rem; }
+        .tour-full p { font-size: 0.92rem; color: #555; line-height: 1.5; margin-bottom: 1rem; }
+        .tour-full video { width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; background: #0d1b2a; display: block; }
         .tutorial-card {
             background: white;
             border-radius: 14px;
@@ -201,6 +205,15 @@
         <p>Each tutorial below walks through a real workflow with auto-advancing screenshots. Click any step to jump to it, or let it play through automatically. Ready to try it yourself? Click the <strong>Try it</strong> button.</p>
     </div>
 
+
+    <!-- The full tour: the 69-second film (files on flyark.github.io/livia-media; nothing downloads until play) -->
+    <div class="tour-full" id="tour">
+        <h2>The full tour</h2>
+        <p>69 seconds, no sound: one prediction from upload to every map, 3D view and ChimeraX/PyMOL export, then cLIP on a whole screen.</p>
+        <video controls playsinline loop preload="none" poster="https://flyark.github.io/livia-media/livia-full.webp" aria-label="LIVIA full tour, 69 seconds (no sound)">
+            <source src="https://flyark.github.io/livia-media/livia-full.mp4" type="video/mp4">
+        </video>
+    </div>
 
     <!-- ============================================================ -->
     <!-- TUTORIAL 1: Prediction Analysis (6 steps) -->
