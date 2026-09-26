@@ -185,7 +185,7 @@
                 <h2 data-nav="Summary" id="result-title" style="margin-bottom:0;">Interaction Analysis Summary</h2>
                 <a style="font-size:0.8rem; color:#2471A3; cursor:pointer; text-decoration:none; border-bottom:1px dashed #2471A3;" onclick="downloadCSV()">&#8595; Download CSV</a>
             </div>
-            <div class="info-box">Ranks are FlyPredictome's order of the five models by ipTM (Rank 1 = highest ipTM), not by iLIS. Click a row to switch ranks; this updates all visualizations and the script below.</div>
+            <div class="info-box">Ranks are FlyPredictome's own order of the five models, which is ipTM-based, not iLIS-based. Click a row to switch ranks; this updates all visualizations and the script below.</div>
             <div style="overflow-x:auto;">
                 <table class="data-table" id="ranks-table">
                     <thead>
@@ -2004,7 +2004,7 @@ function renderModelSelectors() {
         const ilis = parseFloat(r['iLIS']);
         const ilisStr = isNaN(ilis) ? '—' : ilis.toFixed(3);
         const label = 'Rank ' + rk;
-        return `<button type="button" class="model-chip${sel}" onclick="loadRank(${rk})" title="Select ${esc(label)}: FlyPredictome's rank by ipTM (iLIS ${ilisStr})"><span class="model-chip-name">${esc(label)}</span><span class="model-chip-ilis"><span class="model-chip-metric">iLIS</span>${ilisStr}</span></button>`;
+        return `<button type="button" class="model-chip${sel}" onclick="loadRank(${rk})" title="Select ${esc(label)}: FlyPredictome's ipTM-based rank (iLIS ${ilisStr})"><span class="model-chip-name">${esc(label)}</span><span class="model-chip-ilis"><span class="model-chip-metric">iLIS</span>${ilisStr}</span></button>`;
     }).join('');
     selectors.forEach(s => { s.innerHTML = html; s.style.display = 'flex'; });
 }
