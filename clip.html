@@ -280,7 +280,7 @@
     <div class="card">
       <h2 data-nav="3D structure">3D structure <span id="struct-badge" class="muted" style="font-weight:400; font-size:.8rem"></span></h2>
       <div class="muted">Query protein structure, residues colored by the cluster that consensus-contacts them · click clusters to isolate.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.</div>
-      <div class="muted" style="margin-top:.35rem">Highlight residues contacted by &ge; <select id="commonality" style="font-size:.82rem; padding:1px 4px"><option value="0.5">50%</option><option value="0.6">60%</option><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option></select> of a cluster's members (consensus / core residues).</div>
+      <div class="muted" style="margin-top:.35rem">Highlight residues contacted by &ge; <select id="commonality" style="font-size:.82rem; padding:1px 4px" title="Fraction of a cluster's members (predictions) that must contact a residue for it to take the cluster's color"><option value="0.1">10%</option><option value="0.2">20%</option><option value="0.3">30%</option><option value="0.4">40%</option><option value="0.5" selected>50%</option><option value="0.6">60%</option><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option><option value="custom">custom&hellip;</option></select><span id="commonality-custom" class="hidden"> <input type="number" id="commonality-pct" min="1" max="100" step="1" style="width:4.2em; font-size:.82rem; padding:1px 4px" title="Any value from 1 to 100%; applied on Enter or when the field loses focus"> %</span> of a cluster's members (consensus / core residues).</div>
       <div class="muted" style="margin-top:.25rem">Color only clusters with &ge; <input id="min-cluster" type="number" min="1" value="5" style="width:46px; font-size:.82rem; padding:1px 4px"> predictions (hides tiny clusters).</div>
       <div class="muted" style="font-size:.78rem; color:#99a">&nbsp;&nbsp;(the <b>(N)</b> on each cluster chip — AlphaFold ranks, not unique partners).</div>
       <div id="cluster-chips" class="chips" style="margin:.5rem 0 0"></div>
@@ -1056,7 +1056,12 @@ function render(A){
     } }
   $('svg-freq').onclick = () => { if (LAST) downloadSVG(`clip_${LAST.gene}_frequency.svg`, svgFreq(LAST, svgOpts())); };
   $('svg-heatmap').onclick = () => { if (LAST) downloadSVG(`clip_${LAST.gene}_fingerprint.svg`, svgHeatmap(LAST, heatOpts())); };
-  $('commonality').onchange = () => { COMMONALITY = +$('commonality').value; if (LAST) recolor3D(LAST); };
+  $('commonality').onchange = () => {                   // a preset (10–90%), or "custom…" for any value from 1 to 100%
+    if ($('commonality').value === 'custom') { $('commonality-custom').classList.remove('hidden'); $('commonality-pct').value = +(COMMONALITY * 100).toFixed(1); $('commonality-pct').focus(); $('commonality-pct').select(); return; }   // selected: typing replaces the value
+    $('commonality-custom').classList.add('hidden'); COMMONALITY = +$('commonality').value; if (LAST) recolor3D(LAST); };
+  $('commonality-pct').onchange = () => {
+    const pct = Math.min(100, Math.max(1, parseFloat($('commonality-pct').value) || 50));
+    $('commonality-pct').value = pct; COMMONALITY = pct / 100; if (LAST) recolor3D(LAST); };
   { const _mc = $('min-cluster'); if (_mc) _mc.onchange = () => { MIN_CLUSTER = Math.max(1, +$('min-cluster').value || 1); if (LAST) recolor3D(LAST); }; }
   document.querySelectorAll('.cmode').forEach(el => el.onclick = () => {
     document.querySelectorAll('.cmode').forEach(x => x.classList.remove('sel')); el.classList.add('sel');
@@ -1835,7 +1840,7 @@ function loadExportData(d){                           // reconstruct a bundled r
     COLOR3D = d.COLOR3D || 'cluster'; AM_CUTOFF = d.AM_CUTOFF != null ? d.AM_CUTOFF : 0; MIN_CLUSTER = d.MIN_CLUSTER != null ? d.MIN_CLUSTER : 5;
     LAST = d.LAST;
     const sv = (id, v) => { const el = $(id); if (el && v != null) el.value = String(v); };
-    sv('palette', PALETTE); sv('commonality', COMMONALITY); sv('am-cutoff', AM_CUTOFF); sv('min-cluster', MIN_CLUSTER);
+    sv('palette', PALETTE); syncCommonality(); sv('am-cutoff', AM_CUTOFF); sv('min-cluster', MIN_CLUSTER);
     render(LAST);                                     // builds every panel AND wires the interactive handlers
     if (d.ACTIVE && d.ACTIVE.length){ ACTIVE = new Set(d.ACTIVE); redraw(LAST); }
     if (LAST._am) document.querySelectorAll('.am-only').forEach(e => e.classList.remove('hidden'));
@@ -1897,6 +1902,14 @@ function pickQueryChain(plddtMap, queryLen){
   return chains[0];
 }
 let COMMONALITY = 0.5;   // 3D: color a residue with a cluster when >= this fraction of the cluster's members contact it
+// Show COMMONALITY in its control: the matching preset, or "custom…" with the value in the percent field (a saved report
+// can carry any value from 1 to 100%).
+function syncCommonality(){
+  const sel = $('commonality'), box = $('commonality-custom'), pct = $('commonality-pct'); if (!sel) return;
+  const preset = [...sel.options].find((o) => o.value !== 'custom' && Math.abs(+o.value - COMMONALITY) < 1e-9);
+  if (preset) { sel.value = preset.value; box.classList.add('hidden'); }
+  else { sel.value = 'custom'; box.classList.remove('hidden'); pct.value = +(COMMONALITY * 100).toFixed(1); }
+}
 let MIN_CLUSTER = 5;   // 3D: skip clusters with fewer than this many predictions/members (matches the "Cn (N)" chip count); ignored when a single cluster is isolated
 let COLOR3D = 'cluster';   // 3D color mode: cluster | plddt | am
 let AM_CUTOFF = 0;         // AM mode: only color residues with mean pathogenicity >= this (0 = show all)
