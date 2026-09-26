@@ -43,6 +43,14 @@ function _normalizeHex(s) {
     return null;
 }
 
+// ── A picker's hex field: a text input once initColorPickers() has upgraded it (an input shows .value, not its
+// text), the original <div> before that. Presets and Swap A↔B write through here so the field follows the swatch. ──
+function setColorHex(id, hex) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.tagName === 'INPUT') el.value = String(hex).toLowerCase(); else el.textContent = hex;
+}
+
 // ── Bind color picker input events (call once after DOM ready) ──
 // Converts read-only .color-hex divs into editable text inputs and wires
 // bidirectional sync with the paired color picker. Triggers onColorChange()
@@ -128,10 +136,10 @@ function applyPreset(lirA, clirA, lirB, clirB, el) {
     document.getElementById('color-clir-a').value = clirA;
     document.getElementById('color-lir-b').value = lirB;
     document.getElementById('color-clir-b').value = clirB;
-    document.getElementById('hex-lir-a').textContent = lirA;
-    document.getElementById('hex-clir-a').textContent = clirA;
-    document.getElementById('hex-lir-b').textContent = lirB;
-    document.getElementById('hex-clir-b').textContent = clirB;
+    setColorHex('hex-lir-a', lirA);
+    setColorHex('hex-clir-a', clirA);
+    setColorHex('hex-lir-b', lirB);
+    setColorHex('hex-clir-b', clirB);
     updateColorStrip();
     // Update active state
     if (el) {

@@ -473,7 +473,7 @@
 <script src="js/livia-core.js?v=20260924"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260716e"></script>
-<script src="js/livia-colors.js?v=20260924c"></script>
+<script src="js/livia-colors.js?v=20260926a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260816"></script>
 <script src="js/livia-subnav.js?v=20260925"></script>
@@ -1433,10 +1433,10 @@ function applyPreset(la, ca, lb, cb, el) {
     document.getElementById('color-clir-a').value = ca;
     document.getElementById('color-lir-b').value = lb;
     document.getElementById('color-clir-b').value = cb;
-    document.getElementById('hex-lir-a').textContent = la;
-    document.getElementById('hex-clir-a').textContent = ca;
-    document.getElementById('hex-lir-b').textContent = lb;
-    document.getElementById('hex-clir-b').textContent = cb;
+    setColorHex('hex-lir-a', la);
+    setColorHex('hex-clir-a', ca);
+    setColorHex('hex-lir-b', lb);
+    setColorHex('hex-clir-b', cb);
     const s = document.getElementById('color-strip').children;
     s[0].style.background = la; s[1].style.background = ca; s[2].style.background = cb; s[3].style.background = lb;
     if (el) { document.querySelectorAll('.preset-chip').forEach(p => p.classList.remove('active')); el.classList.add('active'); }
