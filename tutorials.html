@@ -212,7 +212,7 @@
     <!-- The full tour: the 69-second film (files on flyark.github.io/livia-media; nothing downloads until play) -->
     <div class="tour-full" id="tour">
         <h2>The full tour</h2>
-        <p>69 seconds, no sound: one prediction from upload to every map, 3D view and ChimeraX/PyMOL export, then cLIP on a whole screen.</p>
+        <p>69 seconds, no sound: one prediction, from loading it to every map, 3D view and ChimeraX/PyMOL export, then cLIP on a whole screen.</p>
         <video controls playsinline loop preload="none" poster="https://flyark.github.io/livia-media/livia-full.webp" aria-label="LIVIA full tour, 69 seconds (no sound)">
             <source src="https://flyark.github.io/livia-media/livia-full.mp4" type="video/mp4">
         </video>
@@ -225,7 +225,7 @@
         <div class="tutorial-header">
             <div>
                 <h3>Prediction Analysis</h3>
-                <p>Upload prediction files from any platform and analyze interface confidence</p>
+                <p>Load prediction files from any platform and analyze interface confidence</p>
             </div>
             <a class="try-btn" href="universal.html">Try it &rarr;</a>
         </div>
@@ -240,7 +240,7 @@
             <div class="steps-sidebar" data-tutorial="universal">
                 <div class="step-item active" data-step="0" onclick="goToStep('universal', 0)">
                     <div class="step-badge">1</div>
-                    <div class="step-text">Upload your prediction files or select example files</div>
+                    <div class="step-text">Load your prediction files or select example files</div>
                 </div>
                 <div class="step-item" data-step="1" onclick="goToStep('universal', 1)">
                     <div class="step-badge">2</div>
@@ -285,7 +285,7 @@
             </div>
             <div class="screenshot-area" data-tutorial="universal">
                 <img id="img-universal" src="screenshots/tut_universal_1.png" alt="Tutorial step">
-                <div class="screenshot-caption" id="cap-universal">Upload prediction files or pick a p53&ndash;MDM2 example</div>
+                <div class="screenshot-caption" id="cap-universal">Load prediction files or pick a p53&ndash;MDM2 example</div>
                 <div class="progress-dots" id="dots-universal"></div>
                 <div class="playback-controls">
                     <button class="playback-btn" onclick="togglePlayback('universal')" id="play-btn-universal" title="Pause/Resume">&#9646;&#9646; Pause</button>
@@ -390,7 +390,7 @@
 const tutorials = {
     universal: {
         steps: [
-            { src: 'screenshots/tut_universal_1.png', caption: 'Upload prediction files or pick a p53\u2013MDM2 example (AlphaFold-Multimer via ColabFold, AlphaFold3, Boltz-2, Chai-1, OpenFold3, Protenix-v2, ESMFold2), or a 3\u20134 chain AlphaFold3 complex (PRC2, BBSome, MIS12C)' },
+            { src: 'screenshots/tut_universal_1.png', caption: 'Load prediction files or pick a p53\u2013MDM2 example (AlphaFold-Multimer via ColabFold, AlphaFold3, Boltz-2, Chai-1, OpenFold3, Protenix-v2, ESMFold2), or a 3\u20134 chain AlphaFold3 complex (PRC2, BBSome, MIS12C)' },
             { src: 'screenshots/tut_universal_2.png', caption: 'Per-model metrics \u2014 iLIS, iLIA, iLISA, ipSAE, actifpTM, ipTM, LIS, cLIS, and LIR/cLIR counts, with iLIS FPR thresholds below' },
             { src: 'screenshots/tut_universal_identity.png', caption: 'Chain identity resolves each chain in UniProt (gene, organism, domains), then Reported Interactions (MIST) checks whether the pair is already on record \u2014 physical (PPI) and genetic (GI) interaction paper counts' },
             { src: 'screenshots/tut_universal_3.png', caption: 'Score Matrix \u2014 each triangle picks from iLIS, iLIA, iLISA, ipTM, ipSAE, actifpTM, LIS, cLIS, LIR, or cLIR \u2014 alongside PAE, LIS, and cLIS heatmaps across all models' },

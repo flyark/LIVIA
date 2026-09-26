@@ -60,6 +60,14 @@
         .prereq h4 { color: #1a5276; margin-bottom: 0.5rem; }
         .prereq ul { padding-left: 1.2rem; font-size: 0.9rem; color: #555; line-height: 1.8; }
         .prereq a { color: #2471A3; }
+        @media (max-width: 600px) {   /* "What leaves your browser": one stacked card per row on a phone */
+            .data-table tr:first-child { display: none; }
+            .data-table tr { display: block; border-top: 1px solid #eee; padding: 0.45rem 0; }
+            .data-table td { display: block; border: none !important; padding: 0.12rem 0.2rem !important; }
+            .data-table td:first-child { font-weight: 600; color: #333; }
+            .data-table td:nth-child(2)::before { content: 'To: '; font-weight: 600; color: #1a5276; }
+            .data-table td:nth-child(3)::before { content: 'When: '; font-weight: 600; color: #1a5276; }
+        }
 
         .subsection { background: white; border-radius: 12px; padding: 1.2rem 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 1.5rem; }
         .subsection h3 { font-size: 1.05rem; color: #1a5276; margin-bottom: 0.6rem; }
@@ -112,10 +120,29 @@
 
     <div class="prereq">
         <ul>
-            <li>All analysis runs locally in your browser &mdash; no data leaves your device</li>
+            <li>All analysis runs in your browser, and your files are never uploaded. To add names, domains and reported interactions, some pages look things up at public services: see <a href="#data">What leaves your browser</a></li>
             <li>Tested in Google Chrome and Safari (macOS/iOS)</li>
             <li>Generates visualization scripts for <a href="https://www.cgl.ucsf.edu/chimerax/download.html" target="_blank">ChimeraX</a> and <a href="https://pymol.org" target="_blank">PyMOL</a> (optional, for 3D structure export)</li>
         </ul>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- WHAT LEAVES YOUR BROWSER (every outside request LIVIA makes; keep in step with the code) -->
+    <!-- ================================================================ -->
+    <div class="tool-section" id="data">
+        <h2 class="tool-title">What leaves your browser</h2>
+        <p style="font-size:0.9rem; color:#555; line-height:1.7;">LIVIA has no server for your data. Every file you load (structures, PAE and confidence files, lis.py CSVs, bundles) is read and analyzed in your browser and is never uploaded. To add names, domains and reported interactions, some pages look things up at public services. This is everything they send:</p>
+        <table class="data-table" style="width:100%; border-collapse:collapse; font-size:0.88rem; margin-top:0.6rem;">
+            <tr style="background:#f8f9fa;"><th style="text-align:left; padding:0.5rem 0.8rem; color:#1a5276;">What is sent</th><th style="text-align:left; padding:0.5rem 0.8rem; color:#1a5276;">To</th><th style="text-align:left; padding:0.5rem 0.8rem; color:#1a5276;">When</th></tr>
+            <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">A checksum of each chain&rsquo;s sequence (LIVIA&rsquo;s own index receives only its first three characters)</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">LIVIA&rsquo;s sequence index (flyark.github.io) and UniProt</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">Prediction Analysis and cLIP, to name each chain</td></tr>
+            <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><strong>A chain&rsquo;s amino-acid sequence</strong></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">EBI BLAST (ebi.ac.uk)</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">Prediction Analysis only, for a chain of 25 or more residues that no checksum or name lookup identifies (a construct or a fragment, for example)</td></tr>
+            <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">UniProt accessions</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">UniProt, InterPro and AlphaFold DB</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">Once a chain is named, or for an ID you enter: gene names, domains (UniProt, Pfam, TED), pLDDT and AlphaMissense</td></tr>
+            <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">NCBI Gene IDs</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">MIST (flyrnai.org) and BioGRID, through LIVIA&rsquo;s proxy</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">Reported Interactions, for the named chains</td></tr>
+            <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">Gene names or IDs from your data</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">MyGene.info and UniProt</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">cLIP and PPI Network, when names are converted to gene symbols</td></tr>
+            <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">The address of a prediction you ask for</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">AlphaFold DB; FlyPredictome (flyrnai.org), through LIVIA&rsquo;s proxies</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">AFDB Dimer, AFDB Monomer Subdomain, FlyPredictome and Ortholog Interactome</td></tr>
+            <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">A page visit</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">GoatCounter</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">Every page: anonymous visit counts, no cookies</td></tr>
+        </table>
+        <p style="font-size:0.9rem; color:#555; line-height:1.7; margin-top:0.8rem;">Nothing else leaves your browser: not your structures, not PAE or confidence values, not scores, and not the figures or scripts you download. LIVIA&rsquo;s proxies (a Cloudflare worker, and a Google Apps Script for ortholog pages) only forward the requests above; the worker caches the public answers it fetches. The pages also load their code libraries (Mol*, Pyodide) from public CDNs. Where a page says &ldquo;upload&rdquo; (a FASTA, a structure, a list), it means loading the file into your browser; the file is not sent anywhere.</p>
     </div>
 
     <!-- ================================================================ -->
@@ -128,7 +155,7 @@
             <h3>Quick Start</h3>
             <ol class="quick-steps">
                 <li>Run a prediction using any supported platform (AlphaFold3, AlphaFold2, ColabFold, Boltz-1/2, Chai-1, OpenFold3, Protenix-v2, or ESMFold2)</li>
-                <li>Open <a href="universal.html">Prediction Analysis</a> and upload your prediction files (.zip, .gz, .cif, .pdb, .json, .npz, .npy)</li>
+                <li>Open <a href="universal.html">Prediction Analysis</a> and load your prediction files (.zip, .gz, .cif, .pdb, .json, .npz, .npy)</li>
                 <li>The tool auto-detects the prediction platform and shows available models/ranks</li>
                 <li>Optionally adjust PAE cutoff (default: 12 &Aring;) and C&beta; cutoff (default: 8 &Aring;), then click <strong>Process</strong></li>
                 <li>Explore PAE/LIS/cLIS maps, score matrix, and chain pair table</li>
