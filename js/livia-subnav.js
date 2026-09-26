@@ -13,11 +13,11 @@
 (function (root) {
     'use strict';
     const CSS = [
-        '.livia-subnav { position: sticky; top: 0; z-index: 900; display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 4px;',
+        '.livia-subnav { position: sticky; top: 0; z-index: 900; display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 2px;',   // tight enough for 13 sections on one line in the 1052px page
         '  margin: 0 0 12px; padding: 6px 8px; background: rgba(248, 250, 252, 0.94); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);',
         '  border: 1px solid #dde3ea; border-radius: 10px; box-shadow: 0 2px 10px rgba(26, 82, 118, 0.07); }',
         '.livia-subnav[hidden] { display: none; }',
-        '.livia-subnav button { all: unset; cursor: pointer; font-size: 13px; font-weight: 500; line-height: 1.2; color: #4a5a6a; padding: 5px 8px; border-radius: 7px; white-space: nowrap; }',
+        '.livia-subnav button { all: unset; cursor: pointer; font-size: 12.5px; font-weight: 500; line-height: 1.2; color: #4a5a6a; padding: 5px 6px; border-radius: 7px; white-space: nowrap; }',
         '.livia-subnav button:hover { background: #e8f1f8; color: #2471a3; }',
         '.livia-subnav button.on { background: #1a5276; color: #fff; }',
         '.livia-subnav button:focus-visible { outline: 2px solid #2471a3; outline-offset: 1px; }',
