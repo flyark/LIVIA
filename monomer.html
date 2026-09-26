@@ -472,7 +472,7 @@
 
 <script src="js/livia-core.js?v=20260924"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20260716e"></script>
+<script src="js/livia-viewer.js?v=20260926a"></script>
 <script src="js/livia-colors.js?v=20260926a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260816"></script>
@@ -1057,7 +1057,7 @@ function applyCxcPreset(mode, el) {
         updateViewer3d(vr);
     } else if (monPdbText) {
         // Single-domain / no pairs: still update the 3D viewer AND the script for whole-structure
-        // colour modes (pLDDT / by-chain / by-polymer), so the pLDDT preset takes effect here too.
+        // color modes (pLDDT / by-chain / by-polymer), so the pLDDT preset takes effect here too.
         updateViewer3d(vr);
         generateAndShowScript(vr);
     }
@@ -1418,7 +1418,7 @@ onColorChange = function() {
         drawChordDiagram(vr);
         updateViewer3d(vr);
     } else if (monPdbText) {
-        // Single-domain: keep the viewer, script and chord in sync with colour changes too.
+        // Single-domain: keep the viewer, script and chord in sync with color changes too.
         updateViewer3d(vr);
         generateAndShowScript(vr);
         drawChordDiagram(vr);
@@ -2805,9 +2805,9 @@ function updateViewer3d(validRegions) {
     renderSubdomainToggleBar(validRegions);
     let colorComponents = [];
 
-    // pLDDT / by-chain / by-polymer colour the WHOLE structure, so they must work even for a
+    // pLDDT / by-chain / by-polymer color the WHOLE structure, so they must work even for a
     // single-domain protein (no interaction pairs, <2 regions) — build those components regardless of
-    // region count. Only the default domain-coloured mode needs the ≥2-region interaction analysis.
+    // region count. Only the default domain-colored mode needs the ≥2-region interaction analysis.
     if (monCxcColorMode && monPdbText) {
         colorComponents = buildMonomerColorComponents(validRegions || []);
     } else if (validRegions && validRegions.length >= 2 && monPairResults && monPairResults.length > 0) {

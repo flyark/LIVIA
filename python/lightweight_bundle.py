@@ -23,7 +23,7 @@ import zipfile
 TAG = "lightweight-v1"
 SCORES_NAME = "lis.csv"
 MANIFEST_NAME = "manifest.json"
-CSV_SIGNATURE = "cLIR_indices_i"   # a column only a lis.py CSV carries — how LIVIA recognises the scores
+CSV_SIGNATURE = "cLIR_indices_i"   # a column only a lis.py CSV carries — how LIVIA recognizes the scores
 
 
 def build_manifest(*, name, chains, structures, best_model,

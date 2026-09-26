@@ -264,6 +264,9 @@ function buildMolstarPage(structData, fmt, colorComponents, parentBaseUrl) {
 <html><head>
 <style>
 #viewer1 { position:absolute; top:0; left:0; right:0; bottom:0; }
+/* Mol*'s state-snapshot picker ("[1/1] <load time>" + play): every structure loads as one MVS snapshot, so the picker
+   only ever offers that one entry, stamped with the load time. Trajectory controls in the same corner stay. */
+.msp-state-snapshot-viewport-controls { display: none !important; }
 @media (max-width: 768px) {
   .msp-layout-right { display: none !important; }
   .msp-viewport-controls { display: none !important; }

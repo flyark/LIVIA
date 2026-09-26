@@ -223,7 +223,7 @@
                 <h2 data-nav="Summary" id="result-title" style="margin-bottom:0;">Interaction Analysis Summary</h2>
                 <a style="font-size:0.8rem; color:#2471A3; cursor:pointer; text-decoration:none; border-bottom:1px dashed #2471A3;" onclick="downloadFlyCSV()">&#8595; Download CSV</a>
             </div>
-            <div class="info-box">Click a row to switch ranks. This updates all visualizations and the script below.</div>
+            <div class="info-box">Ranks are FlyPredictome's order of the five models by ipTM (Rank 1 = highest ipTM), not by iLIS. Click a row to switch ranks; this updates all visualizations and the script below.</div>
             <div style="overflow-x:auto;">
                 <table class="data-table" id="ranks-table">
                     <thead>
@@ -542,7 +542,7 @@
 <script src="js/livia-core.js?v=20260924"></script>
 <script src="js/livia-reported.js?v=20260924"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20260716e"></script>
+<script src="js/livia-viewer.js?v=20260926a"></script>
 <script src="js/livia-colors.js?v=20260926a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260816"></script>
@@ -2585,7 +2585,7 @@ function renderModelSelectors() {
         const ilis = parseFloat(r['iLIS']);
         const ilisStr = isNaN(ilis) ? '—' : ilis.toFixed(3);
         const label = 'Rank ' + rk;
-        return `<button type="button" class="model-chip${sel}" onclick="loadRank(${rk})" title="Select ${esc(label)} (iLIS ${ilisStr})"><span class="model-chip-name">${esc(label)}</span><span class="model-chip-ilis"><span class="model-chip-metric">iLIS</span>${ilisStr}</span></button>`;
+        return `<button type="button" class="model-chip${sel}" onclick="loadRank(${rk})" title="Select ${esc(label)}: FlyPredictome's rank by ipTM (iLIS ${ilisStr})"><span class="model-chip-name">${esc(label)}</span><span class="model-chip-ilis"><span class="model-chip-metric">iLIS</span>${ilisStr}</span></button>`;
     }).join('');
     selectors.forEach(s => { s.innerHTML = html; s.style.display = 'flex'; });
 }

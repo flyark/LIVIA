@@ -12,7 +12,7 @@
 <script src="js/clip-clustering.js"></script>
 <script src="js/clip-pipeline.js?v=20260726"></script>
 <script src="js/clip-resolver.js?v=20260924"></script>
-<script src="js/livia-viewer.js?v=20260716e"></script>
+<script src="js/livia-viewer.js?v=20260926a"></script>
 <script src="js/livia-subnav.js?v=20260925"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="css/livia.css?v=20260717">
@@ -253,7 +253,7 @@
 
     <div class="card">
       <h2 data-nav="Clusters">Cluster info</h2>
-      <div class="muted">Partners in each cluster (dendrogram order) — <b>(proteins / predictions)</b>. A partner can have several AlphaFold ranks, so it may appear at multiple rows and across clusters.</div>
+      <div class="muted">Partners in each cluster (dendrogram order) — <b>(proteins / predictions)</b>. A partner can have several AlphaFold ranks (each prediction's own model order, ipTM-based, not the iLIS order), so it may appear at multiple rows and across clusters.</div>
       <div id="cluster-info" style="margin-top:.5rem; font-size:.85rem; line-height:1.55"></div>
     </div>
 
@@ -299,7 +299,7 @@
       <div class="row" style="font-size:.85rem; margin-bottom:.5rem">
         <label style="margin:0">Y <select id="scatter-y"></select></label>
         <label style="margin:0">X <select id="scatter-x"></select></label>
-        <label style="margin:0">show <select id="scatter-points"><option value="all">every prediction</option><option value="rank1">rank-1 per pair</option></select></label>
+        <label style="margin:0">show <select id="scatter-points"><option value="all">every prediction</option><option value="rank1" title="Each pair's rank-1 model: the predictor's first, by ipTM-based confidence (not necessarily the highest iLIS)">rank-1 per pair</option></select></label>
         <label style="margin:0; position:relative">find <input id="scatter-search" type="search" list="scatter-list" placeholder="🔍 partner…" autocomplete="off" spellcheck="false" style="font:inherit; font-size:.85rem; padding:2px 8px; width:130px; border:1px solid #ccd6e0; border-radius:6px"><datalist id="scatter-list"></datalist></label>
         <span id="scatter-rho" class="muted" style="margin-left:.5rem; font-weight:600; color:#445"></span>
         <span class="muted">gray = below cutoff / unclustered · colored = clustered. <b>rank</b> = global rank (1..N) by the Y-axis metric across all predictions.</span>

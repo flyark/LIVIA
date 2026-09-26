@@ -96,7 +96,7 @@ function render(withId, subs, pairMap, opts){
     const n = withId.length;
     const cnt = (a, b, t) => { const bt = pairMap.get(pairKey(a, b)); const s = bt && bt[t]; return s ? s.size : 0; };
     const idsOf = (a, b, t) => { const bt = pairMap.get(pairKey(a, b)); const s = bt && bt[t]; return s ? [...s] : []; };
-    const maxOf = {};                                                  // per-type max, for color normalisation
+    const maxOf = {};                                                  // per-type max, for color normalization
     for (const [t] of types){ let m = 0; for (const p of pairs) m = Math.max(m, cnt(p.a, p.b, t)); maxOf[t] = m; }
     const cs = n <= 6 ? 30 : (n <= 10 ? 24 : 19);                      // cell size (px), adaptive to subunit count
     const fs = n <= 10 ? '0.72rem' : '0.64rem';

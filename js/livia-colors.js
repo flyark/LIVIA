@@ -292,7 +292,7 @@ const _MAP_SEQ = {   // LIS / cLIS ramps, 0 (white) → 1 (dark); ColorBrewer an
 const MAP_SCALES = {
     pae: { label: 'PAE', low: 'low PAE (confident)', high: 'high PAE (uncertain)', key: 'livia.paeScale', def: 'bwr', custom: ['#00897b', '#ffffff', '#ff0000'],
         oldDefaultCustom: ['#00897b', '#ffffff'],   // the 2-color default before 3 became the default — a saved copy of it was never customized
-        options: [['bwr', 'Blue–white–red (default)'], ['alphafold', 'AlphaFold (green)'], ['blues', 'Blues'], ['viridis', 'Viridis'], ['greys', 'Greys'], ['custom', 'Custom']],
+        options: [['bwr', 'Blue–white–red (default)'], ['alphafold', 'AlphaFold (green)'], ['blues', 'Blues'], ['viridis', 'Viridis'], ['greys', 'Grays'], ['custom', 'Custom']],
         fns: { bwr: _mapBwr },
         stops: {
             alphafold: ['#00441b', '#74c476', '#f7fcf5'],      // dark green = confident, as in AlphaFold DB / AlphaFold 3 PAE plots
@@ -301,10 +301,10 @@ const MAP_SCALES = {
             greys: ['#000000', '#ffffff'],
         } },
     lis: { label: 'LIS', low: 'LIS 0', high: 'LIS 1 (confident)', key: 'livia.lisScale', def: 'blues', custom: ['#ffffff', '#2471a3'],
-        options: [['blues', 'Blues (default)'], ['greens', 'Greens'], ['purples', 'Purples'], ['oranges', 'Oranges'], ['reds', 'Reds'], ['greys', 'Greys'], ['viridis', 'Viridis'], ['custom', 'Custom']],
+        options: [['blues', 'Blues (default)'], ['greens', 'Greens'], ['purples', 'Purples'], ['oranges', 'Oranges'], ['reds', 'Reds'], ['greys', 'Grays'], ['viridis', 'Viridis'], ['custom', 'Custom']],
         fns: { blues: _mapBlues, greens: _mapGreens }, stops: _MAP_SEQ },
     clis: { label: 'cLIS', low: 'cLIS 0', high: 'cLIS 1 (confident)', key: 'livia.clisScale', def: 'greens', custom: ['#ffffff', '#00897b'],
-        options: [['greens', 'Greens (default)'], ['blues', 'Blues'], ['purples', 'Purples'], ['oranges', 'Oranges'], ['reds', 'Reds'], ['greys', 'Greys'], ['viridis', 'Viridis'], ['custom', 'Custom']],
+        options: [['greens', 'Greens (default)'], ['blues', 'Blues'], ['purples', 'Purples'], ['oranges', 'Oranges'], ['reds', 'Reds'], ['greys', 'Grays'], ['viridis', 'Viridis'], ['custom', 'Custom']],
         fns: { blues: _mapBlues, greens: _mapGreens }, stops: _MAP_SEQ },
 };
 const mapScale = {};

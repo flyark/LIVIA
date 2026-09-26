@@ -128,7 +128,7 @@ All five models' **scores** always come from the CSV. The only choice here is ho
 
 > **This step is optional.** Ship **no** structure and LIVIA renders a scores-only bundle
 > (§1c): every score + the LIR/cLIR interface residues as bars/arcs, but no 3D viewer, no
-> contact lines, and no sequence/PAE/MIST views. For a huge catalogue that trade can be worth
+> contact lines, and no sequence/PAE/MIST views. For a huge catalog that trade can be worth
 > it; for anything you want to inspect in 3D, keep at least one structure.
 
 **One structure (smallest — the usual choice).** Copy out a single structure — the top-ranked
@@ -336,10 +336,10 @@ clause in step 2 is where you pick single-structure (default) vs. one-structure-
 
 ---
 
-## 11. House style — how the FlyPredictome catalogue actually builds these
+## 11. House style — how the FlyPredictome catalog actually builds these
 
 Sections 1–10 describe the *format*. This section describes the **conventions the published
-FlyPredictome catalogue follows**, so a bundle built elsewhere is visually and semantically
+FlyPredictome catalog follows**, so a bundle built elsewhere is visually and semantically
 indistinguishable from the 467 already live. Reference implementation:
 `~/bioinformatics/claude/assembly_phase_PPIs_2/scripts/build_lightweight_bundles.py`
 (owned by the ASM session; see its `SESSION_EXCHANGE.md`).
@@ -383,7 +383,7 @@ exosome variants), append `_N` ordered by size descending — `C9-8_3`.
 
 ### 11.2 PAE image: the exact settings
 
-The generic §4 renderer produces a different-looking plot. The catalogue's is:
+The generic §4 renderer produces a different-looking plot. The catalog's is:
 
 ```python
 def render_pae(pae, bounds, m, out):
@@ -435,12 +435,12 @@ Differences from §4, each deliberate:
   only adds a decompress step.
 - `zipfile.ZIP_DEFLATED, compresslevel=6`. JSZip decompresses it transparently.
 - `pae_cutoff: 12`, `cb_cutoff: 8` in the manifest — these are the pinned lis.py defaults.
-  **Do not change them**; every score in the catalogue was computed at these values and a bundle
+  **Do not change them**; every score in the catalog was computed at these values and a bundle
   built at other cutoffs is not comparable to its neighbours.
 - Keep the singular `structure` / `pae_image` / `structure_model` keys pointing at the best model
   alongside the plural `structures` / `pae_images` maps, so a single-model loader still works.
 
-### 11.4 Catalogue manifest
+### 11.4 Catalog manifest
 
 `cluster_available.json` is keyed by **label**, and each entry carries `job = <label>` (not the
 real job) plus `url = <label>.zip`. The viewer matches its experimental-evidence popup on
@@ -475,9 +475,9 @@ Everything comes from `lis.py`: `scan_files` → `detect_platform` → `find_mod
 reads whatever lis.py reads — AlphaFold 3 (server and local), ColabFold, AlphaPulldown/AF-Multimer,
 Boltz, Chai-1, OpenFold3, ESMFold2, and the generic structure+PAE layout.
 
-**Verified against production.** For the same prediction, the tool's bundle and the catalogue's
+**Verified against production.** For the same prediction, the tool's bundle and the catalog's
 hand-built bundle have the same file set, byte-identical `model_*.cif`, and a **byte-identical
-`pae_0.png`** (344,556 bytes both). The only manifest difference is `chains`: the catalogue writes gene
+`pae_0.png`** (344,556 bytes both). The only manifest difference is `chains`: the catalog writes gene
 symbols from its own database, the tool writes chain-id → residue count from the structure. Overwrite it
 if you have real names.
 

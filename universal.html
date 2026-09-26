@@ -234,7 +234,7 @@
                 </span>
             </div>
             <div id="interactome-summary" style="display:none; font-size:0.85rem; color:#334; margin:0.2rem 0 0.1rem;"></div>
-            <div class="info-box">Click a row to switch models. This updates all visualizations and the script below.</div>
+            <div class="info-box">Rows are sorted by iLIS. A model's rank in its name (rank_001 …) is the predictor's own order (ipTM-based for AlphaFold and ColabFold), so it can differ from the iLIS order. Click a row to switch models; this updates all visualizations and the script below.</div>
             <input type="hidden" id="seed-select" value="0">
             <label style="font-size:0.78rem; color:#666; display:inline-flex; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem;"><input type="checkbox" id="toggle-lir-cols" onchange="document.getElementById('pairs-table').classList.toggle('show-lir-cols', this.checked)"> Show iLIA/LIR/cLIR columns</label>
             <label id="toggle-neg-pairs-label" style="display:none; font-size:0.78rem; color:#666; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem 1rem;" title="A pair is negative when it misses both 10% FPR cutoffs: best-model iLIS below 0.223 and average-of-models iLIS below 0.073"><input type="checkbox" id="toggle-neg-pairs" onchange="setNegPairsShown(this.checked)"> Show <span id="neg-pairs-count"></span> negative pairs (best iLIS &lt; 0.223 and average iLIS &lt; 0.073)</label>
@@ -665,7 +665,7 @@
 <script src="js/livia-core.js?v=20260924"></script>
 <script src="js/livia-reported.js?v=20260924"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20260716e"></script>
+<script src="js/livia-viewer.js?v=20260926a"></script>
 <script src="js/livia-colors.js?v=20260926a"></script>
 <script src="js/livia-subnav.js?v=20260925"></script>
 <script>
@@ -2882,7 +2882,7 @@ function getChainsFromCif(cifText) {
                 // Non-ion HETATM. AlphaFold3 makes one token per atom, so count every atom
                 // (keeps sizes aligned with the per-atom PAE tokens). A modified amino acid
                 // (phospho SEP/TPO/PTR, MSE, …) is HETATM but part of the PROTEIN polymer —
-                // recognise it (CA backbone atom, or a known code) and keep the chain a cartoon.
+                // recognize it (CA backbone atom, or a known code) and keep the chain a cartoon.
                 // Only tag 'glycan' (ball-and-stick) when the chain has no polymer backbone.
                 counted = true;
                 if (atomName === 'CA' || MOD_AA.has(compId)) {

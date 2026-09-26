@@ -229,6 +229,13 @@
             </div>
             <a class="try-btn" href="universal.html">Try it &rarr;</a>
         </div>
+        <!-- The customization film (files on flyark.github.io/livia-media; nothing downloads until play) -->
+        <div class="tut-film">
+            <p>46 seconds, no sound: chain colors, map colors and labels, cartoon gaps, and SVG or PNG export, set on the Prediction Analysis page.</p>
+            <video controls playsinline loop preload="none" poster="https://flyark.github.io/livia-media/livia-custom.webp" aria-label="Making LIVIA figures your own, 46 seconds (no sound)">
+                <source src="https://flyark.github.io/livia-media/livia-custom.mp4" type="video/mp4">
+            </video>
+        </div>
         <div class="tutorial-body">
             <div class="steps-sidebar" data-tutorial="universal">
                 <div class="step-item active" data-step="0" onclick="goToStep('universal', 0)">
@@ -296,12 +303,12 @@
                 <h3>Bookmarklet for AFDB and FlyPredictome</h3>
                 <p>One-click jump from AlphaFold DB or FlyPredictome straight into LIVIA</p>
             </div>
-            <a class="try-btn" href="#bm-install">Install &rarr;</a>
+            <a class="try-btn" href="#bm-install">Get it &rarr;</a>
         </div>
         <!-- The bookmarklet film (files on flyark.github.io/livia-media; nothing downloads until play) -->
         <div class="tut-film">
-            <p>44 seconds, no sound: install once, then one click from AlphaFold DB (MYC&ndash;MAX) or FlyPredictome (Yki&ndash;Sd) shows which part of each protein binds.</p>
-            <video controls playsinline loop preload="none" poster="https://flyark.github.io/livia-media/livia-bookmarklet.webp" aria-label="LIVIA bookmarklet, 44 seconds (no sound)">
+            <p>53 seconds, no sound: drag it to your bookmarks bar once, then one click from AlphaFold DB (MYC&ndash;MAX) or FlyPredictome (Yki&ndash;Sd) shows which residues of each protein bind.</p>
+            <video controls playsinline loop preload="none" poster="https://flyark.github.io/livia-media/livia-bookmarklet.webp" aria-label="LIVIA bookmarklet, 53 seconds (no sound)">
                 <source src="https://flyark.github.io/livia-media/livia-bookmarklet.mp4" type="video/mp4">
             </video>
         </div>
@@ -338,7 +345,7 @@
             </div>
             <div class="screenshot-area" data-tutorial="dimer">
                 <img id="img-dimer" src="screenshots/tut_dimer_1.png" alt="Tutorial step">
-                <div class="screenshot-caption" id="cap-dimer">Install the bookmarklet by dragging the blue button to your bookmarks bar</div>
+                <div class="screenshot-caption" id="cap-dimer">Drag the blue button to your bookmarks bar to add the bookmarklet</div>
                 <div class="progress-dots" id="dots-dimer"></div>
                 <div class="playback-controls">
                     <button class="playback-btn" onclick="togglePlayback('dimer')" id="play-btn-dimer" title="Pause/Resume">&#9646;&#9646; Pause</button>
@@ -346,7 +353,7 @@
             </div>
         </div>
         <div id="bm-install" style="border-top:1px solid #eef1f5; margin:0 1.5rem 1.5rem; padding-top:1.2rem;">
-            <h3 style="color:#1a5276; font-size:1.05rem; margin-bottom:.4rem;">Install the bookmarklet</h3>
+            <h3 style="color:#1a5276; font-size:1.05rem; margin-bottom:.4rem;">Add the bookmarklet</h3>
             <p style="font-size:.9rem; color:#555; line-height:1.55;">Drag the blue button to your browser's bookmarks bar. On an AlphaFold DB entry or a FlyPredictome details page, click the bookmark and LIVIA opens the matching analysis page automatically.</p>
             <div style="display:flex; align-items:center; gap:1rem; margin:1rem 0 .5rem; flex-wrap:wrap;">
                 <a title="Drag me to your bookmarks bar" style="display:inline-block; padding:.6rem 1.2rem; background:#2471A3; color:#fff; border-radius:10px; font-weight:600; font-size:.95rem; text-decoration:none; cursor:grab; user-select:none;"
@@ -399,7 +406,7 @@ const tutorials = {
     },
     dimer: {
         steps: [
-            { src: 'screenshots/tut_dimer_1.png', caption: 'Drag the blue Open in LIVIA button to your browser\u2019s bookmarks bar \u2014 one-time install' },
+            { src: 'screenshots/tut_dimer_1.png', caption: 'Drag the blue Open in LIVIA button to your browser\u2019s bookmarks bar \u2014 a one-time step' },
             { src: 'screenshots/tut_dimer_2.png', caption: 'Open any AlphaFold DB dimer entry page (alphafold.ebi.ac.uk/entry/AF-\u2026)' },
             { src: 'screenshots/tut_dimer_3.png', caption: 'Click the bookmark \u2014 LIVIA dimer opens in a new tab with interface metrics auto-loaded' },
             { src: 'screenshots/tut_dimer_3d.png', caption: 'Interactive 3D structure of the dimer in Mol* viewer (LIR cartoons, cLIR residues highlighted)' },
