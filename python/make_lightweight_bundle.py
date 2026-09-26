@@ -284,18 +284,24 @@ def build(path, out_dir, label=None, keep_pae=False, only_models=None, quiet=Fal
 
         os.makedirs(out_dir, exist_ok=True)
         outzip = os.path.join(out_dir, f'{label}.zip')
-        with zipfile.ZipFile(outzip, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as z:
-            for f in sorted(os.listdir(work)):
-                z.write(os.path.join(work, f), f)
+        partial = outzip + '.part'   # the bundle only gets its real name once every check below has passed
+        try:
+            with zipfile.ZipFile(partial, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as z:
+                for f in sorted(os.listdir(work)):
+                    z.write(os.path.join(work, f), f)
 
-        # if the name was changed on purpose, prove the old one is gone from the text members
-        if original_name and original_name != label:
-            zc = zipfile.ZipFile(outzip)
-            hit = [n for n in ('lis.csv', 'manifest.json')
-                   if original_name.encode() in zc.read(n)]
-            if hit:
-                raise SystemExit(f'"{original_name}" still present in {hit} -- not writing this bundle.')
-            say(f'name check: "{original_name}" absent from lis.csv and manifest.json')
+            # if the name was changed on purpose, prove the old one is gone from the text members
+            if original_name and original_name != label:
+                with zipfile.ZipFile(partial) as zc:
+                    hit = [n for n in ('lis.csv', 'manifest.json')
+                           if name_leaks(zc.read(n), original_name, label)]
+                if hit:
+                    raise SystemExit(f'"{original_name}" still present in {hit} -- not writing this bundle.')
+                say(f'name check: "{original_name}" absent from lis.csv and manifest.json')
+            os.replace(partial, outzip)
+        finally:
+            if os.path.exists(partial):
+                os.remove(partial)
 
         src = folder_size(path)
         dst = os.path.getsize(outzip)
@@ -304,6 +310,16 @@ def build(path, out_dir, label=None, keep_pae=False, only_models=None, quiet=Fal
         return outzip, len(kept), len(models)
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+def name_leaks(data, original, label):
+    """True when the original name occurs outside every occurrence of the new label.
+
+    A plain substring test fails whenever the new label contains the old name (job "prc2" published as
+    "alphafold3_prc2"): every copy of the label would count as a leak."""
+    spans = [(m.start(), m.end()) for m in re.finditer(re.escape(label.encode()), data)]
+    return any(not any(a <= m.start() and m.end() <= b for a, b in spans)
+               for m in re.finditer(re.escape(original.encode()), data))
 
 
 def pick_best(csv_text, models):
@@ -431,7 +447,7 @@ def main():
     if a.name and len(a.path) > 1:
         sys.exit('--name applies to a single prediction; drop it when passing several.')
     only = None if not a.models else {int(x) for x in a.models.split(',')}
-    made, tot_src, tot_dst, freed = [], 0, 0, 0
+    made, tot_src, tot_dst, freed, failed = [], 0, 0, 0, 0
     for p in a.path:
         if len(a.path) > 1 and not a.quiet:
             print(f'\n=== {p}')
@@ -444,13 +460,16 @@ def main():
                 if delete_original(p, z, n_kept, n_found, a.keep_pae, a.quiet):
                     freed += sz
         except SystemExit as e:
-            print(f'  skipped: {e}')
+            failed += 1
+            print(f'  skipped: {e}', file=sys.stderr, flush=True)
     if len(made) > 1:
         print(f'\n{len(made)} bundles: {tot_src/1e9:.2f} GB -> {tot_dst/1e9:.2f} GB '
               f'({tot_src/max(tot_dst,1):.0f}x smaller)')
     if a.delete_original:
         print(f'freed {freed/1e9:.2f} GB by deleting {"the source" if len(made) == 1 else "sources"}'
               if freed else 'no source was deleted')
+    if failed:   # a skipped prediction is a failed run, in batch mode too
+        sys.exit(f'{failed} of {len(a.path)} prediction(s) not bundled')
 
 
 if __name__ == '__main__':
