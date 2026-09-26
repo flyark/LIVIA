@@ -13,7 +13,7 @@
 <script src="js/clip-pipeline.js?v=20260726"></script>
 <script src="js/clip-resolver.js?v=20260924"></script>
 <script src="js/livia-viewer.js?v=20260926a"></script>
-<script src="js/livia-subnav.js?v=20260925"></script>
+<script src="js/livia-subnav.js?v=20260926a"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="css/livia.css?v=20260717">
 <style>
@@ -51,6 +51,11 @@
   canvas { max-width:100%; }
   .muted { color:#889; font-size:.82rem; }
   .hidden { display:none; }
+  .gtip { position:fixed; z-index:1000; pointer-events:none; background:rgba(23,38,58,.94); color:#fff; font-size:12.5px; line-height:1.4; padding:7px 10px; border-radius:8px; max-width:min(420px, calc(100vw - 20px)); box-shadow:0 8px 24px rgba(0,0,0,.18); }
+  .gtip[hidden] { display:none; }
+  .hot { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:.5rem; }
+  .hot span { font-family:ui-monospace, Menlo, monospace; font-size:12px; padding:2px 8px; border-radius:6px; background:#E0F2F1; color:#00695C; }
+  .hot .hot-lbl { background:none; color:#8a97a8; font-family:inherit; padding-left:0; }
   #status { font-size:.85rem; color:#667; margin-left:.5rem; }
   @media (max-width:768px){
     .seq-flow { font-size:0.68rem; }                 /* match universal.html — fit 4 blocks/line, no wasted right gap */
@@ -239,6 +244,7 @@
       <div id="freq-chips" class="chips" style="margin:.4rem 0"></div>
       <canvas id="freq"></canvas>
       <div id="freq-domains" style="font-size:.8rem; color:#556; margin-top:.35rem; line-height:1.55"></div>
+      <div class="hot" id="freq-hot"></div>
     </div>
 
 
@@ -1150,6 +1156,28 @@ function renderHeatmap(A){
   const nT = clipXTicks(), ticks = [];
   for (let i = 0; i < nT; i++){ const r = Math.round(1 + i * (plen - 1) / (nT - 1)); if (!ticks.includes(r)) ticks.push(r); }
   for (const r of ticks){ const x = edge(r) + step * S / 2; ctx.beginPath(); ctx.moveTo(x, rowsHb); ctx.lineTo(x, rowsHb + 3 * S); ctx.stroke(); ctx.fillText(String(r + (A._fragOffset||0)), x, rowsHb + 5 * S); }
+  const at = (e) => {                                   // the row (prediction) and residue under the pointer
+    const b = cv.getBoundingClientRect(), x = (e.clientX - b.left) * W / b.width, y = (e.clientY - b.top) * H / b.height;
+    if (y < 0 || y >= H - AXB || x < 31) return null;
+    const idx = order[Math.min(n - 1, Math.floor(y / (H - AXB) * n))];
+    return idx == null ? null : { idx, r: Math.floor((x - AX_L) / step) + 1 };
+  };
+  cv.onmousemove = (e) => {
+    const h = at(e); if (!h){ cv.style.cursor = ''; return hideTip(); }
+    cv.style.cursor = 'pointer';
+    const row = pipe.rows[h.idx], c = cl.labels[h.idx];
+    const res = h.r >= 1 && h.r <= plen ? `<br>residue ${_esc(residueLabel(A, h.r))}${pipe.fingerprints[h.idx].includes(h.r) ? ' \u00b7 contact' : ''}` : '';
+    showTip(`<b>${_esc(row.Symbol_2 || '')}</b>${row.Rank ? ' \u00b7 rank ' + _esc(row.Rank) : ''} \u00b7 iLIS ${(+row.iLIS || 0).toFixed(3)} \u00b7 `
+      + `<span style="color:${clusterColor(c, k)}">\u25cf</span> ${clusterName(c)}${res}<br><span style="color:#b9c6d6">click: its residues below</span>`, e.clientX, e.clientY);
+  };
+  cv.onmouseleave = () => { cv.style.cursor = ''; hideTip(); };
+  cv.onclick = (e) => {                                 // open that partner in the Interaction residues panel
+    const h = at(e); if (!h) return; hideTip();
+    const sel = $('pair-partner'), p = pipe.rows[h.idx].Symbol_2;
+    if (!sel || ![...sel.options].some((o) => o.value === p)) return;
+    sel.value = p; if (sel.onchange) sel.onchange();
+    $('pair-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 }
 
 function renderClusterInfo(A){
@@ -1408,6 +1436,27 @@ function renderPairTracks(A){
     search.onchange = () => { if (m.has(sel.value)) paint(); }; }
 }
 
+// ---- hover tooltips on the frequency plot and the fingerprint (as on the LIVIA Atlas) ----
+const TIP = (() => { const d = document.createElement('div'); d.className = 'gtip'; d.hidden = true; document.body.appendChild(d); return d; })();
+function showTip(html, x, y){
+  TIP.innerHTML = html; TIP.hidden = false;
+  const w = TIP.offsetWidth, h = TIP.offsetHeight, m = 10;
+  let left = x - w / 2, top = y - h - 14;
+  if (top < m) top = y + 18;
+  left = Math.max(m, Math.min(window.innerWidth - w - m, left));
+  TIP.style.left = left + 'px'; TIP.style.top = top + 'px';
+}
+function hideTip(){ TIP.hidden = true; }
+// Residue r of the plot (1..plen) as the reader sees it: its letter when the sequence is known, and its number with any
+// fragment offset (the x-ticks' numbering).
+function residueLabel(A, r){
+  const q = seqForSymbol(A.gene, A.pipe.proteinLen);
+  let aa = q ? q[r - 1] : '';
+  if (!aa && A._uniprotSeq && A.residueMap){ const sr = A.residueMap[r - 1]; if (sr) aa = A._uniprotSeq[sr - 1] || ''; }
+  return (aa || '') + (r + (A._fragOffset || 0));
+}
+const clusterName = (c) => 'Cluster ' + c;
+
 function renderFreq(A){
   const { pipe, cl } = A, n = pipe.fingerprints.length, plen = pipe.proteinLen, k = cl.optimalK;
   const tot = new Float64Array(plen+1), byC = {};
@@ -1423,7 +1472,7 @@ function renderFreq(A){
     const ps = inv ? (inv[d.start]||d.start) : d.start, pe = inv ? (inv[d.end]||d.end) : d.end;
     if (pe<1 || ps>plen) continue;
     const dx0=xOf(Math.max(1,ps)), dx1=Math.max(dx0+2, xOf(Math.min(plen,pe)+1));
-    doms.push({ x0:dx0, x1:dx1, name:d.name, start:d.start, end:d.end });
+    doms.push({ x0:dx0, x1:dx1, name:d.name, start:d.start, end:d.end, ps, pe });
   }
   doms.sort((a,b)=>a.x0-b.x0); doms.forEach((d,i)=>d.idx=i+1);
   const laneEnd=[];
@@ -1476,6 +1525,22 @@ function renderFreq(A){
   for (const d of doms){ const y=domTop + d.lane*DRH, w=d.x1-d.x0;
     ctx.fillStyle='#e3e9f1'; ctx.fillRect(d.x0, y, w, domBoxH); ctx.strokeStyle='#9fb0c4'; ctx.lineWidth=.5; ctx.strokeRect(d.x0, y, w, domBoxH);
     ctx.fillStyle='#333'; ctx.textAlign='center'; const _lbl='D'+d.idx; if (ctx.measureText(_lbl).width < w-2) ctx.fillText(_lbl, d.x0+w/2, y+domBoxH/2); }   // short D1/D2/... labels (always fit); full names in the legend below
+  cv.onmousemove = (e) => {                             // residue under the pointer: predictions by cluster, domain, pLDDT, AlphaMissense
+    const b = cv.getBoundingClientRect(), r = Math.floor(((e.clientX - b.left) * W / b.width - padL) / bw) + 1;
+    if (r < 1 || r > plen) return hideTip();
+    const cc = byC[r] || {}, parts = Object.keys(cc).map(Number).sort((a, z) => cc[z] - cc[a])
+      .map((c) => `<span style="color:${clusterColor(c, k)}">\u25cf</span> ${clusterName(c)} ${cc[c]}`).join(' \u00b7 ');
+    const sr = A.residueMap ? A.residueMap[r - 1] : r;
+    const pl = hasP && sr ? A._plddt.get((A._queryChain || 'A') + ':' + sr) : null, am = hasAM && sr ? A._am[sr] : null;
+    const dom = doms.filter((d) => r >= d.ps && r <= d.pe).map((d) => d.name).join(', ');
+    showTip(`<b>${_esc(residueLabel(A, r))}</b> \u00b7 ${tot[r]} prediction${tot[r] === 1 ? '' : 's'}${parts ? '<br>' + parts : ''}`
+      + `${dom ? '<br>' + _esc(dom) : ''}${pl != null ? '<br>pLDDT ' + pl.toFixed(0) : ''}${am != null ? (pl != null ? ' \u00b7 ' : '<br>') + 'AlphaMissense ' + am.toFixed(2) : ''}`, e.clientX, e.clientY);
+  };
+  cv.onmouseleave = hideTip;
+  { const hot = $('freq-hot'), top = [];
+    for (let r = 1; r <= plen; r++) if (tot[r]) top.push(r);
+    top.sort((a, z) => tot[z] - tot[a] || a - z);
+    if (hot) hot.innerHTML = top.length ? `<span class="hot-lbl">Most contacted</span>${top.slice(0, 12).map((r) => `<span title="${tot[r]} prediction${tot[r] === 1 ? '' : 's'}">${_esc(residueLabel(A, r))} \u00b7 ${tot[r]}</span>`).join('')}` : ''; }
   { const dl = $('freq-domains');
     if (dl){ if (doms.length){
       const items = doms.map(d => `<b style="color:#456">D${d.idx}</b> = ${_esc(d.name)} <span style="color:#8a97a8">(${d.start}\u2013${d.end})</span>`).join(' &nbsp;\u00b7&nbsp; ');
