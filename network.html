@@ -143,7 +143,7 @@
     <span><label class="lb">resolution</label> <input id="res" type="range" min="0.1" max="5" step="0.05" value="1.0"> <input id="resv" type="number" min="0" max="50" step="0.05" value="1.0" style="width:62px"></span>
     <span><label class="lb">objective</label> <select id="objfn" title="modularity: standard (resolution ~0.5–3). CPM: resolution-limit-free — finds small communities; use a lower resolution near the iLIS scale (~0.2–0.5)."><option value="modularity">modularity</option><option value="CPM">CPM</option></select></span>
     <span id="clustmode-wrap" class="hidden"><label class="lb">clustering</label> <select id="clustmode" title="user-defined: color + group by your uploaded cluster map (Leiden not run). Leiden: ignore the map and detect communities."><option value="user">user-defined</option><option value="leiden">Leiden (auto)</option></select></span>
-    <span><label class="lb">seed</label> <input id="seed" type="number" min="0" step="1" value="1" style="width:56px"></span>
+    <span><label class="lb" title="seeds both Leiden and the layout: the same data, settings and seed give the same picture">seed</label> <input id="seed" type="number" min="0" step="1" value="1" style="width:56px"></span>
     <span id="labelby-wrap" class="hidden"><label class="lb">Label by</label> <select id="labelby"></select></span>
     <button id="build" disabled>Build network</button>
     <button id="expsvg" class="ghost hidden" title="download the region currently visible (respects zoom)">↓ SVG (view)</button>
@@ -163,11 +163,16 @@
     <span id="colorlegend" class="hint hidden"></span>
     <span><label class="lb">layout</label> <select id="layout"><option value="force">force (live)</option><option value="fr">spring (FR)</option><option value="kk">Kamada-Kawai</option><option value="drl">DrL</option><option value="community">community</option><option value="circle">circle</option><option value="grid">grid</option></select></span>
     <span><label class="lb">iterations</label> <input id="layiter" type="number" min="10" max="5000" step="50" value="500" style="width:64px"></span>
+    <button id="physbtn" class="ghost" type="button" title="the force layout stops once it has settled; resume it to let nodes move again">▶ physics</button>
+    <span class="sep"></span>
+    <span><label class="lb" title="keep only each protein's k strongest edges (by iLIS): a backbone of a dense network. Communities and partner counts are unchanged. 0 = every edge">top edges/node</label> <input id="topk" type="number" min="0" max="999" step="1" value="0" style="width:52px"></span>
+    <span><label class="lb" title="hide the edges between communities"><input type="checkbox" id="intraonly"> intra-community edges only</label></span>
     <span class="sep"></span>
     <span><label class="lb">node size</label> <input id="nsize" type="range" min="0.3" max="2.5" step="0.1" value="1"> <input id="nsizev" type="number" min="0.1" max="8" step="0.1" value="1" style="width:52px"></span>
     <span><label class="lb">min edges/node</label> <input id="mindeg" type="range" min="1" max="20" step="1" value="1"> <input id="mindegv" type="number" min="1" max="9999" step="1" value="1" style="width:56px"></span>
     <span><label class="lb">edge width (∝iLIS)</label> <input id="emin" type="range" min="0.5" max="10" step="0.5" value="4"> <input id="eminv" type="number" min="0" max="50" step="0.5" value="4" style="width:52px"></span>
     <span><label class="lb">labels ≥ deg</label> <input id="lbldeg" type="range" min="1" max="40" step="1" value="1"> <input id="lbldegv" type="number" min="1" max="9999" step="1" value="1" style="width:56px"></span>
+    <span><label class="lb" title="label only the N proteins with the most partners (0 = use labels ≥ deg)">label top N</label> <input id="lbltop" type="number" min="0" max="9999" step="1" value="0" style="width:52px"></span>
     <span><label class="lb">label size</label> <input id="lblsize" type="range" min="6" max="30" step="1" value="12"> <input id="lblsizev" type="number" min="4" max="60" step="1" value="12" style="width:52px"></span>
     <span><label class="lb"><input type="checkbox" id="lbloutline" checked> label outline</label> <input id="lblstroke" type="color" value="#ffffff" title="outline color"></span>
     <span><label class="lb">label color</label> <input id="lblcolor" type="color" value="#000000"></span>
@@ -178,13 +183,14 @@
   <div id="nodecolor-upload" style="margin:0 2px 10px"></div>
 
   <div id="layerbar" class="hint hidden" style="margin:0 2px 10px; padding:7px 11px; background:#f0f6fb; border-radius:8px">Layer view from <b id="layer-root"></b> (Leiden colors kept) · layout <select id="layer-mode" style="font-size:12px; padding:1px 4px; border:1px solid var(--line); border-radius:5px"><option value="concentric">concentric shells</option><option value="tree">tree</option></select> · <a id="layer-reset" href="#" style="font-weight:600">⟳ back to force layout</a></div>
+  <div id="egobar" class="hint hidden" style="margin:0 2px 10px; padding:7px 11px; background:#f0f6fb; border-radius:8px">Neighbors of <b id="ego-root"></b> and the edges among them · <a id="ego-reset" href="#" style="font-weight:600">⟳ show the whole network</a></div>
   <div class="statbar" id="stats"></div>
 
   <div class="main">
     <div class="netwrap">
       <div id="net"></div>
       <div id="netsearch" class="hidden"><input id="net-search-input" type="search" list="net-node-list" placeholder="🔍 find protein…" autocomplete="off" spellcheck="false"><span class="clr" id="net-search-clr" title="clear">×</span><datalist id="net-node-list"></datalist></div>
-      <div id="nodeinfo" class="hidden"><span class="x" id="ni-x">×</span><div class="nm" id="ni-name"></div><div class="meta" id="ni-meta"></div><button id="ni-clip">Open in cLIP →</button><button id="ni-layer" style="margin-top:6px; background:#eef3f8; color:var(--accent)">⊕ Layers from here</button></div>
+      <div id="nodeinfo" class="hidden"><span class="x" id="ni-x">×</span><div class="nm" id="ni-name"></div><div class="meta" id="ni-meta"></div><button id="ni-clip">Open in cLIP →</button><button id="ni-ego" style="margin-top:6px; background:#eef3f8; color:var(--accent)">◎ Neighbors only</button><button id="ni-layer" style="margin-top:6px; background:#eef3f8; color:var(--accent)">⊕ Layers from here</button></div>
     </div>
     <div id="modules"><h3>Modules</h3><div class="hint">Build a network to see communities.</div></div>
   </div>
@@ -210,6 +216,7 @@ let META = null, META_COL = null, COMMCOLORS = {}, SUBSET = null, LAYER_ROOT = n
 let USERCLUST = null;              // user-supplied node id -> cluster label (Map); overrides Leiden, drops unlisted nodes
 let NODECOLORS = {};               // per-node custom color override (node id -> hex); wins over the 'color by' mode
 let NET_HL = null;                 // node id currently highlighted by the search box (null = none)
+let EGO_ROOT = null, PHYS = false, DRAWN = '';   // neighbors-only view root; whether the force layout is running; the drawn node/edge set
 
 // ---------- helpers ----------
 function commColor(i){
@@ -262,6 +269,12 @@ function updateColorLegend(){
   const lo=Math.min(...vals), hi=Math.max(...vals), f=mode==='strength'?1:0;
   el.innerHTML = `${mode==='strength'?'Σ iLIS':'degree'} ${lo.toFixed(f)} <span style="display:inline-block;width:70px;height:10px;border-radius:3px;vertical-align:middle;margin:0 4px;background:linear-gradient(90deg,${gradient(0)},${gradient(.5)},${gradient(1)})"></span> ${hi.toFixed(f)}`;
   el.classList.remove('hidden');
+}
+// which nodes carry a label: the N with the most partners when "label top N" is set, else degree ≥ "labels ≥ deg"
+function labelSet(nodes, degree){
+  const top = +$('lbltop').value || 0;
+  if (top > 0) return new Set(nodes.map((s,i)=>[s,degree[i]]).sort((a,b)=>b[1]-a[1] || (a[0]<b[0]?-1:a[0]>b[0]?1:0)).slice(0, top).map(x=>x[0]));
+  const d = +$('lbldegv').value || 1; return new Set(nodes.filter((s,i)=>degree[i]>=d));
 }
 const nodeRadius = (deg, dmax, scale) => (6 + 30*Math.sqrt(deg/(dmax||1))) * (scale||1);
 const edgeWidth  = (il, imin, imax, scale) => 0.3 + (+scale) * Math.max(0, Math.min(1, (il - imin) / ((imax - imin) || 1)));   // width ∝ iLIS
@@ -372,7 +385,7 @@ async function loadExample(){
   try {
     const buf = await (await fetch('examples/fly_pathway_interactome.zip')).arrayBuffer();
     await routeFiles([new File([buf], 'fly_pathway_interactome.zip', {type:'application/zip'})]);
-    if (RAWPAIRS.size) build();
+    if (RAWPAIRS.size){ await build(); await afterBuild(URLP); }
   } catch(e){ setStatus('Could not load the example: '+(e.message||e)); }
 }
 async function routeMeta(list){
@@ -556,35 +569,57 @@ async function build(){
 }
 
 // ---------- render (vis-network) ----------
-function getDisplay(){                                  // min-edges/node filter: hide nodes whose degree < mindeg (keeps the Leiden result)
-  const minDeg = +$('mindegv').value;
-  if (minDeg <= 1) return LAST;
-  const { nodes, edges, membership, degree } = LAST;
-  const keep=new Set(), dn=[], dm=[], dd=[];
-  nodes.forEach((s,i)=>{ if(degree[i]>=minDeg){ keep.add(s); dn.push(s); dm.push(membership[i]); dd.push(degree[i]); } });
-  return { nodes:dn, membership:dm, degree:dd, edges: edges.filter(e=>keep.has(e.a)&&keep.has(e.b)) };
+function getDisplay(){                                  // what is drawn: min edges/node, top edges/node and intra-community filters (the Leiden result and partner counts are unchanged)
+  const minDeg = +$('mindegv').value, topk = +$('topk').value || 0, intra = $('intraonly').checked;
+  let d = LAST;
+  if (minDeg > 1){
+    const { nodes, edges, membership, degree } = LAST;
+    const keep=new Set(), dn=[], dm=[], dd=[];
+    nodes.forEach((s,i)=>{ if(degree[i]>=minDeg){ keep.add(s); dn.push(s); dm.push(membership[i]); dd.push(degree[i]); } });
+    d = { nodes:dn, membership:dm, degree:dd, edges: edges.filter(e=>keep.has(e.a)&&keep.has(e.b)) };
+  }
+  if (!(topk > 0) && !intra) return d;
+  let edges = d.edges;
+  if (intra){ const c=new Map(d.nodes.map((s,i)=>[s,d.membership[i]])); edges = edges.filter(e=>c.get(e.a)===c.get(e.b)); }
+  if (topk > 0){                                          // an edge stays when it is among the k strongest of either end (ties: the pair names)
+    const by=new Map(); edges.forEach(e=>{ for (const n of [e.a,e.b]){ if(!by.has(n)) by.set(n,[]); by.get(n).push(e); } });
+    const kept=new Set(), ord=(x,y)=>y.iLIS-x.iLIS || (x.a+x.b<y.a+y.b?-1:1);
+    for (const list of by.values()) list.sort(ord).slice(0, topk).forEach(e=>kept.add(e));
+    edges = edges.filter(e=>kept.has(e));
+  }
+  return { ...d, edges };
 }
-function render({ nodes, edges, membership, degree }){
+const drawnSig = (d) => d.nodes.join('\x01') + '\x02' + d.edges.map(e=>e.a+'\x01'+e.b).join('\x02');
+function render({ nodes, edges, membership, degree }, still){   // still: positions come from a fixed layout, no physics
+  DRAWN = drawnSig({ nodes, edges });
   const dmax=Math.max(1,...degree), iv=edges.map(e=>e.iLIS), imax=(iv.length?Math.max(...iv):1)||1, imin=iv.length?Math.min(...iv):0;
   const nsize=+$('nsizev').value, emin=+$('eminv').value, lbldeg=+$('lbldegv').value, border=$('nborder').checked, bcolor=$('bcolor').value, lblsize=+$('lblsizev').value, outline=$('lbloutline').checked, lblcolor=$('lblcolor').value, lblstroke=$('lblstroke').value;
-  const cIdx=new Map(nodes.map((s,i)=>[s,membership[i]])), fills=nodeColors({nodes, membership, degree});
+  const cIdx=new Map(nodes.map((s,i)=>[s,membership[i]])), fills=nodeColors({nodes, membership, degree}), lab=labelSet(nodes, degree);
   NODES = new vis.DataSet(nodes.map((s,i)=>({
-    id:s, label: degree[i]>=lbldeg ? nodeLabel(s) : '',
+    id:s, label: lab.has(s) ? nodeLabel(s) : '',
     size: nodeRadius(degree[i],dmax,nsize),
-    color:{ background: fills[i], border: bcolor },
+    color: nodeColor(fills[i], bcolor),
     borderWidth: border?1.5:0, font:{ size:lblsize, color:lblcolor, strokeWidth:outline?2.5:0, strokeColor:lblstroke },
     title:`${nodeLabel(s)} · ${commLabel(membership[i])} · ${degree[i]} partners`
   })));
   EDGES = new vis.DataSet(edges.map((e,i)=>{ const intra=cIdx.get(e.a)===cIdx.get(e.b);
     return { id:i, from:e.a, to:e.b, width:edgeWidth(e.iLIS,imin,imax,emin),
-      color:{ color: intra?commHex(cIdx.get(e.a)):'#c7ced6', opacity: intra?0.75:0.3 },
+      color:{ color: intra?commHex(cIdx.get(e.a)):'#c7ced6', highlight:'#e67e22', hover:'#e67e22', opacity: intra?0.75:0.3 },
       title:`${nodeLabel(e.a)}–${nodeLabel(e.b)} · iLIS ${e.iLIS.toFixed(3)}` }; }));
-  const opts={ nodes:{ shape:'dot', font:{ size:12, color:'#33414f' } }, edges:{ smooth:false },
-    physics:{ stabilization:{ iterations: +$('layiter').value||250 }, barnesHut:{ gravitationalConstant:-9000, springLength:130, springConstant:0.03, damping:0.25 } },
+  const opts={ nodes:{ shape:'dot', font:{ size:12, color:'#33414f' } }, edges:{ smooth:false }, layout:{ randomSeed: +$('seed').value||1 },
+    physics:{ enabled:!still, stabilization:{ enabled:!still, iterations: +$('layiter').value||250 }, barnesHut:{ gravitationalConstant:-9000, springLength:130, springConstant:0.03, damping:0.25 } },
     interaction:{ hover:true, tooltipDelay:120 } };
   NETWORK = new vis.Network($('net'), { nodes:NODES, edges:EDGES }, opts);
+  if (still) setPhysics(false);
+  else { setPhysics(true); NETWORK.once('stabilizationIterationsDone', ()=>setPhysics(false)); }   // settled: stop, so restyling and screenshots never move nodes
   NETWORK.on('click', p=>{ if(p.nodes && p.nodes.length) showNodeInfo(p.nodes[0]); else hideNodeInfo(); });
-  LAYER_ROOT=null; NET_HL=null; { const lb=$('layerbar'); if(lb) lb.classList.add('hidden'); }
+  LAYER_ROOT=null; NET_HL=null; EGO_ROOT=null; { const lb=$('layerbar'); if(lb) lb.classList.add('hidden'); } $('egobar').classList.add('hidden');
+}
+// a node's colors: its fill stays when selected or hovered (an orange ring marks it) instead of vis-network's pale default
+const nodeColor = (fill, border) => ({ background:fill, border, highlight:{ background:fill, border:'#e67e22' }, hover:{ background:fill, border:'#e67e22' } });
+function setPhysics(on){
+  PHYS = !!on; if (NETWORK) NETWORK.setOptions({ physics:{ enabled: PHYS } });
+  const b=$('physbtn'); if (b){ b.textContent = PHYS ? '❚❚ physics' : '▶ physics'; b.title = PHYS ? 'stop the layout here' : 'resume the force layout (nodes move again)'; }
 }
 function restyle(){
   if (!LAST || !NODES) return;
@@ -592,11 +627,11 @@ function restyle(){
   const { nodes, edges, membership, degree } = _d;
   const dmax=Math.max(1,...degree), iv=edges.map(e=>e.iLIS), imax=(iv.length?Math.max(...iv):1)||1, imin=iv.length?Math.min(...iv):0;
   const nsize=+$('nsizev').value, emin=+$('eminv').value, lbldeg=+$('lbldegv').value, border=$('nborder').checked, bcolor=$('bcolor').value, lblsize=+$('lblsizev').value, outline=$('lbloutline').checked, lblcolor=$('lblcolor').value, lblstroke=$('lblstroke').value;
-  const cIdx=new Map(nodes.map((s,i)=>[s,membership[i]])), fills=nodeColors({nodes, membership, degree});
-  NODES.update(nodes.map((s,i)=>({ id:s, label: degree[i]>=lbldeg?nodeLabel(s):'', size:nodeRadius(degree[i],dmax,nsize),
-    color:{ background:fills[i], border:bcolor }, borderWidth:border?1.5:0, font:{ size:lblsize, color:lblcolor, strokeWidth:outline?2.5:0, strokeColor:lblstroke }, title:`${nodeLabel(s)} · ${commLabel(membership[i])} · ${degree[i]} partners` })));
+  const cIdx=new Map(nodes.map((s,i)=>[s,membership[i]])), fills=nodeColors({nodes, membership, degree}), lab=labelSet(nodes, degree);
+  NODES.update(nodes.map((s,i)=>({ id:s, label: lab.has(s)?nodeLabel(s):'', size:nodeRadius(degree[i],dmax,nsize),
+    color: nodeColor(fills[i], bcolor), borderWidth:border?1.5:0, font:{ size:lblsize, color:lblcolor, strokeWidth:outline?2.5:0, strokeColor:lblstroke }, title:`${nodeLabel(s)} · ${commLabel(membership[i])} · ${degree[i]} partners` })));
   EDGES.update(edges.map((e,i)=>{ const intra=cIdx.get(e.a)===cIdx.get(e.b);
-    return { id:i, width:edgeWidth(e.iLIS,imin,imax,emin), color:{ color:intra?commHex(cIdx.get(e.a)):'#c7ced6', opacity:intra?0.75:0.3 } }; }));
+    return { id:i, width:edgeWidth(e.iLIS,imin,imax,emin), color:{ color:intra?commHex(cIdx.get(e.a)):'#c7ced6', highlight:'#e67e22', hover:'#e67e22', opacity:intra?0.75:0.3 } }; }));
 }
 
 // ---------- modules ----------
@@ -628,7 +663,9 @@ function showNodeInfo(sym){
   const i = LAST.nodes.indexOf(sym); if(i<0) return;
   $('ni-name').textContent = nodeLabel(sym);
   $('ni-meta').textContent = `${commLabel(LAST.membership[i])} · ${LAST.degree[i]} partners`;
+  $('ni-meta').title = 'partners: proteins whose best model with this one reaches the iLIS cutoff. cLIP counts a partner when the top-ranked model reaches it, so it can list fewer.';
   $('ni-clip').onclick = ()=>openInClip(sym);
+  $('ni-ego').onclick = ()=>egoView(sym);
   $('ni-layer').onclick = ()=>layerLayout(sym);
   $('nodeinfo').classList.remove('hidden');
 }
@@ -647,13 +684,15 @@ function netHighlightNode(id){
   NET_HL=id;
   const cur=NODES.get(id); if(!cur) return;
   const base=cur.size||10;
-  NODES.update({ id, borderWidth:4, color:{ background:(cur.color&&cur.color.background)||'#2471A3', border:'#e67e22' }, size:base*1.7, label:nodeLabel(id) });
+  NODES.update({ id, borderWidth:4, color: nodeColor((cur.color&&cur.color.background)||'#2471A3', '#e67e22'), size:base*1.7, label:nodeLabel(id) });
 }
 function netClearHighlight(){ if(NET_HL){ NET_HL=null; if(NODES) restyle(); } }
 function netFocusNode(id){
   netHighlightNode(id);
   try{ NETWORK.selectNodes([id]); }catch(e){}
-  try{ NETWORK.focus(id,{ scale:1.5, locked:false, animation:{ duration:650, easingFunction:'easeInOutQuad' } }); }catch(e){}
+  try{ const nb=NETWORK.getConnectedNodes(id);          // zoom so the node and its partners fit, whatever the network's size
+    if (nb.length) NETWORK.fit({ nodes:[id,...nb], animation:{ duration:650, easingFunction:'easeInOutQuad' } });
+    else NETWORK.focus(id,{ scale:1.5, locked:false, animation:{ duration:650, easingFunction:'easeInOutQuad' } }); }catch(e){}
   showNodeInfo(id);
 }
 function netFind(q){
@@ -697,6 +736,16 @@ function openInClip(nodeId){
             catch(e2){ alert('This hub is too large to hand off automatically — open cLIP and drop the CSV, query = '+nodeId); } }
 }
 
+// ---------- neighbors only: a protein, its partners and the edges among them; the rest hidden, positions kept ----------
+function egoView(root){
+  if (!LAST || !NODES || !NETWORK) return;
+  const keep = new Set([root, ...NETWORK.getConnectedNodes(root)]);
+  NODES.update(NODES.getIds().map(id=>({ id, hidden: !keep.has(id) })));
+  NETWORK.fit({ nodes:[...keep], animation:{ duration:600 } });
+  EGO_ROOT=root; $('ego-root').textContent=nodeLabel(root); $('egobar').classList.remove('hidden');
+}
+function egoReset(){ if (!NODES) return; NODES.update(NODES.getIds().map(id=>({ id, hidden:false }))); EGO_ROOT=null; $('egobar').classList.add('hidden'); if (NETWORK) NETWORK.fit({ animation:{ duration:500 } }); }
+
 // ---------- layer (BFS-shell) view around a chosen vertex; Leiden colors kept ----------
 function layerLayout(root){
   if (!LAST || !NODES) return;
@@ -721,7 +770,7 @@ function layerLayout(root){
   const cIdx=new Map(disp.nodes.map((s,i)=>[s,disp.membership[i]])), degMap=new Map(disp.nodes.map((s,i)=>[s,disp.degree[i]]));
   NODES.update(disp.nodes.map(n=>({ id:n, x:pos[n].x, y:pos[n].y, fixed:{x:true,y:true},
     title:`${nodeLabel(n)} · ${commLabel(cIdx.get(n))} · ${degMap.get(n)} partners · layer ${layer.get(n)>reach?'\u221e':layer.get(n)}` })));
-  NETWORK.setOptions({ physics:false });
+  setPhysics(false);
   NETWORK.fit({ animation:{ duration:600 } });
   LAYER_ROOT=root; $('layer-root').textContent=nodeLabel(root); $('layerbar').classList.remove('hidden'); hideNodeInfo();
 }
@@ -741,10 +790,13 @@ function computeLayout(mode, disp){   // fixed positions for the overall network
 }
 async function igraphLayout(nodes, edges, method, niter){   // force-directed coordinates from igraph (FR / Kamada-Kawai)
   const idx=new Map(nodes.map((s,i)=>[s,i]));
-  PYODIDE.globals.set('_lay', JSON.stringify({ n:nodes.length, edges:edges.map(e=>[idx.get(e.a),idx.get(e.b)]), weights:edges.map(e=>e.iLIS), m:method, niter:niter||500 }));
+  PYODIDE.globals.set('_lay', JSON.stringify({ n:nodes.length, edges:edges.map(e=>[idx.get(e.a),idx.get(e.b)]), weights:edges.map(e=>e.iLIS), m:method, niter:niter||500, seed:+$('seed').value||1 }));
   const out = PYODIDE.runPython(`
-import igraph as ig, json
-d=json.loads(_lay); g=ig.Graph(n=d['n'], edges=d['edges'], directed=False); g.es['weight']=d['weights']; m=d['m']
+import igraph as ig, json, random
+d=json.loads(_lay); random.seed(int(d['seed']))
+try: ig.set_random_number_generator(random)
+except Exception: pass
+g=ig.Graph(n=d['n'], edges=d['edges'], directed=False); g.es['weight']=d['weights']; m=d['m']
 if m=='kk': lay=g.layout_kamada_kawai()
 elif m=='drl': lay=g.layout_drl(weights='weight')
 else: lay=g.layout_fruchterman_reingold(weights='weight', niter=int(d.get('niter',500)))
@@ -762,10 +814,11 @@ async function applyLayout(mode){
   LAYER_ROOT=null; { const lb=$('layerbar'); if(lb) lb.classList.add('hidden'); }
   if (!mode || mode==='force'){ render(getDisplay()); return; }               // vis-network physics (live)
   const disp=getDisplay(); let pos;
+  if (drawnSig(disp) !== DRAWN) render(disp, true);   // other nodes or edges shown: draw them afresh
   if (mode==='fr'||mode==='kk'||mode==='drl'){ if(_layBusy) return; _layBusy=true; setStatus('Computing '+mode.toUpperCase()+' layout…'); try{ pos=await igraphLayout(disp.nodes, disp.edges, mode, +$('layiter').value||500); }catch(e){ setStatus('Layout error: '+(e.message||e)); _layBusy=false; return; } _layBusy=false; setStatus(''); }
   else pos=computeLayout(mode, disp);
   NODES.update(disp.nodes.map(n=>({ id:n, x:pos[n].x, y:pos[n].y, fixed:{x:true,y:true} })));
-  NETWORK.setOptions({ physics:false }); NETWORK.fit({ animation:{duration:500} });
+  setPhysics(false); NETWORK.fit({ animation:{duration:500} });
 }
 
 // ---------- exports ----------
@@ -790,7 +843,8 @@ function buildSVG(mode){   // mode='view' = the region currently visible (respec
     s+=`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${intra?commHex(cIdx.get(e.a)):'#c7ced6'}" stroke-width="${edgeWidth(e.iLIS,imin,imax,emin).toFixed(2)}" stroke-opacity="${intra?0.7:0.3}"/>`; }
   for (const n of nodes){ const p=pos[n]; if(!p) continue; const r=nodeRadius(degMap.get(n),dmax,nsize);
     s+=`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r.toFixed(1)}" fill="${fillMap.get(n)}"${border?` stroke="${bcolor}" stroke-width="1.5"`:''}/>`; }
-  for (const n of nodes){ const p=pos[n]; if(!p||degMap.get(n)<lbldeg) continue; const r=nodeRadius(degMap.get(n),dmax,nsize);
+  const lab=labelSet(nodes, degree);
+  for (const n of nodes){ const p=pos[n]; if(!p||!lab.has(n)) continue; const r=nodeRadius(degMap.get(n),dmax,nsize);
     s+=`<text x="${p.x.toFixed(1)}" y="${(p.y-r-3).toFixed(1)}" font-size="${lblsize}" ${outline?`stroke="${lblstroke}" stroke-width="2.8" paint-order="stroke" `:''}text-anchor="middle" fill="${lblcolor}">${esc(nodeLabel(n))}</text>`; }
   s+='</svg>';
   return s;
@@ -838,10 +892,10 @@ function buildGraphML(){   // Cytoscape-importable GraphML: node name/community/
   return g+'</graph>\n</graphml>\n';
 }
 function exportGraphML(){ if(LAST) download('network.graphml', buildGraphML(), 'application/xml'); }
-const SETTING_IDS=['cutv','resv','objfn','seed','nsizev','mindegv','eminv','lbldegv','lblsizev','lblcolor','lblstroke','bcolor','colorby','unicolor','layout','layiter'];
+const SETTING_IDS=['cutv','resv','objfn','seed','nsizev','mindegv','eminv','lbldegv','lbltop','lblsizev','lblcolor','lblstroke','bcolor','colorby','unicolor','layout','layiter','topk'];
 function collectSettings(){
   const s={}; SETTING_IDS.forEach(id=>{ const el=$(id); if(el) s[id]=el.value; });
-  s.nborder=$('nborder').checked; s.lbloutline=$('lbloutline').checked; s.commColors={...COMMCOLORS}; s.nodeColors={...NODECOLORS}; if(SUBSET) s.subset=[...SUBSET];
+  s.nborder=$('nborder').checked; s.lbloutline=$('lbloutline').checked; s.intraonly=$('intraonly').checked; s.commColors={...COMMCOLORS}; s.nodeColors={...NODECOLORS}; if(SUBSET) s.subset=[...SUBSET];
   if (META && META_COL) s.labelby=META_COL;
   if (USERCLUST && USERCLUST.size){ s.clusters=[...USERCLUST.entries()]; s.clustmode=$('clustmode')?$('clustmode').value:'user'; }
   return s;
@@ -853,6 +907,7 @@ async function importSettings(file){
   SETTING_IDS.forEach(id=>{ if(s[id]!=null && $(id)){ $(id).value=s[id]; const sl=pair[id]; if(sl&&$(sl)) $(sl).value=Math.max(+$(sl).min, Math.min(+$(sl).max, +s[id])); } });
   if (s.nborder!=null) $('nborder').checked=s.nborder;
   if (s.lbloutline!=null) $('lbloutline').checked=s.lbloutline;
+  if (s.intraonly!=null) $('intraonly').checked=s.intraonly;
   if (s.commColors) COMMCOLORS={...s.commColors};
   if (s.nodeColors) NODECOLORS={...s.nodeColors};
   SUBSET = (s.subset&&s.subset.length) ? new Set(s.subset) : null; $('subclear').classList.toggle('hidden', !SUBSET);
@@ -886,6 +941,10 @@ $('mindeg').addEventListener('input', ()=>{ $('mindegv').value=$('mindeg').value
 $('mindegv').addEventListener('input', ()=>{ if($('mindegv').value!=='') $('mindeg').value=Math.max(1, Math.min(+$('mindeg').max, +$('mindegv').value)); });
 ['mindeg','mindegv'].forEach(id=>$(id).addEventListener('change', ()=>{ if(LAST){ if(LAYER_ROOT) layerLayout(LAYER_ROOT); else applyLayout($('layout').value); hideNodeInfo(); } }));
 $('nborder').addEventListener('change', restyle);
+$('lbltop').addEventListener('change', restyle);
+['topk','intraonly'].forEach(id=>$(id).addEventListener('change', ()=>{ if(LAST){ hideNodeInfo(); if(LAYER_ROOT) layerLayout(LAYER_ROOT); else applyLayout($('layout').value); } }));   // other edges → lay out again
+$('physbtn').addEventListener('click', ()=>{ if (NETWORK) setPhysics(!PHYS); });
+$('ego-reset').addEventListener('click', e=>{ e.preventDefault(); egoReset(); });
 $('lbloutline').addEventListener('change', restyle);
 linkSlider('lblsize','lblsizev', restyle);
 $('colorby').addEventListener('change', ()=>{ restyle(); updateColorLegend(); });
@@ -933,6 +992,36 @@ $('layer-mode').addEventListener('change', ()=>{ if(LAYER_ROOT) layerLayout(LAYE
 $('layout').addEventListener('change', ()=>applyLayout($('layout').value));
 $('layiter').addEventListener('change', ()=>{ const L=$('layout').value; if(['fr','kk','drl','force'].includes(L)) applyLayout(L); });
 
+// View options a link may carry, so a figure's exact view opens from one link (applied to the data loaded next):
+//   &seed=<n> (Leiden and layout) &res=<resolution> &obj=modularity|CPM &layout=force|fr|kk|drl|community|circle|grid
+//   &iter=<stabilization iterations> &nsize=<node size> &labels=<degree>|top:<N> &color=community|degree|strength|uniform
+//   &mindeg=<n> &topk=<edges per node> &intra=1 &clusters=<URL of a node,cluster CSV, used instead of Leiden> &focus=<protein>
+const URLP = new URLSearchParams(location.search);
+function setVal(id, v, slider){ if (v == null || v === '' || !$(id)) return; $(id).value = v; if (slider && $(slider)) $(slider).value = Math.max(+$(slider).min, Math.min(+$(slider).max, +v)); }
+function applyUrlOpts(P){
+  const obj = P.get('obj'); if (obj && [...$('objfn').options].some(o=>o.value===obj)) $('objfn').value = obj;
+  setVal('seed', P.get('seed')); setVal('resv', P.get('res'), 'res'); setVal('layiter', P.get('iter'));
+  setVal('nsizev', P.get('nsize'), 'nsize'); setVal('mindegv', P.get('mindeg'), 'mindeg'); setVal('topk', P.get('topk'));
+  const lb = P.get('labels');
+  if (lb){ const m = /^top:?(\d+)$/i.exec(lb); if (m) setVal('lbltop', m[1]); else if (isFinite(+lb)){ setVal('lbldegv', lb, 'lbldeg'); setVal('lbltop', 0); } }
+  const col = P.get('color'); if (col && [...$('colorby').options].some(o=>o.value===col)){ $('colorby').value = col; $('unicolor').classList.toggle('hidden', col !== 'uniform'); }
+  const lay = P.get('layout'); if (lay && [...$('layout').options].some(o=>o.value===lay)) $('layout').value = lay;
+  if (P.has('intra')) $('intraonly').checked = /^(1|true|yes|on)?$/i.test(P.get('intra'));
+}
+async function urlClusters(P){   // &clusters=<URL>: communities from a node,cluster CSV (Leiden and its Python download skipped)
+  const u = P.get('clusters'); if (!u) return;
+  try { const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status); USERCLUST = parseClusterMap(await r.text()); }
+  catch(e){ USERCLUST = null; setStatus('Could not load the cluster map: ' + (e.message || e)); }
+  const on = !!(USERCLUST && USERCLUST.size); $('clustmode-wrap').classList.toggle('hidden', !on); $('clustclear').classList.toggle('hidden', !on); if (on) $('clustmode').value = 'user';
+}
+async function afterBuild(P){   // &layout and &focus act on the built network, once the force layout has settled
+  if (!LAST || !NETWORK) return;
+  const lay = $('layout').value; if (lay && lay !== 'force') await applyLayout(lay);
+  await new Promise((res)=>{ if (!PHYS) return res(); const t = setInterval(()=>{ if (!PHYS){ clearInterval(t); res(); } }, 100); });
+  const f = P.get('focus'); if (f){ $('net-search-input').value = f; netFind(f); }
+}
+applyUrlOpts(URLP);
+
 // Report options a hand-off link may carry: ?ilis=<cutoff> and ?species=<taxid>. Applied before the
 // build so the network a site links to opens at the threshold that site means, not the 0.223 default.
 function applyNetOpts(ilis, species){
@@ -958,7 +1047,8 @@ function applyNetOpts(ilis, species){
     applyNetOpts(params.get('ilis'), params.get('species'));
     await routeFiles([new File([blob], (url.split('/').pop() || 'data.zip'), { type: blob.type })]);
     applyNetOpts(params.get('ilis'), params.get('species'));   // routeFiles may reset the species hint
-    if (RAWPAIRS.size) build(); else setStatus('no interactions found in the data');
+    applyUrlOpts(params); await urlClusters(params);
+    if (RAWPAIRS.size){ await build(); await afterBuild(params); } else setStatus('no interactions found in the data');
   } catch(e){ setStatus('Could not load data: ' + (e.message || e)); console.warn('dataParam', e); }
 })();
 
@@ -984,7 +1074,7 @@ function applyNetOpts(ilis, species){
       RAWPAIRS.clear(); FILES_RAW.length=0; FASTA_RAW=''; FILECOUNT=0; META=null; META_COL=null;
       await routeFiles([new File([blob], fname, { type: 'application/zip' })]);
       applyNetOpts(m.ilis, m.species);
-      if (RAWPAIRS.size) build();
+      if (RAWPAIRS.size){ await build(); await afterBuild(URLP); }
     } catch (e) { setStatus('Could not load pushed data: ' + (e.message || e)); }
   });
   if (window.opener) ready(window.opener);   // announce readiness in case the opener is already waiting
