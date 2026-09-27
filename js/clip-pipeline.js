@@ -59,13 +59,19 @@
     if (!rows.length) return rows;
     const isRaw = ('name' in rows[0]) && ('cLIR_indices_i' in rows[0] || 'cLIR_indices_j' in rows[0]);
     if (!isRaw) { for (const r of rows) for (const d of DROP_COLS) delete r[d]; return rows; } // already converted — just trim
-    return rows.map((r) => {
+    const out = rows.map((r) => {
       const o = {};
       for (const k in r){ const nk = COLUMN_MAP[k] || k; if (DROP_COLS.indexOf(nk) >= 0) continue; const v = r[k]; o[nk] = (v !== '' && v != null && !isNaN(v)) ? +v : v; }   // numeric strings -> Numbers (~8 B vs ~40 B) — cLIR_indice '[...]' / names stay strings (isNaN)
       const [s1, s2] = parseProteinNames(String(r.name), sep);
       o.Symbol_1 = s1; o.Symbol_2 = s2;
       return o;
     });
+    // lis.py writes AlphaFold 3 ranks as 0-4 (ColabFold as 1-5). cLIP treats rank 1 as the top-ranked model everywhere (rank-1
+    // filter, rank-1 scatter, rank labels), so shift a prediction whose ranks start at 0: its model 0 becomes rank 1.
+    const minRank = new Map();
+    for (const o of out) if (typeof o.Rank === 'number' && (!minRank.has(o.name) || o.Rank < minRank.get(o.name))) minRank.set(o.name, o.Rank);
+    for (const o of out) if (typeof o.Rank === 'number' && minRank.get(o.name) === 0) o.Rank += 1;
+    return out;
   }
 
   // ---- gene search / orient ----

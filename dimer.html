@@ -534,8 +534,8 @@
 </div>
 </div>
 
-<script src="js/livia-core.js?v=20260924"></script>
-<script src="js/livia-reported.js?v=20260924"></script>
+<script src="js/livia-core.js?v=20260926b"></script>
+<script src="js/livia-reported.js?v=20260926b"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260926a"></script>
 <script src="js/livia-colors.js?v=20260926a"></script>
@@ -1204,7 +1204,7 @@ function buildDimerContactMap() {
             if (!cB) continue;
             const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
             const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-            if (dist < contactDist) contacts.push({ resA, resB, dist });
+            if (dist <= contactDist) contacts.push({ resA, resB, dist });
         }
     }
 
@@ -1636,7 +1636,7 @@ function buildChordDiagram() {
     const _plddtOn = dimerShowChordPlddt && (plddtA.some(x => x != null) || plddtB.some(x => x != null));
     { const _lg = document.getElementById('chord-plddt-legend'); if (_lg) { _lg.innerHTML = LiviaMaps.plddtLegendHtml(); _lg.style.display = _plddtOn ? 'flex' : 'none'; } }
 
-    // Find cLIR-cLIR contact pairs (Cβ < 8 Å) using filtered sets
+    // Find cLIR-cLIR contact pairs (Cβ ≤ 8 Å) using filtered sets
     const contactDist = 8;
     const contacts = [];
     for (const resA of clirI_f) {
@@ -1647,7 +1647,7 @@ function buildChordDiagram() {
             if (!cB) continue;
             const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
             const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-            if (dist < contactDist) contacts.push({ resA, resB, dist });
+            if (dist <= contactDist) contacts.push({ resA, resB, dist });
         }
     }
     if (contacts.length === 0) { card.style.display = 'none'; return; }
@@ -1882,7 +1882,7 @@ function parseCifCaCoords(cifText) {
 function calcIpSAE(pae, si, ei, sj, ej, paeCutoff) {
     const lenI = ei - si, lenJ = ej - sj;
     if (lenI === 0 || lenJ === 0) return 0;
-    // d0res: d0 from per-residue count of inter-chain PAE < cutoff (Dunbrack method, no distance filter)
+    // d0res: d0 from per-residue count of inter-chain PAE < cutoff (Dunbrack method, strict as in his ipsae.py, no distance filter)
     function calcD0(L) { return Math.max(1.0, 1.24 * Math.pow(Math.max(L, 27) - 15, 1/3) - 1.8); }
 
     let maxScoreIJ = 0;
@@ -2010,7 +2010,7 @@ function computeContactMap(coords, threshold) {
             const dy = coords[i].y - coords[j].y;
             const dz = coords[i].z - coords[j].z;
             const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (dist < threshold) {
+            if (dist <= threshold) {
                 contact[i * n + j] = 1;
                 contact[j * n + i] = 1;
             }
@@ -2154,7 +2154,7 @@ function buildComparisonCharts() {
                 const rj = offThis + j;
                 if (ri < v.paeMatrix.length && rj < v.paeMatrix.length) {
                     const paeAvg = (v.paeMatrix[ri][rj] + v.paeMatrix[rj][ri]) / 2;
-                    if (paeAvg < paeCutoff) {
+                    if (paeAvg <= paeCutoff) {
                         dLisSum += 1 - paeAvg / paeCutoff;
                     }
                 }
@@ -2168,7 +2168,7 @@ function buildComparisonCharts() {
                 for (let j = 0; j < monoLen; j++) {
                     if (j === r - 1) continue;
                     const paeAvg = (monoPae[r - 1][j] + monoPae[j][r - 1]) / 2;
-                    if (paeAvg < paeCutoff) {
+                    if (paeAvg <= paeCutoff) {
                         mLisSum += 1 - paeAvg / paeCutoff;
                     }
                 }
@@ -2653,7 +2653,7 @@ function processDimer() {
 function computePairMetrics(pae, contact, nUse, offI, lenI, offJ, lenJ, paeCutoff, extra) {
     const { bfs, chainI, chainJ, caContact, nCa, nUseCa } = extra || {};
     // Per-direction LIS:
-    //   LIS_AB = mean(1 - pae[ri,rj]/cutoff) over A→B cells where pae[ri,rj] < cutoff
+    //   LIS_AB = mean(1 - pae[ri,rj]/cutoff) over A→B cells where pae[ri,rj] <= cutoff
     //   LIS_BA = same for B→A
     //   LIS = (LIS_AB + LIS_BA) / 2
     // LIA = (A→B count) + (B→A count); cLIA likewise.
@@ -2689,7 +2689,7 @@ function computePairMetrics(pae, contact, nUse, offI, lenI, offJ, lenJ, paeCutof
             if (inContact) { geomIfI.add(i + 1); geomIfJ.add(j + 1); geomNContacts++; }
 
             // LIS / cLIS per-direction
-            if (vAB < paeCutoff) {
+            if (vAB <= paeCutoff) {
                 const tv = 1 - vAB / paeCutoff;
                 lisSumAB += tv;
                 lisCountAB++;
@@ -2698,7 +2698,7 @@ function computePairMetrics(pae, contact, nUse, offI, lenI, offJ, lenJ, paeCutof
                     clisCountAB++;
                 }
             }
-            if (vBA < paeCutoff) {
+            if (vBA <= paeCutoff) {
                 const tv = 1 - vBA / paeCutoff;
                 lisSumBA += tv;
                 lisCountBA++;
@@ -2709,7 +2709,7 @@ function computePairMetrics(pae, contact, nUse, offI, lenI, offJ, lenJ, paeCutof
             }
 
             // LIR / cLIR: cell-based union — paired residues
-            if (vAB < paeCutoff || vBA < paeCutoff) {
+            if (vAB <= paeCutoff || vBA <= paeCutoff) {
                 lirI.add(i + 1);
                 lirJ.add(j + 1);
                 if (inContact) {
@@ -3027,7 +3027,7 @@ function buildLisMap(pae, lenI, lenJ, offsetI, offsetJ, paeCutoff) {
             const ri = offsetI + i, rj = offsetJ + j;
             if (ri >= pae.length || rj >= pae.length || rj >= pae[ri].length || ri >= pae[rj].length) continue;
             const v = pae[ri][rj];
-            map[i][j] = v < paeCutoff ? 1 - v / paeCutoff : 0;
+            map[i][j] = v <= paeCutoff ? 1 - v / paeCutoff : 0;
         }
     }
     return map;
@@ -3041,7 +3041,7 @@ function buildClisMap(pae, contact, nUse, lenI, lenJ, offsetI, offsetJ, paeCutof
             const rj = offsetJ + j;
             if (ri >= pae.length || rj >= pae.length || rj >= pae[ri].length || ri >= pae[rj].length) continue;
             const v = pae[ri][rj];
-            const tv = v < paeCutoff ? 1 - v / paeCutoff : 0;
+            const tv = v <= paeCutoff ? 1 - v / paeCutoff : 0;
             const cv = (ri < nUse && rj < nUse) ? contact[ri * nUse + rj] : 0;
             map[i][j] = (tv > 0 && cv) ? tv : 0;
         }
@@ -3435,13 +3435,13 @@ function exportMapWithColorbar(mapCanvas, cbar, tickLabels, displaySize, name) {
 }
 
 function buildFullLisMap(pae, nTotal, paeCutoff) {
-    // Full NxN LIS map — score = (1 - PAE/cutoff) where PAE < cutoff, else 0.
+    // Full NxN LIS map — score = (1 - PAE/cutoff) where PAE <= cutoff, else 0.
     // Asymmetric: each cell uses pae[i][j] directly.
     const map = Array.from({length: nTotal}, () => Array(nTotal).fill(0));
     for (let i = 0; i < nTotal; i++) {
         for (let j = 0; j < nTotal; j++) {
             const v = pae[i][j];
-            map[i][j] = v < paeCutoff ? 1 - v / paeCutoff : 0;
+            map[i][j] = v <= paeCutoff ? 1 - v / paeCutoff : 0;
         }
     }
     return map;
@@ -3452,7 +3452,7 @@ function buildFullClisMap(pae, contact, nUse, nTotal, paeCutoff) {
     for (let i = 0; i < nTotal; i++) {
         for (let j = 0; j < nTotal; j++) {
             const v = pae[i][j];
-            const tv = v < paeCutoff ? 1 - v / paeCutoff : 0;
+            const tv = v <= paeCutoff ? 1 - v / paeCutoff : 0;
             const cv = (i < nUse && j < nUse) ? contact[i * nUse + j] : 0;
             map[i][j] = (tv > 0 && cv) ? tv : 0;
         }

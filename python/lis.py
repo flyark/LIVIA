@@ -199,11 +199,17 @@ def _scan_dir(dirpath, file_map):
 
 
 def _make_dir_reader(file_map):
-    """Create a reader function for directory-based file_map."""
+    """Create a reader function for directory-based file_map.
+
+    A folder can hold zipped predictions: _scan_dir() then stores those members as (zip_path, member) entries or nesting
+    chains, which are read the same way as zip input."""
+    zip_read = _make_zip_reader(file_map)
     def read_fn(name):
         fpath = file_map.get(name)
         if fpath is None:
             return None
+        if not isinstance(fpath, str):
+            return zip_read(name)
         with open(fpath, 'rb') as f:
             data = f.read()
         return _decode_content(fpath, data)
@@ -1329,8 +1335,11 @@ def extract_confidence_scores(confidence_path, read_fn):
 # ============================================================================
 
 def parse_pdb_coords(pdb_text):
-    """Extract one Cb (Ca for GLY, P for nucleic) coordinate per residue from PDB text."""
+    """Extract one Cb (Ca for GLY, P for nucleic) coordinate per polymer residue,
+    plus one coordinate per non-polymer HETATM atom, from PDB text. See
+    parse_cif_coords for why per-atom HETATM coords keep the PAE alignment."""
     residues = OrderedDict()
+    het_idx = 0
     for line in pdb_text.split('\n'):
         if not line.startswith('ATOM') and not line.startswith('HETATM'):
             continue
@@ -1339,13 +1348,24 @@ def parse_pdb_coords(pdb_text):
         atom_name = line[12:16].strip()
         comp_id = line[17:20].strip()
         chain = line[21:22].strip() or 'A'
+        x = float(line[30:38])
+        y = float(line[38:46])
+        z = float(line[46:54])
+
+        if line.startswith('HETATM'):
+            # Ion = one monatomic token; glycan/ligand = one token per atom.
+            if comp_id in ION_NAMES:
+                if f'{chain}:1' not in residues:
+                    residues[f'{chain}:1'] = {'chain': chain, 'resnum': 1, 'x': x, 'y': y, 'z': z, 'has_p': False}
+            else:
+                residues[f'het:{chain}:{het_idx}'] = {'chain': chain, 'resnum': 1, 'x': x, 'y': y, 'z': z, 'has_p': 'P' in atom_name}
+                het_idx += 1
+            continue
+
         try:
             resnum = int(line[22:26].strip())
         except ValueError:
             continue
-        x = float(line[30:38])
-        y = float(line[38:46])
-        z = float(line[46:54])
         key = f'{chain}:{resnum}'
 
         if atom_name == 'CB':
@@ -1354,8 +1374,6 @@ def parse_pdb_coords(pdb_text):
             residues[key] = {'chain': chain, 'resnum': resnum, 'x': x, 'y': y, 'z': z, 'has_p': False}
         elif atom_name == 'P' and key not in residues:
             residues[key] = {'chain': chain, 'resnum': resnum, 'x': x, 'y': y, 'z': z, 'has_p': True}
-        elif line.startswith('HETATM') and comp_id in ION_NAMES and f'{chain}:1' not in residues:
-            residues[f'{chain}:1'] = {'chain': chain, 'resnum': 1, 'x': x, 'y': y, 'z': z, 'has_p': False}
 
     return _fill_residue_gaps(residues)
 
@@ -1381,8 +1399,15 @@ def _fill_residue_gaps(residues):
 
 
 def parse_cif_coords(cif_text):
-    """Extract one Cb (Ca for GLY, P for nucleic) coordinate per residue from mmCIF text."""
+    """Extract one Cb (Ca for GLY, P for nucleic) coordinate per polymer residue,
+    plus one coordinate per non-polymer HETATM atom, from mmCIF text.
+
+    AlphaFold3 tokenizes every glycan/ligand atom separately, so the PAE matrix
+    has one token per HETATM atom. Emitting one coordinate per atom keeps the
+    contact map aligned with the PAE tokens; otherwise every chain after a glycan
+    loses its contact-based metrics (cLIS -> iLIS, actifpTM)."""
     residues = OrderedDict()
+    het_idx = 0
     in_atom_site = False
     col_names = []
 
@@ -1425,10 +1450,15 @@ def parse_cif_coords(cif_text):
             except ValueError:
                 continue
 
-            if group_pdb == 'HETATM' and comp_id in ION_NAMES:
-                ion_key = f'{chain}:1'
-                if ion_key not in residues:
-                    residues[ion_key] = {'chain': chain, 'resnum': 1, 'x': x, 'y': y, 'z': z, 'has_p': False}
+            if group_pdb == 'HETATM':
+                # Ion = one monatomic token; glycan/ligand = one token per atom.
+                if comp_id in ION_NAMES:
+                    ion_key = f'{chain}:1'
+                    if ion_key not in residues:
+                        residues[ion_key] = {'chain': chain, 'resnum': 1, 'x': x, 'y': y, 'z': z, 'has_p': False}
+                else:
+                    residues[f'het:{chain}:{het_idx}'] = {'chain': chain, 'resnum': 1, 'x': x, 'y': y, 'z': z, 'has_p': 'P' in atom_name}
+                    het_idx += 1
                 continue
 
             try:
@@ -1626,6 +1656,10 @@ def get_chains_from_cif(cif_text):
                     seen_residues.add(rkey)
                     counted = True
                     chain_types[chain] = 'ion'
+            elif group_pdb == 'HETATM':
+                # Glycan / ligand (non-ion HETATM): one token per atom in AF3.
+                chain_types[chain] = 'glycan'
+                counted = True
 
             if counted:
                 if chain not in chain_counts:
@@ -1742,7 +1776,7 @@ def compute_contact_map(coords, threshold=8):
     p_adjustment[p_mask] = -4.0
     adjusted = distances + p_adjustment
 
-    contact = (adjusted < threshold).astype(np.uint8)
+    contact = (adjusted <= threshold).astype(np.uint8)
     return contact, n
 
 
@@ -1753,13 +1787,13 @@ def compute_contact_map(coords, threshold=8):
 def transform_pae_matrix(pae, pae_cutoff=12):
     """Transform PAE to confidence scores. Asymmetric, per-direction.
 
-    Per-direction LIS = 1 - mean(PAE<cutoff)/cutoff is recovered by leaving
+    Per-direction LIS = 1 - mean(PAE<=cutoff)/cutoff is recovered by leaving
     PAE[i,j] and PAE[j,i] independent. The (i,j) and (j,i) chain-pair entries
     are then averaged downstream in analyze_single_model's symmetrize step.
     """
     pae = np.asarray(pae, dtype=np.float64)
     transformed = np.zeros_like(pae)
-    mask = pae < pae_cutoff
+    mask = pae <= pae_cutoff
     transformed[mask] = 1.0 - pae[mask] / pae_cutoff
     return transformed
 
@@ -1823,7 +1857,8 @@ def calc_pae_chain_pair_iptm(pae, starts, ends):
 def calc_ipsae(pae, si, ei, sj, ej, pae_cutoff):
     """Calculate ipSAE (Dunbrack d0res method) for a chain pair.
 
-    d0 from per-residue count of inter-chain residues with PAE < cutoff.
+    d0 from per-residue count of inter-chain residues with PAE < cutoff (strict, as in Dunbrack's
+    ipsae.py; unlike the LIS family, which uses PAE <= cutoff).
     No distance filter. PAE cutoff only.
     Returns max of two asymmetric scores.
     """
@@ -2052,15 +2087,16 @@ def analyze_single_model(struct_text, pae_matrix, scores, fmt, platform,
 
             # Vectorized LIS/cLIS computation (transformed is asymmetric per-direction)
             t_block = transformed[si:ei, sj:ej]
-            t_pos = t_block > 0
+            # Confident cells are PAE <= cutoff. A cell exactly at the cutoff scores 0 but still counts,
+            # so the mask comes from the PAE itself, not from transformed > 0.
+            t_pos = pae[si:ei, sj:ej] <= pae_cutoff
 
             lis_sum = float(t_block[t_pos].sum())
             lis_count_avg = int(t_pos.sum())
 
             # LIR: cell-based union — a residue is in LIR if either direction is confident
             # on any of its cells (paired across the block's row/col).
-            t_block_rev = transformed[sj:ej, si:ei]
-            either_pos = t_pos | (t_block_rev.T > 0)
+            either_pos = t_pos | (pae[sj:ej, si:ei].T <= pae_cutoff)
             lir_i = set(np.where(either_pos.any(axis=1))[0] + 1)
             lir_j = set(np.where(either_pos.any(axis=0))[0] + 1)
 
@@ -2098,17 +2134,17 @@ def analyze_single_model(struct_text, pae_matrix, scores, fmt, platform,
                 geom_if_j = set()
                 geom_n_contacts = 0
 
-            # LIA counts (asymmetric PAE < cutoff)
+            # LIA counts (asymmetric PAE <= cutoff)
             pae_ij = pae[si:ei, sj:ej]
             pae_ji = pae[sj:ej, si:ei]
-            lis_count_ab = int((pae_ij < pae_cutoff).sum())
-            lis_count_ba = int((pae_ji < pae_cutoff).sum())
+            lis_count_ab = int((pae_ij <= pae_cutoff).sum())
+            lis_count_ba = int((pae_ji <= pae_cutoff).sum())
 
             if c_ei > c_si and c_ej > c_sj:
                 pae_ij_c = pae_ij[:c_ei-c_si, :c_ej-c_sj]
                 pae_ji_c = pae_ji[:c_ej-c_sj, :c_ei-c_si]
-                clis_count_ab = int(((pae_ij_c < pae_cutoff) & contact_block).sum())
-                clis_count_ba = int(((pae_ji_c < pae_cutoff) & contact_block.T).sum())
+                clis_count_ab = int(((pae_ij_c <= pae_cutoff) & contact_block).sum())
+                clis_count_ba = int(((pae_ji_c <= pae_cutoff) & contact_block.T).sum())
             else:
                 clis_count_ab = 0
                 clis_count_ba = 0
@@ -2145,8 +2181,6 @@ def analyze_single_model(struct_text, pae_matrix, scores, fmt, platform,
             else:
                 lipdockq2_i = None
                 lipdockq2_j = None
-                pdockq2_i = None
-                pdockq2_j = None
                 lipdockq_n = 0
 
             lis_val = lis_sum / lis_count_avg if lis_count_avg > 0 else 0.0
@@ -2343,7 +2377,7 @@ def calc_pdockq(avg_if_plddt, n_if_contacts):
     """pDockQ (Bryant, Pozzati & Elofsson 2022, Nat. Commun., author-corrected constants), applied
     to a caller-supplied interface definition rather than pDockQ's original pure-distance one.
     Verified against the authors' own reference implementation (ElofssonLab/FoldDock, src/pdockq.py):
-    avg_if_plddt = mean pLDDT over the UNIQUE residues touched by >=1 inter-chain contact <8 A;
+    avg_if_plddt = mean pLDDT over the UNIQUE residues touched by >=1 inter-chain contact <=8 A;
     n_if_contacts = contacts.shape[0] -- the COUNT OF CONTACT PAIRS (cells in the chain-A x chain-B
     boolean matrix), NOT the count of unique interface residues -- x = avg_if_plddt * log10(n), no
     +1. Same formula here, fed the file's own pure-geometric interface (pDockQ) or cLIpLDDT/the cLIR
@@ -2565,47 +2599,59 @@ def _extract_alphapulldown_scalars(struct_path, model_label, read_fn):
 
 
 def _do_process(model_tuple, read_fn, detected, pae_cutoff, cb_cutoff, verbose=False, allow_pickle=False):
-    """Process a single model. Returns (name, rank, rows, error_msg) tuple."""
+    """Process a single model. Returns (name, rank, rows, error_msg) tuple.
+
+    Any unexpected exception (corrupt gz, truncated file, unreadable JSON, etc.)
+    is captured and returned as err_msg so one bad prediction doesn't kill the
+    whole batch.
+    """
     name, rank, model_label, struct_path, pae_path, scores_path, fmt = model_tuple[:7]
     pae_key = model_tuple[7] if len(model_tuple) > 7 else None   # optional, from a lis.json manifest
 
-    struct_text = read_fn(struct_path)
-    if not struct_text or not isinstance(struct_text, str):
-        return name, rank, None, f'structure file unreadable: {struct_path}'
-
-    pae = extract_pae(pae_path, read_fn, pae_key, allow_pickle=allow_pickle)
-    if pae is None:
-        if pae_path and os.path.basename(pae_path).endswith(('.pkl', '.pickle')) and not allow_pickle:
-            return name, rank, None, (f'PAE is a pickle ({os.path.basename(pae_path)}); re-run with '
-                                      f'--allow-pickle to load it (only for files you trust).')
-        return name, rank, None, (f'PAE not found or unreadable: {pae_path}. If this layout is '
-                                  f'unrecognised, declare it in a lis.json manifest (pae / pae_key) or pass --manifest.')
-    pae = np.nan_to_num(pae, nan=31.0)
-
-    scores = extract_confidence_scores(scores_path, read_fn)
-    if scores_path != pae_path and pae_path:
-        full_scores = extract_confidence_scores(pae_path, read_fn)
-        for k, v in full_scores.items():
-            if k not in scores:
-                scores[k] = v
-
-    # AlphaPulldown: pull exact per-model iPTM and recover pTM from
-    # ranking_debug.json (composite = 0.8·iPTM + 0.2·pTM → pTM = 5·comp − 4·iPTM).
-    if detected == 'alphapulldown':
-        ap_scalars = _extract_alphapulldown_scalars(struct_path, model_label, read_fn)
-        for k, v in ap_scalars.items():
-            if k not in scores or scores.get(k) is None:
-                scores[k] = v
-
     try:
-        pairs = analyze_single_model(
-            struct_text, pae, scores, fmt, detected,
-            pae_path, read_fn, pae_cutoff, cb_cutoff)
-    except Exception as e:
-        return name, rank, None, f'analysis error: {e}'
+        struct_text = read_fn(struct_path)
+        if not struct_text or not isinstance(struct_text, str):
+            return name, rank, None, f'structure file unreadable: {struct_path}'
 
-    rows = [format_row(name, rank, model_label, pair) for pair in pairs]
-    return name, rank, rows, None
+        pae = extract_pae(pae_path, read_fn, pae_key, allow_pickle=allow_pickle)
+        if pae is None:
+            if pae_path and os.path.basename(pae_path).endswith(('.pkl', '.pickle')) and not allow_pickle:
+                return name, rank, None, (f'PAE is a pickle ({os.path.basename(pae_path)}); re-run with '
+                                          f'--allow-pickle to load it (only for files you trust).')
+            return name, rank, None, (f'PAE not found or unreadable: {pae_path}. If this layout is '
+                                      f'unrecognised, declare it in a lis.json manifest (pae / pae_key) or pass --manifest.')
+        pae = np.nan_to_num(pae, nan=31.0)
+
+        scores = extract_confidence_scores(scores_path, read_fn)
+        if scores_path != pae_path and pae_path:
+            full_scores = extract_confidence_scores(pae_path, read_fn)
+            for k, v in full_scores.items():
+                if k not in scores:
+                    scores[k] = v
+
+        # AlphaPulldown: pull exact per-model iPTM and recover pTM from
+        # ranking_debug.json (composite = 0.8·iPTM + 0.2·pTM → pTM = 5·comp − 4·iPTM).
+        if detected == 'alphapulldown':
+            ap_scalars = _extract_alphapulldown_scalars(struct_path, model_label, read_fn)
+            for k, v in ap_scalars.items():
+                if k not in scores or scores.get(k) is None:
+                    scores[k] = v
+
+        try:
+            pairs = analyze_single_model(
+                struct_text, pae, scores, fmt, detected,
+                pae_path, read_fn, pae_cutoff, cb_cutoff)
+        except Exception as e:
+            return name, rank, None, f'analysis error: {e}'
+
+        rows = [format_row(name, rank, model_label, pair) for pair in pairs]
+        return name, rank, rows, None
+    except EOFError as e:
+        return name, rank, None, f'corrupt gz (EOFError): {pae_path}: {e}'
+    except (OSError, zipfile.BadZipFile) as e:
+        return name, rank, None, f'I/O error reading {pae_path}: {type(e).__name__}: {e}'
+    except Exception as e:
+        return name, rank, None, f'unexpected error on {pae_path}: {type(e).__name__}: {e}'
 
 
 def _process_one_sequential(model_tuple, read_fn, detected, pae_cutoff, cb_cutoff, verbose=False, allow_pickle=False):

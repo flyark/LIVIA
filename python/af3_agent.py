@@ -31,7 +31,7 @@ from scipy.spatial.distance import pdist, squareform
 def transform_pae_matrix(pae_matrix, pae_cutoff=12):
     """Transform PAE to confidence scores: 0→1 (best), cutoff→0, >cutoff→0."""
     transformed = np.zeros_like(pae_matrix)
-    within = pae_matrix < pae_cutoff
+    within = pae_matrix <= pae_cutoff
     transformed[within] = 1 - (pae_matrix[within] / pae_cutoff)
     return transformed
 
@@ -90,14 +90,14 @@ def compute_contact_map(cif_text, distance_threshold=8):
         distances - 4, distances
     )
 
-    contact_map = np.where(adjusted < distance_threshold, 1, 0).astype(np.float32)
+    contact_map = np.where(adjusted <= distance_threshold, 1, 0).astype(np.float32)
     return contact_map, coords
 
 
 # ── Mean LIS per chain pair ───────────────────────────────────────────────
 
-def calculate_mean_lis(matrix, subunit_sizes):
-    """Calculate mean of non-zero values per chain-pair submatrix."""
+def calculate_mean_lis(matrix, subunit_sizes, mask):
+    """Mean of matrix over the masked (confident) cells of each chain-pair submatrix."""
     cum = np.cumsum(subunit_sizes)
     starts = np.concatenate(([0], cum[:-1]))
     n = len(subunit_sizes)
@@ -105,7 +105,7 @@ def calculate_mean_lis(matrix, subunit_sizes):
     for i in range(n):
         for j in range(n):
             sub = matrix[starts[i]:cum[i], starts[j]:cum[j]]
-            nz = sub[sub > 0]
+            nz = sub[mask[starts[i]:cum[i], starts[j]:cum[j]]]
             result[i, j] = nz.mean() if len(nz) > 0 else 0.0
     return result
 
@@ -174,7 +174,9 @@ def analyze_model(full_data_str, summary_str, cif_str, pae_cutoff=12, distance_c
     pae = np.nan_to_num(pae)
     transformed = transform_pae_matrix(pae, pae_cutoff)
     transformed = np.nan_to_num(transformed)
-    lia_map = np.where(transformed > 0, 1, 0)
+    # Confident cells are PAE <= cutoff; a cell exactly at the cutoff scores 0 but still counts.
+    within = pae <= pae_cutoff
+    lia_map = within.astype(int)
 
     # Contact map
     contact_map, coords = compute_contact_map(cif_str, distance_cutoff)
@@ -187,12 +189,13 @@ def analyze_model(full_data_str, summary_str, cif_str, pae_cutoff=12, distance_c
         contact_map = cm
 
     # Combined map (cLIA)
-    combined = np.where((transformed > 0) & (contact_map == 1), transformed, 0)
+    combined_mask = within & (contact_map == 1)
+    combined = np.where(combined_mask, transformed, 0)
 
     # LIS/cLIS matrices
-    lis_matrix = calculate_mean_lis(transformed, subunit_sizes)
+    lis_matrix = calculate_mean_lis(transformed, subunit_sizes, within)
     lis_matrix = np.nan_to_num(lis_matrix)
-    clis_matrix = calculate_mean_lis(combined, subunit_sizes)
+    clis_matrix = calculate_mean_lis(combined, subunit_sizes, combined_mask)
     clis_matrix = np.nan_to_num(clis_matrix)
 
     # ipTM
@@ -215,9 +218,9 @@ def analyze_model(full_data_str, summary_str, cif_str, pae_cutoff=12, distance_c
             lir_j = set(int(r + 1) for r in np.unique(np.where(lia_sub > 0)[1]))
 
             # cLIR indices
-            combined_sub = combined[si:ei, sj:ej]
-            clir_i = set(int(r + 1) for r in np.unique(np.where(combined_sub > 0)[0]))
-            clir_j = set(int(r + 1) for r in np.unique(np.where(combined_sub > 0)[1]))
+            combined_sub = combined_mask[si:ei, sj:ej]
+            clir_i = set(int(r + 1) for r in np.unique(np.where(combined_sub)[0]))
+            clir_j = set(int(r + 1) for r in np.unique(np.where(combined_sub)[1]))
 
             # LIA/cLIA counts
             lia_count = int(np.count_nonzero(lia_sub))

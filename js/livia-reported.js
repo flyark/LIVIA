@@ -18,7 +18,7 @@
 'use strict';
 
 const TYPES = [['ppi', 'PPI'], ['interolog', 'Interolog PPI'], ['genetic', 'Genetic (GI)'], ['interolog-genetic', 'Interolog GI']];
-const BIOGRID_PROXY = 'https://livia-proxy.flyark.workers.dev/?biogrid=1';
+const BIOGRID_PROXY = LIVIA_PROXY + '/?biogrid=1';   // LIVIA_PROXY: js/livia-core.js
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const pairKey = (a, b) => [a.key, b.key].sort().join('|');
 

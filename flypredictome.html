@@ -242,10 +242,10 @@
                 </div>
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
                     <strong style="min-width:90px;">iLIS (average):</strong>
-                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.303</span> (1% FPR)</span>
+                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.268</span> (1% FPR)</span>
                     <span><span style="color:#0e8a6e; font-weight:700;">&ge;0.120</span> (5% FPR)</span>
-                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.073</span> (10% FPR)</span>
-                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.073</span> (below threshold)</span>
+                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.072</span> (10% FPR)</span>
+                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.072</span> (below threshold)</span>
                 </div>
                 <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details. Rank 1 (determined by ipTM) may not have the highest iLIS.</div>
             </div>
@@ -539,8 +539,8 @@
 </div>
 </div>
 
-<script src="js/livia-core.js?v=20260924"></script>
-<script src="js/livia-reported.js?v=20260924"></script>
+<script src="js/livia-core.js?v=20260926b"></script>
+<script src="js/livia-reported.js?v=20260926b"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260926a"></script>
 <script src="js/livia-colors.js?v=20260926a"></script>
@@ -1215,7 +1215,7 @@ async function fetchFpSummary(fbgn) {
         fbgn = String(fbgn || '').replace(/^fbgn/i, 'FBgn');   // FlyBase ids are case-sensitive; flyrnai 500s on FBGN…
         if (!/^FBgn\d+$/.test(fbgn)) return null;
         const target = 'https://www.flyrnai.org/tools/fly_predictome/web/famdb_summary/' + fbgn + '/';
-        const proxied = 'https://livia-proxy.flyark.workers.dev/?url=' + encodeURIComponent(target);
+        const proxied = LIVIA_PROXY + '/?url=' + encodeURIComponent(target);
         // The page can be ~80 MB → allow a long window (fetchTextViaProxy's 10 s cap is far too short here).
         const resp = await fetch(proxied, { signal: AbortSignal.timeout(180000) });
         if (!resp.ok) return null;
@@ -2485,7 +2485,7 @@ function updateCombinedChord() {
                 if (!cB) continue;
                 const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
                 const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                if (dist < contactDist) allContacts.set(key, { resA, resB, dist });
+                if (dist <= contactDist) allContacts.set(key, { resA, resB, dist });
             }
         }
     }
@@ -3114,7 +3114,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     const plOnA = showPlddt && plddtA.some(x => x != null), plOnB = showPlddt && plddtB.some(x => x != null);
     const plBlockA = plOnA ? (plBarGap + plStripH + plGap) : 0, plBlockB = plOnB ? (plBarGap + plStripH + plGap) : 0;
 
-    // Find cLIR-cLIR contact pairs (Cβ distance < 8 Å)
+    // Find cLIR-cLIR contact pairs (Cβ distance ≤ 8 Å)
     const contactDist = 8;
     const contacts = [];
     for (const resA of row._cLIR_A) {            // detection uses the REAL chain-A/B residues + coords (display swap is applied later)
@@ -3125,7 +3125,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
             if (!cB) continue;
             const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
             const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-            if (dist < contactDist) {
+            if (dist <= contactDist) {
                 contacts.push({ resA, resB, dist });
             }
         }
@@ -3510,7 +3510,7 @@ function drawFlyChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, co
                 if (!cB) continue;
                 const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
                 const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                if (dist < contactDist) contacts.push({ resA, resB, dist });
+                if (dist <= contactDist) contacts.push({ resA, resB, dist });
             }
         }
         const minDist = contacts.length > 0 ? Math.min(...contacts.map(c => c.dist)) : 0;
@@ -3674,7 +3674,7 @@ function buildChordDiagram(row, sym1, sym2, colors, pdbText) {
                     if (!cB) continue;
                     const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
                     const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                    if (dist < contactDist) allContacts.set(key, { resA, resB, dist });
+                    if (dist <= contactDist) allContacts.set(key, { resA, resB, dist });
                 }
             }
         }

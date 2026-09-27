@@ -38,6 +38,7 @@ Boltz, Chai-1, OpenFold3, ESMFold2, and a generic structure+PAE layout.
 Requires: numpy, matplotlib, and lis.py beside this file (or on PYTHONPATH).
 """
 import argparse
+import csv
 import io
 import json
 import os
@@ -184,6 +185,31 @@ def rewrite_csv(text, label):
     return out, original
 
 
+def point_structures(text, file_of_rank):
+    """Rewrite each row's `structure_file` (the last lis.py column) to the bundle member of its model, found by the row's rank.
+
+    rewrite_csv() fixes AlphaFold 3 names (`<name>_model_<m>.cif`) by text replacement; other predictors name their files
+    differently (ColabFold `..._unrelaxed_rank_001_...pdb`, Boltz `..._model_0.pdb`, Chai-1 `pred.model_idx_1.cif`, ...), so the
+    CSV kept the original names and --check reported missing structures. Only the last field of each line is changed.
+    """
+    lines = text.splitlines(keepends=True)
+    if len(lines) < 2:
+        return text
+    header = next(csv.reader([lines[0]]))
+    if 'rank' not in header or header[-1] != 'structure_file':
+        return text
+    ri = header.index('rank')
+    out = [lines[0]]
+    for ln in lines[1:]:
+        body = ln.rstrip('\r\n')
+        f = next(csv.reader([body])) if body else []
+        new = file_of_rank.get(f[ri].strip()) if len(f) == len(header) else None
+        if new and f[-1] and body.endswith(f[-1]):
+            body = body[:-len(f[-1])] + new
+        out.append(body + ln[len(ln.rstrip('\r\n')):])
+    return ''.join(out)
+
+
 def subset_csv(text, models):
     """Keep only rows whose `model` column is in `models`, preserving the file byte-for-byte otherwise."""
     rows = text.splitlines(keepends=True)
@@ -233,7 +259,7 @@ def build(path, out_dir, label=None, keep_pae=False, only_models=None, quiet=Fal
             csv_text = subset_csv(csv_text, only_models)
         open(os.path.join(work, 'lis.csv'), 'w').write(csv_text)
 
-        kept, bounds = [], []
+        kept, bounds, file_of_rank = [], [], {}
         # lis.py yields (name, rank, model_label, struct, pae, scores, fmt). `model_label` is a filename,
         # not an index, and `rank` is an int for most platforms but a "seed_sample" string for local AF3 --
         # so derive a stable integer and fall back to position when it is not numeric.
@@ -262,10 +288,13 @@ def build(path, out_dir, label=None, keep_pae=False, only_models=None, quiet=Fal
             except Exception as e:
                 say(f'  model {m}: no PAE image ({e})')
             kept.append((m, ext))
+            file_of_rank[str(rank)] = f'model_{m}.{ext}'
             say(f'  model {m}: {ext} + pae')
 
         if not kept:
             raise SystemExit('Nothing kept -- check --models.')
+        csv_text = point_structures(csv_text, file_of_rank)
+        open(os.path.join(work, 'lis.csv'), 'w').write(csv_text)
         best = pick_best(csv_text, [m for m, _ in kept])
         ext_of = dict(kept)
         man = lwb.build_manifest(

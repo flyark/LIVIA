@@ -204,10 +204,10 @@
                 </div>
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
                     <strong style="min-width:90px;">iLIS (average):</strong>
-                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.303</span> (1% FPR)</span>
+                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.268</span> (1% FPR)</span>
                     <span><span style="color:#0e8a6e; font-weight:700;">&ge;0.120</span> (5% FPR)</span>
-                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.073</span> (10% FPR)</span>
-                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.073</span> (below threshold)</span>
+                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.072</span> (10% FPR)</span>
+                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.072</span> (below threshold)</span>
                 </div>
                 <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details. Rank 1 (determined by ipTM) may not have the highest iLIS.</div>
             </div>
@@ -501,8 +501,8 @@
 </div>
 </div>
 
-<script src="js/livia-core.js?v=20260924"></script>
-<script src="js/livia-reported.js?v=20260924"></script>
+<script src="js/livia-core.js?v=20260926b"></script>
+<script src="js/livia-reported.js?v=20260926b"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260926a"></script>
 <script src="js/livia-colors.js?v=20260926a"></script>
@@ -1926,7 +1926,7 @@ function updateCombinedChord() {
                 if (!cB) continue;
                 const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
                 const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                if (dist < contactDist) allContacts.set(key, { resA, resB, dist });
+                if (dist <= contactDist) allContacts.set(key, { resA, resB, dist });
             }
         }
     }
@@ -2498,7 +2498,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
             if (!cB) continue;
             const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
             const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-            if (dist < contactDist) contacts.push({ resA, resB, dist });
+            if (dist <= contactDist) contacts.push({ resA, resB, dist });
         }
     }
     if (contacts.length === 0) { card.style.display = 'none'; return; }
@@ -2831,7 +2831,7 @@ function drawChord(canvas, cLIR_A, cLIR_B, lenA, lenB, sym1, sym2, colors, coord
                 if (!cB) continue;
                 const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
                 const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                if (dist < contactDist) contacts.push({ resA, resB, dist });
+                if (dist <= contactDist) contacts.push({ resA, resB, dist });
             }
         }
         const minDist = contacts.length > 0 ? Math.min(...contacts.map(c => c.dist)) : 0;
@@ -2988,7 +2988,7 @@ function buildChordDiagram(row, sym1, sym2, colors, pdbText) {
                     if (!cB) continue;
                     const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
                     const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                    if (dist < contactDist) allContacts.set(key, { resA, resB, dist });
+                    if (dist <= contactDist) allContacts.set(key, { resA, resB, dist });
                 }
             }
         }

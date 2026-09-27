@@ -237,7 +237,7 @@
             <div class="info-box">Rows are sorted by iLIS. A model's rank in its name (rank_001 …) is the predictor's own order (ipTM-based for AlphaFold and ColabFold), so it can differ from the iLIS order. Click a row to switch models; this updates all visualizations and the script below.</div>
             <input type="hidden" id="seed-select" value="0">
             <label style="font-size:0.78rem; color:#666; display:inline-flex; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem;"><input type="checkbox" id="toggle-lir-cols" onchange="document.getElementById('pairs-table').classList.toggle('show-lir-cols', this.checked)"> Show iLIA/LIR/cLIR columns</label>
-            <label id="toggle-neg-pairs-label" style="display:none; font-size:0.78rem; color:#666; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem 1rem;" title="A pair is negative when it misses both 10% FPR cutoffs: best-model iLIS below 0.223 and average-of-models iLIS below 0.073"><input type="checkbox" id="toggle-neg-pairs" onchange="setNegPairsShown(this.checked)"> Show <span id="neg-pairs-count"></span> negative pairs (best iLIS &lt; 0.223 and average iLIS &lt; 0.073)</label>
+            <label id="toggle-neg-pairs-label" style="display:none; font-size:0.78rem; color:#666; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem 1rem;" title="A pair is negative when it misses both 10% FPR cutoffs: best-model iLIS below 0.223 and average-of-models iLIS below 0.072"><input type="checkbox" id="toggle-neg-pairs" onchange="setNegPairsShown(this.checked)"> Show <span id="neg-pairs-count"></span> negative pairs (best iLIS &lt; 0.223 and average iLIS &lt; 0.072)</label>
             <div style="overflow-x:auto;">
             <table class="data-table" id="pairs-table">
                 <thead><tr><th>Rank/Model</th><th>Pair</th><th>iLIS</th><th>iLISA</th><th>ipSAE</th><th>actifpTM</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th title="Bryant et al. 2022, pure geometric interface, no PAE">pDockQ</th><th title="pDockQ fed this file's own PAE+contact-gated cLIR interface">LIpDockQ</th><th title="Zhu et al. 2023, CA-based interface; mean of the two per-chain directions">pDockQ2</th><th title="pDockQ2's PAE-decay applied to this file's own cLIR interface; mean of the two per-chain directions">LIpDockQ2</th><th class="col-extra">iLIA</th><th class="col-extra">LIR (i/j)</th><th class="col-extra">cLIR (i/j)</th></tr></thead>
@@ -254,10 +254,10 @@
                 </div>
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
                     <strong style="min-width:90px;">iLIS (average):</strong>
-                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.303</span> (1% FPR)</span>
+                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.268</span> (1% FPR)</span>
                     <span><span style="color:#0e8a6e; font-weight:700;">&ge;0.120</span> (5% FPR)</span>
-                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.073</span> (10% FPR)</span>
-                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.073</span> (below threshold)</span>
+                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.072</span> (10% FPR)</span>
+                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.072</span> (below threshold)</span>
                 </div>
                 <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details. Different platforms may require different thresholds.</div>
             </div>
@@ -662,8 +662,8 @@
 </div>
 </div>
 
-<script src="js/livia-core.js?v=20260924"></script>
-<script src="js/livia-reported.js?v=20260924"></script>
+<script src="js/livia-core.js?v=20260926b"></script>
+<script src="js/livia-reported.js?v=20260926b"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260926a"></script>
 <script src="js/livia-colors.js?v=20260926a"></script>
@@ -2944,7 +2944,7 @@ function getChainsFromPdb(pdbText) {
 function calcIpSAE(pae, si, ei, sj, ej, paeCutoff) {
     const lenI = ei - si, lenJ = ej - sj;
     if (lenI === 0 || lenJ === 0) return 0;
-    // d0res: d0 from per-residue count of inter-chain PAE < cutoff (Dunbrack method, no distance filter)
+    // d0res: d0 from per-residue count of inter-chain PAE < cutoff (Dunbrack method, strict as in his ipsae.py, no distance filter)
     function calcD0(L) { return Math.max(1.0, 1.24 * Math.pow(Math.max(L, 27) - 15, 1/3) - 1.8); }
 
     // ipSAE(I→J)
@@ -3189,7 +3189,7 @@ function computeContactMap(coords, threshold) {
             const dz = coords[i].z - coords[j].z;
             let dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
             if (coords[i].hasP || coords[j].hasP) dist -= 4;
-            if (dist < threshold) {
+            if (dist <= threshold) {
                 contact[i * n + j] = 1;
                 contact[j * n + i] = 1;
             }
@@ -3360,12 +3360,18 @@ async function processFiles() {
             // Build transformed LIS map (asymmetric, per-direction).
             // Each (i,j) and (j,i) entry is computed independently; the symmetrize step
             // below averages them to give the final per-pair LIS.
+            // `within` marks the confident cells (PAE <= cutoff). A cell exactly at the cutoff scores 0
+            // but still counts, so LIS/LIR read this mask rather than transformed > 0.
             const transformed = new Float32Array(nTotal * nTotal);
+            const within = new Uint8Array(nTotal * nTotal);
             for (let i = 0; i < nTotal; i++) {
                 for (let j = 0; j < nTotal; j++) {
                     if (i >= pae.length || j >= pae[i].length) continue;
                     const v = pae[i][j];
-                    transformed[i * nTotal + j] = (v < paeCutoff) ? 1 - v / paeCutoff : 0;
+                    if (v <= paeCutoff) {
+                        transformed[i * nTotal + j] = 1 - v / paeCutoff;
+                        within[i * nTotal + j] = 1;
+                    }
                 }
             }
 
@@ -3429,7 +3435,7 @@ async function processFiles() {
                     const lirI = new Set(), lirJ = new Set();
                     const clirI = new Set(), clirJ = new Set();
                     // Faithful original pDockQ (Bryant et al. 2022): pure geometric interface
-                    // (Cb<cbCutoff, NO PAE at all) -- independent of the PAE-gated LIR/cLIR above.
+                    // (Cb<=cbCutoff, NO PAE at all) -- independent of the PAE-gated LIR/cLIR above.
                     const geomIfI = new Set(), geomIfJ = new Set();
                     // pDockQ's own N: count of contact PAIRS (cells), matching contacts.shape[0] in
                     // the reference implementation -- NOT geomIfI.size+geomIfJ.size (residue count).
@@ -3448,7 +3454,7 @@ async function processFiles() {
                     for (let ri = si; ri < ei; ri++) {
                         for (let rj = sj; rj < ej; rj++) {
                             const tv = transformed[ri * nTotal + rj];
-                            if (tv > 0) {
+                            if (within[ri * nTotal + rj]) {
                                 lisSum += tv;
                                 lisCountAvg++;
                                 if (ri < nUse && rj < nUse && contact[ri * nCoords + rj]) {
@@ -3467,15 +3473,15 @@ async function processFiles() {
                                 const inContact = ri < nUse && rj < nUse && contact[ri * nCoords + rj];
 
                                 // LIA / cLIA: each direction counted independently
-                                if (paeAB < paeCutoff) lisCountAB++;
-                                if (paeBA < paeCutoff) lisCountBA++;
+                                if (paeAB <= paeCutoff) lisCountAB++;
+                                if (paeBA <= paeCutoff) lisCountBA++;
                                 if (inContact) {
-                                    if (paeAB < paeCutoff) clisCountAB++;
-                                    if (paeBA < paeCutoff) clisCountBA++;
+                                    if (paeAB <= paeCutoff) clisCountAB++;
+                                    if (paeBA <= paeCutoff) clisCountBA++;
                                 }
 
                                 // LIR / cLIR: cell-based union — paired residues
-                                if (paeAB < paeCutoff || paeBA < paeCutoff) {
+                                if (paeAB <= paeCutoff || paeBA <= paeCutoff) {
                                     lirI.add(ri - si + 1);
                                     lirJ.add(rj - sj + 1);
                                     if (inContact) {
@@ -4339,7 +4345,7 @@ function updateInteractomeSummary() {
     if (!el) return;
     const seedVal = document.getElementById('seed-select')?.value ?? 'avg';
     const isAvg = (seedVal === 'avg');
-    const posCut = isAvg ? 0.073 : 0.223;                         // 10% FPR threshold (avg vs single-model)
+    const posCut = isAvg ? 0.072 : 0.223;                         // 10% FPR threshold (avg vs single-model)
     const s = interactomeSummary(uniState.results || uniState.avgResults, posCut);
     if (!s.n || s.n < 2) { el.style.display = 'none'; return; }   // only meaningful for multi-subunit complexes
     const scope = isAvg ? 'model average' : (uniState.modelData?.[parseInt(seedVal)]?.label || ('model ' + seedVal));
@@ -4424,10 +4430,10 @@ function displayResults(results, jobName) {
     const autoSelectIdx = String(bestIdx);
 
     // A pair is negative when it misses BOTH 10% FPR iLIS cutoffs: best model < 0.223 and average of
-    // models < 0.073 (either one reaching its cutoff keeps the pair). With a single model there is no
+    // models < 0.072 (either one reaching its cutoff keeps the pair). With a single model there is no
     // average, so only the best-model cutoff applies. Collected so larger complexes can hide them by
     // default -- a 9-subunit complex has 36 pairs x (models + average) rows.
-    const NEG_ILIS = 0.223, NEG_ILIS_AVG = 0.073;
+    const NEG_ILIS = 0.223, NEG_ILIS_AVG = 0.072;
     const negPairs = new Set();
     for (const key of pairKeys) {
         const best = hasMultipleModels
@@ -5487,7 +5493,7 @@ function generatePml(v, structFilename, colors) {
 
 function ilisHtml(val, isAvg) {
     const color = isAvg
-        ? (val >= 0.303 ? '#6B21A8' : val >= 0.120 ? '#0e8a6e' : val >= 0.073 ? '#bf8700' : '#8b949e')
+        ? (val >= 0.268 ? '#6B21A8' : val >= 0.120 ? '#0e8a6e' : val >= 0.072 ? '#bf8700' : '#8b949e')
         : (val >= 0.551 ? '#6B21A8' : val >= 0.339 ? '#0e8a6e' : val >= 0.223 ? '#bf8700' : '#8b949e');
     return `<span style="color:${color}; font-weight:700;">${val.toFixed(3)}</span>`;
 }
@@ -6951,9 +6957,9 @@ function buildAllChainsCxc(overrideFilename, sel) {
         _tx += textW(txt, 1) + 0.010;   // 0.010 = gap between adjacent chain labels
     }
     // ── Positive PPI pairs, listed vertically: "i / j (iLIS / ipTM)" with chain IDs in their own colors ──
-    // iLIS is PAIRWISE; positive = at/above the 10% FPR threshold used by ilisHtml (0.073 avg, 0.223 single-model).
+    // iLIS is PAIRWISE; positive = at/above the 10% FPR threshold used by ilisHtml (0.072 avg, 0.223 single-model).
     const _isAvg = (seedVal === 'avg');
-    const _posCut = _isAvg ? 0.073 : 0.223;
+    const _posCut = _isAvg ? 0.072 : 0.223;
     const _idxOf = nm => uniState.chainNames.indexOf(nm);
     const _pairMap = {};
     for (const [, pv] of Object.entries(uniState.results || {})) {
@@ -7490,7 +7496,7 @@ function buildPerResidueCharts(pairKey) {
                         const rj = offset + j;
                         if (rj < nTotal) {
                             const v = pae[ri][rj];
-                            if (v < paeCutoff) {
+                            if (v <= paeCutoff) {
                                 lisSum += 1 - v / paeCutoff;
                             }
                         }
@@ -8004,7 +8010,7 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
                 const cB = coordB.get(resB); if (!cB) continue;
                 const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
                 const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                if (dist < contactDist) contacts.push({ resA, resB, dist });
+                if (dist <= contactDist) contacts.push({ resA, resB, dist });
             }
         }
         if (contacts.length === 0) return false;   // structure present but no contacts within 8 Å → skip
@@ -8703,7 +8709,7 @@ function buildChordDiagram() {
                         if (!cB) continue;
                         const dx = cA.x-cB.x, dy = cA.y-cB.y, dz = cA.z-cB.z;
                         const dist = Math.sqrt(dx*dx+dy*dy+dz*dz);
-                        if (dist < contactDist) {
+                        if (dist <= contactDist) {
                             allContactsByPair[key].set(cKey, { ci: v.ci, cj: v.cj, resA, resB, dist });
                         }
                     }
@@ -8767,7 +8773,7 @@ function copyScript() {
           console.warn('RemoteZip Range extraction failed, falling back to full download:', e.message);
         }
         let resp = await fetch(url).catch(() => null);
-        if (!resp || !resp.ok) resp = await fetch('https://livia-proxy.flyark.workers.dev/?url=' + encodeURIComponent(url));
+        if (!resp || !resp.ok) resp = await fetch(LIVIA_PROXY + '/?url=' + encodeURIComponent(url));
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const archive = await JSZip.loadAsync(await resp.blob());
         const zipEntry = archive.file(entryName);
@@ -8778,7 +8784,7 @@ function copyScript() {
       }
 
       let resp = await fetch(url).catch(() => null);                              // same-origin / CORS-enabled host
-      if (!resp || !resp.ok) resp = await fetch('https://livia-proxy.flyark.workers.dev/?url=' + encodeURIComponent(url)); // else proxy
+      if (!resp || !resp.ok) resp = await fetch(LIVIA_PROXY + '/?url=' + encodeURIComponent(url)); // else proxy
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const blob = await resp.blob();
       const fname = p.get('name') ? p.get('name') + '.zip' : (url.split('/').pop() || 'data.zip');

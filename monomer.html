@@ -470,7 +470,7 @@
 </div>
 </div>
 
-<script src="js/livia-core.js?v=20260924"></script>
+<script src="js/livia-core.js?v=20260926b"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260926a"></script>
 <script src="js/livia-colors.js?v=20260926a"></script>
@@ -1198,7 +1198,7 @@ function mergeHighLisNeighbors(segs, pae, paeCutoff, mergeThreshold) {
             for (let i = a0; i <= a1; i += step) {
                 for (let j = b0; j <= b1; j += step) {
                     const v = pae[i][j];
-                    if (v < paeCutoff) { sum += 1 - v / paeCutoff; count++; }
+                    if (v <= paeCutoff) { sum += 1 - v / paeCutoff; count++; }
                 }
             }
             const meanLis = count > 0 ? sum / count : 0;
@@ -1567,7 +1567,7 @@ function monPlddtByRes() {
 function calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap, boundaryMargin) {
     const margin = boundaryMargin || 0;
     // Per-direction LIS:
-    //   LIS_AB = mean(1 - pae[a,b]/cutoff) over cells where pae[a,b] < cutoff
+    //   LIS_AB = mean(1 - pae[a,b]/cutoff) over cells where pae[a,b] <= cutoff
     //   LIS_BA = same for pae[b,a]
     //   LIS = (LIS_AB + LIS_BA) / 2
     // LIA = (A→B count) + (B→A count); cLIA likewise.
@@ -1601,11 +1601,11 @@ function calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap, boundaryMargin) {
             const cj = coordMap.get(b);
             if (ci && cj) {
                 const dx = ci.x - cj.x, dy = ci.y - cj.y, dz = ci.z - cj.z;
-                if (Math.sqrt(dx * dx + dy * dy + dz * dz) < cbCutoff) inContact = true;
+                if (Math.sqrt(dx * dx + dy * dy + dz * dz) <= cbCutoff) inContact = true;
             }
 
             // LIS / cLIS per-direction
-            if (paeAB < paeCutoff) {
+            if (paeAB <= paeCutoff) {
                 const tv = 1 - paeAB / paeCutoff;
                 lisSumAB += tv;
                 lisCountAB++;
@@ -1614,7 +1614,7 @@ function calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap, boundaryMargin) {
                     clisCountAB++;
                 }
             }
-            if (paeBA < paeCutoff) {
+            if (paeBA <= paeCutoff) {
                 const tv = 1 - paeBA / paeCutoff;
                 lisSumBA += tv;
                 lisCountBA++;
@@ -1625,7 +1625,7 @@ function calcRegionPair(ri, rj, paeCutoff, cbCutoff, coordMap, boundaryMargin) {
             }
 
             // LIR / cLIR: cell-based union — paired residues
-            if (paeAB < paeCutoff || paeBA < paeCutoff) {
+            if (paeAB <= paeCutoff || paeBA <= paeCutoff) {
                 lirI.add(a);
                 lirJ.add(b);
                 if (inContact) {
@@ -2178,7 +2178,7 @@ function buildMonomerPerResidueCharts() {
             if (j === r) continue;
             if (r < monPae.length && j < monPae.length) {
                 const v = monPae[r][j];
-                if (v < paeCutoff) lisSum += 1 - v / paeCutoff;
+                if (v <= paeCutoff) lisSum += 1 - v / paeCutoff;
             }
         }
         lisArr.push(n > 1 ? lisSum / (n - 1) : 0);
@@ -2610,13 +2610,13 @@ function buildMonomerColorComponents(validRegions) {
                     // Cell-based union: either direction confident → both residues paired.
                     const paeAB = monPae[a-1][b-1];
                     const paeBA = monPae[b-1][a-1];
-                    if (paeAB < paeCutoff || paeBA < paeCutoff) {
+                    if (paeAB <= paeCutoff || paeBA <= paeCutoff) {
                         regionLIR.get(idxA).add(a);
                         regionLIR.get(idxB).add(b);
                         const ci = coordMap.get(a), cj = coordMap.get(b);
                         if (ci && cj) {
                             const dx=ci.x-cj.x, dy=ci.y-cj.y, dz=ci.z-cj.z;
-                            if (Math.sqrt(dx*dx+dy*dy+dz*dz) < cbCutoff) {
+                            if (Math.sqrt(dx*dx+dy*dy+dz*dz) <= cbCutoff) {
                                 regionCLIR.get(idxA).add(a);
                                 regionCLIR.get(idxB).add(b);
                             }
@@ -3005,7 +3005,7 @@ function buildMonomerLisMap() {
     for (let i = 0; i < n; i++) {
         for (let j = 0; j < n; j++) {
             const v = monPae[i][j];
-            map[i][j] = v < paeCutoff ? 1 - v / paeCutoff : 0;
+            map[i][j] = v <= paeCutoff ? 1 - v / paeCutoff : 0;
         }
     }
     return map;
@@ -3027,7 +3027,7 @@ function buildMonomerClisMap() {
             const cj = coordMap.get(j + 1);
             if (ci && cj) {
                 const dx = ci.x - cj.x, dy = ci.y - cj.y, dz = ci.z - cj.z;
-                if (Math.sqrt(dx*dx + dy*dy + dz*dz) < cbCutoff) {
+                if (Math.sqrt(dx*dx + dy*dy + dz*dz) <= cbCutoff) {
                     map[i][j] = lisMap[i][j];
                 }
             }

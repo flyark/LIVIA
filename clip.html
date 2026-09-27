@@ -10,7 +10,7 @@
 <script src="js/livia-maps.js?v=20260816"></script>
 <script src="js/livia-xlsx.js"></script>
 <script src="js/clip-clustering.js"></script>
-<script src="js/clip-pipeline.js?v=20260726"></script>
+<script src="js/clip-pipeline.js?v=20260926b"></script>
 <script src="js/clip-resolver.js?v=20260924"></script>
 <script src="js/livia-viewer.js?v=20260926a"></script>
 <script src="js/livia-subnav.js?v=20260926a"></script>
@@ -1478,7 +1478,7 @@ function renderFreq(A){
   const laneEnd=[];
   for (const d of doms){ let l=0; while(l<laneEnd.length && laneEnd[l] > d.x0+0.5) l++; d.lane=l; laneEnd[l]=d.x1; }
   const nL=laneEnd.length, DRH=13, domBoxH=11, domTop=2, domTotal=nL*DRH;
-  // vertical layout: domains | # partners | (pLDDT) | x-ticks
+  // vertical layout: domains | # predictions | (pLDDT) | x-ticks
   const padT = domTop + domTotal + (nL?4:14);
   const freqH = 108, freqBase = padT + freqH;
   const gap=15, plddtH=48;
@@ -1488,13 +1488,13 @@ function renderFreq(A){
   const padB=22, H = amBase + padB;
   const cv=$('freq'); cv.width=W*S; cv.height=H*S; cv.style.width='100%'; cv.style.height='auto';
   const ctx=cv.getContext('2d'); ctx.scale(S,S); ctx.clearRect(0,0,W,H);
-  // # partners panel
+  // # predictions panel
   ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(padL,padT); ctx.lineTo(padL,freqBase); ctx.lineTo(W-padR,freqBase); ctx.stroke();
   ctx.fillStyle='#333'; ctx.font='9px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
   for (const t of [...new Set([0, Math.round(maxF/2), maxF])]) ctx.fillText(String(t), padL-4, freqBase-(t/maxF)*freqH);
   for (let r=1;r<=plen;r++){ if(!tot[r])continue; let dom=1,best=-1; const cc=byC[r]||{}; for(const c in cc) if(cc[c]>best){best=cc[c];dom=+c;}
     const h=(tot[r]/maxF)*freqH; ctx.fillStyle=clusterColor(dom,k); ctx.fillRect(xOf(r), freqBase-h, Math.max(1,bw), h); }
-  ctx.save(); ctx.translate(11,(padT+freqBase)/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillStyle='#333'; ctx.fillText('# partners',0,0); ctx.restore();
+  ctx.save(); ctx.translate(11,(padT+freqBase)/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillStyle='#333'; ctx.fillText('# predictions',0,0); ctx.restore();
   // pLDDT panel (separate, below; AFDB confidence)
   const xtickBase = amBase;
   if (hasP){
@@ -1621,7 +1621,7 @@ function svgFreq(A, opts){
   s += `<path d="M${padL} ${_f(padT)}L${padL} ${_f(freqBase)}L${_f(W-padR)} ${_f(freqBase)}" stroke="#ccc" stroke-width="1" fill="none"/>`;
   for(const t of [...new Set([0,Math.round(maxF/2),maxF])]) s += `<text x="${padL-4}" y="${_f(freqBase-(t/maxF)*freqH)}" font-size="${fs}" fill="#333" text-anchor="end" dominant-baseline="central">${t}</text>`;
   for(let r=1;r<=plen;r++){ if(!tot[r])continue; let dom=1,best=-1; const cc=byC[r]||{}; for(const c in cc)if(cc[c]>best){best=cc[c];dom=+c;} const h=(tot[r]/maxF)*freqH; s += `<rect x="${_f(xOf(r))}" y="${_f(freqBase-h)}" width="${_f(Math.max(0.5,bw))}" height="${_f(h)}" fill="${clusterColor(dom,k)}"/>`; }
-  const ycl1=_f((padT+freqBase)/2); s += `<text x="11" y="${ycl1}" font-size="${fs}" fill="#333" text-anchor="middle" transform="rotate(-90 11 ${ycl1})"># partners</text>`;
+  const ycl1=_f((padT+freqBase)/2); s += `<text x="11" y="${ycl1}" font-size="${fs}" fill="#333" text-anchor="middle" transform="rotate(-90 11 ${ycl1})"># predictions</text>`;
   const xtickBase = amBase;
   if(hasP){ const map=A.residueMap, yOf=(pl)=>plddtBase-(pl/100)*plddtH, xc=(r)=>padL+(r-1)*bw+bw/2, qc=A._queryChain||'A';
     s += `<path d="M${padL} ${_f(plddtTop)}L${padL} ${_f(plddtBase)}L${_f(W-padR)} ${_f(plddtBase)}" stroke="#ccc" stroke-width="1" fill="none"/>`;

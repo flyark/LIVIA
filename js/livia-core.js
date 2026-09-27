@@ -18,7 +18,14 @@
  *   fetchTextViaProxy()    — generic proxy-based fetch with direct-first fallback
  *   fetchStructureTextViaProxy() — PDB/structure fetch that falls back to a gzipped sibling
  *   AA3TO1                 — amino acid 3-letter to 1-letter mapping
+ *   LIVIA_PROXY            — address of the LIVIA proxy (the only place it is set)
  */
+
+// ── LIVIA proxy ──
+// The one setting for the proxy address. An independent installation deploys tools/cloudflare-worker/worker.js
+// to its own Cloudflare account (tools/cloudflare-worker/README.md) and puts that worker's address here, or defines
+// window.LIVIA_CONFIG = { proxy: '...' } before this script loads.
+const LIVIA_PROXY = (window.LIVIA_CONFIG && window.LIVIA_CONFIG.proxy) || 'https://livia-proxy.flyark.workers.dev';
 
 // ── HTML escaping ──
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -26,7 +33,7 @@ function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 // ── iLIS FPR coloring (purple/green/amber/gray thresholds) ──
 function ilisColor(val, isAvg) {
     const color = isAvg
-        ? (val >= 0.303 ? '#6B21A8' : val >= 0.120 ? '#0e8a6e' : val >= 0.073 ? '#bf8700' : '#8b949e')
+        ? (val >= 0.268 ? '#6B21A8' : val >= 0.120 ? '#0e8a6e' : val >= 0.072 ? '#bf8700' : '#8b949e')
         : (val >= 0.551 ? '#6B21A8' : val >= 0.339 ? '#0e8a6e' : val >= 0.223 ? '#bf8700' : '#8b949e');
     return '<span style="color:' + color + '; font-weight:700;">' + val.toFixed(3) + '</span>';
 }
@@ -153,12 +160,10 @@ function lightenColor(hex, amount) {
 }
 
 // ── CORS proxy URL builders ──
-// Primary: self-hosted Cloudflare Worker (source: tools/cloudflare-worker/worker.js).
-// Fallback: corsproxy.io (paywalled — works on localhost only, kept as dev safety net).
+// The LIVIA proxy, a Cloudflare Worker (source: tools/cloudflare-worker/worker.js; address: LIVIA_PROXY above).
 // Removed: api.codetabs.com / api.allorigins.win — both went offline in 2026.
 const CORS_PROXIES = [
-    url => `https://livia-proxy.flyark.workers.dev/?url=${encodeURIComponent(url)}`,
-    url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    url => `${LIVIA_PROXY}/?url=${encodeURIComponent(url)}`,
 ];
 
 // ── Hosts that never send CORS headers ──
