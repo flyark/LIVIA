@@ -155,9 +155,9 @@
             <h3>Quick Start</h3>
             <ol class="quick-steps">
                 <li>Run a prediction using any supported platform (AlphaFold3, AlphaFold2, ColabFold, Boltz-1/2, Chai-1, OpenFold3, Protenix-v2, or ESMFold2)</li>
-                <li>Open <a href="universal.html">Prediction Analysis</a> and load your prediction files (.zip, .gz, .cif, .pdb, .json, .npz, .npy)</li>
-                <li>The tool auto-detects the prediction platform and shows available models/ranks</li>
-                <li>Optionally adjust PAE cutoff (default: 12 &Aring;) and C&beta; cutoff (default: 8 &Aring;), then click <strong>Process</strong></li>
+                <li>Open <a href="universal.html">Prediction Analysis</a> and load your prediction files (.zip, .gz, .xz, .cif, .pdb, .json, .npz, .npy)</li>
+                <li>The tool auto-detects the prediction platform, shows the available models/ranks and starts the analysis on its own</li>
+                <li>Optionally change the PAE cutoff (default: 12 &Aring;) or C&beta; cutoff (default: 8 &Aring;) and click <strong>Process</strong> to re-run</li>
                 <li>Explore PAE/LIS/cLIS maps, score matrix, and chain pair table</li>
                 <li>Click a row in the chain pair table to generate a visualization script</li>
                 <li>Download the <code>.cxc</code> script and structure file, place them in the same folder, then open the script in ChimeraX or PyMOL</li>
@@ -173,6 +173,8 @@
                 <li><strong>Boltz-1/2</strong> &mdash; .pdb/.cif + confidence_*.json + pae_*.npz</li>
                 <li><strong>Chai-1</strong> &mdash; pred.rank_*.cif + scores.rank_*.json (PAE in JSON or .npy)</li>
                 <li><strong>OpenFold3</strong> &mdash; result_sample_*_model.pdb + confidences JSON</li>
+                <li><strong>Protenix-v2</strong> &mdash; *_sample_*.cif + *_summary_confidence_sample_*.json + *_full_data_sample_*.json</li>
+                <li><strong>ESMFold2</strong> &mdash; *_model.pdb + *_pae.json (biohub API), or a folder of .pdb/.cif with .npy/.npz PAE</li>
                 <li><strong>Tamarind Bio</strong> &mdash; output from any platform via Tamarind (auto-detected)</li>
                 <li><strong>Generic</strong> &mdash; any .cif/.pdb with a PAE JSON file</li>
             </ul>
