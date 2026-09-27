@@ -658,7 +658,52 @@
         return div;
     }
 
+    // ── Sequential colormaps for value grids (the Score Matrix) and their color bar ──
+    // Oranges and Greens are the Score Matrix's own defaults (white → one color, exactly as before); the rest are
+    // ColorBrewer and matplotlib stops, interpolated linearly.
+    const SEQ_CMAPS = {
+        Oranges: ['#ffffff', '#ff7f23'], Greens: ['#ffffff', '#00aa00'],
+        Blues: ['#f7fbff', '#c6dbef', '#6baed6', '#2171b5', '#08306b'], Purples: ['#fcfbfd', '#dadaeb', '#9e9ac8', '#6a51a3', '#3f007d'],
+        Reds: ['#fff5f0', '#fcbba1', '#fb6a4a', '#cb181d', '#67000d'], Grays: ['#ffffff', '#d9d9d9', '#969696', '#525252', '#252525'],
+        Viridis: ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'], Magma: ['#000004', '#51127c', '#b73779', '#fc8961', '#fcfdbf'],
+        Cividis: ['#00224e', '#434e6c', '#7d7c78', '#bcaf6f', '#fee838'],
+    };
+    const _hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+    function cmapRGB(name, t) {                                       // t in [0, 1] → [r, g, b]
+        const stops = (SEQ_CMAPS[name] || SEQ_CMAPS.Oranges).map(_hex);
+        t = Math.max(0, Math.min(1, +t || 0));
+        const f = t * (stops.length - 1), i = Math.min(stops.length - 2, Math.floor(f)), u = f - i;
+        return stops[i].map((a, k) => Math.round(a + (stops[i + 1][k] - a) * u));
+    }
+    function inkOn(rgb) {                                             // text color that reads on this fill
+        const l = rgb.map((c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
+        return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2] > 0.4 ? '#333' : '#fff';
+    }
+    // A horizontal color bar: label, the ramp (small blocks, so an SVG export needs no gradient), end ticks and values.
+    // o = { x, y, w, h, cmap, lo, hi, fmt, label, font } in canvas pixels; returns the height it used.
+    function drawColorbar(ctx, o) {
+        const n = 48, font = o.font || 11, fmt = o.fmt || ((v) => String(v));
+        ctx.save();
+        ctx.font = '600 ' + font + 'px sans-serif'; ctx.fillStyle = '#333'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        ctx.fillText(o.label || '', o.x - font * 0.6, o.y + o.h / 2);
+        for (let i = 0; i < n; i++) {
+            const [r, g, b] = cmapRGB(o.cmap, (i + 0.5) / n);
+            ctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+            ctx.fillRect(o.x + (o.w * i) / n, o.y, o.w / n + 0.6, o.h);
+        }
+        ctx.strokeStyle = '#999'; ctx.lineWidth = Math.max(1, font / 11); ctx.strokeRect(o.x, o.y, o.w, o.h);
+        ctx.font = font + 'px sans-serif'; ctx.fillStyle = '#555'; ctx.textBaseline = 'top';
+        [[0, 'left', o.lo], [0.5, 'center', (o.lo + o.hi) / 2], [1, 'right', o.hi]].forEach(([f, al, v]) => {
+            const xx = o.x + o.w * f;
+            ctx.beginPath(); ctx.moveTo(xx, o.y + o.h); ctx.lineTo(xx, o.y + o.h + font * 0.35); ctx.stroke();
+            ctx.textAlign = al; ctx.fillText(fmt(v), xx, o.y + o.h + font * 0.45);
+        });
+        ctx.restore();
+        return o.h + font * 1.6;
+    }
+
     global.LiviaMaps = {
+        SEQ_CMAPS, cmapRGB, inkOn, drawColorbar,
         setExportOpts, applyExportOpts,
         svgFromDraw, svgFromFixedCanvas,
         downloadSVGFile, downloadSVGFromCanvas, downloadCanvasPNG,

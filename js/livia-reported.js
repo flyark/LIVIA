@@ -223,6 +223,11 @@ async function query(o){
         });
         bindResize(); requestAnimationFrame(layout);                    // fit heatmaps to card width, no h-scroll
         if (o.onDrawn) o.onDrawn(merged, names);
+        // New information: the pinned section bar (js/livia-subnav.js) pulses this section and badges it with the
+        // number of subunit pairs already reported, until the reader opens it.
+        let nRep = 0;
+        for (const byType of merged.values()) if (Object.values(byType).some((set) => set && set.size)) nRep++;
+        if (nRep && window.LiviaSubnav) window.LiviaSubnav.notify(content, nRep, nRep + (nRep === 1 ? ' subunit pair is' : ' subunit pairs are') + ' already reported');
     };
     if (linkEl){                                                        // BioGRID cross-reference — shown independent of MIST outcome, since MIST's coverage skews toward a few reference organisms
         // A subunit is linked when UniProt cross-references its BioGRID entry (with UniProt's interactor

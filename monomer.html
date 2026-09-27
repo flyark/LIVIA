@@ -205,15 +205,9 @@
             <div id="score-matrix-inline" style="display:none; text-align:center; max-width:55%; overflow:auto;">
                 <div class="map-label">iLIS / iLISA Matrix</div>
                 <canvas id="score-matrix-canvas"></canvas>
-                <div style="display:flex; justify-content:center; gap:1rem; margin-top:0.3rem; font-size:0.7rem;">
-                    <div style="display:flex; align-items:center; gap:0.3rem;">
-                        <canvas id="colorbar-ilis" width="60" height="8"></canvas>
-                        <span style="color:#888;">iLIS (0&ndash;1)</span>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:0.3rem;">
-                        <canvas id="colorbar-clir" width="60" height="8"></canvas>
-                        <span style="color:#888;">iLISA</span>
-                    </div>
+                <div style="display:flex; justify-content:center; gap:0.8rem; margin-top:0.3rem; font-size:0.72rem; color:#666;">
+                    <span>iLIS <select id="mon-mtx-lower-cmap" onchange="redrawMonScoreMatrix()" title="Color scale of the iLIS triangle" style="font-size:0.72rem; padding:0 2px"><option value="Oranges" selected>Oranges</option><option value="Greens">Greens</option><option value="Blues">Blues</option><option value="Purples">Purples</option><option value="Reds">Reds</option><option value="Grays">Grays</option><option value="Viridis">Viridis</option><option value="Magma">Magma</option><option value="Cividis">Cividis</option></select></span>
+                    <span>iLISA <select id="mon-mtx-upper-cmap" onchange="redrawMonScoreMatrix()" title="Color scale of the iLISA triangle" style="font-size:0.72rem; padding:0 2px"><option value="Oranges">Oranges</option><option value="Greens" selected>Greens</option><option value="Blues">Blues</option><option value="Purples">Purples</option><option value="Reds">Reds</option><option value="Grays">Grays</option><option value="Viridis">Viridis</option><option value="Magma">Magma</option><option value="Cividis">Cividis</option></select></span>
                 </div>
             </div>
         </div>
@@ -456,6 +450,12 @@
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIR</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Residues (PAE &le; 12 &Aring;)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIR</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</td></tr>
                 </table>
+                <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">pDockQ family</h4>
+                <table style="font-size:0.85rem;">
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIpDockQ</strong></td><td style="padding:0.25rem 0; color:#555;">the pDockQ formula computed only on cLIR pairs (PAE &le; 12&nbsp;&Aring; and C&beta; &le; 8&nbsp;&Aring;), so contacts the PAE does not support no longer count (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon, 2026</a>)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIpDockQ2</strong></td><td style="padding:0.25rem 0; color:#555;">the pDockQ2 formula on cLIR pairs only, so a small confident interface is not diluted by a large, poorly placed contact surface (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon, 2026</a>)</td></tr>
+                </table>
+                <p style="font-size:0.78rem; color:#888; margin-top:0.4rem; line-height:1.4;">Here the two regions of a monomer take the place of the two chains. Because their constants were fitted to DockQ on the original interfaces, LIpDockQ and LIpDockQ2 rank predictions; they are not DockQ estimates.</p>
                 <p style="font-size:0.78rem; color:#888; margin-top:0.4rem; line-height:1.4;">PAE (Predicted Aligned Error) measures how confidently the model predicts the relative position of two residues &mdash; lower values indicate higher confidence.</p>
             </div>
         </div>
@@ -475,8 +475,8 @@
 <script src="js/livia-viewer.js?v=20260926a"></script>
 <script src="js/livia-colors.js?v=20260926a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260816"></script>
-<script src="js/livia-subnav.js?v=20260926a"></script>
+<script src="js/livia-maps.js?v=20260926c"></script>
+<script src="js/livia-subnav.js?v=20260926c"></script>
 <script>
 // ── Callbacks for shared modules (monomer overrides most of these) ──
 onScriptTabSwitch = () => { /* handled by page-specific switchScriptTab override */ };
@@ -2097,19 +2097,7 @@ function displayResults(validRegions) {
     const matrixInline = document.getElementById('score-matrix-inline');
     if (validRegions.length >= 2) {
         matrixInline.style.display = '';
-        drawScoreMatrix(validRegions);
-        drawColorbar('colorbar-ilis', orangesColor, 0, 1);
-        // cLIR colorbar: pure white → strong green
-        const clirCbar = document.getElementById('colorbar-clir');
-        if (clirCbar) {
-            const cctx = clirCbar.getContext('2d');
-            const w = clirCbar.width;
-            for (let x = 0; x < w; x++) {
-                const t = x / w;
-                cctx.fillStyle = `rgb(${Math.round(255*(1-t))},${Math.round(255-t*85)},${Math.round(255*(1-t))})`;
-                cctx.fillRect(x, 0, 1, clirCbar.height);
-            }
-        }
+        drawScoreMatrix(validRegions);   // its color bars are drawn in the canvas, so exports carry them
     } else {
         matrixInline.style.display = 'none';
     }
@@ -2992,11 +2980,6 @@ function generatePmlMono(validRegions) {
 
 const HIRES = 2;
 
-function orangesColor(value, vmin, vmax) {
-    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
-    return [255, Math.round(255 - t * 128), Math.round(255 - t * 220)];
-}
-
 function buildMonomerLisMap() {
     // Asymmetric: each cell uses monPae[i][j] directly. buildMonomerClisMap reads from this.
     const n = monProteinLen;
@@ -3524,7 +3507,12 @@ function drawChordDiagram(validRegions) {
     LiviaMaps.attachChordDomainHover(['chord-canvas']);
 }
 
+let _monMtxRegions = null;
+function redrawMonScoreMatrix() { if (_monMtxRegions) drawScoreMatrix(_monMtxRegions); }
 function drawScoreMatrix(validRegions) {
+    _monMtxRegions = validRegions;
+    const cmL = (document.getElementById('mon-mtx-lower-cmap') || {}).value || 'Oranges';
+    const cmU = (document.getElementById('mon-mtx-upper-cmap') || {}).value || 'Greens';
     const canvas = document.getElementById('score-matrix-canvas');
     LiviaMaps.attachExportBar('score-matrix-canvas', { name: 'score_matrix', svg: () => drawScoreMatrix(validRegions), png: true });
     const nc = validRegions.length;
@@ -3535,10 +3523,11 @@ function drawScoreMatrix(validRegions) {
     const leftPx = leftMargin * HIRES;
     const cPx = cellSize * HIRES;
 
+    const legendH = 2 * (11 * 1.6 + 10) + 16;                                // iLIS and iLISA color bars under the names
     canvas.width = gridPx + leftPx;
-    canvas.height = gridPx + bottomMargin * HIRES;
+    canvas.height = gridPx + (bottomMargin + legendH) * HIRES;
     canvas.style.width = (cellSize * nc + leftMargin) + 'px';
-    canvas.style.height = (cellSize * nc + bottomMargin) + 'px';
+    canvas.style.height = (cellSize * nc + bottomMargin + legendH) + 'px';
 
     const ctx = canvas.getContext('2d');
     if (!ctx.getSerializedSvg) { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height); }   // white bg for screen/PNG only — SVG export stays transparent
@@ -3568,8 +3557,6 @@ function drawScoreMatrix(validRegions) {
         for (let j = 0; j < nc; j++) {
             const x = leftPx + j * cPx;
             const y = i * cPx;
-            let r, g, b;
-
             if (i === j) {
                 // Diagonal: gray
                 ctx.fillStyle = '#f0f0f0';
@@ -3577,41 +3564,17 @@ function drawScoreMatrix(validRegions) {
                 continue;
             }
 
-            if (i > j) {
-                // Bottom-left triangle: iLIS (Oranges)
-                const val = ilisGrid[i][j];
-                [r, g, b] = orangesColor(val, 0, 1);
-                ctx.fillStyle = `rgb(${r},${g},${b})`;
-                ctx.fillRect(x, y, cPx, cPx);
-
-                const fontSize = Math.max(9, Math.min(15, cellSize / 3)) * HIRES;
-                ctx.font = `bold ${fontSize}px sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = val > 0.5 ? 'white' : '#333';
-                ctx.fillText(val.toFixed(3), x + cPx / 2, y + cPx / 2);
-            } else {
-                // Top-right triangle: iLISA (white → strong green, 0 = pure white)
-                const val = ilisaGrid[i][j];
-                if (val === 0) {
-                    ctx.fillStyle = '#ffffff';
-                } else {
-                    const t = maxIlisa > 0 ? Math.min(1, val / maxIlisa) : 0;
-                    const r2 = Math.round(255 * (1 - t));
-                    const g2 = Math.round(255 - t * 85);
-                    const b2 = Math.round(255 * (1 - t));
-                    ctx.fillStyle = `rgb(${r2},${g2},${b2})`;
-                }
-                ctx.fillRect(x, y, cPx, cPx);
-
-                const fontSize = Math.max(9, Math.min(15, cellSize / 3)) * HIRES;
-                ctx.font = `bold ${fontSize}px sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                const t = maxIlisa > 0 ? val / maxIlisa : 0;
-                ctx.fillStyle = t > 0.6 ? 'white' : '#333';
-                ctx.fillText(val.toFixed(0), x + cPx / 2, y + cPx / 2);
-            }
+            // bottom-left: iLIS (0–1); top-right: iLISA (0–max); each in its chosen colormap
+            const lower = i > j, val = lower ? ilisGrid[i][j] : ilisaGrid[i][j];
+            const rgb = LiviaMaps.cmapRGB(lower ? cmL : cmU, lower ? val : (maxIlisa > 0 ? val / maxIlisa : 0));
+            ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+            ctx.fillRect(x, y, cPx, cPx);
+            const fontSize = Math.max(9, Math.min(15, cellSize / 3)) * HIRES;
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = LiviaMaps.inkOn(rgb);
+            ctx.fillText(lower ? val.toFixed(3) : val.toFixed(0), x + cPx / 2, y + cPx / 2);
         }
     }
 
@@ -3651,19 +3614,10 @@ function drawScoreMatrix(validRegions) {
         ctx.textBaseline = 'top';
         ctx.fillText(`${r.name}`, leftPx + k * cPx + cPx / 2, gridPx + 4 * HIRES);
     }
-}
-
-function drawColorbar(canvasId, colorFn, vmin, vmax) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const w = canvas.width;
-    for (let x = 0; x < w; x++) {
-        const v = vmin + (x / w) * (vmax - vmin);
-        const [r, g, b] = colorFn(v, vmin, vmax);
-        ctx.fillStyle = `rgb(${r},${g},${b})`;
-        ctx.fillRect(x, 0, 1, canvas.height);
-    }
+    const f = 11 * HIRES, bw = Math.min(150 * HIRES, gridPx * 0.7), bx = leftPx + (gridPx - bw) / 2 + 16 * HIRES;
+    let yy = gridPx + (bottomMargin + 8) * HIRES;
+    yy += LiviaMaps.drawColorbar(ctx, { x: bx, y: yy, w: bw, h: 10 * HIRES, cmap: cmL, lo: 0, hi: 1, fmt: (v) => v.toFixed(2), label: 'iLIS', font: f }) + 6 * HIRES;
+    LiviaMaps.drawColorbar(ctx, { x: bx, y: yy, w: bw, h: 10 * HIRES, cmap: cmU, lo: 0, hi: maxIlisa, fmt: (v) => v.toFixed(0), label: 'iLISA', font: f });
 }
 
 function makeSortable(table) {

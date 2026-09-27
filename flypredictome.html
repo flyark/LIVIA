@@ -525,6 +525,12 @@
                 <table class="help-table">
                     <tr><td><strong>ipTM</strong></td><td>interface predicted TM-score &mdash; global interface confidence from the prediction model</td></tr>
                 </table>
+                <h4 style="margin-top:0.8rem;">pDockQ family</h4>
+                <table>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>pDockQ</strong></td><td style="padding:0.25rem 0; color:#555;">predicted DockQ from the mean pLDDT of the interface and the number of contacting residue pairs (C&beta; &le; 8&nbsp;&Aring;), with no PAE (<a href="https://doi.org/10.1038/s41467-022-28865-w" target="_blank" style="color:#2471A3;">Bryant et al., 2022</a>)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIpDockQ</strong></td><td style="padding:0.25rem 0; color:#555;">the pDockQ formula computed only on cLIR pairs (PAE &le; 12&nbsp;&Aring; and C&beta; &le; 8&nbsp;&Aring;), so contacts the PAE does not support no longer count (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon, 2026</a>)</td></tr>
+                </table>
+                <p style="font-size:0.78rem; color:#888; margin-top:0.4rem; line-height:1.4;">pDockQ2 and LIpDockQ2 need the numeric PAE, which this source does not provide. Because their constants were fitted to DockQ on the original interfaces, LIpDockQ and LIpDockQ2 rank predictions; they are not DockQ estimates.</p>
                 <p style="font-size:0.78rem; color:#888; margin-top:0.4rem; line-height:1.4;">PAE (Predicted Aligned Error) measures how confidently the model predicts the relative position of two residues &mdash; lower values indicate higher confidence.</p>
             </div>
         </div>
@@ -540,13 +546,13 @@
 </div>
 
 <script src="js/livia-core.js?v=20260926b"></script>
-<script src="js/livia-reported.js?v=20260926b"></script>
+<script src="js/livia-reported.js?v=20260926c"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260926a"></script>
 <script src="js/livia-colors.js?v=20260926a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260816"></script>
-<script src="js/livia-subnav.js?v=20260926a"></script>
+<script src="js/livia-maps.js?v=20260926c"></script>
+<script src="js/livia-subnav.js?v=20260926c"></script>
 <script>
 // Wire shared module callbacks
 onColorChange = () => { if (flyParsed && flyCurrentRank) { loadRank(flyCurrentRank); updateCombinedChord(); renderChainToggleBar(); } };

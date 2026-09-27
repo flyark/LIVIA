@@ -116,7 +116,7 @@
         }
     </style>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260816"></script>
+<script src="js/livia-maps.js?v=20260926c"></script>
 <script src="js/clip-resolver.js?v=20260924"></script>
 <script src="js/remotezip.js?v=20260918"></script>
 </head>
@@ -285,7 +285,7 @@
         <div class="card result-card" id="score-matrix-card" style="display:none;">
             <h2 data-nav="Score matrix">Score Matrix</h2>
             <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                <span>Lower-left <select id="mtx-lower" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS" selected>iLIS</option><option value="iLIA">iLIA</option><option value="iLISA">iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option><option value="pDockQ">pDockQ</option><option value="LIpDockQ">LIpDockQ</option><option value="pDockQ2">pDockQ2</option><option value="LIpDockQ2">LIpDockQ2</option></select> (Oranges) &middot; Upper-right <select id="mtx-upper" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS">iLIS</option><option value="iLIA">iLIA</option><option value="iLISA" selected>iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option><option value="pDockQ">pDockQ</option><option value="LIpDockQ">LIpDockQ</option><option value="pDockQ2">pDockQ2</option><option value="LIpDockQ2">LIpDockQ2</option></select> (Greens) &middot; Diagonal: self.</span>
+                <span>Lower-left <select id="mtx-lower" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS" selected>iLIS</option><option value="iLIA">iLIA</option><option value="iLISA">iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option><option value="pDockQ">pDockQ</option><option value="LIpDockQ">LIpDockQ</option><option value="pDockQ2">pDockQ2</option><option value="LIpDockQ2">LIpDockQ2</option></select> <select id="mtx-lower-cmap" onchange="drawAllScoreMatrices()" title="Color scale of the lower-left triangle" style="font-size:0.85rem; padding:1px 3px"><option value="Oranges" selected>Oranges</option><option value="Greens">Greens</option><option value="Blues">Blues</option><option value="Purples">Purples</option><option value="Reds">Reds</option><option value="Grays">Grays</option><option value="Viridis">Viridis</option><option value="Magma">Magma</option><option value="Cividis">Cividis</option></select> &middot; Upper-right <select id="mtx-upper" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS">iLIS</option><option value="iLIA">iLIA</option><option value="iLISA" selected>iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option><option value="pDockQ">pDockQ</option><option value="LIpDockQ">LIpDockQ</option><option value="pDockQ2">pDockQ2</option><option value="LIpDockQ2">LIpDockQ2</option></select> <select id="mtx-upper-cmap" onchange="drawAllScoreMatrices()" title="Color scale of the upper-right triangle" style="font-size:0.85rem; padding:1px 3px"><option value="Oranges">Oranges</option><option value="Greens" selected>Greens</option><option value="Blues">Blues</option><option value="Purples">Purples</option><option value="Reds">Reds</option><option value="Grays">Grays</option><option value="Viridis">Viridis</option><option value="Magma">Magma</option><option value="Cividis">Cividis</option></select> &middot; Diagonal: self.</span>
                 <span style="margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:0.72rem; color:#888;">figure &middot; W <input id="mtx-exp-w" type="text" list="exp-dim-list" placeholder="auto" style="width:58px; font-size:0.72rem; padding:0 2px"> H <input id="mtx-exp-h" type="text" list="exp-dim-list" placeholder="auto" style="width:58px; font-size:0.72rem; padding:0 2px"> font &times; <input id="mtx-exp-font" type="text" list="exp-font-list" value="1" style="width:52px; font-size:0.72rem; padding:0 2px"></span>
             </div>
             <div class="map-row" id="score-matrix-row"></div>
@@ -614,20 +614,21 @@
             <div>
                 <h4 style="font-size:0.9rem; color:#1a5276; margin-bottom:0.5rem;">Quick Start</h4>
                 <ol style="padding-left:1.2rem; font-size:0.85rem; color:#555; line-height:1.7;" start="0">
-                    <li>Run a prediction on any supported platform</li>
-                    <li>Download/export the results</li>
-                    <li>Drop the files above &mdash; the platform is auto-detected</li>
-                    <li>Click <strong>Process</strong> to calculate AFM-LIS metrics</li>
-                    <li>Click a chain pair in the table to generate a ChimeraX script</li>
-                    <li>Download the script (.cxc or .pml) and structure file, place in the same folder</li>
+                    <li>Run a prediction on any supported platform, or try an example next to the drop zone</li>
+                    <li>Drop the output above (a zip, a folder or the files): the platform is detected and the analysis starts on its own</li>
+                    <li>Read the summary table; click a row to switch models (a model&rsquo;s rank is the predictor&rsquo;s own, ipTM-based order)</li>
+                    <li>Jump between sections with the bar at the top; a pulsing section has new information, such as identified chains or reported interactions</li>
+                    <li>In the Score Matrix, pick each triangle&rsquo;s metric and color scale; every figure has &darr; SVG and &darr; PNG</li>
+                    <li>In Visualization Script, download the ChimeraX (.cxc) or PyMOL (.pml) script and its structure file into one folder</li>
                 </ol>
                 <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">Platform-Specific Tips</h4>
                 <ul style="padding-left:1.2rem; font-size:0.82rem; color:#555; line-height:1.7;">
-                    <li><strong>AlphaFold3</strong>: Drop the zip from <a href="https://alphafoldserver.com" target="_blank" style="color:#2471A3;">AlphaFold Server</a> directly</li>
-                    <li><strong>ColabFold</strong>: Upload the output folder or select individual _unrelaxed_rank_*.pdb and _scores_rank_*.json files</li>
-                    <li><strong>Boltz-1/2</strong>: Upload output folder containing .cif, confidence_*.json, and pae_*.npz files</li>
-                    <li><strong>Chai-1</strong>: Upload output folder with pred.model_idx_*.cif and scores files</li>
-                    <li><strong>OpenFold</strong>: Upload .cif with *_full_data*.json files</li>
+                    <li><strong>AlphaFold3</strong>: Drop the zip from <a href="https://alphafoldserver.com" target="_blank" style="color:#2471A3;">AlphaFold Server</a> directly, or a local run&rsquo;s output folder</li>
+                    <li><strong>ColabFold</strong>: Upload the output folder or the _unrelaxed_rank_*.pdb and _scores_rank_*.json files</li>
+                    <li><strong>AlphaPulldown</strong>: Upload the prediction&rsquo;s output folder</li>
+                    <li><strong>Boltz-1/2</strong>: Upload the output folder containing .cif, confidence_*.json, and pae_*.npz files</li>
+                    <li><strong>Chai-1</strong>, <strong>OpenFold3</strong>, <strong>Protenix-v2</strong>, <strong>ESMFold2</strong>: Upload the whole output folder or its zip</li>
+                    <li><strong>Lightweight bundle</strong>: Drop the bundle zip, or open a link with <code>?data=</code>&lt;bundle URL&gt;</li>
                     <li><strong>Generic</strong>: Any .cif/.pdb with a PAE JSON file (predicted_aligned_error field)</li>
                 </ul>
             </div>
@@ -642,12 +643,20 @@
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIR</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Residues (PAE &le; 12 &Aring;)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIR</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</td></tr>
                 </table>
-                <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">Confidence Metrics (from prediction platform)</h4>
+                <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">Other interface scores</h4>
                 <table style="font-size:0.85rem;">
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>ipTM</strong></td><td style="padding:0.25rem 0; color:#555;">interface predicted TM-score &mdash; global interface confidence from the prediction model</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>ipSAE</strong></td><td style="padding:0.25rem 0; color:#555;">interaction prediction Score from Aligned Errors (<a href="https://doi.org/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack, 2025</a>)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>actifpTM</strong></td><td style="padding:0.25rem 0; color:#555;">actual interface pTM (<a href="https://doi.org/10.1093/bioinformatics/btaf107" target="_blank" style="color:#2471A3;">Varga et al., 2025</a>)</td></tr>
                 </table>
+                <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">pDockQ family</h4>
+                <table style="font-size:0.85rem;">
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>pDockQ</strong></td><td style="padding:0.25rem 0; color:#555;">predicted DockQ from the mean pLDDT of the interface and the number of contacting residue pairs (C&beta; &le; 8&nbsp;&Aring;), with no PAE (<a href="https://doi.org/10.1038/s41467-022-28865-w" target="_blank" style="color:#2471A3;">Bryant et al., 2022</a>)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>pDockQ2</strong></td><td style="padding:0.25rem 0; color:#555;">pDockQ with each contact weighted by its PAE, per chain (<a href="https://doi.org/10.1093/bioinformatics/btad424" target="_blank" style="color:#2471A3;">Zhu et al., 2023</a>)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIpDockQ</strong></td><td style="padding:0.25rem 0; color:#555;">the pDockQ formula computed only on cLIR pairs (PAE &le; 12&nbsp;&Aring; and C&beta; &le; 8&nbsp;&Aring;), so contacts the PAE does not support no longer count (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon, 2026</a>)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIpDockQ2</strong></td><td style="padding:0.25rem 0; color:#555;">the pDockQ2 formula on cLIR pairs only, so a small confident interface is not diluted by a large, poorly placed contact surface (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon, 2026</a>)</td></tr>
+                </table>
+                <p style="font-size:0.78rem; color:#888; margin-top:0.4rem; line-height:1.4;">Because their constants were fitted to DockQ on the original interfaces, LIpDockQ and LIpDockQ2 rank predictions; they are not DockQ estimates.</p>
                 <p style="font-size:0.78rem; color:#888; margin-top:0.4rem; line-height:1.4;">PAE (Predicted Aligned Error) measures how confidently the model predicts the relative position of two residues &mdash; lower values indicate higher confidence.</p>
             </div>
         </div>
@@ -663,11 +672,11 @@
 </div>
 
 <script src="js/livia-core.js?v=20260926b"></script>
-<script src="js/livia-reported.js?v=20260926b"></script>
+<script src="js/livia-reported.js?v=20260926c"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260926a"></script>
 <script src="js/livia-colors.js?v=20260926a"></script>
-<script src="js/livia-subnav.js?v=20260926a"></script>
+<script src="js/livia-subnav.js?v=20260926c"></script>
 <script>
 // ── Callbacks for shared modules ──
 // selectPair calls renderChainToggleBar, and sel.click() flows through selectPair.
@@ -5725,6 +5734,10 @@ async function identifyChains(){
     if (typeof renderCustomLabelInputs === 'function') renderCustomLabelInputs();   // refresh Custom editor prefill with resolved names
     if (typeof redrawMapLabels === 'function') redrawMapLabels();   // gene names now resolved → refresh PAE maps AND score matrix
     btn.disabled = false; btn.textContent = 'Identify chains via UniProt';
+    {   // new information: the section bar pulses "Chains" and badges it with how many chains were named
+        const prot = names.filter((n) => seqOf(n)).length, named = names.filter((n) => { const e = resolved.get(seqOf(n)); return e && e.r; }).length;
+        if (named && window.LiviaSubnav) LiviaSubnav.notify(out, named + '/' + prot, named + ' of ' + prot + ' protein chains identified in UniProt');
+    }
     // The identify button resetting reads as "done" — but for a many-chain complex, the MIST lookup
     // that follows (one query per subunit, with 429-retry) can itself take well over a minute with the
     // Reported-Interactions card (further down the page, still display:none) as the only sign of progress.
@@ -5790,6 +5803,8 @@ function drawAllScoreMatrices() {
     const gmax = (m) => { if (unitOf(m) === 1) return 1; let mx = 1; for (const md of uniState.modelData){ const g = gridOf(md,m); if (!g) continue; for (let i=0;i<nc;i++) for (let j=0;j<nc;j++) if (i!==j && g[i][j] > mx) mx = g[i][j]; } return mx; };
     const lowerMax = gmax(lowerM), upperMax = gmax(upperM);
     const fmtOf = (m) => unitOf(m) === 1 ? ((v)=>v.toFixed(2)) : ((v)=>v.toFixed(0));
+    const cm = { lower: (document.getElementById('mtx-lower-cmap')||{}).value || 'Oranges', upper: (document.getElementById('mtx-upper-cmap')||{}).value || 'Greens',
+                 lowerName: lowerM, upperName: upperM };
     const zeros = Array.from({length:nc}, () => Array(nc).fill(0));
 
     // The matrices share the maps' size when they fit; their name bands differ from the maps', so at that size
@@ -5806,9 +5821,11 @@ function drawAllScoreMatrices() {
         title.textContent = md.label || ('model_' + mi);
         wrap.appendChild(title);
         const canvas = document.createElement('canvas');
-        drawOneScoreMatrix(canvas, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), size);
+        const draw = (c, legend) => drawOneScoreMatrix(c, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), size, Object.assign({ legend }, cm));
+        draw(canvas, false);
         wrap.appendChild(canvas);
-        addSharedExport(wrap, 'score_matrix_' + (md.label || mi), () => canvas, () => svgFromDraw((c) => drawOneScoreMatrix(c, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), size)), 'mtx-exp');
+        // an exported matrix carries its own color bars, so the figure reads on its own
+        addSharedExport(wrap, 'score_matrix_' + (md.label || mi), () => { const c = document.createElement('canvas'); draw(c, true); return c; }, () => svgFromDraw((c) => draw(c, true)), 'mtx-exp');
         row.appendChild(wrap);
     }
     };
@@ -5820,10 +5837,29 @@ function drawAllScoreMatrices() {
         size = Math.max(60, size - Math.ceil(over / Math.max(1, row.children.length)) - 1);
         renderAt(size);
     }
+    // one color scale per triangle under the row (every matrix shares it; exports carry their own)
+    let leg = document.getElementById('score-matrix-legend');
+    if (!leg) { leg = document.createElement('canvas'); leg.id = 'score-matrix-legend'; leg.style.cssText = 'display:block; margin:0.5rem auto 0;'; row.insertAdjacentElement('afterend', leg); }
+    drawScoreMatrixLegend(leg, cm, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM));
 }
 
-function drawOneScoreMatrix(canvas, lowerG, upperG, nc, lowerMax, upperMax, lowerFmt, upperFmt, displaySize) {
+// Two color bars side by side — lower-left metric, upper-right metric — at the scale the matrices use.
+function drawScoreMatrixLegend(canvas, cm, lowerMax, upperMax, lowerFmt, upperFmt, S = 2) {
+    const font = 11, barW = 150, barH = 10, gap = 44;
+    const mctx = canvas.getContext('2d'); mctx.font = '600 ' + font + 'px sans-serif';
+    const lw1 = mctx.measureText(cm.lowerName).width + font, lw2 = mctx.measureText(cm.upperName).width + font;
+    const W = lw1 + barW + gap + lw2 + barW + 12, H = barH + font * 1.8 + 4;
+    canvas.width = W * S; canvas.height = H * S; canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    const ctx = canvas.getContext('2d'); ctx.scale(S, S);
+    if (!ctx.getSerializedSvg) { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, W, H); }
+    LiviaMaps.drawColorbar(ctx, { x: lw1, y: 2, w: barW, h: barH, cmap: cm.lower, lo: 0, hi: lowerMax || 1, fmt: lowerFmt, label: cm.lowerName, font });
+    LiviaMaps.drawColorbar(ctx, { x: lw1 + barW + gap + lw2, y: 2, w: barW, h: barH, cmap: cm.upper, lo: 0, hi: upperMax || 1, fmt: upperFmt, label: cm.upperName, font });
+}
+
+function drawOneScoreMatrix(canvas, lowerG, upperG, nc, lowerMax, upperMax, lowerFmt, upperFmt, displaySize, opt) {
     const S = 2;
+    opt = opt || {};
+    const cmL = opt.lower || 'Oranges', cmU = opt.upper || 'Greens';
     const cellSize = Math.floor(displaySize / nc);
     // Axis labels mirror the PAE maps exactly: names on TOP + LEFT (not bottom), name mode (gene/chain
     // ID), color, font scale, placement, and per-axis direction (horizontal/vertical).
@@ -5857,10 +5893,11 @@ function drawOneScoreMatrix(canvas, lowerG, upperG, nc, lowerMax, upperMax, lowe
     const topPx = topMargin * S;
     const cPx = cellSize * S;
 
+    const legendH = opt.legend ? 2 * (11 * 1.6 + 10) + 16 : 0;            // two color bars under the grid (exports)
     canvas.width = gridPx + leftPx + rightMargin * S;
-    canvas.height = gridPx + topPx;
+    canvas.height = gridPx + topPx + legendH * S;
     canvas.style.width = (cellPxW + leftMargin + rightMargin) + 'px';
-    canvas.style.height = (cellPxW + topMargin) + 'px';
+    canvas.style.height = (cellPxW + topMargin + legendH) + 'px';
 
     const ctx = canvas.getContext('2d');
     if (!ctx.getSerializedSvg) { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height); }   // white bg for screen/PNG only — SVG export stays transparent
@@ -5878,27 +5915,15 @@ function drawOneScoreMatrix(canvas, lowerG, upperG, nc, lowerMax, upperMax, lowe
                 continue;
             }
 
-            if (i > j) {
-                const val = lowerG[i][j];
-                const [r, g, b] = orangesColor(val, 0, lowerMax || 1);
-                ctx.fillStyle = `rgb(${r},${g},${b})`;
-                ctx.fillRect(x, y, cPx, cPx);
-                const fs = Math.max(7, Math.min(12, cellSize / 4)) * S;
-                ctx.font = `bold ${fs}px sans-serif`;
-                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillStyle = (val / (lowerMax || 1)) > 0.5 ? 'white' : '#333';
-                ctx.fillText(lowerFmt(val), x + cPx / 2, y + cPx / 2);
-            } else {
-                const val = upperG[i][j];
-                const t = upperMax > 0 ? Math.min(1, val / upperMax) : 0;
-                ctx.fillStyle = val === 0 ? '#fff' : `rgb(${Math.round(255*(1-t))},${Math.round(255-t*85)},${Math.round(255*(1-t))})`;
-                ctx.fillRect(x, y, cPx, cPx);
-                const fs = Math.max(7, Math.min(12, cellSize / 4)) * S;
-                ctx.font = `bold ${fs}px sans-serif`;
-                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillStyle = t > 0.6 ? 'white' : '#333';
-                ctx.fillText(upperFmt(val), x + cPx / 2, y + cPx / 2);
-            }
+            const lower = i > j, val = lower ? lowerG[i][j] : upperG[i][j], mx = (lower ? lowerMax : upperMax) || 1;
+            const rgb = LiviaMaps.cmapRGB(lower ? cmL : cmU, val / mx);
+            ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+            ctx.fillRect(x, y, cPx, cPx);
+            const fs = Math.max(7, Math.min(12, cellSize / 4)) * S;
+            ctx.font = `bold ${fs}px sans-serif`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = LiviaMaps.inkOn(rgb);
+            ctx.fillText((lower ? lowerFmt : upperFmt)(val), x + cPx / 2, y + cPx / 2);
         }
     }
 
@@ -5943,17 +5968,13 @@ function drawOneScoreMatrix(canvas, lowerG, upperG, nc, lowerMax, upperMax, lowe
             }
         }
     }
+    if (opt.legend) {                                                        // lower-left, then upper-right scale
+        const f = 11 * S, bw = Math.min(160 * S, gridPx * 0.6), bx = leftPx + (gridPx - bw) / 2 + 20 * S;
+        let yy = gridPx + 12 * S;
+        yy += LiviaMaps.drawColorbar(ctx, { x: bx, y: yy, w: bw, h: 10 * S, cmap: cmL, lo: 0, hi: lowerMax || 1, fmt: lowerFmt, label: opt.lowerName || 'lower', font: f }) + 6 * S;
+        LiviaMaps.drawColorbar(ctx, { x: bx, y: yy, w: bw, h: 10 * S, cmap: cmU, lo: 0, hi: upperMax || 1, fmt: upperFmt, label: opt.upperName || 'upper', font: f });
+    }
     ctx.restore();   // undo the top-margin translate
-}
-
-function orangesColor(value, vmin, vmax) {
-    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
-    return [255, Math.round(255 - t * 128), Math.round(255 - t * 220)];
-}
-
-function purplesColor(value, vmin, vmax) {
-    const t = Math.max(0, Math.min(1, (value - vmin) / (vmax - vmin)));
-    return [Math.round(255 - t * 128), Math.round(255 - t * 180), 255];
 }
 
 function calcMapDisplaySize() {
