@@ -67,6 +67,14 @@
         .map-row { display: flex; gap: 0.4rem; flex-wrap: nowrap; margin-bottom: 0.8rem; overflow-x: auto; padding-bottom: 2px; }
         .map-item { text-align: center; }
         .map-item canvas { border-radius: 4px; display: block; }
+        /* one model: the three map cards in one row */
+        .map-trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+        .map-trio > .card { margin: 0; min-width: 0; display: flex; flex-direction: column; }
+        .map-trio .map-row { justify-content: center; overflow: visible; }
+        .map-trio .map-item canvas { max-width: 100%; height: auto !important; }
+        .map-trio .colorbar-row canvas { max-width: 100%; }
+        .map-trio h2 { font-size: 1.05rem; line-height: 1.3; min-height: 2.6em; }   /* same heading height, so the three maps line up */
+        @media (max-width: 1000px) { .map-trio { grid-template-columns: 1fr; } }
         .map-item .map-label { font-size: 0.75rem; color: #666; margin-bottom: 0.2rem; }
         .colorbar-row { display: flex; flex-direction: column; align-items: center; margin-top: 0.5rem; }
         .colorbar-row canvas { border-radius: 3px; }
@@ -6611,9 +6619,23 @@ onMapScaleChange = (kind) => {
 };
 
 function drawAllMaps() {
+    mapTrio(uniState.modelData.length === 1);
     drawPaeMaps();
     drawLisMaps();
     drawClisMaps();
+}
+// One model: the PAE, LIS and cLIS cards stand side by side in one row (read at a glance, as on the dimer page) instead
+// of three stacked cards; several models: back to one card per map kind, each a row of models.
+function mapTrio(on) {
+    const ids = ['pae-maps-card', 'lis-maps-card', 'clis-maps-card'], cards = ids.map((id) => document.getElementById(id));
+    if (cards.some((c) => !c)) return;
+    let trio = document.getElementById('map-trio');
+    if (on && !trio) {
+        trio = document.createElement('div'); trio.id = 'map-trio'; trio.className = 'map-trio';
+        cards[0].parentNode.insertBefore(trio, cards[0]); cards.forEach((c) => trio.appendChild(c));
+    } else if (!on && trio) {
+        cards.forEach((c) => trio.parentNode.insertBefore(c, trio)); trio.remove();
+    }
 }
 
 function drawColorbar(canvasId, colorFn, vmin, vmax) {
