@@ -3664,7 +3664,7 @@ function copyScript() {
     });
 }
 </script>
-<script>window.goatcounter = { path: function () { return '/'; }, title: 'LIVIA' };   /* visits only: never which page, file or pair */</script>
+<script>window.goatcounter = { path: function () { return location.pathname.replace(/index\.html$/, ''); }, title: 'LIVIA ' + (location.pathname.split('/').pop() || 'index.html') };   /* the page only: never the file, pair or query */</script>
 <script data-goatcounter="https://livia.goatcounter.com/count"
         async src="https://gc.zgo.at/count.js"></script>
 </body>
