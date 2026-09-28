@@ -554,7 +554,7 @@
                     <div class="color-group">
                         <h3>Chain A (Protein 1)</h3>
                         <div class="color-pair">
-                            <input type="color" id="color-lir-a" aria-label="Chain A interface (LIR) color" value="#80CBC4">
+                            <input type="color" id="color-lir-a" aria-label="Chain A interaction (LIR) color" value="#80CBC4">
                             <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-a">#80CBC4</div></div>
                         </div>
                         <div class="color-pair">
@@ -565,7 +565,7 @@
                     <div class="color-group">
                         <h3>Chain B (Protein 2)</h3>
                         <div class="color-pair">
-                            <input type="color" id="color-lir-b" aria-label="Chain B interface (LIR) color" value="#FFAB91">
+                            <input type="color" id="color-lir-b" aria-label="Chain B interaction (LIR) color" value="#FFAB91">
                             <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-b">#FFAB91</div></div>
                         </div>
                         <div class="color-pair">
@@ -4180,7 +4180,7 @@ async function processPrecomputedBundle() {
     uniState.avgResults = uniState.results;
 
     const label = lw.name || (lw.structName ? lw.structName.replace(/\.(pdb|cif)$/i, '') : 'Precomputed bundle');
-    setStatus(`Done! Processed ${lw.noStructure ? 'scores-only' : 'precomputed'} bundle — ${chainNames.length} chains, ${modelKeys.length} model${modelKeys.length > 1 ? 's' : ''} (scores from lis.py${lw.noStructure ? '; no structure — interface residues only, no 3D / contact lines' : ''}).`, 'success');
+    setStatus(`Done! Processed ${lw.noStructure ? 'scores-only' : 'precomputed'} bundle — ${chainNames.length} chains, ${modelKeys.length} model${modelKeys.length > 1 ? 's' : ''} (scores from lis.py${lw.noStructure ? '; no structure — interaction residues only, no 3D / contact lines' : ''}).`, 'success');
     displayResults(uniState.results, label + ' (precomputed)');
 }
 
@@ -8203,7 +8203,7 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
 
     ctx.restore();
     if (countEl) countEl.textContent = uniState.noStructure
-        ? `${clirI_f.size} + ${clirJ_f.size} cLIR interface residues (no structure in bundle \u2014 contact lines omitted)`
+        ? `${clirI_f.size} + ${clirJ_f.size} cLIR residues (no structure in bundle \u2014 contact lines omitted)`
         : `${contacts.length} cLIR contact pairs (C\u03B2 \u2264 8 \u00C5)`;
     renderContactHtmlLegend([top, bot], DOM_FILL, TED_FILL, legendEl);   // clickable HTML legend below
     return true;

@@ -270,7 +270,7 @@
 
     <div class="card" id="pair-card">
       <h2 data-nav="Residues">Interaction Residues</h2>
-      <div class="muted">The interface residues on each protein, taken from the lis.py indices. No structure file needed.<br>
+      <div class="muted">The interaction residues on each protein, taken from the lis.py indices. No structure file needed.<br>
         <b>LIR</b> = local interaction residue (PAE &le; 12&nbsp;&Aring;); <b>cLIR</b> = contact LIR (PAE &le; 12&nbsp;&Aring; &amp; C&beta; &le; 8&nbsp;&Aring;).</div>
       <h3 style="margin-top:.9rem">Interface map</h3>
       <div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin:.4rem 0 .2rem">
@@ -1250,7 +1250,7 @@ function renderClusterInfo(A){
       + `<span><b>${_esc(clusterLabel(c))}</b> (${mem.length} / ${all.length}): ${mem.map(name).join(', ')}</span></div>`;
   }
   const nP = Object.values(bg.map).filter(x => x.ph).length, nG = Object.values(bg.map).filter(x => x.ge).length;
-  html += `<div class="muted" style="font-size:.8rem; margin-top:.35rem">Click a partner to show its interface residues below. `
+  html += `<div class="muted" style="font-size:.8rem; margin-top:.35rem">Click a partner to show its interaction residues below. `
     + (bg.status === 'ok' ? `Reported in BioGRID with ${_esc(A.gene)}: <b>bold</b> = physical (${nP}), <u>underlined</u> = genetic (${nG}), of ${bg.n} partners with an NCBI Gene ID; reported, not validated.`
       : bg.status === 'checking' ? 'Checking BioGRID for interactions reported with ' + _esc(A.gene) + '…'
       : bg.status === 'nogene' ? 'BioGRID not checked: no NCBI Gene ID found for ' + _esc(A.gene) + ' (set the species above).'
@@ -1385,7 +1385,7 @@ function drawPairTracks(cv, A, partner){
     return x + 13 + ctx.measureText(text).width;
   };
   let x = padL;
-  x = chip(x, [PAIR_COL.q.base], 'not in interface');
+  x = chip(x, [PAIR_COL.q.base], 'not an interaction residue');
   x = chip(x, [PAIR_COL.q.lir, PAIR_COL.p.lir], 'LIR (PAE≤12Å)');
   x = chip(x, [PAIR_COL.q.clir, PAIR_COL.p.clir], 'cLIR (PAE≤12Å & Cβ≤8Å)');
   if (qDoms.length || pDoms.length){ ctx.fillStyle = '#8579b8'; ctx.fillRect(x, y, 10, 10);
