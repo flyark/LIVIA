@@ -884,7 +884,7 @@ async function fetchDimers() {
             setStatus(`Searching AlphaFold DB for complexes involving ${parsed.id}...`, 'loading');
             const data = await fetchJsonViaProxy(`https://alphafold.ebi.ac.uk/api/complex/${parsed.id}`);
             if (!Array.isArray(data) || data.length === 0) {
-                throw new Error(`No complexes found for "${parsed.id}". Not all proteins have dimer predictions in AlphaFold DB yet. Try searching on alphafold.ebi.ac.uk and paste the model URL here.`);
+                throw new Error(`No complexes found for "${parsed.id}". Not all proteins have dimer predictions in AlphaFold DB yet, and it shows only the complexes that pass its confidence filter, so a pair can have been folded without being displayed. Try searching on alphafold.ebi.ac.uk and paste the model URL here.`);
             }
 
             // Filter to dimers only

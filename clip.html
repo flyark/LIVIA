@@ -62,6 +62,10 @@
     #ptable { width:auto; min-width:640px; }          /* wide partner table overflows its wrapper (overflow:auto) → scrolls sideways */
     #ptable th, #ptable td { white-space:nowrap; }    /* keep numeric columns on one line instead of squishing */
   }
+#cluster-info a[data-p] { color: inherit; text-decoration: none; cursor: pointer; }
+#cluster-info a[data-p]:hover { color: #2471A3; }
+#cluster-info a.kb-p { font-weight: 700; }
+#cluster-info a.kb-g { text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 2.5px; }
 </style>
 </head>
 <body>
@@ -1190,20 +1194,75 @@ function renderHeatmap(A){
   };
 }
 
+// ── Reported in BioGRID: partners with an interaction reported with the query, marked as in the LIVIA Atlas cluster
+// list (physical bold, genetic underlined). Asked through LIVIA's proxy Worker (only NCBI Gene IDs and a taxon leave the
+// page; the BioGRID key stays server-side), 40 genes per request, so the query and 39 partners at a time. The answer is
+// kept on the analysis (A.bg), so an exported report shows it offline.
+const BG_PROXY = ((window.LIVIA_CONFIG && window.LIVIA_CONFIG.proxy) || 'https://livia-proxy.flyark.workers.dev') + '/?biogrid=1';
+const BG_TAXA = ['9606', '7227', '10090', '10116', '6239', '7955', '559292', '3702'];
+async function mgGeneIds(syms, tax){   // symbol -> { id, tax } from mygene.info (one taxon, or the model organisms)
+  const out = new Map();
+  for (let i = 0; i < syms.length; i += 900){
+    const body = new URLSearchParams(); body.set('q', syms.slice(i, i + 900).join(',')); body.set('scopes', 'symbol,alias');
+    body.set('fields', 'entrezgene,taxid'); body.set('species', tax || BG_TAXA.join(','));
+    const r = await fetch('https://mygene.info/v3/query', { method: 'POST', body }); if (!r.ok) throw new Error('mygene ' + r.status);
+    for (const h of await r.json()) if (h && !h.notfound && h.entrezgene && !out.has(h.query)) out.set(h.query, { id: String(h.entrezgene), tax: String(h.taxid) });
+  }
+  return out;
+}
+async function loadReported(A){
+  const q = A.gene, partners = [...new Set(A.pipe.rows.map(r => r.Symbol_2))].filter(p => p && p !== q);
+  const pick = $('mg-species'); let tax = pick && pick.value ? pick.value : '';
+  const key = q + '|' + tax + '|' + partners.length;
+  if (A.bg && A.bg.key === key) return;
+  A.bg = { key, status: 'checking', map: {} }; renderClusterInfo(A);
+  try {
+    const ids = await mgGeneIds([q].concat(partners), tax), qi = ids.get(q);
+    if (!qi){ A.bg = { key, status: 'nogene', map: {} }; return renderClusterInfo(A); }
+    tax = tax || qi.tax;
+    const byId = new Map(); for (const p of partners){ const g = ids.get(p); if (g && g.tax === tax && g.id !== qi.id) byId.set(g.id, p); }
+    const pids = [...byId.keys()], map = {};
+    for (let i = 0; i < pids.length; i += 39){
+      const r = await fetch(BG_PROXY + '&ids=' + encodeURIComponent([qi.id].concat(pids.slice(i, i + 39)).join(',')) + '&taxId=' + tax);
+      const d = await r.json(); if (!r.ok || d.error) throw new Error(d.error || ('proxy ' + r.status));
+      for (const [k, v] of Object.entries(d.pairs || {})){ const [a, b] = k.split('|'), other = a === qi.id ? b : b === qi.id ? a : null;
+        if (other && byId.has(other)) map[byId.get(other)] = { ph: v.physical || 0, ge: v.genetic || 0 }; }
+    }
+    A.bg = { key, status: 'ok', map, n: pids.length, tax };
+  } catch (e){ A.bg = { key, status: 'error', map: {}, msg: String(e.message || e) }; }
+  renderClusterInfo(A);
+}
+
 function renderClusterInfo(A){
   const { pipe, cl, order } = A, k = cl.optimalK;
   const members = {};
   for (let i = 0; i < pipe.rows.length; i++){ const c = cl.labels[i]; (members[c] = members[c] || []).push(pipe.rows[i].Symbol_2); }
   const seen = new Set(), ordered = [];              // cluster order = first appearance in dendrogram leaf order
   for (let c = 1; c <= k; c++) ordered.push(c);   // largest cluster first (labels are size-ranked)
+  const bg = A.bg || { map: {} }, rep = (p) => bg.map[p];
+  const tip = (p, kb) => kb ? `${p}: reported in BioGRID with ${A.gene} (${[kb.ph ? `physical, ${kb.ph} record${kb.ph === 1 ? '' : 's'}` : '', kb.ge ? `genetic, ${kb.ge} record${kb.ge === 1 ? '' : 's'}` : ''].filter(Boolean).join('; ')}) · click: its residues` : `${p} · click: its residues`;
+  const name = (p) => { const kb = rep(p); return `<a href="#" data-p="${_esc(p)}" class="${kb && kb.ph ? 'kb-p' : ''}${kb && kb.ge ? ' kb-g' : ''}" title="${_esc(tip(p, kb))}">${_esc(p)}</a>`; };
   let html = '';
   for (const c of ordered){
     const all = members[c]; const mem = [...new Set(all)].sort((a, b) => String(a).toLowerCase().localeCompare(String(b).toLowerCase()));
     html += `<div style="display:flex; align-items:flex-start; gap:.5rem; margin-bottom:.4rem">`
       + `<span style="background:${clusterColor(c,k)}; width:13px; height:13px; border-radius:3px; flex-shrink:0; margin-top:3px"></span>`
-      + `<span><b>${_esc(clusterLabel(c))}</b> (${mem.length} / ${all.length}): ${mem.join(', ')}</span></div>`;
+      + `<span><b>${_esc(clusterLabel(c))}</b> (${mem.length} / ${all.length}): ${mem.map(name).join(', ')}</span></div>`;
   }
+  const nP = Object.values(bg.map).filter(x => x.ph).length, nG = Object.values(bg.map).filter(x => x.ge).length;
+  html += `<div class="muted" style="font-size:.8rem; margin-top:.35rem">Click a partner to show its interface residues below. `
+    + (bg.status === 'ok' ? `Reported in BioGRID with ${_esc(A.gene)}: <b>bold</b> = physical (${nP}), <u>underlined</u> = genetic (${nG}), of ${bg.n} partners with an NCBI Gene ID; reported, not validated.`
+      : bg.status === 'checking' ? 'Checking BioGRID for interactions reported with ' + _esc(A.gene) + '…'
+      : bg.status === 'nogene' ? 'BioGRID not checked: no NCBI Gene ID found for ' + _esc(A.gene) + ' (set the species above).'
+      : bg.status === 'error' ? 'BioGRID could not be reached (' + _esc(bg.msg || '') + ').' : '') + `</div>`;
   $('cluster-info').innerHTML = html;
+  $('cluster-info').querySelectorAll('a[data-p]').forEach(a => a.onclick = (e) => {   // the same hand-off as a fingerprint row
+    e.preventDefault(); const sel = $('pair-partner'), p = a.dataset.p;
+    if (!sel || ![...sel.options].some((o) => o.value === p)) return;
+    sel.value = p; if (sel.onchange) sel.onchange();
+    $('pair-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  if (!A.bg && !window.__CLIP_DATA__) loadReported(A);
 }
 
 // ── Contact residues per partner ────────────────────────────────────────────────
@@ -2027,6 +2086,11 @@ async function load3D(source, A){
   if (frame._url) { try { URL.revokeObjectURL(frame._url); } catch(e){} }
   frame._url = URL.createObjectURL(blob); frame.src = frame._url;
 }
+function no3D(html){   // why the 3D card is empty (or nothing, to clear it); the viewer frame hides while a reason shows
+  let m = $('v3d-msg'); const fr = $('viewer3d-frame'); if (!fr) return;
+  if (!m){ m = document.createElement('div'); m.id = 'v3d-msg'; m.className = 'muted'; m.style.cssText = 'margin-top:.5rem; padding:.7rem .9rem; border:1px dashed var(--line, #d5dbe2); border-radius:8px; font-size:.85rem; line-height:1.5'; fr.parentNode.insertBefore(m, fr); }
+  m.innerHTML = html; m.hidden = !html; fr.style.display = html ? 'none' : '';
+}
 async function resolve3D(A){
   const badge = $('struct-badge'), gene = A.gene, plen = A.pipe.proteinLen, species = ($('mg-species') && $('mg-species').value) || '';
   A.residueMap = null; A._structText = null; A._domains = null; A._accession = null; A._fragOffset = 0; $('query-uniprot').innerHTML = '';
@@ -2034,7 +2098,7 @@ async function resolve3D(A){
   const predSeq = CLIPResolver.baitSequence(FASTA_PARSE, gene, plen);
   if (STRUCT_FILE){                                   // uploaded structure wins (offline / confidential)
     badge.textContent = `· uploaded ${STRUCT_FILE.name} (coords 1:1 with predicted)`;
-    load3D({ file: STRUCT_FILE }, A); return;
+    no3D(''); load3D({ file: STRUCT_FILE }, A); return;
   }
   badge.textContent = '· resolving…';
   let res = null;
@@ -2047,7 +2111,8 @@ async function resolve3D(A){
   const _xrefish = (s) => _ACC.test(String(s)) || /^(FB(gn|pp|tr)\d+|WBGene\d+|ENS[A-Z]*[GPT]\d+)/i.test(String(s));   // resolve via an accession / xref first — a bare symbol resolves to the human paralog when no organism is set
   const _cands = [..._all.filter(_xrefish), ..._all.filter(x => !_xrefish(x))];   // then the display label / identity-map id columns
   for (const _c of _cands){ let _r = null; try { _r = await CLIPResolver.resolveStructure({ gene: _c, length: plen, seq: predSeq, species }); } catch(e){ console.warn(e); } if (_r && _r.cifUrl){ res = _r; break; } if (_r && !res) res = _r; }
-  if (!res){ badge.textContent = `· no UniProt match (${gene}${species ? ', ' + species : ''}) — drop a structure or set species`; $('viewer3d-frame').src = 'about:blank'; return; }
+  if (!res){ badge.textContent = `· no UniProt match (${gene}${species ? ', ' + species : ''}) — drop a structure or set species`; $('viewer3d-frame').src = 'about:blank';
+    no3D(`No 3D structure: ${_esc(gene)} could not be matched to a UniProt entry${species ? '' : ' (no species set)'}, so there is no AlphaFold DB model to show. Set the species in the name-conversion bar above, or drop a structure file (.cif or .pdb) of the query to color its clusters in 3D.`); return; }
   // UniProt identity — shown whether or not an AFDB structure is available.
   $('query-uniprot').innerHTML = `UniProt <a href="https://www.uniprot.org/uniprotkb/${res.accession}" target="_blank">${res.accession}</a>`
     + (res.gene ? ` · gene <b>${res.gene}</b>` : '') + (res.organism ? ` · ${res.organism}` : '') + ` · via ${res.matchedBy}`
@@ -2069,7 +2134,10 @@ async function resolve3D(A){
   CLIPResolver.fetchDomains(res.accession).then(d => { if (d && d.length){ A._domains = d; renderFreq(A); if ($('pair-partner') && $('pair-partner').value) drawPairTracks($('pair-canvas'), A, $('pair-partner').value); } });   // UniProt domain track (needs only accession)
   { const pp = $('pair-partner') && $('pair-partner').value; if (pp) fetchPartnerDomainsFor(A, pp, () => { if ($('pair-partner').value === pp) { drawPairTracks($('pair-canvas'), A, pp); renderPairSeq(A, pp); } }); }
   CLIPResolver.fetchAlphaMissense(res.accession).then(am => { if (am && am.length){ A._am = am; renderFreq(A); document.querySelectorAll('.am-only').forEach(e => e.classList.remove('hidden')); } });   // AlphaMissense per-residue pathogenicity (human only)
-  if (!res.cifUrl){ badge.textContent = `· ${res.accession}${res.gene ? ' (' + res.gene + ')' : ''} · via ${res.matchedBy} · ⚠ no AFDB structure`; $('viewer3d-frame').src = 'about:blank'; return; }
+  if (!res.cifUrl){ badge.textContent = `· ${res.accession}${res.gene ? ' (' + res.gene + ')' : ''} · via ${res.matchedBy} · ⚠ no AFDB structure`; $('viewer3d-frame').src = 'about:blank';
+    const long = Math.max(+res.length || 0, +res.structureLength || 0, plen || 0) > 2700;
+    no3D(`No 3D structure: AlphaFold DB returned no model for UniProt ${_esc(res.accession)}${long ? ' (it has none for proteins longer than 2,700 residues)' : ' (the entry may not be in the database, or the site did not answer; reload the page to try again)'}. Drop a structure file (.cif or .pdb) of the query to color its clusters in 3D.`); return; }
+  no3D('');
   badge.textContent = `· AFDB ${res.accession}${res.organism ? ' · ' + res.organism : ''} · via ${res.matchedBy} · ${note}`;
   load3D({ url: res.cifUrl, structLen: res.structureLength }, A);
 }
