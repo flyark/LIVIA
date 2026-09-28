@@ -6630,6 +6630,8 @@ function mapTrio(on) {
     const ids = ['pae-maps-card', 'lis-maps-card', 'clis-maps-card'], cards = ids.map((id) => document.getElementById(id));
     if (cards.some((c) => !c)) return;
     let trio = document.getElementById('map-trio');
+    cards.forEach((c) => { const h = c.querySelector('h2'), t = h && h.firstChild;   // one model: "PAE Map", not "Maps"
+        if (t && t.nodeType === 3) t.textContent = on ? t.textContent.replace(/ Maps(\s*)$/, ' Map$1') : t.textContent.replace(/ Map(\s*)$/, ' Maps$1'); });
     if (on && !trio) {
         trio = document.createElement('div'); trio.id = 'map-trio'; trio.className = 'map-trio';
         cards[0].parentNode.insertBefore(trio, cards[0]); cards.forEach((c) => trio.appendChild(c));
