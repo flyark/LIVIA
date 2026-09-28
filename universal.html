@@ -5665,6 +5665,20 @@ async function applyChainIdentity(chainName, query, source, rowEl){   // shared 
         if (td[5]) td[5].innerHTML = dom.length ? dom.map(d => d.name + ' (' + d.start + '\u2013' + d.end + ')').join('<br>') : '<span style="color:#aaa;">none</span>';
     }
 }
+// BLAST on request only: the chain's whole sequence goes to EBI (similarity search, about 20 s), then the best hit is
+// applied like a manual identity. Never called on load.
+async function blastChain(chainName, btn){
+    if (!uniState.modelData.length || typeof CLIPResolver === 'undefined') return;
+    const md = uniState.modelData[0];
+    const seqs = uniState.structureFormat === 'pdb' ? parsePdbSequence(md.structText) : parseCifSequence(md.structText);
+    const s = (seqs.get(chainName) || []).filter(r => r.type === 'protein').map(r => r.aa).join('');
+    if (s.length < 25) return;
+    const epoch = uniState.loadEpoch; btn.disabled = true; btn.textContent = 'Searching BLAST (about 20 s)\u2026';
+    let r = null; try { r = await CLIPResolver.resolveStructure({ seq: s, length: s.length, blast: true, needCif: false }); } catch(e){}
+    if (uniState.loadEpoch !== epoch) return;                     // a new prediction loaded meanwhile
+    if (!r || !r.accession){ btn.textContent = 'No BLAST match'; return; }
+    try { await applyChainIdentity(chainName, r.accession, 'BLAST', btn.closest('tr')); } catch(e){ btn.disabled = false; btn.textContent = 'Identify by BLAST'; }
+}
 async function overrideChain(chainName){
     const inp = document.querySelector('.ovr-in[data-chain="' + chainName + '"]'); if (!inp) return;
     const q = inp.value.trim(); if (!q || !uniState.modelData.length) return;
@@ -5687,13 +5701,14 @@ async function identifyChains(){
     // A chain whose bundle carries its UniProt accession (pair_id) resolves BY ACCESSION \u2014 a direct
     // UniProt query (fast, no ~20s BLAST) that also pins the organism, so a mouse protein is never
     // mistaken for its human paralog the way a bare gene symbol would be. Map each unique sequence to
-    // an accession if any of the chains bearing it has one; BLAST-by-sequence stays as the fallback.
+    // an accession if any of the chains bearing it has one; else checksum and name lookups. BLAST sends a
+    // chain's whole sequence to EBI, so it never runs on its own: an unidentified chain gets a button for it.
     const _ACC = /^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})$/;
     const accHint = (name) => { const raw = uniState.chainAcc && uniState.chainAcc[name]; return (raw && _ACC.test(String(raw).split('_')[0])) ? raw : null; };
     const seqAcc = new Map();
     for (const n of names){ const s = seqOf(n); if (s && !seqAcc.has(s)){ const a = accHint(n); if (a) seqAcc.set(s, a); } }
     const nHint = [...uniq.keys()].filter(s => seqAcc.has(s)).length;
-    btn.disabled = true; btn.textContent = 'Identifying ' + uniq.size + ' sequence' + (uniq.size > 1 ? 's' : '') + '\u2026' + (nHint < uniq.size ? ' (BLAST fallback may take ~20s)' : '');
+    btn.disabled = true; btn.textContent = 'Identifying ' + uniq.size + ' sequence' + (uniq.size > 1 ? 's' : '') + '\u2026';
     // A complex is almost always one organism: a chain whose exact sequence exists in several species
     // takes the species its unambiguous partner chains resolve to (hosted index, no UniProt call).
     const orgPick = CLIPResolver.organismHint ? await CLIPResolver.organismHint([...uniq.keys()]).catch(() => null) : null;
@@ -5702,7 +5717,7 @@ async function identifyChains(){
             const hint = seqAcc.get(s);
             const species = orgPick && orgPick.hint && orgPick.ambiguous.get(s) ? orgPick.hint : undefined;
             let r = hint ? await CLIPResolver.resolveStructure({ gene: hint, seq: s, length: s.length, species, needCif: false }).catch(() => null) : null;   // accession \u2192 direct query, no BLAST, right organism
-            if (!r) r = await CLIPResolver.resolveStructure({ seq: s, length: s.length, blast: true, species, needCif: false });                              // else sequence match, BLAST fallback (also species-correct)
+            if (!r) r = await CLIPResolver.resolveStructure({ seq: s, length: s.length, blast: false, species, needCif: false });                             // else sequence match (checksum, species-correct); BLAST only on the chain's button
             const dd = r ? await resolveChainDomains(r, s) : { dom: [], ted: [], info: null };
             resolved.set(s, { r, dom: dd.dom, ted: dd.ted, info: dd.info });
         } catch(e){ resolved.set(s, resolved.get(s) || { r: null, dom: [], ted: [], info: null }); }
@@ -5720,12 +5735,13 @@ async function identifyChains(){
         const s = seqOf(n);
         if (!s){ html += '<tr>' + td('<b>' + n + '</b>') + '<td colspan="5" style="color:#888; padding:3px 0;">non-protein chain</td></tr>'; continue; }
         const e = resolved.get(s), r = e && e.r;
-        const acc = r ? '<a href="https://www.uniprot.org/uniprotkb/' + r.accession + '" target="_blank" style="color:#2471A3;">' + r.accession + '</a>' : '<span style="color:#888;">not found</span> <input class="ovr-in" data-chain="' + n + '" placeholder="gene / accession" style="width:116px; font-size:0.78rem; padding:1px 3px"><button type="button" class="ovr-btn" data-chain="' + n + '" style="font-size:0.78rem; margin-left:2px; cursor:pointer">set</button>';
+        const acc = r ? '<a href="https://www.uniprot.org/uniprotkb/' + r.accession + '" target="_blank" style="color:#2471A3;">' + r.accession + '</a>' : '<span style="color:#888;">not found</span> <input class="ovr-in" data-chain="' + n + '" placeholder="gene / accession" style="width:116px; font-size:0.78rem; padding:1px 3px"><button type="button" class="ovr-btn" data-chain="' + n + '" style="font-size:0.78rem; margin-left:2px; cursor:pointer">set</button>'
+            + (s.length >= 25 ? '<br><button type="button" class="blast-btn" data-chain="' + n + '" style="font-size:0.78rem; margin-top:3px; cursor:pointer">Identify by BLAST</button> <span style="color:#777; font-size:0.75rem;">(sends this sequence to EBI)</span>' : '');
         const doms = r ? (e.dom.length ? e.dom.map(d => d.name + ' (' + d.start + '\u2013' + d.end + ')').join('<br>') : '<span style="color:#aaa;">none</span>') : '';
         html += '<tr>' + td('<b>' + n + '</b>') + td(s.length) + td(acc) + td(r && r.gene ? r.gene : '') + td(r && r.organism ? '<i>' + r.organism + '</i>' : '') + td(doms) + '</tr>';
     }
     out.innerHTML = html + '</tbody></table>';
-    out.onclick = (e) => { const btn = e.target.closest('.ovr-btn'); if (btn) overrideChain(btn.dataset.chain); };
+    out.onclick = (e) => { const btn = e.target.closest('.ovr-btn'); if (btn) overrideChain(btn.dataset.chain); const bl = e.target.closest('.blast-btn'); if (bl) blastChain(bl.dataset.chain, bl); };
     uniState.chainDomains = {}; uniState.chainGenes = Object.assign({}, uniState.manifestChains || {}); uniState.chainTedDomains = {}; uniState.chainDomainInfo = {};   // feed identities to every figure (manifest genes as fallback)
     for (const n of names){ const e = resolved.get(seqOf(n)); if (e && e.r){ if (e.r.gene) uniState.chainGenes[n] = e.r.gene; if (e.dom && e.dom.length) uniState.chainDomains[n] = e.dom; if (e.ted && e.ted.length) uniState.chainTedDomains[n] = e.ted; if (e.info) uniState.chainDomainInfo[n] = e.info; } }
     const _pk = uniState.currentPairKey;                          // re-render so chain labels + domains reflect the resolved identities
