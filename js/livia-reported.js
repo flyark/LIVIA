@@ -186,7 +186,7 @@ function pairHtml(byType, sources){
             ? '<a href="https://thebiogrid.org/" target="_blank" style="color:#1a5276;">BioGRID</a>'
             : '<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#1a5276;">MIST</a>').join(' + ') + '</b>: '
         + parts.join(' &middot; ')
-        + ' &nbsp;<a href="javascript:void(0)" onclick="var c=document.getElementById(\'mist-card\'); if(c){ c.style.display=\'\'; c.scrollIntoView({behavior:\'smooth\', block:\'center\'}); }" style="color:#2471A3; font-size:0.74rem; white-space:nowrap;">full PMIDs &uarr;</a></div>';
+        + ' &nbsp;<a href="javascript:void(0)" onclick="var c=document.getElementById(\'mist-card\'); if(c){ c.style.display=\'\'; c.scrollIntoView({behavior:\'auto\', block:\'center\'}); }" style="color:#2471A3; font-size:0.74rem; white-space:nowrap;">full PMIDs &uarr;</a></div>';
 }
 
 // Fill the card for these subunits: MIST (one call per subunit) and BioGRID (one call for all pairs)

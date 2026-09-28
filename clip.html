@@ -13,7 +13,7 @@
 <script src="js/clip-pipeline.js?v=20260926b"></script>
 <script src="js/clip-resolver.js?v=20260928a"></script>
 <script src="js/livia-viewer.js?v=20260927a"></script>
-<script src="js/livia-subnav.js?v=20260928a"></script>
+<script src="js/livia-subnav.js?v=20260928b"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="css/livia.css?v=20260927c">
 <style>
@@ -1190,7 +1190,7 @@ function renderHeatmap(A){
     const sel = $('pair-partner'), p = pipe.rows[h.idx].Symbol_2;
     if (!sel || ![...sel.options].some((o) => o.value === p)) return;
     sel.value = p; if (sel.onchange) sel.onchange();
-    $('pair-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('pair-card').scrollIntoView({ behavior: 'auto', block: 'start' });
   };
 }
 
@@ -1260,7 +1260,7 @@ function renderClusterInfo(A){
     e.preventDefault(); const sel = $('pair-partner'), p = a.dataset.p;
     if (!sel || ![...sel.options].some((o) => o.value === p)) return;
     sel.value = p; if (sel.onchange) sel.onchange();
-    $('pair-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('pair-card').scrollIntoView({ behavior: 'auto', block: 'start' });
   });
   if (!A.bg && !window.__CLIP_DATA__) loadReported(A);
 }

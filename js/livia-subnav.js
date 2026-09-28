@@ -101,8 +101,7 @@
             const b = e.target.closest('button'); if (!b) return;
             const it = items[+b.dataset.i]; if (!it) return;
             const y = target(it).getBoundingClientRect().top + window.scrollY - bar.offsetHeight - 12;
-            const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            window.scrollTo({ top: Math.max(0, y), behavior: still ? 'auto' : 'smooth' });
+            window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
         });
         // Cards appear, hide and retitle as a report fills in; rebuild on the next frame, ignoring the bar's own edits.
         new MutationObserver((muts) => {
