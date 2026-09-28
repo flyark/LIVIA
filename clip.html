@@ -1333,6 +1333,7 @@ function drawPairTracks(cv, A, partner){
   const H = 8 + rows.length*(blockH + blockGap) + 46;
   cv.width = W*S; cv.height = H*S; cv.style.width = '100%'; cv.style.height = 'auto';
   const ctx = cv.getContext('2d'); ctx.scale(S, S); ctx.clearRect(0, 0, W, H);
+  const domHits = [];   // UniProt domain boxes, for the hover tooltip below
 
   const track = (y, label, len, doms, lir, clir, col) => {
     const bw = (W - padL - padR) / len, xOf = (r) => padL + (r-1)*bw;
@@ -1340,6 +1341,7 @@ function drawPairTracks(cv, A, partner){
       for (const d of doms){
         const dx0 = xOf(d.start), dx1 = Math.max(dx0 + 2, xOf(d.end) + bw);
         ctx.fillStyle = '#8579b8'; ctx.fillRect(dx0, y + 2, dx1 - dx0, domRowH - 5);
+        domHits.push({ d, len, label, x0: dx0, x1: dx1, y0: y + 2, y1: y + domRowH - 3 });
         ctx.fillStyle = '#fff'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         if (ctx.measureText(d.name).width < dx1 - dx0 - 4) ctx.fillText(d.name, (dx0 + dx1)/2, y + 2 + (domRowH-5)/2);
       }
@@ -1392,6 +1394,11 @@ function drawPairTracks(cv, A, partner){
   ctx.fillStyle = '#889'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   const ql = qKnown ? `${qLen} aa` : `≥${qLen} aa`, pl = pKnown ? `${pLen} aa` : `≥${pLen} aa (length not in file)`;
   ctx.fillText(`${A.gene} · ${ql}    ${partner} · ${pl}    ${rows.length} rank${rows.length>1?'s':''} shown`, padL, y + 5.5);
+  if (cv.getBoundingClientRect){   // hovering a domain box: its name and span, as hovering a residue elsewhere
+    cv.onmousemove = (e) => { const b = cv.getBoundingClientRect(), x = (e.clientX - b.left) * W / b.width, yy = (e.clientY - b.top) * H / b.height;
+      const h = domHits.find((k) => x >= k.x0 && x <= k.x1 && yy >= k.y0 && yy <= k.y1); if (!h) { cv.style.cursor = ''; return hideTip(); }
+      showTip(`<b>${_esc(h.d.name)}</b> · ${_esc(h.label)}<br>residues ${h.d.start}–${h.d.end} (${h.d.end - h.d.start + 1} aa) · UniProt domain`, e.clientX, e.clientY); };
+    cv.onmouseleave = () => hideTip(); }
 }
 
 // Sequence viewer, mirroring Prediction Analysis: 10-residue blocks, 80 per line, numbered both ends.
