@@ -82,6 +82,8 @@
             if (c === cur) return;
             cur = c;
             Array.prototype.forEach.call(bar.children, (b, i) => b.classList.toggle('on', i === c));
+            const onB = bar.children[c];   // a narrow screen: the bar scrolls sideways to keep the current section in view
+            if (onB && bar.scrollWidth > bar.clientWidth + 1) bar.scrollLeft = Math.max(0, onB.offsetLeft - (bar.clientWidth - onB.offsetWidth) / 2);
         }
         function rebuild() {
             raf = 0;

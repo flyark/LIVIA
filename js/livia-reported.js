@@ -224,10 +224,11 @@ async function query(o){
         bindResize(); requestAnimationFrame(layout);                    // fit heatmaps to card width, no h-scroll
         if (o.onDrawn) o.onDrawn(merged, names);
         // New information: the pinned section bar (js/livia-subnav.js) pulses this section and badges it with the
-        // number of subunit pairs already reported, until the reader opens it.
+        // subunit pairs already reported, out of the pairs checked ("1/1" for a dimer): pairs, not publications.
         let nRep = 0;
         for (const byType of merged.values()) if (Object.values(byType).some((set) => set && set.size)) nRep++;
-        if (nRep && window.LiviaSubnav) window.LiviaSubnav.notify(content, nRep, nRep + (nRep === 1 ? ' subunit pair is' : ' subunit pairs are') + ' already reported');
+        const nPairs = subs.length * (subs.length - 1) / 2 + subs.filter((x) => (x.copies || 1) >= 2).length;
+        if (nRep && window.LiviaSubnav) window.LiviaSubnav.notify(content, nRep + '/' + Math.max(nRep, nPairs), nRep + ' of ' + Math.max(nRep, nPairs) + (Math.max(nRep, nPairs) === 1 ? ' subunit pair is' : ' subunit pairs are') + ' already reported (the card lists the publications)');
     };
     if (linkEl){                                                        // BioGRID cross-reference — shown independent of MIST outcome, since MIST's coverage skews toward a few reference organisms
         // A subunit is linked when UniProt cross-references its BioGRID entry (with UniProt's interactor
