@@ -2391,7 +2391,12 @@ function discoverGeneric(filenames) {
         const namePrefix = structBase.replace(/\.(cif|pdb)$/, '');
         const idxMatch = namePrefix.match(/(\d+)/);
         const idx = idxMatch ? idxMatch[1] : null;
+        // Every number in the name, in order (job_seed7_s3 → 7.3), matched exactly and only when one file has it: the first
+        // number alone (the shared seed) once gave every model the same PAE. The looser rules below stay as fallbacks.
+        const nums = (f) => (f.split('/').pop().replace(/\.(cif|pdb|json|npz|npy)$/i, '').match(/\d+/g) || []).join('.');
+        const sameNums = (list) => { const k = nums(structBase); if (!k) return null; const c = list.filter(f => nums(f) === k && !f.split('/').pop().includes('aggregated')); return c.length === 1 ? c[0] : null; };
         paeSource = jsonFiles.find(f => f.split('/').pop().includes(namePrefix));
+        if (!paeSource) paeSource = sameNums(jsonFiles);
         if (!paeSource && idx) {
             // Match by index number (e.g., pred.model_idx_1.cif → scores.model_idx_1.json)
             paeSource = jsonFiles.find(f => {
@@ -2409,7 +2414,7 @@ function discoverGeneric(filenames) {
         if (scoresFiles.length && !looksLikeScores(paeSource)) {
             const byName = scoresFiles.find(f => f.split('/').pop().includes(namePrefix));
             const byIdx = idx ? scoresFiles.find(f => { const fb = f.split('/').pop(); return fb.includes(idx) && !fb.includes('aggregated'); }) : null;
-            confidencePath = byName || byIdx || pickBestScores(scoresFiles) || paeSource;
+            confidencePath = byName || sameNums(scoresFiles) || byIdx || pickBestScores(scoresFiles) || paeSource;
         }
 
         if (!predictions['generic']) predictions['generic'] = {};
