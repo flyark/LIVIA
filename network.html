@@ -1061,11 +1061,21 @@ function applyNetOpts(ilis, species){
 (function(){
   if (!new URLSearchParams(location.search).has('post')) return;
   const ready = (src) => { try { src && src.postMessage({ source: 'livia', type: 'livia-ready' }, '*'); } catch (e) {} };
+  // Data another page sent are marked as such: a page opened by a third party cannot pass for the user's own files.
+  const showOrigin = (ev) => {
+    let from = ev.origin || 'another page'; try { if (ev.source && ev.source.location) from = ev.source.location.href.split('#')[0]; } catch (e) {}   // the page itself when same-origin
+    let n = document.getElementById('post-origin');
+    if (!n) { n = document.createElement('div'); n.id = 'post-origin'; n.setAttribute('role', 'status');
+      n.style.cssText = 'max-width:1100px; margin:0.6rem auto 0; padding:0.45rem 0.8rem; border:1px solid #d6e2ee; border-radius:8px; background:#f5f9fc; color:#33414E; font-size:0.85rem;';
+      const main = document.querySelector('[role="main"]'); main ? main.prepend(n) : document.body.prepend(n); }
+    n.textContent = 'Loaded from ' + from + ': these data were sent by another page, not opened from your files.';
+  };
   window.addEventListener('message', async (ev) => {
     const m = ev.data;
     if (!m || typeof m !== 'object') return;
     if (m.type === 'livia-ping') { ready(ev.source); return; }
     if (m.type !== 'livia-load' || m.data == null) return;
+    showOrigin(ev);
     try {
       const blob = (m.data instanceof Blob) ? m.data : new Blob([m.data]);
       const nm = (m.name ? String(m.name) : 'network').replace(/[^\w.\-]+/g, '_');
