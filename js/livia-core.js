@@ -32,9 +32,10 @@ function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 
 // ── iLIS FPR coloring (purple/green/amber/gray thresholds) ──
 function ilisColor(val, isAvg) {
+    // text shades of the band colors, at least 4.5:1 on white and on the table's row highlights
     const color = isAvg
-        ? (val >= 0.268 ? '#6B21A8' : val >= 0.120 ? '#0e8a6e' : val >= 0.072 ? '#bf8700' : '#8b949e')
-        : (val >= 0.551 ? '#6B21A8' : val >= 0.339 ? '#0e8a6e' : val >= 0.223 ? '#bf8700' : '#8b949e');
+        ? (val >= 0.268 ? '#6B21A8' : val >= 0.120 ? '#0C735C' : val >= 0.072 ? '#875F00' : '#5F6771')
+        : (val >= 0.551 ? '#6B21A8' : val >= 0.339 ? '#0C735C' : val >= 0.223 ? '#875F00' : '#5F6771');
     return '<span style="color:' + color + '; font-weight:700;">' + val.toFixed(3) + '</span>';
 }
 
