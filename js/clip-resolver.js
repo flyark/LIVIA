@@ -201,8 +201,11 @@
   //      through to the UniProt path exactly as before. ----
   const _idxBase = () => (typeof self !== 'undefined' && self.LIVIA_SEQINDEX_BASE) || 'https://flyark.github.io/LIVIA-seqindex/';
   const _idxFiles = new Map();
+  // The index host could not be reached (a network failure, not a missing file): its other lookups are skipped for a minute,
+  // so a blip does not switch them off for the whole session
+  let _idxDownAt = 0; const _idxDown = () => Date.now() - _idxDownAt < 60000;
   function _idxText(path) {
-    if (!_idxFiles.has(path)) _idxFiles.set(path, _fetch(_idxBase() + path).then((r) => (r.ok ? r.text() : null), () => null));
+    if (!_idxFiles.has(path)) _idxFiles.set(path, _fetch(_idxBase() + path).then((r) => (r.ok ? r.text() : null), () => { _idxDownAt = Date.now(); _idxFiles.delete(path); return null; }));
     return _idxFiles.get(path);
   }
   const _cleanSeq = (s) => String(s || '').toUpperCase().replace(/[^A-Z]/g, '');
@@ -287,6 +290,7 @@
   // best-scoring stretch (+1 match, -3 mismatch; a tag or linker falls outside it) must cover half the
   // query at >= 90% identity. Checked against the parent's canonical UniProt sequence.
   async function _byIndexSeeds(seq, orgId) {
+    if (_idxDown()) return null;   // twelve more requests to a host that did not answer the exact lookup
     const q = _cleanSeq(seq);
     const hits = await indexSeeds(q); if (!hits || !hits.length || hits[0].votes < 2) return null;   // one lone seed is not evidence
     const best = hits.filter((x) => x.votes === hits[0].votes).sort(_rankBy(orgId))[0];
