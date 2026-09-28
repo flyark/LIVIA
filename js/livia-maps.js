@@ -139,7 +139,7 @@
         const bar = document.createElement('div');
         bar.id = barId;
         bar.style.cssText = showDims
-            ? 'display:flex; flex-wrap:wrap; gap:5px 8px; align-items:center; justify-content:center; margin-top:3px; font-size:0.7rem; color:#888;'
+            ? 'display:flex; flex-wrap:wrap; gap:5px 8px; align-items:center; justify-content:center; margin-top:3px; font-size:0.7rem; color:#6B6B6B;'
             : 'text-align:center; margin-top:3px;';
         let wIn, hIn, fIn;
         const readOpts = () => ({ font: (fIn && +fIn.value) || 1, width: (wIn && +wIn.value) || 0, height: (hIn && +hIn.value) || 0 });
@@ -157,6 +157,7 @@
             const mkIn = (val, ph, list, w) => { const i = document.createElement('input'); i.type = 'text'; i.setAttribute('list', list); if (val) i.value = val; if (ph) i.placeholder = ph; i.style.cssText = 'width:' + w + 'px; font-size:0.7rem; padding:1px 3px; color:#555;'; return i; };
             const lbl = (t) => { const s = document.createElement('span'); s.textContent = t; return s; };
             wIn = mkIn('', 'auto', 'lm-exp-dim', 58); hIn = mkIn('', 'auto', 'lm-exp-dim', 58); fIn = mkIn('1', '', 'lm-exp-font', 52);
+            wIn.setAttribute('aria-label', 'Export width in pixels'); hIn.setAttribute('aria-label', 'Export height in pixels'); fIn.setAttribute('aria-label', 'Export font scale');
             bar.append(lbl('W'), wIn, lbl('H'), hIn, lbl('font ×'), fIn);
         }
         bar.__opts = opts;                        // exposed so callers/tests can reuse the redraw closure
