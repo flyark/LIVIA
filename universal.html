@@ -2126,26 +2126,23 @@ function discoverBoltz(filenames) {
 
     // Boltz typically outputs: predictions/MODEL_NAME/confidence_model_X.json, pae_model_X.npz, MODEL_NAME_model_X.cif
     // Tamarind Boltz-2: predictions/result/result_model_N.pdb, pae_result_model_N.npz, confidence_result_model_N.json
+    // A model's number comes from its file name (…model_N.cif/pdb), never from the order of the files in the zip: a zip
+    // can list result_model_4.pdb first, and pairing by position gave model 0's PAE the structure of model 4. The PAE
+    // and confidence files are matched to that number exactly (model_1 is not model_10).
+    const numOf = (f) => { const m = f.split('/').pop().match(/(?:^|_)model_(\d+)\.(?:cif|pdb|json|npz)$/); return m ? +m[1] : null; };
     const structFiles = filenames.filter(f => {
         const base = f.split('/').pop();
         return base.endsWith('.cif') || base.endsWith('.pdb');
-    });
+    }).sort((a, b) => ((numOf(a) ?? 1e9) - (numOf(b) ?? 1e9)) || (a < b ? -1 : a > b ? 1 : 0));
     const confFiles = filenames.filter(f => f.split('/').pop().startsWith('confidence') && f.endsWith('.json'));
     const paeFiles = filenames.filter(f => f.split('/').pop().startsWith('pae') && f.endsWith('.npz'));
 
     for (let i = 0; i < structFiles.length; i++) {
         const structBase = structFiles[i].split('/').pop();
         const ext = structBase.split('.').pop();
-        const idx = String(i);
-        // Try to match confidence and pae by index
-        const confPath = confFiles.find(f => {
-            const fb = f.split('/').pop();
-            return fb.includes(`_${i}`) || fb.includes(`model_${i}`);
-        }) || confFiles[i] || null;
-        const paePath = paeFiles.find(f => {
-            const fb = f.split('/').pop();
-            return fb.includes(`_${i}`) || fb.includes(`model_${i}`);
-        }) || paeFiles[i] || null;
+        const n = numOf(structFiles[i]), k = n != null ? n : i, idx = String(k);
+        const confPath = (n != null ? confFiles.find(f => numOf(f) === n) : null) || (n == null ? confFiles[i] : null) || null;
+        const paePath = (n != null ? paeFiles.find(f => numOf(f) === n) : null) || (n == null ? paeFiles[i] : null) || null;
 
         if (!predictions['boltz']) predictions['boltz'] = {};
         predictions['boltz'][idx] = {
@@ -2153,7 +2150,7 @@ function discoverBoltz(filenames) {
             paeSource: paePath || confPath,
             confidencePath: confPath,
             format: ext,
-            label: `model_${i}`,
+            label: `model_${k}`,
         };
     }
     return predictions;
