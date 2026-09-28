@@ -19,7 +19,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
 /* ── Header ── */
 .header { background: white; color: #1a5276; padding: 0.8rem 2rem 0.8rem; border-bottom: 1px solid #e8e8e8; }
 .header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.15rem; color: #1a5276; letter-spacing: -0.02em; }
-.header p { font-size: 0.92rem; color: #888; margin-bottom: 0.8rem; font-weight: 400; }
+.header p { font-size: 0.92rem; color: #6B6B6B; margin-bottom: 0.8rem; font-weight: 400; }
 .header-links { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .header-links a { color: #555; text-decoration: none; font-size: 0.74rem; padding: 0.22rem 0.5rem; border: 1px solid #ddd; border-radius: 6px; transition: all 0.2s; background: #f8f9fa; }
 .header-links a:hover { background: #2471A3; color: white; border-color: #2471A3; }
@@ -109,7 +109,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
 }
 .btn-download.cxc { background: #2471A3; color: white; border-color: #2471A3; }
 .btn-download.cxc:hover { background: #1a5276; border-color: #1a5276; }
-.btn-download.pdb { background: white; color: #E67E22; border-color: #E67E22; }
+.btn-download.pdb { background: white; color: #B35A12; border-color: #E67E22; }
 .btn-download.pdb:hover { background: #fef5ec; }
 
 /* ── Color Scheme ── */
@@ -117,7 +117,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
 .color-group { flex: 1; min-width: 200px; }
 .color-group h3 {
     font-size: 0.8rem;
-    color: #888;
+    color: #6B6B6B;
     margin-bottom: 0.6rem;
 }
 .color-pair {
@@ -135,7 +135,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
 }
 .color-pair .color-label { font-size: 0.9rem; }
 .color-pair .color-hex {
-    font-family: monospace; font-size: 0.8rem; color: #888;
+    font-family: monospace; font-size: 0.8rem; color: #6B6B6B;
     border: 1px solid transparent;
     background: transparent;
     padding: 1px 4px;
@@ -147,7 +147,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
 .color-pair input.color-hex { outline: none; }
 .color-pair input.color-hex:hover { border-color: #d8d8d8; background: #fafafa; color: #555; }
 .color-pair input.color-hex:focus { border-color: #2471A3; background: #fff; color: #1a5276; }
-.color-def { font-weight: 400; font-size: 0.8rem; color: #999; }
+.color-def { font-weight: 400; font-size: 0.8rem; color: #707070; }
 .color-preview-strip {
     display: flex; height: 8px; border-radius: 4px;
     overflow: hidden; margin-top: 0.5rem;
@@ -184,7 +184,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
 }
 .fetch-status.loading { color: #2471A3; }
 .fetch-status.error { color: #c0392b; }
-.fetch-status.success { color: #27ae60; }
+.fetch-status.success { color: #1E7E46; }
 
 /* ── Results ── */
 .results { display: none; }
@@ -203,7 +203,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
     text-align: center;
 }
 .metric .value { font-size: 1.3rem; font-weight: 700; color: #2471A3; }
-.metric .label { font-size: 0.75rem; color: #888; margin-top: 0.2rem; }
+.metric .label { font-size: 0.75rem; color: #6B6B6B; margin-top: 0.2rem; }
 
 .result-card h2 { font-size: 1.2rem; margin-bottom: 1rem; color: #1a5276; }
 
@@ -239,15 +239,15 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
 .model-chip.selected { background: #2471A3; border-color: #2471A3; color: #fff; box-shadow: 0 1px 3px rgba(36,113,163,0.3); }
 .model-chip-name { font-size: 0.72rem; font-weight: 600; }
 .model-chip-ilis { font-size: 0.7rem; font-weight: 500; }
-.model-chip-metric { font-size: 0.6rem; font-weight: 600; opacity: 0.55; margin-right: 3px; letter-spacing: 0.01em; }
-.model-chip.selected .model-chip-metric { opacity: 0.8; }
+.model-chip-metric { font-size: 0.6rem; font-weight: 600; opacity: 1; color: #6B6B6B; margin-right: 3px; letter-spacing: 0.01em; }
+.model-chip.selected .model-chip-metric { color: #fff; opacity: 0.92; }
 .data-table tr.clickable { cursor: pointer; }
 .data-table tr.clickable:hover { background: #f0f7fc; }
 
 /* Sortable table headers */
 .data-table th.sortable { cursor: pointer; user-select: none; position: relative; }
 .data-table th.sortable:hover { background: #e8f0fe; }
-.data-table th.sortable::after { content: ' \21C5'; font-size: 0.7em; color: #aaa; }
+.data-table th.sortable::after { content: ' \21C5'; font-size: 0.7em; color: #707070; }
 .data-table th.sort-asc::after { content: ' \25B2'; color: #2471A3; }
 .data-table th.sort-desc::after { content: ' \25BC'; color: #2471A3; }
 
@@ -265,7 +265,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
     white-space: pre;
     margin-bottom: 1rem;
 }
-.script-preview .comment { color: #6c7086; }
+.script-preview .comment { color: #9399B2; }   /* at least 4.5:1 on the dark preview */
 .script-preview .command { color: #89b4fa; }
 .script-preview .color-val { color: #f9e2af; }
 
@@ -287,7 +287,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
 
 /* ── Input tabs ── */
 .input-tabs { display: flex; gap: 0; border-bottom: 2px solid #e0e0e0; margin-bottom: 1rem; }
-.input-tab { padding: 0.5rem 1.2rem; font-size: 0.9rem; font-weight: 600; color: #888; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; background: none; border-top: none; border-left: none; border-right: none; }
+.input-tab { padding: 0.5rem 1.2rem; font-size: 0.9rem; font-weight: 600; color: #6B6B6B; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; background: none; border-top: none; border-left: none; border-right: none; }
 .input-tab:hover { color: #2471A3; }
 .input-tab.active { color: #2471A3; border-bottom-color: #2471A3; }
 
@@ -335,7 +335,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
     text-align: center;
     padding: 2rem;
     font-size: 0.8rem;
-    color: #999;
+    color: #707070;
 }
 .footer a { color: #2471A3; text-decoration: none; }
 .footer a:hover { text-decoration: underline; }
@@ -362,3 +362,6 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
     .color-group { min-width: 140px; }
     .preset-chip { font-size: 0.72rem; padding: 0.25rem 0.5rem; }
 }
+
+/* links inside running text are told apart by more than color (buttons and chips carry a class and keep their look) */
+.container p a:not([class]), .container li a:not([class]), .container td a:not([class]) { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }

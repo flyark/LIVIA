@@ -468,7 +468,7 @@
         const wrap = document.createElement('div');
         wrap.style.cssText = 'display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:0.75rem; color:#666; margin-top:6px;';
         const mkBtn = (t) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = t; b.style.cssText = 'font-size:0.72rem; color:#2471A3; background:none; border:1px solid #ccd6e0; border-radius:5px; padding:2px 7px; cursor:pointer; font-weight:600;'; return b; };
-        const status = document.createElement('span'); status.style.cssText = 'font-size:0.72rem; color:#888;';
+        const status = document.createElement('span'); status.style.cssText = 'font-size:0.72rem; color:#6B6B6B;';
         const setStatus = (m, err) => { status.textContent = m; status.style.color = err ? '#c0392b' : '#888'; };
         const doApply = (text) => {
             const rows = parseColorCSV(text);

@@ -10,10 +10,10 @@
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="stylesheet" href="css/livia.css?v=20260717">
+<link rel="stylesheet" href="css/livia.css?v=20260927c">
 <style>
   /* network-specific — livia.css provides the shell (body, .header, .container, .card, .btn, .input-tabs, .footer) */
-  :root{ --accent:#2471A3; --ink:#1b2733; --mut:#6b7a88; --line:#e2e8ee; }
+  :root{ --accent:#2471A3; --ink:#1b2733; --mut:#566370; --line:#e2e8ee; }
   body > .container{ max-width:1500px; }   /* wider content for the network view; header keeps livia's 1100px (.header > .container) */
   .dz{ border:2px dashed #b7c6d6; border-radius:10px; padding:14px; text-align:center; color:#557; cursor:pointer; transition:.15s; background:#fff; min-height:96px; display:flex; flex-direction:column; justify-content:center; }
   .dz:hover,.dz.drag{ border-color:var(--accent); background:#eef5fb; color:var(--accent); }
@@ -22,7 +22,7 @@
   .zones3{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; align-items:start; }
   .zones3 #loaded{ grid-column:1/-1; }
   .zonehdr{ font-weight:600; font-size:.85rem; color:#556; margin-bottom:6px; }
-  .zonehdr .opt{ font-weight:400; font-size:.76rem; color:#9aa; }
+  .zonehdr .opt{ font-weight:400; font-size:.76rem; color:#5E6C6C; }
   .ctrlbar{ background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.08); padding:.8rem 1.2rem; margin-bottom:1rem; display:flex; flex-wrap:wrap; align-items:center; gap:16px; }
   .ctrlbar.tight{ gap:12px; }
   label.lb{ font-weight:600; font-size:.85rem; color:#555; }
@@ -70,8 +70,8 @@
 </head>
 <body>
 <div class="header">
-  <div class="container">
-    <h1><span style="color:#2471A3;">LIVIA</span> &mdash; PPI Network Builder <sup style="color:#e67e22; font-weight:700; font-size:.42em; letter-spacing:.02em;">beta</sup></h1>
+  <div class="container" role="main">
+    <h1><span style="color:#2471A3;">LIVIA</span> &mdash; PPI Network Builder <sup style="color:#B35A12; font-weight:700; font-size:.42em; letter-spacing:.02em;">beta</sup></h1>
     <p>Build an interaction network from lis.py output &mdash; Leiden communities run in your browser (Pyodide + python-igraph)</p>
     <div class="header-links">
       <a href="index.html">Home</a>
@@ -91,8 +91,8 @@
 
 <div class="container">
   <div class="card">
-      <div style="font-size:0.82rem; color:#888; margin-bottom:0.8rem;">
-    Need the input? Generate it with <code style="background:#d6e9f8; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis.py</code> from <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a>.
+      <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.8rem;">
+    Need the input? Generate it with <code style="background:#d6e9f8; color:#33414E; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis.py</code> from <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a>.
       </div>
     <div class="zones3">
       <div class="zonecol">
@@ -112,7 +112,7 @@
           <input id="inmeta" type="file" accept=".csv" multiple class="hidden">
         </div>
         <div id="tmpl-wrap" class="hint hidden" style="margin-top:6px"><a id="tmpl" href="#" style="font-weight:600">↓ template</a> pre-filled with your predictions — fill in the IDs, drop it here.</div>
-        <div class="hint" style="margin-top:6px"><b>Names showing as IDs</b> (UniProt accession, FlyBase, Entrez) instead of gene symbols? <a id="mg-convert" href="#" style="display:inline-block; padding:3px 10px; background:#2471A3; color:#fff; border-radius:5px; font-weight:600; text-decoration:none">✨ Auto-convert names → gene symbols</a> — via mygene.info + UniProt. <select id="mg-species" style="font-size:11.5px; padding:2px 5px; border:1px solid var(--line); border-radius:5px"><option value="">all species</option><option value="7227">fly</option><option value="9606">human</option><option value="10090">mouse</option><option value="10116">rat</option><option value="6239">worm</option><option value="7955">zebrafish</option><option value="559292">yeast</option><option value="3702">arabidopsis</option><option value="83333">E. coli</option></select> <label style="margin-left:4px"><input type="checkbox" id="mg-auto" checked> on load</label></div>
+        <div class="hint" style="margin-top:6px"><b>Names showing as IDs</b> (UniProt accession, FlyBase, Entrez) instead of gene symbols? <a id="mg-convert" href="#" style="display:inline-block; padding:3px 10px; background:#2471A3; color:#fff; border-radius:5px; font-weight:600; text-decoration:none">✨ Auto-convert names → gene symbols</a> — via mygene.info + UniProt. <select id="mg-species" aria-label="Species for name conversion" style="font-size:11.5px; padding:2px 5px; border:1px solid var(--line); border-radius:5px"><option value="">all species</option><option value="7227">fly</option><option value="9606">human</option><option value="10090">mouse</option><option value="10116">rat</option><option value="6239">worm</option><option value="7955">zebrafish</option><option value="559292">yeast</option><option value="3702">arabidopsis</option><option value="83333">E. coli</option></select> <label style="margin-left:4px"><input type="checkbox" id="mg-auto" checked> on load</label></div>
         <div style="background:#eaf2f8; border:1px solid #b8d4e8; border-left:4px solid #2471A3; border-radius:6px; padding:.5rem .7rem; margin-top:8px; font-size:12.5px; color:#1f4e6b; line-height:1.45;">
           <strong>Names not resolving to gene symbols?</strong> Fill in the <strong>identity-map template</strong> above, or use auto-convert and pick the right species — FBpp / FBgn, UniProt accessions and Entrez IDs all resolve. Still stuck? <a href="https://github.com/flyark/LIVIA/issues" target="_blank" style="color:#2471A3; font-weight:600;">Open an issue on GitHub</a>.
         </div>
@@ -139,11 +139,11 @@
   </div>
 
   <div class="ctrlbar">
-    <span><label class="lb">iLIS &ge;</label> <input id="cut" type="range" min="0" max="0.9" step="0.001" value="0.223"> <input id="cutv" type="number" min="0" max="1" step="0.001" value="0.223" style="width:78px"></span>
-    <span><label class="lb">resolution</label> <input id="res" type="range" min="0.1" max="5" step="0.05" value="1.0"> <input id="resv" type="number" min="0" max="50" step="0.05" value="1.0" style="width:62px"></span>
-    <span><label class="lb">objective</label> <select id="objfn" title="modularity: standard (resolution ~0.5–3). CPM: resolution-limit-free — finds small communities; use a lower resolution near the iLIS scale (~0.2–0.5)."><option value="modularity">modularity</option><option value="CPM">CPM</option></select></span>
+    <span><label class="lb">iLIS &ge;</label> <input id="cut" aria-label="iLIS cutoff" type="range" min="0" max="0.9" step="0.001" value="0.223"> <input id="cutv" aria-label="iLIS cutoff value" type="number" min="0" max="1" step="0.001" value="0.223" style="width:78px"></span>
+    <span><label class="lb">resolution</label> <input id="res" aria-label="Leiden resolution" type="range" min="0.1" max="5" step="0.05" value="1.0"> <input id="resv" aria-label="Leiden resolution value" type="number" min="0" max="50" step="0.05" value="1.0" style="width:62px"></span>
+    <span><label class="lb">objective</label> <select id="objfn" aria-label="Leiden objective" title="modularity: standard (resolution ~0.5–3). CPM: resolution-limit-free — finds small communities; use a lower resolution near the iLIS scale (~0.2–0.5)."><option value="modularity">modularity</option><option value="CPM">CPM</option></select></span>
     <span id="clustmode-wrap" class="hidden"><label class="lb">clustering</label> <select id="clustmode" title="user-defined: color + group by your uploaded cluster map (Leiden not run). Leiden: ignore the map and detect communities."><option value="user">user-defined</option><option value="leiden">Leiden (auto)</option></select></span>
-    <span><label class="lb" title="seeds both Leiden and the layout: the same data, settings and seed give the same picture">seed</label> <input id="seed" type="number" min="0" step="1" value="1" style="width:56px"></span>
+    <span><label class="lb" title="seeds both Leiden and the layout: the same data, settings and seed give the same picture">seed</label> <input id="seed" aria-label="Leiden seed" type="number" min="0" step="1" value="1" style="width:56px"></span>
     <span id="labelby-wrap" class="hidden"><label class="lb">Label by</label> <select id="labelby"></select></span>
     <button id="build" disabled>Build network</button>
     <button id="expsvg" class="ghost hidden" title="download the region currently visible (respects zoom)">↓ SVG (view)</button>

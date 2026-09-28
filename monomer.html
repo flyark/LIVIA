@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <title>LIVIA — AlphaFold DB Monomer Subdomain Analysis</title>
-    <link rel="stylesheet" href="css/livia.css?v=20260717">
+    <link rel="stylesheet" href="css/livia.css?v=20260927c">
     <style>
         /* ── Page-specific styles for Monomer ── */
         .step-link { color: #2471A3; text-decoration: none; }
@@ -15,7 +15,7 @@
         .status { font-size: 0.85rem; color: #666; min-height: 1.2rem; margin-top: 0.5rem; padding: 0.3rem 0; }
         .status.loading { color: #2471A3; font-weight: 500; }
         .status.error { color: #c0392b; font-weight: 500; }
-        .status.success { color: #27ae60; font-weight: 500; }
+        .status.success { color: #1E7E46; font-weight: 500; }
 
         /* Page-specific button styles */
         .btn-primary { margin-top: 0.8rem; }
@@ -39,7 +39,7 @@
         .map-item .map-label { font-size: 0.75rem; color: #666; margin-bottom: 0.2rem; }
         .colorbar-row { display: flex; flex-direction: column; align-items: center; margin-top: 0.5rem; }
         .colorbar-row canvas { border-radius: 3px; }
-        .colorbar-labels { display: flex; justify-content: space-between; width: 300px; font-size: 0.72rem; color: #888; margin-top: 2px; }
+        .colorbar-labels { display: flex; justify-content: space-between; width: 300px; font-size: 0.72rem; color: #6B6B6B; margin-top: 2px; }
         .colorbar-labels span:nth-child(2) { color: #555; font-weight: 500; }
 
         /* Region inputs */
@@ -65,7 +65,7 @@
         .ac-item .ac-id { font-weight: 700; color: #2471A3; margin-right: 0.5rem; }
         .ac-item .ac-gene { font-weight: 600; color: #333; margin-right: 0.4rem; }
         .ac-item .ac-name { color: #666; }
-        .ac-item .ac-org { color: #999; font-size: 0.78rem; font-style: italic; }
+        .ac-item .ac-org { color: #707070; font-size: 0.78rem; font-style: italic; }
 
         .help-content {
             display: grid;
@@ -107,7 +107,7 @@
 <body>
 
 <div class="header">
-    <div class="container">
+    <div class="container" role="main">
         <h1><span style="color:#2471A3;">LIVIA</span> &mdash; AlphaFold DB Monomer Subdomain Analysis</h1>
         <p>Analyze intramolecular interactions in AlphaFold monomer predictions from the <a href="https://alphafold.ebi.ac.uk" target="_blank" style="color:#2471A3;">AlphaFold Protein Structure Database</a> (<a href="https://doi.org/10.1093/nar/gkab1061" target="_blank" style="color:#2471A3;">Varadi et al., 2022</a>)</p>
         <div class="header-links">
@@ -137,7 +137,7 @@
 
     <!-- Step 1: Fetch -->
     <div class="card">
-        <div class="step-header">Fetch AlphaFold Monomer Prediction &nbsp;<span style="font-weight:400; font-size:0.8rem; color:#888;">(the prediction is fetched from AlphaFold DB; all analysis runs in your browser &middot; <a href="about.html#data" style="color:#2471A3;">what LIVIA looks up online</a>)</span></div>
+        <div class="step-header">Fetch AlphaFold Monomer Prediction &nbsp;<span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(the prediction is fetched from AlphaFold DB; all analysis runs in your browser &middot; <a href="about.html#data" style="color:#2471A3;">what LIVIA looks up online</a>)</span></div>
         <label>UniProt ID or AlphaFold DB URL</label>
         <div style="display:flex; gap:0.5rem; align-items:flex-start; max-width:600px;">
             <div class="ac-wrap" style="flex:1;">
@@ -147,7 +147,7 @@
             <button class="btn btn-primary" style="margin:0;" id="btn-fetch" onclick="fetchData()">Fetch</button>
         </div>
         <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.5rem; align-items:center;">
-            <span style="font-size:0.8rem; color:#888;">Examples:</span>
+            <span style="font-size:0.8rem; color:#6B6B6B;">Examples:</span>
             <button class="example-btn" onclick="loadExample('Q8INB9')">Akt (Drosophila)</button>
             <button class="example-btn" onclick="loadExample('Q8TF76')">Haspin</button>
             <button class="example-btn" onclick="loadExample('Q15858')">SCN9A</button>
@@ -198,7 +198,7 @@
                         </div>
                         <button onclick="resetDefaults()" style="padding:0.2rem 0.6rem; border:2px solid #e0e0e0; border-radius:6px; background:white; cursor:pointer; font-size:0.78rem; color:#666;">Default</button>
                     </div>
-                    <div style="margin-top:0.3rem; color:#999; font-size:0.72rem;">Default: min length 15, merge LIS 0.35, pLDDT 50, boundary margin 2. Boundary margin excludes N residues at each region edge from iLIS calculation.</div>
+                    <div style="margin-top:0.3rem; color:#707070; font-size:0.72rem;">Default: min length 15, merge LIS 0.35, pLDDT 50, boundary margin 2. Boundary margin excludes N residues at each region edge from iLIS calculation.</div>
                 </div>
             </div>
             <!-- Right: iLIS / iLISA Matrix -->
@@ -232,17 +232,17 @@
                 <tbody id="pairs-tbody"></tbody>
             </table>
             </div>
-            <div id="pairs-note" style="font-size:0.78rem; color:#888; margin:-0.4rem 0 0.2rem;"></div>
+            <div id="pairs-note" style="font-size:0.78rem; color:#6B6B6B; margin:-0.4rem 0 0.2rem;"></div>
             <div style="margin-top:0.5rem;">
                 <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem; cursor:pointer;" onclick="downloadCSV()">&#8595; Download CSV</a>
             </div>
-            <div style="margin-top:0.6rem; font-size:0.75rem; color:#999; line-height:1.8;">
+            <div style="margin-top:0.6rem; font-size:0.75rem; color:#707070; line-height:1.8;">
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
                     <strong>iLIS:</strong>
                     <span><span style="color:#6B21A8; font-weight:700;">&ge;0.551</span> (1% FPR)</span>
-                    <span><span style="color:#0e8a6e; font-weight:700;">&ge;0.339</span> (5% FPR)</span>
-                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.223</span> (10% FPR)</span>
-                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.223</span> (below threshold)</span>
+                    <span><span style="color:#0B7A61; font-weight:700;">&ge;0.339</span> (5% FPR)</span>
+                    <span><span style="color:#8F6400; font-weight:700;">&ge;0.223</span> (10% FPR)</span>
+                    <span><span style="color:#667080; font-weight:700;">&lt;0.223</span> (below threshold)</span>
                 </div>
                 <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details.</div>
             </div>
@@ -250,7 +250,7 @@
         <!-- Subdomain Interaction Map (chord diagram) -->
         <div class="card result-card" id="chord-diagram-container" style="display:none;">
             <h2 data-nav="Subdomain map">Subdomain Interaction Map</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 Arcs represent subdomains (proportional to length). Lines connect cLIR residue pairs in physical contact.
             </div>
             <div style="margin-bottom:0.5rem; display:flex; gap:0.9rem; flex-wrap:wrap;">
@@ -271,7 +271,7 @@
         <!-- Sequence Viewer -->
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
             <h2 data-nav="Sequence">Sequence Viewer</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 Light background = LIR (PAE &le; 12 &Aring;). Dark background with white text = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each region uses its own color.
                 <span id="seq-uniprot-link"></span>
             </div>
@@ -281,7 +281,7 @@
         <!-- Domain Map -->
         <div class="card result-card" id="domain-comparison-card" style="display:none;">
             <h2 data-nav="Region map">Region &amp; Domain Map</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 Auto-detected regions vs UniProt domains and <a href="https://ted.cathdb.info" target="_blank" style="color:#2471A3;">TED</a> domains (AlphaFold DB). Aligned to residue position.
             </div>
             <canvas id="domain-map-canvas" style="width:100%; max-width:900px; display:block; margin:0 auto;"></canvas>
@@ -291,8 +291,8 @@
         <!-- 3D Structure Viewer -->
         <div class="card result-card" id="viewer3d-card" style="display:none;">
             <h2 data-nav="3D structure">3D Structure Viewer</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                Interactive 3D preview powered by <a href="https://molstar.org" target="_blank" style="color:#2471A3;">Mol*</a> (<a href="https://doi.org/10.1093/nar/gkab314" target="_blank" style="color:#2471A3;">Sehnal et al. 2021</a>). LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom. <span style="color:#999;">If the viewer appears empty, refresh the page.</span>
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
+                Interactive 3D preview powered by <a href="https://molstar.org" target="_blank" style="color:#2471A3;">Mol*</a> (<a href="https://doi.org/10.1093/nar/gkab314" target="_blank" style="color:#2471A3;">Sehnal et al. 2021</a>). LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom. <span style="color:#707070;">If the viewer appears empty, refresh the page.</span>
             </div>
             <div id="subdomain-toggle-bar" style="display:none; margin-bottom:0.5rem; align-items:center; gap:0.5rem; flex-wrap:wrap; font-size:0.8rem; color:#555;" title="Click a subdomain to hide it in the 3D view; click again to show it">
                 <span style="font-weight:600;">Subdomains:</span>
@@ -321,12 +321,12 @@
                     <span>residues</span>
                     <button class="btn btn-primary" style="font-size:0.82rem; padding:0.3rem 0.8rem;" onclick="updateGapFill()">Apply</button>
                 </div>
-                <div style="font-size:0.78rem; color:#999; margin-bottom:0.5rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
+                <div style="font-size:0.78rem; color:#707070; margin-bottom:0.5rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
                 <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:0.3rem;">
-                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure <span style="font-size:0.78rem; color:#999;">(display all residues instead of selected regions only)</span>
+                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure <span style="font-size:0.78rem; color:#707070;">(display all residues instead of selected regions only)</span>
                 </label>
                 <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:1rem; padding-left:1.2rem;">
-                    <input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"> Gray non-LIR <span style="font-size:0.78rem; color:#999;">(color non-interacting residues gray)</span>
+                    <input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"> Gray non-LIR <span style="font-size:0.78rem; color:#707070;">(color non-interacting residues gray)</span>
                 </label>
 
                 <label>Cutoffs</label>
@@ -409,7 +409,7 @@
                 <a class="btn-download cxc" id="dl-script-partial" download style="background:#8e44ad; border-color:#8e44ad;">&#8595; .cxc &middot; for partial</a>
                 <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy to Clipboard</button>
             </div>
-            <div style="font-size:0.72rem; color:#999; margin-top:0.5rem; line-height:1.45;">
+            <div style="font-size:0.72rem; color:#707070; margin-top:0.5rem; line-height:1.45;">
                 <b>Full structure .pdb</b> = full length (surfaces include the floppy N/C-terminal tails). &nbsp;<b style="color:#8e44ad;">Partial structure .pdb</b> = trimmed to exactly the LIR segments shown (Fill gaps / Min segment honored) — clean surfaces for post-processing; residue numbers preserved so the script still colors correctly. Download <b>one</b> structure file.
             </div>
             <div class="info-box" style="margin-top:1rem;">Place the script and .pdb file in the same folder, then open the script in ChimeraX or PyMOL.</div>
@@ -418,7 +418,7 @@
         <!-- Per-Residue pLDDT & Intra-chain LIS -->
         <div class="card result-card" id="per-residue-card" style="display:none;">
             <h2 data-nav="Per-residue">Per-Residue Intra-chain LIS &amp; pLDDT</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 Per-residue metrics for the monomer prediction.
             </div>
             <div id="per-residue-charts"></div>
@@ -455,8 +455,8 @@
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIpDockQ</strong></td><td style="padding:0.25rem 0; color:#555;">the pDockQ formula computed only on cLIR pairs (PAE &le; 12&nbsp;&Aring; and C&beta; &le; 8&nbsp;&Aring;), so contacts the PAE does not support no longer count (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon, 2026</a>)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIpDockQ2</strong></td><td style="padding:0.25rem 0; color:#555;">the pDockQ2 formula on cLIR pairs only, so a small confident interface is not diluted by a large, poorly placed contact surface (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon, 2026</a>)</td></tr>
                 </table>
-                <p style="font-size:0.78rem; color:#888; margin-top:0.4rem; line-height:1.4;">Here the two regions of a monomer take the place of the two chains. Because their constants were fitted to DockQ on the original interfaces, LIpDockQ and LIpDockQ2 rank predictions; they are not DockQ estimates.</p>
-                <p style="font-size:0.78rem; color:#888; margin-top:0.4rem; line-height:1.4;">PAE (Predicted Aligned Error) measures how confidently the model predicts the relative position of two residues &mdash; lower values indicate higher confidence.</p>
+                <p style="font-size:0.78rem; color:#6B6B6B; margin-top:0.4rem; line-height:1.4;">Here the two regions of a monomer take the place of the two chains. Because their constants were fitted to DockQ on the original interfaces, LIpDockQ and LIpDockQ2 rank predictions; they are not DockQ estimates.</p>
+                <p style="font-size:0.78rem; color:#6B6B6B; margin-top:0.4rem; line-height:1.4;">PAE (Predicted Aligned Error) measures how confidently the model predicts the relative position of two residues &mdash; lower values indicate higher confidence.</p>
             </div>
         </div>
     </div>
@@ -472,8 +472,8 @@
 
 <script src="js/livia-core.js?v=20260926b"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20260926a"></script>
-<script src="js/livia-colors.js?v=20260926a"></script>
+<script src="js/livia-viewer.js?v=20260927a"></script>
+<script src="js/livia-colors.js?v=20260927a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260927a"></script>
 <script src="js/livia-subnav.js?v=20260926c"></script>
@@ -1107,7 +1107,7 @@ function renderRegions() {
             <input type="number" value="${r.start}" min="1" max="${monProteinLen}" placeholder="1" onchange="updateRegion(${i},'start',this.value)" oninput="updateRegion(${i},'start',this.value)">
             <span style="font-size:0.85rem; color:#555;">End:</span>
             <input type="number" value="${r.end}" min="1" max="${monProteinLen}" placeholder="${monProteinLen}" onchange="updateRegion(${i},'end',this.value)" oninput="updateRegion(${i},'end',this.value)">
-            <span style="font-size:0.8rem; color:#888;">(1&ndash;${monProteinLen})</span>
+            <span style="font-size:0.8rem; color:#6B6B6B;">(1&ndash;${monProteinLen})</span>
             ${monRegions.length > 2 ? `<button class="remove-btn" onclick="removeRegion(${i})" title="Remove region">&times;</button>` : ''}
         `;
         container.appendChild(row);
@@ -2034,7 +2034,7 @@ function buildDomainComparison(validRegions) {
     }
     if (uncovered.length > 0) {
         const note = document.createElement('div');
-        note.style.cssText = 'margin-top:0.6rem; font-size:0.78rem; color:#888; padding:0.5rem 0.7rem; background:#f8f9fa; border-radius:6px;';
+        note.style.cssText = 'margin-top:0.6rem; font-size:0.78rem; color:#6B6B6B; padding:0.5rem 0.7rem; background:#f8f9fa; border-radius:6px;';
         note.innerHTML = '<strong style="color:#555;">Note:</strong> The following UniProt domain(s) have low coverage by auto-detected regions: ' +
             uncovered.map(u => `<em>${u.name}</em> (${u.start}-${u.end}, ${u.covPct.toFixed(0)}% covered)`).join(', ') +
             '. Consider adjusting detection parameters (lower pLDDT cutoff or min length).';
@@ -2077,7 +2077,7 @@ function displayResults(validRegions) {
     // Table — positive pairs only: iLIS at or above the 10% FPR cutoff (0.223, with the same 0.0005 rounding
     // tolerance as universal's negative-pair filter). Every pair's score stays in the iLIS / iLISA matrix.
     const POS_ILIS = 0.223;
-    const regionCell = (r) => `<span style="display:inline-block; width:0.6em; height:0.6em; border-radius:2px; background:${r.color || '#999'}; margin-right:0.35em;"></span><strong>${esc(String(r.name))}</strong> <span style="color:#888;">${r.start}&ndash;${r.end}</span>`;
+    const regionCell = (r) => `<span style="display:inline-block; width:0.6em; height:0.6em; border-radius:2px; background:${r.color || '#999'}; margin-right:0.35em;"></span><strong>${esc(String(r.name))}</strong> <span style="color:#6B6B6B;">${r.start}&ndash;${r.end}</span>`;
     const pdq = (x) => (x == null || isNaN(x)) ? '' : x.toFixed(3);
     const tbody = document.getElementById('pairs-tbody');
     tbody.innerHTML = '';
@@ -3052,7 +3052,7 @@ function createMonomerMapPanel(container, label, map2d, colorFn, vmin, vmax, tic
     cbarWrap.appendChild(cbar);
 
     const ticks = document.createElement('div');
-    ticks.style.cssText = `display:flex; flex-direction:column; justify-content:space-between; height:${cbarH}px; font-size:0.6rem; color:#888;`;
+    ticks.style.cssText = `display:flex; flex-direction:column; justify-content:space-between; height:${cbarH}px; font-size:0.6rem; color:#6B6B6B;`;
     for (const t of tickLabels) {
         const s = document.createElement('span');
         s.textContent = t;

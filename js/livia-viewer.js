@@ -279,7 +279,7 @@ function buildMolstarPage(structData, fmt, colorComponents, parentBaseUrl) {
 }
 #error-overlay { display: none; }
 #loading-overlay .loading-text { font-size: 13px; color: #555; margin-bottom: 14px; }
-#loading-overlay .loading-source { font-size: 11px; color: #aaa; margin-top: 8px; }
+#loading-overlay .loading-source { font-size: 11px; color: #707070; margin-top: 8px; }
 #loading-overlay .spinner-bar { width: 220px; height: 3px; background: #eee; border-radius: 2px; overflow: hidden; position: relative; }
 #loading-overlay .spinner-fill { position: absolute; width: 30%; height: 100%; background: #2471A3; animation: livia-slide 1.2s ease-in-out infinite; }
 @keyframes livia-slide { 0% { left: -30%; } 100% { left: 100%; } }

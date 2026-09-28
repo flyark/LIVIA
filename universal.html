@@ -7,16 +7,16 @@
     <title>LIVIA — Prediction Analysis</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <!-- Mol* loaded inside iframe, not here -->
-    <link rel="stylesheet" href="css/livia.css?v=20260717">
+    <link rel="stylesheet" href="css/livia.css?v=20260927c">
     <style>
         /* ── Page-specific styles for Universal ── */
         .step-link { color: #2471A3; text-decoration: none; }
         .step-link:hover { text-decoration: underline; }
 
         /* Drop zone */
-        .drop-zone { border: 2px dashed #ccc; border-radius: 12px; padding: 2.5rem; text-align: center; cursor: pointer; transition: all 0.2s; color: #888; }
+        .drop-zone { border: 2px dashed #ccc; border-radius: 12px; padding: 2.5rem; text-align: center; cursor: pointer; transition: all 0.2s; color: #6B6B6B; }
         .drop-zone:hover, .drop-zone.dragover { border-color: #2471A3; background: #eaf2f8; color: #2471A3; }
-        .drop-zone.has-file { border-color: #27ae60; background: #eafaf1; color: #27ae60; }
+        .drop-zone.has-file { border-color: #27ae60; background: #eafaf1; color: #1E7E46; }
         .drop-zone-icon { font-size: 2rem; margin-bottom: 0.5rem; }
         .drop-zone-text { font-size: 0.9rem; }
         .drop-zone-filename { font-weight: 700; font-size: 1rem; margin-top: 0.3rem; }
@@ -25,14 +25,14 @@
         .status { font-size: 0.85rem; color: #666; min-height: 1.5rem; margin-top: 0.8rem; }
         .status.loading { color: #2471A3; }
         .status.error { color: #c0392b; }
-        .status.success { color: #27ae60; }
+        .status.success { color: #1E7E46; }
 
         /* Page-specific button styles */
         .btn-primary { margin-top: 0.8rem; }
         .example-btn { background: white; color: #2471A3; border: 1px solid #ccc; border-radius: 6px; padding: 0.3rem 0.7rem; font-size: 0.82rem; cursor: pointer; transition: all 0.2s; }
         .example-btn:hover { background: #eaf2f8; border-color: #2471A3; }
         .btn-row { display: flex; gap: 0.5rem; margin-top: 0.8rem; }
-        .btn-download.cif { background: white; color: #E67E22; border-color: #E67E22; }
+        .btn-download.cif { background: white; color: #B35A12; border-color: #E67E22; }   /* text at least 4.5:1 */
         .btn-download.cif:hover { background: #fef5ec; }
 
         /* Platform badge */
@@ -70,7 +70,7 @@
         .map-item .map-label { font-size: 0.75rem; color: #666; margin-bottom: 0.2rem; }
         .colorbar-row { display: flex; flex-direction: column; align-items: center; margin-top: 0.5rem; }
         .colorbar-row canvas { border-radius: 3px; }
-        .colorbar-labels { display: flex; justify-content: space-between; width: 300px; font-size: 0.72rem; color: #888; margin-top: 2px; }
+        .colorbar-labels { display: flex; justify-content: space-between; width: 300px; font-size: 0.72rem; color: #6B6B6B; margin-top: 2px; }
         .colorbar-labels span:nth-child(2) { color: #555; font-weight: 500; }
 
         .data-table tr.avg-row { font-weight: 600; border-top: 2px solid #999; }
@@ -123,7 +123,7 @@
 <body>
 
 <div class="header">
-    <div class="container">
+    <div class="container" role="main">
         <h1><span style="color:#2471A3;">LIVIA</span> &mdash; Prediction Analysis</h1>
         <p>Analyze predictions from AlphaFold-Multimer, AlphaFold3, ColabFold, Boltz-1/2, Chai-1, OpenFold3, Protenix-v2, and ESMFold2</p>
         <div class="header-links">
@@ -146,7 +146,7 @@
 
     <!-- Step 1: Upload -->
     <div class="card">
-        <div class="step-header">Load Prediction Files &nbsp;<span style="font-weight:400; font-size:0.8rem; color:#888;">(read and analyzed in your browser, never uploaded &middot; <a href="about.html#data" style="color:#2471A3;">what LIVIA looks up online</a>)</span></div>
+        <div class="step-header">Load Prediction Files &nbsp;<span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(read and analyzed in your browser, never uploaded &middot; <a href="about.html#data" style="color:#2471A3;">what LIVIA looks up online</a>)</span></div>
         <div class="drop-zone" id="drop-zone">
             <div class="drop-zone-icon">&#128230;</div>
             <div class="drop-zone-text">Drop prediction files or folders here (.zip, .gz, .xz, .cif, .pdb, .json, .npz, .npy, .csv) or click to browse</div>
@@ -167,7 +167,7 @@
             <button class="btn btn-primary" id="btn-process" onclick="processFiles()" disabled>Process</button>
             <div style="margin-top:0.8rem;">
                 <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-                    <span style="color:#888; font-size:0.82rem;">p53&ndash;MDM2 examples:</span>
+                    <span style="color:#6B6B6B; font-size:0.82rem;">p53&ndash;MDM2 examples:</span>
                     <button onclick="loadExample('colabfold')" class="example-btn">ColabFold (8 MB)</button>
                     <button onclick="loadExample('alphafold3')" class="example-btn">AlphaFold3 (5 MB)</button>
                     <button onclick="loadExample('boltz2')" class="example-btn">Boltz-2 (26 MB)</button>
@@ -177,20 +177,20 @@
                     <button onclick="loadExample('esmfold2')" class="example-btn">ESMFold2 (2 MB)</button>
                 </div>
                 <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-top:0.4rem;">
-                    <span style="color:#888; font-size:0.82rem;">3- to 4-chain complexes (AlphaFold3):</span>
+                    <span style="color:#6B6B6B; font-size:0.82rem;">3- to 4-chain complexes (AlphaFold3):</span>
                     <button onclick="loadExample('prc2')"   class="example-btn"><b>PRC2</b> &mdash; EZH2 / SUZ12 / EED (17 MB)</button>
                     <button onclick="loadExample('bbsome')" class="example-btn"><b>BBSome</b> &mdash; BBIP1 / BBS4 / BBS8 (8 MB)</button>
                     <button onclick="loadExample('mis12c')" class="example-btn"><b>MIS12C</b> &mdash; DSN1 / MIS12 / NSL1 / PMF1 (6 MB)</button>
                 </div>
                 <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-top:0.4rem;">
-                    <span style="color:#888; font-size:0.82rem;">6- to 10-chain complexes (AlphaFold3):</span>
+                    <span style="color:#6B6B6B; font-size:0.82rem;">6- to 10-chain complexes (AlphaFold3):</span>
                     <button onclick="loadExample('orc_cdc6')" class="example-btn"><b>ORC&ndash;Cdc6</b> &mdash; Orc1&ndash;5 / Cdc6 (4.6 MB)</button>
                     <button onclick="loadExample('cct')"      class="example-btn"><b>CCT/TRiC</b> &mdash; CCT1&ndash;8 / mst (5.8 MB)</button>
                     <button onclick="loadExample('eif3')"     class="example-btn"><b>eIF3</b> &mdash; eIF3a/c/d1/e/f1/h/k/l/m + CG12725 (5.9 MB)</button>
                 </div>
-                <div style="font-size:0.72rem; color:#aaa; margin-top:0.3rem;">AlphaFold3 predicted via <a href="https://alphafoldserver.com" target="_blank" style="color:#aaa;">AlphaFold Server</a>. ColabFold, Boltz-2, Chai-1, OpenFold3, and Protenix-v2 predicted via <a href="https://www.tamarind.bio" target="_blank" style="color:#aaa;">Tamarind Bio</a>. ESMFold2 predicted via <a href="https://biohub.ai" target="_blank" style="color:#aaa;">biohub API</a>. ORC&ndash;Cdc6, CCT/TRiC, and eIF3 are higher-order complexes from the <a href="https://flyark.github.io/FlyPredictome-network/" target="_blank" style="color:#aaa;">FlyPredictome interactome network</a>, shipped as lightweight bundles.</div>
+                <div style="font-size:0.72rem; color:#707070; margin-top:0.3rem;">AlphaFold3 predicted via <a href="https://alphafoldserver.com" target="_blank" style="color:#707070;">AlphaFold Server</a>. ColabFold, Boltz-2, Chai-1, OpenFold3, and Protenix-v2 predicted via <a href="https://www.tamarind.bio" target="_blank" style="color:#707070;">Tamarind Bio</a>. ESMFold2 predicted via <a href="https://biohub.ai" target="_blank" style="color:#707070;">biohub API</a>. ORC&ndash;Cdc6, CCT/TRiC, and eIF3 are higher-order complexes from the <a href="https://flyark.github.io/FlyPredictome-network/" target="_blank" style="color:#707070;">FlyPredictome interactome network</a>, shipped as lightweight bundles.</div>
                 <div style="margin-top:0.6rem; padding:0.5rem 0.8rem; background:#eaf2f8; border-radius:6px; font-size:0.8rem; color:#555;">
-                    For batch analysis, use <code style="background:#d6e9f8; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis.py</code> (PPI scoring) and <code style="background:#d6e9f8; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis_to_cxc.py</code> (ChimeraX script generation) from <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a>.
+                    For batch analysis, use <code style="background:#d6e9f8; color:#33414E; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis.py</code> (PPI scoring) and <code style="background:#d6e9f8; color:#33414E; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis_to_cxc.py</code> (ChimeraX script generation) from <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a>.
                 </div>
             </div>
         </div>
@@ -211,24 +211,24 @@
                 <span id="bundle-btn-wrap" style="display:none; align-items:center; gap:0.55rem; font-size:0.8rem; color:#555;" title="Shrink this prediction to a small LIVIA lightweight bundle (scores + structures + PAE images, no numeric PAE)">
                     <button id="bundle-btn" onclick="downloadLightweightBundle()">&#8595; Lightweight bundle</button>
                     <span style="display:inline-flex; align-items:center; gap:4px;">PAE color scale
-                        <select id="bundle-cmap" onchange="document.getElementById('bundle-cmap-custom').style.display=this.value==='custom'?'inline-flex':'none'" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;"><option value="bwr" selected>bwr</option><option value="green">green</option><option value="custom">custom</option></select>
+                        <select id="bundle-cmap" aria-label="Bundle PAE color scale" onchange="document.getElementById('bundle-cmap-custom').style.display=this.value==='custom'?'inline-flex':'none'" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;"><option value="bwr" selected>bwr</option><option value="green">green</option><option value="custom">custom</option></select>
                         <span id="bundle-cmap-custom" style="display:none; align-items:center; gap:3px;" title="Custom PAE gradient: low error (confident) &rarr; high error (uncertain)">
                             <select id="bundle-cmap-stops" onchange="const three=this.value==='3', m=three?'inline-block':'none'; document.getElementById('bundle-cmap-mid').style.display=m; document.getElementById('bundle-cmap-arrow2').style.display=m; const hi=document.getElementById('bundle-cmap-hi'); if(three && hi.value.toLowerCase()==='#ffffff') hi.value='#b2182b';" title="2-stop (low&rarr;high) or 3-stop (low&rarr;mid&rarr;high) gradient" style="font-size:0.78rem; padding:1px 2px; border:1px solid #ccd; border-radius:4px;"><option value="2" selected>2</option><option value="3">3</option></select>
                             <input type="color" id="bundle-cmap-lo" value="#00897B" title="low PAE (confident)" style="width:24px; height:18px; padding:0; border:1px solid #ccd; border-radius:3px; cursor:pointer;">
-                            <span style="color:#aaa;">&rarr;</span>
+                            <span style="color:#707070;">&rarr;</span>
                             <input type="color" id="bundle-cmap-mid" value="#ffffff" title="mid PAE" style="display:none; width:24px; height:18px; padding:0; border:1px solid #ccd; border-radius:3px; cursor:pointer;">
-                            <span id="bundle-cmap-arrow2" style="display:none; color:#aaa;">&rarr;</span>
+                            <span id="bundle-cmap-arrow2" style="display:none; color:#707070;">&rarr;</span>
                             <input type="color" id="bundle-cmap-hi" value="#ffffff" title="high PAE (uncertain)" style="width:24px; height:18px; padding:0; border:1px solid #ccd; border-radius:3px; cursor:pointer;">
                             <input type="text" id="bundle-cmap-hexes" placeholder="or paste hex: #00897B, #fff, #B2182B" oninput="applyBundleHexes(this.value)" title="Paste 2 or 3 hex colors (comma/space separated): low&rarr;high or low&rarr;mid&rarr;high. Updates the swatches." style="width:210px; font-size:0.72rem; padding:1px 4px; border:1px solid #ccd; border-radius:4px;">
                         </span>
                     </span>
                     <span style="display:inline-flex; align-items:center; gap:4px;" title="PAE image resolution in the bundle (pixels per map). Higher = sharper figure, larger file.">PAE size
-                        <select id="bundle-pae-px" onchange="document.getElementById('bundle-pae-px-custom').style.display=this.value==='custom'?'inline-block':'none'" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;"><option value="256">256 px</option><option value="384" selected>384 px</option><option value="512">512 px</option><option value="1024">1024 px</option><option value="2048">2048 px</option><option value="4096">4096 px</option><option value="custom">custom&hellip;</option></select>
+                        <select id="bundle-pae-px" aria-label="Bundle PAE image size" onchange="document.getElementById('bundle-pae-px-custom').style.display=this.value==='custom'?'inline-block':'none'" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;"><option value="256">256 px</option><option value="384" selected>384 px</option><option value="512">512 px</option><option value="1024">1024 px</option><option value="2048">2048 px</option><option value="4096">4096 px</option><option value="custom">custom&hellip;</option></select>
                         <input type="number" id="bundle-pae-px-custom" min="128" max="8192" step="64" value="1500" title="Custom PAE size in pixels (128&ndash;8192)" style="display:none; width:64px; font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;">
                     </span>
                     <label style="display:inline-flex; align-items:center; gap:4px; margin:0; font-size:0.8rem; font-weight:400; color:#555; cursor:pointer;" title="Draw a PAE color-scale bar (0&ndash;30) with a &quot;PAE&quot; label on the right of each PAE image"><input type="checkbox" id="bundle-colorbar" checked style="margin:0;"> PAE color bar</label>
                     <span style="display:inline-flex; align-items:center; gap:4px;" title="Scale the chain/tick/PAE label text on the PAE images">font
-                        <select id="bundle-font-scale" onchange="document.getElementById('bundle-font-scale-custom').style.display=this.value==='custom'?'inline-block':'none'" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;"><option value="0.8">0.8&times;</option><option value="1" selected>1&times;</option><option value="1.25">1.25&times;</option><option value="1.5">1.5&times;</option><option value="2">2&times;</option><option value="custom">custom&hellip;</option></select>
+                        <select id="bundle-font-scale" aria-label="Bundle font scale" onchange="document.getElementById('bundle-font-scale-custom').style.display=this.value==='custom'?'inline-block':'none'" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;"><option value="0.8">0.8&times;</option><option value="1" selected>1&times;</option><option value="1.25">1.25&times;</option><option value="1.5">1.5&times;</option><option value="2">2&times;</option><option value="custom">custom&hellip;</option></select>
                         <input type="number" id="bundle-font-scale-custom" min="0.3" max="4" step="0.05" value="1" title="Custom font scale (0.3&ndash;4&times;)" style="display:none; width:54px; font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;">
                     </span>
                 </span>
@@ -238,26 +238,26 @@
             <input type="hidden" id="seed-select" value="0">
             <label style="font-size:0.78rem; color:#666; display:inline-flex; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem;"><input type="checkbox" id="toggle-lir-cols" onchange="document.getElementById('pairs-table').classList.toggle('show-lir-cols', this.checked)"> Show iLIA/LIR/cLIR columns</label>
             <label id="toggle-neg-pairs-label" style="display:none; font-size:0.78rem; color:#666; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem 1rem;" title="A pair is negative when it misses both 10% FPR cutoffs: best-model iLIS below 0.223 and average-of-models iLIS below 0.072"><input type="checkbox" id="toggle-neg-pairs" onchange="setNegPairsShown(this.checked)"> Show <span id="neg-pairs-count"></span> negative pairs (best iLIS &lt; 0.223 and average iLIS &lt; 0.072)</label>
-            <div style="overflow-x:auto;">
+            <div style="overflow-x:auto;" tabindex="0" role="region" aria-label="Scores of every model">
             <table class="data-table" id="pairs-table">
                 <thead><tr><th>Rank/Model</th><th>Pair</th><th>iLIS</th><th>iLISA</th><th>ipSAE</th><th>actifpTM</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th title="Bryant et al. 2022, pure geometric interface, no PAE">pDockQ</th><th title="pDockQ fed this file's own PAE+contact-gated cLIR interface">LIpDockQ</th><th title="Zhu et al. 2023, CA-based interface; mean of the two per-chain directions">pDockQ2</th><th title="pDockQ2's PAE-decay applied to this file's own cLIR interface; mean of the two per-chain directions">LIpDockQ2</th><th class="col-extra">iLIA</th><th class="col-extra">LIR (i/j)</th><th class="col-extra">cLIR (i/j)</th></tr></thead>
                 <tbody id="pairs-tbody"></tbody>
             </table>
             </div>
-            <div style="margin-top:0.6rem; font-size:0.75rem; color:#999; line-height:1.8;">
+            <div style="margin-top:0.6rem; font-size:0.75rem; color:#707070; line-height:1.8;">
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
                     <strong style="min-width:90px;">iLIS:</strong>
                     <span><span style="color:#6B21A8; font-weight:700;">&ge;0.551</span> (1% FPR)</span>
-                    <span><span style="color:#0e8a6e; font-weight:700;">&ge;0.339</span> (5% FPR)</span>
-                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.223</span> (10% FPR)</span>
-                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.223</span> (below threshold)</span>
+                    <span><span style="color:#0B7A61; font-weight:700;">&ge;0.339</span> (5% FPR)</span>
+                    <span><span style="color:#8F6400; font-weight:700;">&ge;0.223</span> (10% FPR)</span>
+                    <span><span style="color:#667080; font-weight:700;">&lt;0.223</span> (below threshold)</span>
                 </div>
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
                     <strong style="min-width:90px;">iLIS (average):</strong>
                     <span><span style="color:#6B21A8; font-weight:700;">&ge;0.268</span> (1% FPR)</span>
-                    <span><span style="color:#0e8a6e; font-weight:700;">&ge;0.120</span> (5% FPR)</span>
-                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.072</span> (10% FPR)</span>
-                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.072</span> (below threshold)</span>
+                    <span><span style="color:#0B7A61; font-weight:700;">&ge;0.120</span> (5% FPR)</span>
+                    <span><span style="color:#8F6400; font-weight:700;">&ge;0.072</span> (10% FPR)</span>
+                    <span><span style="color:#667080; font-weight:700;">&lt;0.072</span> (below threshold)</span>
                 </div>
                 <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details. Different platforms may require different thresholds.</div>
             </div>
@@ -266,17 +266,17 @@
         <!-- Chain identity (UniProt via sequence) -->
         <div class="card result-card" id="chain-identity-card" style="display:none;">
             <h2 data-nav="Chains">Chain identity</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 Looks up each chain in UniProt by sequence and lists any domains found.
             </div>
             <button class="btn" id="identify-btn" onclick="identifyChains()">Identify chains via UniProt</button>
-            <span id="mist-check-status" style="margin-left:0.6rem; font-size:0.82rem; color:#888;"></span>
+            <span id="mist-check-status" style="margin-left:0.6rem; font-size:0.82rem; color:#6B6B6B;"></span>
             <div id="chain-identity-out" style="margin-top:0.6rem; overflow-x:auto;"></div>
         </div>
 
         <!-- Reported interactions (MIST) — is this predicted pair already experimentally reported? -->
         <div class="card result-card" id="mist-card" style="display:none;">
-            <h2 data-nav="Reported">Reported Interactions <span style="font-weight:400; font-size:0.8rem; color:#888;">(<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>, <a href="https://thebiogrid.org/" target="_blank" style="color:#2471A3;">BioGRID</a>)</span></h2>
+            <h2 data-nav="Reported">Reported Interactions <span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>, <a href="https://thebiogrid.org/" target="_blank" style="color:#2471A3;">BioGRID</a>)</span></h2>
             <div id="mist-content"></div>
             <div id="mist-link" style="margin-top:0.5rem; font-size:0.82rem;"></div>
         </div>
@@ -284,9 +284,9 @@
         <!-- Score Matrix (iLIS / iLIA) -->
         <div class="card result-card" id="score-matrix-card" style="display:none;">
             <h2 data-nav="Score matrix">Score Matrix</h2>
-            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                <span>Lower-left <select id="mtx-lower" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS" selected>iLIS</option><option value="iLIA">iLIA</option><option value="iLISA">iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option><option value="pDockQ">pDockQ</option><option value="LIpDockQ">LIpDockQ</option><option value="pDockQ2">pDockQ2</option><option value="LIpDockQ2">LIpDockQ2</option></select> <select id="mtx-lower-cmap" onchange="drawAllScoreMatrices()" title="Color scale of the lower-left triangle" style="font-size:0.85rem; padding:1px 3px"><option value="Oranges" selected>Oranges</option><option value="Greens">Greens</option><option value="Blues">Blues</option><option value="Purples">Purples</option><option value="Reds">Reds</option><option value="Grays">Grays</option><option value="Viridis">Viridis</option><option value="Magma">Magma</option><option value="Cividis">Cividis</option></select> &middot; Upper-right <select id="mtx-upper" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS">iLIS</option><option value="iLIA">iLIA</option><option value="iLISA" selected>iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option><option value="pDockQ">pDockQ</option><option value="LIpDockQ">LIpDockQ</option><option value="pDockQ2">pDockQ2</option><option value="LIpDockQ2">LIpDockQ2</option></select> <select id="mtx-upper-cmap" onchange="drawAllScoreMatrices()" title="Color scale of the upper-right triangle" style="font-size:0.85rem; padding:1px 3px"><option value="Oranges">Oranges</option><option value="Greens" selected>Greens</option><option value="Blues">Blues</option><option value="Purples">Purples</option><option value="Reds">Reds</option><option value="Grays">Grays</option><option value="Viridis">Viridis</option><option value="Magma">Magma</option><option value="Cividis">Cividis</option></select> &middot; Diagonal: self.</span>
-                <span style="margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:0.72rem; color:#888;">figure &middot; W <input id="mtx-exp-w" type="text" list="exp-dim-list" placeholder="auto" style="width:58px; font-size:0.72rem; padding:0 2px"> H <input id="mtx-exp-h" type="text" list="exp-dim-list" placeholder="auto" style="width:58px; font-size:0.72rem; padding:0 2px"> font &times; <input id="mtx-exp-font" type="text" list="exp-font-list" value="1" style="width:52px; font-size:0.72rem; padding:0 2px"></span>
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
+                <span>Lower-left <select id="mtx-lower" aria-label="Score matrix, lower-left metric" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS" selected>iLIS</option><option value="iLIA">iLIA</option><option value="iLISA">iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option><option value="pDockQ">pDockQ</option><option value="LIpDockQ">LIpDockQ</option><option value="pDockQ2">pDockQ2</option><option value="LIpDockQ2">LIpDockQ2</option></select> <select id="mtx-lower-cmap" aria-label="Score matrix, lower-left color scale" onchange="drawAllScoreMatrices()" title="Color scale of the lower-left triangle" style="font-size:0.85rem; padding:1px 3px"><option value="Oranges" selected>Oranges</option><option value="Greens">Greens</option><option value="Blues">Blues</option><option value="Purples">Purples</option><option value="Reds">Reds</option><option value="Grays">Grays</option><option value="Viridis">Viridis</option><option value="Magma">Magma</option><option value="Cividis">Cividis</option></select> &middot; Upper-right <select id="mtx-upper" aria-label="Score matrix, upper-right metric" onchange="drawAllScoreMatrices()" style="font-size:0.85rem; padding:1px 3px"><option value="iLIS">iLIS</option><option value="iLIA">iLIA</option><option value="iLISA" selected>iLISA</option><option value="ipTM">ipTM</option><option value="ipSAE">ipSAE</option><option value="actifpTM">actifpTM</option><option value="LIS">LIS</option><option value="cLIS">cLIS</option><option value="LIR">LIR</option><option value="cLIR">cLIR</option><option value="pDockQ">pDockQ</option><option value="LIpDockQ">LIpDockQ</option><option value="pDockQ2">pDockQ2</option><option value="LIpDockQ2">LIpDockQ2</option></select> <select id="mtx-upper-cmap" aria-label="Score matrix, upper-right color scale" onchange="drawAllScoreMatrices()" title="Color scale of the upper-right triangle" style="font-size:0.85rem; padding:1px 3px"><option value="Oranges">Oranges</option><option value="Greens" selected>Greens</option><option value="Blues">Blues</option><option value="Purples">Purples</option><option value="Reds">Reds</option><option value="Grays">Grays</option><option value="Viridis">Viridis</option><option value="Magma">Magma</option><option value="Cividis">Cividis</option></select> &middot; Diagonal: self.</span>
+                <span style="margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:0.72rem; color:#6B6B6B;">figure &middot; W <input id="mtx-exp-w" type="text" list="exp-dim-list" placeholder="auto" style="width:58px; font-size:0.72rem; padding:0 2px"> H <input id="mtx-exp-h" type="text" list="exp-dim-list" placeholder="auto" style="width:58px; font-size:0.72rem; padding:0 2px"> font &times; <input id="mtx-exp-font" aria-label="Score matrix export font scale" type="text" list="exp-font-list" value="1" style="width:52px; font-size:0.72rem; padding:0 2px"></span>
             </div>
             <div class="map-row" id="score-matrix-row"></div>
         </div>
@@ -299,45 +299,45 @@
                  columns across every row (a per-row flexbox can't do this). Sub-labels are right-aligned so
                  they hug their control; empty cells pad the short rows. -->
             <div style="display:grid; grid-template-columns:max-content repeat(4, max-content max-content); gap:0.45rem 0.4rem; align-items:baseline; font-size:0.8rem; color:#555; margin-bottom:0.7rem;">
-                <span style="font-weight:600; color:#888;">Names</span>
+                <span style="font-weight:600; color:#6B6B6B;">Names</span>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Axis labels: resolved gene name or chain ID (A/B). Custom labels below override either.">show</span>
-                <select id="map-label-mode" onchange="uniMapDetailedLabels=(this.value==='gene'); renderCustomLabelInputs(); redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="gene">gene name</option><option value="chain">chain ID</option></select>
+                <select id="map-label-mode" aria-label="Map labels show" onchange="uniMapDetailedLabels=(this.value==='gene'); renderCustomLabelInputs(); redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="gene">gene name</option><option value="chain">chain ID</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Which edges carry the chain/gene name — for many-chain complexes, drop one axis to avoid overlap">on</span>
-                <select id="map-label-axis" onchange="uniLabelAxis=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="both">top + left</option><option value="y">left only</option><option value="x">top only</option><option value="none">none</option></select>
+                <select id="map-label-axis" aria-label="Map labels position" onchange="uniLabelAxis=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="both">top + left</option><option value="y">left only</option><option value="x">top only</option><option value="none">none</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Direction of the left-edge (row) names — horizontal, or rotated vertical to save width">left</span>
-                <select id="map-label-diry" onchange="uniLabelDirY=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="vertical">vertical</option><option value="horizontal">horizontal</option></select>
+                <select id="map-label-diry" aria-label="Left labels direction" onchange="uniLabelDirY=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="vertical">vertical</option><option value="horizontal">horizontal</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Direction of the top-edge (column) names — horizontal, or rotated vertical to save height">top</span>
-                <select id="map-label-dirx" onchange="uniLabelDirX=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="horizontal">horizontal</option><option value="vertical">vertical</option></select>
+                <select id="map-label-dirx" aria-label="Top labels direction" onchange="uniLabelDirX=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="horizontal">horizontal</option><option value="vertical">vertical</option></select>
 
-                <span style="font-weight:600; color:#888;">Style</span>
+                <span style="font-weight:600; color:#6B6B6B;">Style</span>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Name style: a filled chip in the chain color with contrasting text, or plain colored text">chip</span>
-                <select id="map-label-style" onchange="uniLabelStyle=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="filled">filled chip</option><option value="text">text</option></select>
+                <select id="map-label-style" aria-label="Map label style" onchange="uniLabelStyle=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="filled">filled chip</option><option value="text">text</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Text color (used by the text style): each chain's color, or plain black">color</span>
-                <select id="map-label-color" onchange="setLabelBlack(this.value==='black')" style="font-size:0.8rem; padding:1px 2px;"><option value="chain">chain</option><option value="black">black</option></select>
+                <select id="map-label-color" aria-label="Map label color" onchange="setLabelBlack(this.value==='black')" style="font-size:0.8rem; padding:1px 2px;"><option value="chain">chain</option><option value="black">black</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Chain/gene name font size (1 = default; type any value, e.g. 1.2)">font</span>
-                <input type="number" id="map-label-scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniLabelScale=parseFloat(this.value)||1; redrawMapLabels();">
+                <input type="number" id="map-label-scale" aria-label="Map label font scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniLabelScale=parseFloat(this.value)||1; redrawMapLabels();">
                 <span></span><span></span>
 
-                <span style="font-weight:600; color:#888;">Length</span>
+                <span style="font-weight:600; color:#6B6B6B;">Length</span>
                 <label for="map-label-size" style="justify-self:start; margin-left:0.6rem; cursor:pointer; font-weight:400; color:#555;" title="Show each chain's length (residue count) along the bottom edge of the PAE/LIS/cLIS maps">show</label>
                 <input type="checkbox" id="map-label-size" checked onchange="uniShowMapSize=this.checked; redrawMapLabels();" style="justify-self:start;">
                 <span style="justify-self:start; margin-left:0.6rem;" title="Length format: N = residue count (e.g. 746); 1–N = full range (e.g. 1–746)">format</span>
-                <select id="map-size-format" onchange="uniSizeFormat=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="count">N</option><option value="range">1–N</option></select>
+                <select id="map-size-format" aria-label="Chain length format" onchange="uniSizeFormat=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="count">N</option><option value="range">1–N</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Length-number color: plain black, or each chain's color">color</span>
-                <select id="map-size-color" onchange="uniSizeColorMode=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="black">black</option><option value="chain">chain</option></select>
+                <select id="map-size-color" aria-label="Chain length color" onchange="uniSizeColorMode=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="black">black</option><option value="chain">chain</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Length-number font size (1 = default; type any value)">font</span>
-                <input type="number" id="map-size-scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniSizeScale=parseFloat(this.value)||1; redrawMapLabels();">
+                <input type="number" id="map-size-scale" aria-label="Chain length font scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniSizeScale=parseFloat(this.value)||1; redrawMapLabels();">
 
-                <span style="font-weight:600; color:#888;">Domains</span>
+                <span style="font-weight:600; color:#6B6B6B;">Domains</span>
                 <label for="map-label-domains" style="justify-self:start; margin-left:0.6rem; cursor:pointer; font-weight:400; color:#555;" title="UniProt/Pfam domain track along the top and left edges of the PAE/LIS/cLIS maps (same source as the Linear/Circular Contact Map domain tracks)">show</label>
                 <input type="checkbox" id="map-label-domains" checked onchange="uniShowMapDom=this.checked; redrawMapLabels();" style="justify-self:start;">
                 <span style="justify-self:start; margin-left:0.6rem;" title="Which sits closer to the plot: the chain/gene name, or the domain track">order</span>
-                <select id="map-label-dom-order" onchange="uniMapDomOrder=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="inside" selected>domains inside</option><option value="outside">name inside</option></select>
+                <select id="map-label-dom-order" aria-label="Domain label order" onchange="uniMapDomOrder=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="inside" selected>domains inside</option><option value="outside">name inside</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Domain box colors: cycle a fixed palette by domain index, or match each domain to its own chain's color">color</span>
-                <select id="map-label-dom-color" onchange="uniMapDomColorMode=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="chain" selected>by subunit</option><option value="domain">by domain</option></select>
+                <select id="map-label-dom-color" aria-label="Domain color" onchange="uniMapDomColorMode=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="chain" selected>by subunit</option><option value="domain">by domain</option></select>
                 <span></span><span></span>
 
-                <span style="font-weight:600; color:#888;">Custom</span>
+                <span style="font-weight:600; color:#6B6B6B;">Custom</span>
                 <!-- Custom-label editor: spans from the sub-label column (col 2) so the hint/textarea start
                      where "show"/"chip" start — same left edge as the other rows' first control. -->
                 <div id="custom-labels-cell" style="grid-column:2 / -1; margin-left:0.6rem; display:flex; flex-direction:column; gap:0.3rem; align-items:stretch;"></div>
@@ -357,7 +357,7 @@
 
         <!-- LIS Maps -->
         <div class="card result-card" id="lis-maps-card">
-            <h2 data-nav="LIS maps" style="margin:0 0 0.5rem;">Local Interaction Score (LIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#888;">(PAE &le; 12 &Aring;)</span></h2>
+            <h2 data-nav="LIS maps" style="margin:0 0 0.5rem;">Local Interaction Score (LIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(PAE &le; 12 &Aring;)</span></h2>
             <div id="lis-scale-slot"></div>
             <div class="map-row" id="lis-row"></div>
             <div class="colorbar-row">
@@ -368,7 +368,7 @@
 
         <!-- cLIS Maps -->
         <div class="card result-card" id="clis-maps-card">
-            <h2 data-nav="cLIS maps" style="margin:0 0 0.5rem;">contact Local Interaction Score (cLIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#888;">(PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</span></h2>
+            <h2 data-nav="cLIS maps" style="margin:0 0 0.5rem;">contact Local Interaction Score (cLIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</span></h2>
             <div id="clis-scale-slot"></div>
             <div class="map-row" id="clis-row"></div>
             <div class="colorbar-row">
@@ -380,7 +380,7 @@
         <!-- PAE Images (precomputed / lightweight bundles — static plots in place of the numeric maps) -->
         <div class="card result-card" id="pae-image-card" style="display:none;">
             <h2 data-nav="PAE">Predicted Aligned Error (PAE)</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">Static PAE plot(s) supplied with this precomputed bundle (numeric PAE was dropped to reduce size; scores were precomputed by lis.py).</div>
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">Static PAE plot(s) supplied with this precomputed bundle (numeric PAE was dropped to reduce size; scores were precomputed by lis.py).</div>
             <div class="map-row" id="pae-image-row"></div>
         </div>
 
@@ -390,7 +390,7 @@
                 <h2 data-nav="Sequence" style="margin-bottom:0;">Sequence Viewer</h2>
                 <div class="model-selector" id="seq-model-selector"></div>
             </div>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 Light background = LIR (PAE &le; 12 &Aring;). Dark background with white text = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each chain uses its own color.
             </div>
             <div id="seq-viewer" style="font-family:'SF Mono','Fira Code',monospace; overflow-x:auto;"></div>
@@ -402,7 +402,7 @@
                 <h2 data-nav="Linear map" style="margin-bottom:0;">Linear Contact Map</h2>
                 <div class="model-selector" id="contact-model-selector"></div>
             </div>
-            <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B.</span>
                 <div style="flex-basis:100%; height:0;"></div><!-- controls on their own line, below the description -->
                 <span style="font-size:0.82rem; color:#555; white-space:nowrap; display:inline-flex; align-items:center;">domains:</span>
@@ -434,7 +434,7 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;" title="TED domain ring on each arc"><input type="checkbox" id="chord-show-ted" onchange="uniShowChordTed=this.checked; if(typeof buildChordDiagram==='function') buildChordDiagram();"> TED</label>
                 <span style="display:inline-flex; align-items:center; gap:5px; margin-bottom:0.4rem; font-size:0.8rem; color:#555;" title="Direction of the arc labels: along the arc, or pointing outward (outward avoids overlap when there are many subunits)"><span style="font-weight:600;">label direction</span><span style="display:inline-flex; align-items:center; border:1px solid #ccd; border-radius:5px; overflow:hidden; font-size:0.78rem;"><button type="button" onclick="uniShowChordRadial=false; LiviaMaps.segPick(this); if(typeof buildChordDiagram==='function') buildChordDiagram();" style="border:0; padding:2px 8px; cursor:pointer; background:#2471A3; color:#fff; font:inherit;">along arc</button><button type="button" onclick="uniShowChordRadial=true; LiviaMaps.segPick(this); if(typeof buildChordDiagram==='function') buildChordDiagram();" style="border:0; padding:2px 8px; cursor:pointer; background:transparent; color:#555; font:inherit;">outward</button></span></span>
             </div>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 Arcs represent chains. Lines connect cLIR residue pairs in physical contact across all chain pairs.
             </div>
             <div id="chord-plddt-legend" style="display:none; align-items:center; gap:0.6rem; flex-wrap:wrap; font-size:0.72rem; color:#666; margin-bottom:0.5rem;"></div>
@@ -442,11 +442,11 @@
             <div style="display:flex; justify-content:center; gap:2rem; flex-wrap:wrap;">
                 <div style="text-align:center;">
                     <canvas id="chord-canvas"></canvas>
-                    <div style="font-size:0.75rem; color:#999; margin-top:0.25rem;">Selected Model</div>
+                    <div style="font-size:0.75rem; color:#707070; margin-top:0.25rem;">Selected Model</div>
                 </div>
                 <div id="chord-all-wrap" style="text-align:center;">
                     <canvas id="chord-canvas-all"></canvas>
-                    <div style="font-size:0.75rem; color:#999; margin-top:0.25rem;">All Models Combined</div>
+                    <div style="font-size:0.75rem; color:#707070; margin-top:0.25rem;">All Models Combined</div>
                 </div>
             </div>
         </div>
@@ -457,15 +457,15 @@
                 <h2 data-nav="3D structure" style="margin-bottom:0;">3D Structure Viewer</h2>
                 <div class="model-selector" id="viewer3d-model-selector"></div>
             </div>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                Interactive 3D preview powered by <a href="https://molstar.org" target="_blank" style="color:#2471A3;">Mol*</a> (<a href="https://doi.org/10.1093/nar/gkab314" target="_blank" style="color:#2471A3;">Sehnal et al. 2021</a>). LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom. <span style="color:#999;">If the viewer appears empty, refresh the page.</span>
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
+                Interactive 3D preview powered by <a href="https://molstar.org" target="_blank" style="color:#2471A3;">Mol*</a> (<a href="https://doi.org/10.1093/nar/gkab314" target="_blank" style="color:#2471A3;">Sehnal et al. 2021</a>). LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom. <span style="color:#707070;">If the viewer appears empty, refresh the page.</span>
             </div>
             <div id="chain-toggle-bar" style="display:none; align-items:center; gap:0.4rem; margin-bottom:0.5rem; flex-wrap:wrap; font-size:0.82rem; color:#555;">
                 <span>Chains shown in 3D &amp; chord:</span>
                 <div id="chain-toggle-buttons" style="display:flex; gap:0.25rem; flex-wrap:wrap;"></div>
                 <button id="chain-toggle-reset" onclick="resetChainVisibility()" style="padding:0.2rem 0.55rem; border:1px solid #ddd; border-radius:4px; background:#f8f9fa; cursor:pointer; font-size:0.75rem; color:#555;">Reset</button>
             </div>
-            <iframe id="viewer3d-frame" style="width:100%; height:660px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin allow-downloads" allowfullscreen></iframe>
+            <iframe id="viewer3d-frame" title="3D structure viewer" style="width:100%; height:660px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin allow-downloads" allowfullscreen></iframe>
             <div style="text-align:right; margin-top:0.3rem;">
                 <button onclick="document.getElementById('viewer3d-frame').requestFullscreen()" style="padding:0.25rem 0.6rem; border:1px solid #ddd; border-radius:4px; background:#f8f9fa; cursor:pointer; font-size:0.78rem; color:#555;">Fullscreen</button>
             </div>
@@ -479,31 +479,31 @@
                 <label>Local Interaction Residue (LIR) Display</label>
                 <div style="display:flex; align-items:baseline; gap:0.6rem; margin-bottom:0.5rem; font-size:0.85rem; color:#555; flex-wrap:wrap;">
                     <span>Fill gaps &le;</span>
-                    <input type="number" id="gap-fill-input" value="10" min="0" max="200" style="width:55px; padding:0.3rem 0.4rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.85rem; text-align:center;">
+                    <input type="number" id="gap-fill-input" aria-label="Fill gaps up to this many residues" value="10" min="0" max="200" style="width:55px; padding:0.3rem 0.4rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.85rem; text-align:center;">
                     <span>residues</span>
                     <span style="color:#ccc;">|</span>
                     <span>Min segment &ge;</span>
-                    <input type="number" id="min-segment-input" value="3" min="1" max="50" style="width:55px; padding:0.3rem 0.4rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.85rem; text-align:center;">
+                    <input type="number" id="min-segment-input" aria-label="Minimum segment length" value="3" min="1" max="50" style="width:55px; padding:0.3rem 0.4rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.85rem; text-align:center;">
                     <span>residues</span>
                     <button class="btn btn-primary" style="font-size:0.82rem; padding:0.25rem 0.8rem; height:32px;" onclick="updateGapFill()">Apply</button>
                 </div>
-                <div style="font-size:0.78rem; color:#999; margin-bottom:0.5rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
+                <div style="font-size:0.78rem; color:#707070; margin-bottom:0.5rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
                 <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:0.3rem;">
-                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure <span style="font-size:0.78rem; color:#999;">(display all residues instead of LIR only)</span>
+                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure <span style="font-size:0.78rem; color:#707070;">(display all residues instead of LIR only)</span>
                 </label>
                 <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:1rem; padding-left:1.2rem;">
-                    <input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"> Gray non-LIR <span style="font-size:0.78rem; color:#999;">(color non-interacting residues gray)</span>
+                    <input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"> Gray non-LIR <span style="font-size:0.78rem; color:#707070;">(color non-interacting residues gray)</span>
                 </label>
 
                 <label>Cutoffs</label>
                 <div style="display:flex; gap:1.5rem; margin-bottom:1rem; flex-wrap:wrap;">
                     <div>
                         <span style="font-size:0.85rem; color:#555;">PAE cutoff (&Aring;):</span>
-                        <input type="number" id="pae-cutoff" value="12" min="1" max="30" step="1" style="width:60px; padding:0.3rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.9rem;">
+                        <input type="number" id="pae-cutoff" aria-label="PAE cutoff in angstroms" value="12" min="1" max="30" step="1" style="width:60px; padding:0.3rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.9rem;">
                     </div>
                     <div>
                         <span style="font-size:0.85rem; color:#555;">C&beta; cutoff (&Aring;):</span>
-                        <input type="number" id="cb-cutoff" value="8" min="1" max="20" step="1" style="width:60px; padding:0.3rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.9rem;">
+                        <input type="number" id="cb-cutoff" aria-label="C-beta cutoff in angstroms" value="8" min="1" max="20" step="1" style="width:60px; padding:0.3rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.9rem;">
                     </div>
                 </div>
 
@@ -546,22 +546,22 @@
                     <div class="color-group">
                         <h3>Chain A (Protein 1)</h3>
                         <div class="color-pair">
-                            <input type="color" id="color-lir-a" value="#80CBC4">
+                            <input type="color" id="color-lir-a" aria-label="Chain A interface (LIR) color" value="#80CBC4">
                             <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-a">#80CBC4</div></div>
                         </div>
                         <div class="color-pair">
-                            <input type="color" id="color-clir-a" value="#00897B">
+                            <input type="color" id="color-clir-a" aria-label="Chain A contact (cLIR) color" value="#00897B">
                             <div><div class="color-label">cLIR</div><div class="color-hex" id="hex-clir-a">#00897B</div></div>
                         </div>
                     </div>
                     <div class="color-group">
                         <h3>Chain B (Protein 2)</h3>
                         <div class="color-pair">
-                            <input type="color" id="color-lir-b" value="#FFAB91">
+                            <input type="color" id="color-lir-b" aria-label="Chain B interface (LIR) color" value="#FFAB91">
                             <div><div class="color-label">LIR</div><div class="color-hex" id="hex-lir-b">#FFAB91</div></div>
                         </div>
                         <div class="color-pair">
-                            <input type="color" id="color-clir-b" value="#E64A19">
+                            <input type="color" id="color-clir-b" aria-label="Chain B contact (cLIR) color" value="#E64A19">
                             <div><div class="color-label">cLIR</div><div class="color-hex" id="hex-clir-b">#E64A19</div></div>
                         </div>
                     </div>
@@ -580,7 +580,7 @@
                 <button class="input-tab active" data-tab="chimerax" onclick="switchScriptTab('chimerax')">ChimeraX</button>
                 <button class="input-tab" data-tab="pymol" onclick="switchScriptTab('pymol')">PyMOL</button>
             </div>
-            <div class="script-preview" id="script-preview"></div>
+            <div class="script-preview" id="script-preview" tabindex="0" aria-label="Script preview"></div>
             <div class="download-row">
                 <a class="btn-download cxc" id="dl-script-full" download>&#8595; .cxc &middot; full structure</a>
                 <a class="btn-download cif" id="dl-structure" download>&#8595; Full structure</a>
@@ -588,7 +588,7 @@
                 <a class="btn-download cif" id="dl-structure-conf" download style="background:white; color:#8e44ad; border-color:#8e44ad;">&#8595; Partial structure</a>
                 <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy script</button>
             </div>
-            <div style="font-size:0.72rem; color:#999; margin-top:0.5rem; line-height:1.45;">
+            <div style="font-size:0.72rem; color:#707070; margin-top:0.5rem; line-height:1.45;">
                 Both scripts show <b>every subunit</b>, each chain's LIR/cLIR colored to match the 3D viewer (LIR light &amp; cLIR dark in <i>Gradient</i> shade; one color per chain in <i>Solid</i>). <b>.cxc &middot; full structure</b> opens <b>Full structure</b> = the whole complex. &nbsp;<b style="color:#8e44ad;">.cxc &middot; partial structure</b> opens <b style="color:#8e44ad;">Partial structure</b> = the same subunit composition, each chain trimmed to the LIR segments shown above (<b>Fill gaps</b> / <b>Min segment</b> honored). Distinct filenames, so nothing overwrites; residue numbers preserved.
             </div>
             <div class="info-box" style="margin-top:1rem;">Download a script and its matching structure file into the same folder, then open the script in ChimeraX or PyMOL.</div>
@@ -600,7 +600,7 @@
                 <h2 data-nav="Per-residue" style="margin-bottom:0;" id="per-residue-title">Per-Residue Intra-chain LIS &amp; pLDDT</h2>
                 <div class="model-selector" id="perresidue-model-selector"></div>
             </div>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;" id="per-residue-desc">
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;" id="per-residue-desc">
                 Per-residue metrics for each chain across all models. Selected model as solid line; other models as light traces; average as dashed line.
             </div>
             <div id="per-residue-charts"></div>
@@ -656,8 +656,8 @@
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIpDockQ</strong></td><td style="padding:0.25rem 0; color:#555;">the pDockQ formula computed only on cLIR pairs (PAE &le; 12&nbsp;&Aring; and C&beta; &le; 8&nbsp;&Aring;), so contacts the PAE does not support no longer count (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon, 2026</a>)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIpDockQ2</strong></td><td style="padding:0.25rem 0; color:#555;">the pDockQ2 formula on cLIR pairs only, so a small confident interface is not diluted by a large, poorly placed contact surface (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon, 2026</a>)</td></tr>
                 </table>
-                <p style="font-size:0.78rem; color:#888; margin-top:0.4rem; line-height:1.4;">Because their constants were fitted to DockQ on the original interfaces, LIpDockQ and LIpDockQ2 rank predictions; they are not DockQ estimates.</p>
-                <p style="font-size:0.78rem; color:#888; margin-top:0.4rem; line-height:1.4;">PAE (Predicted Aligned Error) measures how confidently the model predicts the relative position of two residues &mdash; lower values indicate higher confidence.</p>
+                <p style="font-size:0.78rem; color:#6B6B6B; margin-top:0.4rem; line-height:1.4;">Because their constants were fitted to DockQ on the original interfaces, LIpDockQ and LIpDockQ2 rank predictions; they are not DockQ estimates.</p>
+                <p style="font-size:0.78rem; color:#6B6B6B; margin-top:0.4rem; line-height:1.4;">PAE (Predicted Aligned Error) measures how confidently the model predicts the relative position of two residues &mdash; lower values indicate higher confidence.</p>
             </div>
         </div>
     </div>
@@ -672,10 +672,10 @@
 </div>
 
 <script src="js/livia-core.js?v=20260926b"></script>
-<script src="js/livia-reported.js?v=20260926c"></script>
+<script src="js/livia-reported.js?v=20260927a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20260926a"></script>
-<script src="js/livia-colors.js?v=20260926a"></script>
+<script src="js/livia-viewer.js?v=20260927a"></script>
+<script src="js/livia-colors.js?v=20260927a"></script>
 <script src="js/livia-subnav.js?v=20260926c"></script>
 <script>
 // ── Callbacks for shared modules ──
@@ -1756,7 +1756,7 @@ function applyChainToggleStyle(btn, visible) {
     const baseColor = getChainToggleColor(btn.dataset.chain);
     btn.style.cssText = visible
         ? `padding:0.2rem 0.6rem; border:1px solid ${baseColor}; background:${baseColor}; color:#fff; border-radius:4px; cursor:pointer; font-size:0.78rem; font-weight:600; min-width:1.6rem;`
-        : `padding:0.2rem 0.6rem; border:1px solid #ccc; background:#fff; color:#888; border-radius:4px; cursor:pointer; font-size:0.78rem; min-width:1.6rem; text-decoration:line-through;`;
+        : `padding:0.2rem 0.6rem; border:1px solid #ccc; background:#fff; color:#6B6B6B; border-radius:4px; cursor:pointer; font-size:0.78rem; min-width:1.6rem; text-decoration:line-through;`;
 }
 function toggleChainVisibility(name) {
     if (!uniState.hiddenChains) uniState.hiddenChains = new Set();
@@ -5596,7 +5596,7 @@ function addExportBar(container, name, getCanvas, svgGen){
     ensureExportDatalists();
     const bar = document.createElement('div');
     bar.className = 'export-bar';
-    bar.style.cssText = 'display:flex; flex-wrap:wrap; gap:5px 8px; align-items:center; justify-content:center; margin-top:4px; font-size:0.7rem; color:#888;';
+    bar.style.cssText = 'display:flex; flex-wrap:wrap; gap:5px 8px; align-items:center; justify-content:center; margin-top:4px; font-size:0.7rem; color:#6B6B6B;';
     const mkIn = (w, list, ph, val) => { const i = document.createElement('input'); i.type = 'text'; i.setAttribute('list', list); i.placeholder = ph; if (val) i.value = val; i.style.cssText = `width:${w}px; font-size:0.7rem; padding:1px 3px; color:#555;`; return i; };
     const wIn = mkIn(58, 'exp-dim-list', 'auto', ''), hIn = mkIn(58, 'exp-dim-list', 'auto', ''), fIn = mkIn(52, 'exp-font-list', '1', '1');
     const opts = () => ({ font: parseExpFont(fIn.value), width: parseExpDim(wIn.value), height: parseExpDim(hIn.value) });
@@ -5659,10 +5659,10 @@ async function applyChainIdentity(chainName, query, source, rowEl){   // shared 
     if (typeof renderCustomLabelInputs === 'function') renderCustomLabelInputs();   // refresh Custom editor prefill with resolved names
     if (typeof redrawMapLabels === 'function') redrawMapLabels();   // gene names now resolved → refresh PAE maps AND score matrix
     if (rowEl){ const td = rowEl.querySelectorAll('td');
-        if (td[2]) td[2].innerHTML = '<a href="https://www.uniprot.org/uniprotkb/' + r.accession + '" target="_blank" style="color:#2471A3;">' + r.accession + '</a> <span style="color:#999; font-size:0.8em">(' + source + ')</span>';
+        if (td[2]) td[2].innerHTML = '<a href="https://www.uniprot.org/uniprotkb/' + r.accession + '" target="_blank" style="color:#2471A3;">' + r.accession + '</a> <span style="color:#707070; font-size:0.8em">(' + source + ')</span>';
         if (td[3]) td[3].textContent = r.gene || query;
         if (td[4]) td[4].innerHTML = r.organism ? '<i>' + r.organism + '</i>' : '';
-        if (td[5]) td[5].innerHTML = dom.length ? dom.map(d => d.name + ' (' + d.start + '\u2013' + d.end + ')').join('<br>') : '<span style="color:#aaa;">none</span>';
+        if (td[5]) td[5].innerHTML = dom.length ? dom.map(d => d.name + ' (' + d.start + '\u2013' + d.end + ')').join('<br>') : '<span style="color:#707070;">none</span>';
     }
 }
 // BLAST on request only: the chain's whole sequence goes to EBI (similarity search, about 20 s), then the best hit is
@@ -5697,7 +5697,7 @@ async function identifyChains(){
     const seqOf = (name) => (seqs.get(name) || []).filter(r => r.type === 'protein').map(r => r.aa).join('');
     const uniq = new Map();                                       // dedup identical chains (homo-oligomers resolve once)
     for (const n of names){ const s = seqOf(n); if (s && s.length >= 10 && !uniq.has(s)) uniq.set(s, true); }
-    if (!uniq.size){ out.innerHTML = '<span style="color:#888;">no protein chains to identify</span>'; return; }
+    if (!uniq.size){ out.innerHTML = '<span style="color:#6B6B6B;">no protein chains to identify</span>'; return; }
     // A chain whose bundle carries its UniProt accession (pair_id) resolves BY ACCESSION \u2014 a direct
     // UniProt query (fast, no ~20s BLAST) that also pins the organism, so a mouse protein is never
     // mistaken for its human paralog the way a bare gene symbol would be. Map each unique sequence to
@@ -5733,11 +5733,11 @@ async function identifyChains(){
     let html = '<table style="border-collapse:collapse; font-size:0.85rem;"><thead><tr>' + ['Chain','Len','UniProt','Gene','Organism','Domains'].map(th).join('') + '</tr></thead><tbody>';
     for (const n of names){
         const s = seqOf(n);
-        if (!s){ html += '<tr>' + td('<b>' + n + '</b>') + '<td colspan="5" style="color:#888; padding:3px 0;">non-protein chain</td></tr>'; continue; }
+        if (!s){ html += '<tr>' + td('<b>' + n + '</b>') + '<td colspan="5" style="color:#6B6B6B; padding:3px 0;">non-protein chain</td></tr>'; continue; }
         const e = resolved.get(s), r = e && e.r;
-        const acc = r ? '<a href="https://www.uniprot.org/uniprotkb/' + r.accession + '" target="_blank" style="color:#2471A3;">' + r.accession + '</a>' : '<span style="color:#888;">not found</span> <input class="ovr-in" data-chain="' + n + '" placeholder="gene / accession" style="width:116px; font-size:0.78rem; padding:1px 3px"><button type="button" class="ovr-btn" data-chain="' + n + '" style="font-size:0.78rem; margin-left:2px; cursor:pointer">set</button>'
+        const acc = r ? '<a href="https://www.uniprot.org/uniprotkb/' + r.accession + '" target="_blank" style="color:#2471A3;">' + r.accession + '</a>' : '<span style="color:#6B6B6B;">not found</span> <input class="ovr-in" data-chain="' + n + '" placeholder="gene / accession" style="width:116px; font-size:0.78rem; padding:1px 3px"><button type="button" class="ovr-btn" data-chain="' + n + '" style="font-size:0.78rem; margin-left:2px; cursor:pointer">set</button>'
             + (s.length >= 25 ? '<br><button type="button" class="blast-btn" data-chain="' + n + '" style="font-size:0.78rem; margin-top:3px; cursor:pointer">Identify by BLAST</button> <span style="color:#777; font-size:0.75rem;">(sends this sequence to EBI)</span>' : '');
-        const doms = r ? (e.dom.length ? e.dom.map(d => d.name + ' (' + d.start + '\u2013' + d.end + ')').join('<br>') : '<span style="color:#aaa;">none</span>') : '';
+        const doms = r ? (e.dom.length ? e.dom.map(d => d.name + ' (' + d.start + '\u2013' + d.end + ')').join('<br>') : '<span style="color:#707070;">none</span>') : '';
         html += '<tr>' + td('<b>' + n + '</b>') + td(s.length) + td(acc) + td(r && r.gene ? r.gene : '') + td(r && r.organism ? '<i>' + r.organism + '</i>' : '') + td(doms) + '</tr>';
     }
     out.innerHTML = html + '</tbody></table>';
@@ -6090,10 +6090,10 @@ function renderCustomLabelInputs() {
     const names = uniState.chainNames || [];
     cell.innerHTML = '';
     const hint = document.createElement('span');
-    hint.style.cssText = 'color:#aaa; font-size:0.75rem;';
+    hint.style.cssText = 'color:#707070; font-size:0.75rem;';
     hint.textContent = 'edit any "chain,label" line, then Apply to rename its chip';
     const ta = document.createElement('textarea');
-    ta.id = 'custom-labels-text';
+    ta.id = 'custom-labels-text'; ta.setAttribute('aria-label', 'Custom chain labels');
     ta.rows = Math.min(8, Math.max(3, names.length));
     ta.spellcheck = false;
     // Prefill every chain with its current label (an existing override, else the base gene/chain name),
@@ -8263,7 +8263,7 @@ function buildLinearContactMaps() {
     card.style.display = '';
     holder.innerHTML = '';
     if (!pairs.length) {
-        holder.innerHTML = '<div style="color:#999; font-size:0.85rem; text-align:center; padding:1rem;">Select at least two chains that have a predicted interaction.</div>';
+        holder.innerHTML = '<div style="color:#707070; font-size:0.85rem; text-align:center; padding:1rem;">Select at least two chains that have a predicted interaction.</div>';
         return;
     }
 
@@ -8274,11 +8274,11 @@ function buildLinearContactMaps() {
         title.style.cssText = 'font-weight:600; color:#1a5276; font-size:0.9rem; margin-bottom:0.2rem;';
         title.textContent = `${linearChainLabel(v.ci)} — ${linearChainLabel(v.cj)}`;
         const score = document.createElement('span');    // pair scores, so stacked maps are identifiable without the table
-        score.style.cssText = 'font-weight:400; color:#888; font-size:0.82rem; margin-left:0.5rem;';
+        score.style.cssText = 'font-weight:400; color:#6B6B6B; font-size:0.82rem; margin-left:0.5rem;';
         score.textContent = `iLIS ${(+v.iLIS || 0).toFixed(3)} · ipTM ${(+v.ipTM || 0).toFixed(2)}`;
         title.appendChild(score);
         const canvas = document.createElement('canvas');
-        const count = document.createElement('div'); count.style.cssText = 'font-size:0.8rem; color:#888; text-align:center; margin-top:4px;';
+        const count = document.createElement('div'); count.style.cssText = 'font-size:0.8rem; color:#6B6B6B; text-align:center; margin-top:4px;';
         const legend = document.createElement('div'); legend.style.cssText = 'font-size:0.78rem; color:#555; margin-top:6px; line-height:1.7;';
         const exp = document.createElement('div'); exp.style.cssText = 'text-align:center; margin-top:4px;';
         block.append(title, canvas, count, legend, exp);
@@ -8294,7 +8294,7 @@ function buildLinearContactMaps() {
             () => svgFromFixedCanvas(canvas.id, () => drawContactMapInto(key, canvas, count, legend)));
     }
     if (!holder.children.length) {
-        holder.innerHTML = '<div style="color:#999; font-size:0.85rem; text-align:center; padding:1rem;">No cLIR contacts to show for the selected chains.</div>';
+        holder.innerHTML = '<div style="color:#707070; font-size:0.85rem; text-align:center; padding:1rem;">No cLIR contacts to show for the selected chains.</div>';
     }
 }
 
@@ -8319,7 +8319,8 @@ function renderContactHtmlLegend(roles, DOM_FILL, TED_FILL, legendEl){
         const parts = [];
         if (showDom) role.doms.forEach((d,i) => parts.push(`${sw(DOM_FILL[i % DOM_FILL.length])}${esc(d.name)} (${d.start}–${d.end})`));
         if (showTed) role.ted.forEach((d,i) => parts.push(`${sw(TED_FILL[i % TED_FILL.length])}${esc(d.name)} (${d.start}–${d.end})`));
-        let line = `<b style="color:${role.clirCol}">${esc(chainLabel(role.name))}:</b> ` + (parts.length ? parts.join(' &middot; ') : '<span style="color:#aaa;">no annotated domains</span>');
+        const txt = ({ '#00897b': '#00776B', '#e64a19': '#C13E15' })[String(role.clirCol).toLowerCase()] || role.clirCol;   // the default chain colors as text, at least 4.5:1
+        let line = `<b style="color:${txt}">${esc(chainLabel(role.name))}:</b> ` + (parts.length ? parts.join(' &middot; ') : '<span style="color:#707070;">no annotated domains</span>');
         if (role.info && role.info.isPartial && role.info.startInFull) line += ` <span style="color:#c0392b; font-style:italic;">(partial: aa ${role.info.startInFull}–${role.info.endInFull} of ${role.info.fullLength})</span>`;
         if (role.info && role.info.accession) line += ` <a href="https://www.uniprot.org/uniprotkb/${role.info.accession}" target="_blank" style="color:#2471A3; font-weight:600;">UniProt: ${role.info.accession}</a>`;
         rows.push(`<div>${line}</div>`);

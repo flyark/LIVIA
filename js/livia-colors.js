@@ -344,11 +344,11 @@ function mapScaleControl(kind) {
     const hexHint = 'or paste hex: ' + c.custom.join(', ');   // the box is sized to show it whole
     const pick = (i, title) => '<input type="color" class="map-stop" data-i="' + i + '" title="' + title + '" style="width:24px; height:18px; padding:0; border:1px solid #ccd; border-radius:3px; cursor:pointer;">';
     el.innerHTML = '<span>' + c.label + ' colors</span>'
-        + '<select class="map-scale-sel" title="Color scale for the ' + c.label + ' maps, ' + c.low + ' to ' + c.high + '" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;">'
+        + '<select class="map-scale-sel" aria-label="Color scale for the ' + c.label + ' maps" title="Color scale for the ' + c.label + ' maps, ' + c.low + ' to ' + c.high + '" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;">'
         + c.options.map(([v, l]) => '<option value="' + v + '">' + l + '</option>').join('') + '</select>'
         + '<span class="map-custom" style="display:none; align-items:center; gap:4px;">'
-        + pick(0, c.low) + '<span style="color:#aaa;">&rarr;</span>'
-        + '<span class="map-mid" style="display:none; align-items:center; gap:4px;">' + pick(1, 'middle') + '<span style="color:#aaa;">&rarr;</span></span>'
+        + pick(0, c.low) + '<span style="color:#707070;">&rarr;</span>'
+        + '<span class="map-mid" style="display:none; align-items:center; gap:4px;">' + pick(1, 'middle') + '<span style="color:#707070;">&rarr;</span></span>'
         + pick(2, c.high)
         + '<label style="display:inline-flex; align-items:center; gap:3px; cursor:pointer; margin:0;"><input type="checkbox" class="map-3" style="margin:0;"> 3 colors</label>'
         + '<input type="text" class="map-hex" placeholder="' + hexHint + '" title="2 or 3 hex colors, ' + c.low + ' to ' + c.high + '" style="width:' + Math.round(hexHint.length * 6.2 + 10) + 'px; font-size:0.72rem; padding:1px 4px; border:1px solid #ccd; border-radius:4px;">'

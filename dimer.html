@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <title>LIVIA — AlphaFold DB Dimer Analysis</title>
-    <link rel="stylesheet" href="css/livia.css?v=20260717">
+    <link rel="stylesheet" href="css/livia.css?v=20260927c">
     <style>
         /* ── Page-specific styles for Dimer ── */
         .step-link { color: #2471A3; text-decoration: none; }
@@ -18,14 +18,14 @@
         .status { font-size: 0.85rem; color: #666; min-height: 1.5rem; margin-top: 0.8rem; }
         .status.loading { color: #2471A3; }
         .status.error { color: #c0392b; }
-        .status.success { color: #27ae60; }
+        .status.success { color: #1E7E46; }
 
         /* Page-specific button styles */
         .btn-primary { margin-top: 0.8rem; }
         .btn-secondary { background: white; color: #2471A3; border: 2px solid #2471A3; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
         .btn-secondary:hover { background: #eaf2f8; }
         .btn-row { display: flex; gap: 0.5rem; margin-top: 0.8rem; flex-wrap: wrap; }
-        .btn-download.cif { background: white; color: #E67E22; border-color: #E67E22; }
+        .btn-download.cif { background: white; color: #B35A12; border-color: #E67E22; }
         .btn-download.cif:hover { background: #fef5ec; }
 
         /* Page-specific overrides */
@@ -42,7 +42,7 @@
         .map-item .map-label { font-size: 0.75rem; color: #666; margin-bottom: 0.2rem; }
         .colorbar-row { display: flex; flex-direction: column; align-items: center; margin-top: 0.5rem; }
         .colorbar-row canvas { border-radius: 3px; }
-        .colorbar-labels { display: flex; justify-content: space-between; width: 300px; font-size: 0.72rem; color: #888; margin-top: 2px; }
+        .colorbar-labels { display: flex; justify-content: space-between; width: 300px; font-size: 0.72rem; color: #6B6B6B; margin-top: 2px; }
         .colorbar-labels span:nth-child(2) { color: #555; font-weight: 500; }
 
         /* Dimer table */
@@ -62,7 +62,7 @@
         .ac-item .ac-id { font-weight: 700; color: #2471A3; margin-right: 0.5rem; }
         .ac-item .ac-gene { font-weight: 600; color: #333; margin-right: 0.4rem; }
         .ac-item .ac-name { color: #666; }
-        .ac-item .ac-org { color: #999; font-size: 0.78rem; font-style: italic; }
+        .ac-item .ac-org { color: #707070; font-size: 0.78rem; font-style: italic; }
 
         /* Tag */
         .tag { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
@@ -72,7 +72,7 @@
         /* Dimer-specific sortable headers */
         .dimer-table th.sortable { cursor: pointer; user-select: none; position: relative; }
         .dimer-table th.sortable:hover { background: #e8f0fe; }
-        .dimer-table th.sortable::after { content: ' C5'; font-size: 0.7em; color: #aaa; }
+        .dimer-table th.sortable::after { content: ' C5'; font-size: 0.7em; color: #707070; }
         .dimer-table th.sort-asc::after { content: ' B2'; color: #2471A3; }
         .dimer-table th.sort-desc::after { content: ' BC'; color: #2471A3; }
 
@@ -118,7 +118,7 @@
 <body>
 
 <div class="header">
-    <div class="container">
+    <div class="container" role="main">
         <h1><span style="color:#2471A3;">LIVIA</span> &mdash; AlphaFold DB Dimer Analysis</h1>
         <p>Analyze dimer predictions from the <a href="https://alphafold.ebi.ac.uk" target="_blank" style="color:#2471A3;">AlphaFold Protein Structure Database</a> (<a href="https://doi.org/10.64898/2026.03.27.714458" target="_blank" style="color:#2471A3;">Han et al., 2026</a>)</p>
         <div class="header-links">
@@ -148,7 +148,7 @@
 
     <!-- Step 1: Fetch Dimer -->
     <div class="card">
-        <div class="step-header">Fetch Dimer Prediction &nbsp;<span style="font-weight:400; font-size:0.8rem; color:#888;">(the prediction is fetched from AlphaFold DB; all analysis runs in your browser &middot; <a href="about.html#data" style="color:#2471A3;">what LIVIA looks up online</a>)</span></div>
+        <div class="step-header">Fetch Dimer Prediction &nbsp;<span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(the prediction is fetched from AlphaFold DB; all analysis runs in your browser &middot; <a href="about.html#data" style="color:#2471A3;">what LIVIA looks up online</a>)</span></div>
         <label>UniProt ID, AlphaFold Model ID, or AlphaFold DB URL</label>
         <div style="display:flex; gap:0.5rem; align-items:center; max-width:600px;">
             <div class="ac-wrap" style="flex:1;">
@@ -158,15 +158,15 @@
             <button class="btn btn-primary" style="margin:0;" id="btn-fetch" onclick="fetchDimers()">Search</button>
         </div>
         <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.5rem; align-items:center;">
-            <span style="font-size:0.8rem; color:#888;">Heterodimer:</span>
+            <span style="font-size:0.8rem; color:#6B6B6B;">Heterodimer:</span>
             <button class="example-btn" onclick="tryExample('AF-0000000205399062')">Prpf39–C6orf52</button>
             <button class="example-btn" onclick="tryExample('AF-0000000204799972')">Atg6–Uvrag</button>
-            <span style="font-size:0.8rem; color:#888; margin-left:0.4rem;">Homodimer:</span>
+            <span style="font-size:0.8rem; color:#6B6B6B; margin-left:0.4rem;">Homodimer:</span>
             <button class="example-btn" onclick="tryExample('AF-0000000066214167')">Fiber protein 2</button>
             <button class="example-btn" onclick="tryExample('AF-0000000066082551')">pp71</button>
             <button class="example-btn" onclick="tryExample('AF-0000000065862457')">dj-1beta</button>
         </div>
-        <div style="font-size:0.8rem; color:#888; margin-top:0.4rem;">Not all proteins have dimer predictions. Browse <a href="https://alphafold.ebi.ac.uk" target="_blank" style="color:#2471A3;">AlphaFold DB</a> to find available complexes, then paste the URL or model ID here.</div>
+        <div style="font-size:0.8rem; color:#6B6B6B; margin-top:0.4rem;">Not all proteins have dimer predictions. Browse <a href="https://alphafold.ebi.ac.uk" target="_blank" style="color:#2471A3;">AlphaFold DB</a> to find available complexes, then paste the URL or model ID here.</div>
         <div class="status" id="status"></div>
         <div id="external-links" style="display:none; font-size:0.82rem; margin-top:0.3rem;"></div>
         <div id="protein-info" style="display:none; margin-top:0.5rem; padding:0.6rem 0.8rem; background:#f8f9fa; border-radius:8px; font-size:0.82rem; line-height:1.5; border:1px solid #e8e8e8;"></div>
@@ -201,13 +201,13 @@
             <div style="margin-top:0.5rem;">
                 <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem; cursor:pointer;" onclick="downloadCSV()">&#8595; Download CSV</a>
             </div>
-            <div style="margin-top:0.6rem; font-size:0.75rem; color:#999; line-height:1.8;">
+            <div style="margin-top:0.6rem; font-size:0.75rem; color:#707070; line-height:1.8;">
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
                     <strong>iLIS:</strong>
                     <span><span style="color:#6B21A8; font-weight:700;">&ge;0.551</span> (1% FPR)</span>
-                    <span><span style="color:#0e8a6e; font-weight:700;">&ge;0.339</span> (5% FPR)</span>
-                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.223</span> (10% FPR)</span>
-                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.223</span> (below threshold)</span>
+                    <span><span style="color:#0B7A61; font-weight:700;">&ge;0.339</span> (5% FPR)</span>
+                    <span><span style="color:#8F6400; font-weight:700;">&ge;0.223</span> (10% FPR)</span>
+                    <span><span style="color:#667080; font-weight:700;">&lt;0.223</span> (below threshold)</span>
                 </div>
                 <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details.</div>
             </div>
@@ -221,7 +221,7 @@
                  columns across every row (a per-row flexbox can't do this). Sub-labels are right-aligned so
                  they hug their control; empty cells pad the short rows. -->
             <div style="display:grid; grid-template-columns:max-content repeat(4, max-content max-content); gap:0.45rem 0.4rem; align-items:baseline; font-size:0.8rem; color:#555; margin-bottom:0.7rem;">
-                <span style="font-weight:600; color:#888;">Names</span>
+                <span style="font-weight:600; color:#6B6B6B;">Names</span>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Axis labels: resolved gene name or chain ID (A/B). Custom labels below override either.">show</span>
                 <select id="map-label-mode" onchange="uniMapDetailedLabels=(this.value==='gene'); renderCustomLabelInputs(); redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="gene">gene name</option><option value="chain">chain ID</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Which edges carry the chain/gene name — for many-chain complexes, drop one axis to avoid overlap">on</span>
@@ -231,7 +231,7 @@
                 <span style="justify-self:start; margin-left:0.6rem;" title="Direction of the top-edge (column) names — horizontal, or rotated vertical to save height">top</span>
                 <select id="map-label-dirx" onchange="uniLabelDirX=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="horizontal">horizontal</option><option value="vertical">vertical</option></select>
 
-                <span style="font-weight:600; color:#888;">Style</span>
+                <span style="font-weight:600; color:#6B6B6B;">Style</span>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Name style: a filled chip in the chain color with contrasting text, or plain colored text">chip</span>
                 <select id="map-label-style" onchange="uniLabelStyle=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="filled">filled chip</option><option value="text">text</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Text color (used by the text style): each chain's color, or plain black">color</span>
@@ -240,7 +240,7 @@
                 <input type="number" id="map-label-scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniLabelScale=parseFloat(this.value)||1; redrawMapLabels();">
                 <span></span><span></span>
 
-                <span style="font-weight:600; color:#888;">Length</span>
+                <span style="font-weight:600; color:#6B6B6B;">Length</span>
                 <label for="map-label-size" style="justify-self:start; margin-left:0.6rem; cursor:pointer; font-weight:400; color:#555;" title="Show each chain's length (residue count) along the bottom edge of the PAE/LIS/cLIS maps">show</label>
                 <input type="checkbox" id="map-label-size" checked onchange="uniShowMapSize=this.checked; redrawMapLabels();" style="justify-self:start;">
                 <span style="justify-self:start; margin-left:0.6rem;" title="Length format: N = residue count (e.g. 746); 1–N = full range (e.g. 1–746)">format</span>
@@ -250,7 +250,7 @@
                 <span style="justify-self:start; margin-left:0.6rem;" title="Length-number font size (1 = default; type any value)">font</span>
                 <input type="number" id="map-size-scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniSizeScale=parseFloat(this.value)||1; redrawMapLabels();">
 
-                <span style="font-weight:600; color:#888;">Domains</span>
+                <span style="font-weight:600; color:#6B6B6B;">Domains</span>
                 <label for="map-label-domains" style="justify-self:start; margin-left:0.6rem; cursor:pointer; font-weight:400; color:#555;" title="UniProt/Pfam domain track along the top and left edges of the PAE/LIS/cLIS maps (same source as the Linear/Circular Contact Map domain tracks)">show</label>
                 <input type="checkbox" id="map-label-domains" checked onchange="uniShowMapDom=this.checked; redrawMapLabels();" style="justify-self:start;">
                 <span style="justify-self:start; margin-left:0.6rem;" title="Which sits closer to the plot: the chain/gene name, or the domain track">order</span>
@@ -259,7 +259,7 @@
                 <select id="map-label-dom-color" onchange="uniMapDomColorMode=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="chain" selected>by subunit</option><option value="domain">by domain</option></select>
                 <span></span><span></span>
 
-                <span style="font-weight:600; color:#888;">Custom</span>
+                <span style="font-weight:600; color:#6B6B6B;">Custom</span>
                 <!-- Custom-label editor: spans from the sub-label column (col 2) so the hint/textarea start
                      where "show"/"chip" start — same left edge as the other rows' first control. -->
                 <div id="custom-labels-cell" style="grid-column:2 / -1; margin-left:0.6rem; display:flex; flex-direction:column; gap:0.3rem; align-items:stretch;"></div>
@@ -275,7 +275,7 @@
         <!-- Dimer vs Monomer Comparison -->
         <div class="card result-card" id="comparison-card" style="display:none;">
             <h2 data-nav="Dimer vs monomer">Dimer vs Monomer Comparison (Intra-chain LIS &amp; pLDDT)</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 Compares per-residue metrics when the chain is predicted alone (monomer) vs. as part of a complex (dimer). Intra-chain LIS measures internal folding confidence within the same chain. Green shading = gain in dimer context; red = loss.
             </div>
             <div id="comparison-status" style="font-size:0.82rem; color:#2471A3; margin-bottom:0.5rem;"></div>
@@ -285,7 +285,7 @@
         <!-- Sequence Viewer -->
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
             <h2 data-nav="Sequence">Sequence Viewer</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 Light background = LIR (PAE &le; 12 &Aring;). Dark background with white text = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each chain uses its own color.
             </div>
             <div id="seq-viewer" style="font-family:'SF Mono','Fira Code',monospace; overflow-x:auto;"></div>
@@ -294,7 +294,7 @@
         <!-- Linear Contact Map -->
         <div class="card result-card" id="contact-map-card" style="display:none;">
             <h2 data-nav="Linear map">Linear Contact Map</h2>
-            <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Color gradient from chain A to chain B. UniProt domain annotations shown when available.</span>
                 <div style="flex-basis:100%; height:0;"></div><!-- controls on their own line, below the description -->
                 <span style="font-size:0.82rem; color:#555; white-space:nowrap; display:inline-flex; align-items:center;">domains:</span>
@@ -306,14 +306,14 @@
                 <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="window.__redrawDimerContact&&window.__redrawDimerContact()"></label>
             </div>
             <canvas id="contact-canvas"></canvas>
-            <div id="contact-count-text" style="font-size:0.8rem; color:#888; text-align:center; margin-top:4px;"></div>
+            <div id="contact-count-text" style="font-size:0.8rem; color:#6B6B6B; text-align:center; margin-top:4px;"></div>
             <div id="contact-domain-legend" style="margin-top:0.4rem; font-size:0.72rem; color:#666; display:flex; gap:0.8rem; flex-wrap:wrap;"></div>
         </div>
 
         <!-- Circular Contact Map (circular) -->
         <div class="card result-card" id="chord-card" style="display:none;">
             <h2 data-nav="Circular map">Circular Contact Map</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 Arcs represent chains (proportional to length). Lines connect cLIR residue pairs in physical contact.
             </div>
             <div id="chord-plddt-legend" style="display:none; align-items:center; gap:0.6rem; flex-wrap:wrap; font-size:0.72rem; color:#666; margin-bottom:0.5rem;"></div>
@@ -335,7 +335,7 @@
 
         <!-- Reported Interactions (MIST + BioGRID, js/livia-reported.js) -->
         <div class="card result-card" id="mist-card" style="display:none;">
-            <h2 data-nav="Reported">Reported Interactions <span style="font-weight:400; font-size:0.8rem; color:#888;">(<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>, <a href="https://thebiogrid.org/" target="_blank" style="color:#2471A3;">BioGRID</a>)</span></h2>
+            <h2 data-nav="Reported">Reported Interactions <span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>, <a href="https://thebiogrid.org/" target="_blank" style="color:#2471A3;">BioGRID</a>)</span></h2>
             <div id="mist-content"></div>
             <div id="mist-link" style="margin-top:0.5rem; font-size:0.82rem;"></div>
         </div>
@@ -343,8 +343,8 @@
         <!-- 3D Structure Viewer -->
         <div class="card result-card" id="viewer3d-card" style="display:none;">
             <h2 data-nav="3D structure">3D Structure Viewer</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
-                Interactive 3D preview powered by <a href="https://molstar.org" target="_blank" style="color:#2471A3;">Mol*</a> (<a href="https://doi.org/10.1093/nar/gkab314" target="_blank" style="color:#2471A3;">Sehnal et al. 2021</a>). LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom. <span style="color:#999;">If the viewer appears empty, refresh the page.</span>
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
+                Interactive 3D preview powered by <a href="https://molstar.org" target="_blank" style="color:#2471A3;">Mol*</a> (<a href="https://doi.org/10.1093/nar/gkab314" target="_blank" style="color:#2471A3;">Sehnal et al. 2021</a>). LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom. <span style="color:#707070;">If the viewer appears empty, refresh the page.</span>
             </div>
             <div id="chain-toggle-bar" style="display:none; align-items:center; gap:0.4rem; margin-bottom:0.5rem; flex-wrap:wrap; font-size:0.82rem; color:#555;">
                 <span>Chains shown in 3D:</span>
@@ -373,12 +373,12 @@
                     <span>residues</span>
                     <button class="btn btn-primary" style="font-size:0.82rem; padding:0.3rem 0.8rem;" onclick="updateGapFill()">Apply</button>
                 </div>
-                <div style="font-size:0.78rem; color:#999; margin-bottom:0.5rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
+                <div style="font-size:0.78rem; color:#707070; margin-bottom:0.5rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
                 <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:0.3rem;">
-                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure <span style="font-size:0.78rem; color:#999;">(display all residues instead of LIR only)</span>
+                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure <span style="font-size:0.78rem; color:#707070;">(display all residues instead of LIR only)</span>
                 </label>
                 <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:1rem; padding-left:1.2rem;">
-                    <input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"> Gray non-LIR <span style="font-size:0.78rem; color:#999;">(color non-interacting residues gray)</span>
+                    <input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"> Gray non-LIR <span style="font-size:0.78rem; color:#707070;">(color non-interacting residues gray)</span>
                 </label>
 
                 <label>Cutoffs</label>
@@ -477,12 +477,12 @@
                 <div style="flex:1; min-width:210px;">
                     <a class="btn-download cif" id="dl-cif-full" download style="display:block; text-align:center;">&#8595; Full structure .cif</a>
                     <a class="btn-download cxc" id="dl-script-full" download style="display:block; text-align:center; margin-top:6px;">&#8595; .cxc &middot; for full</a>
-                    <div style="font-size:0.72rem; color:#999; margin-top:0.3rem; line-height:1.35;">The whole complex. Surfaces include the floppy N/C-terminal tails.</div>
+                    <div style="font-size:0.72rem; color:#707070; margin-top:0.3rem; line-height:1.35;">The whole complex. Surfaces include the floppy N/C-terminal tails.</div>
                 </div>
                 <div style="flex:1; min-width:210px;" id="dl-cif-conf-wrap">
                     <a class="btn-download cif" id="dl-cif-conf" download style="display:block; text-align:center; background:white; color:#8e44ad; border-color:#8e44ad;">&#8595; Partial structure .cif</a>
                     <a class="btn-download cxc" id="dl-script-partial" download style="display:block; text-align:center; margin-top:6px; background:#8e44ad; border-color:#8e44ad;">&#8595; .cxc &middot; for partial</a>
-                    <div style="font-size:0.72rem; color:#999; margin-top:0.3rem; line-height:1.35;">Every subunit kept; each interface chain trimmed to exactly the LIR segments shown (Fill gaps / Min segment honored). Residue numbers preserved.</div>
+                    <div style="font-size:0.72rem; color:#707070; margin-top:0.3rem; line-height:1.35;">Every subunit kept; each interface chain trimmed to exactly the LIR segments shown (Fill gaps / Min segment honored). Residue numbers preserved.</div>
                 </div>
             </div>
             <div class="info-box" style="margin-top:1rem;">Each script opens its matching structure file (distinct names, so nothing overwrites). Download a script + its structure into the same folder, then open the script in ChimeraX (.cxc) or PyMOL (.pml).</div>
@@ -527,8 +527,8 @@
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIpDockQ</strong></td><td style="padding:0.25rem 0; color:#555;">the pDockQ formula computed only on cLIR pairs (PAE &le; 12&nbsp;&Aring; and C&beta; &le; 8&nbsp;&Aring;), so contacts the PAE does not support no longer count (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon, 2026</a>)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIpDockQ2</strong></td><td style="padding:0.25rem 0; color:#555;">the pDockQ2 formula on cLIR pairs only, so a small confident interface is not diluted by a large, poorly placed contact surface (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon, 2026</a>)</td></tr>
                 </table>
-                <p style="font-size:0.78rem; color:#888; margin-top:0.4rem; line-height:1.4;">Because their constants were fitted to DockQ on the original interfaces, LIpDockQ and LIpDockQ2 rank predictions; they are not DockQ estimates.</p>
-                <p style="font-size:0.78rem; color:#888; margin-top:0.4rem; line-height:1.4;">PAE (Predicted Aligned Error) measures how confidently the model predicts the relative position of two residues &mdash; lower values indicate higher confidence.</p>
+                <p style="font-size:0.78rem; color:#6B6B6B; margin-top:0.4rem; line-height:1.4;">Because their constants were fitted to DockQ on the original interfaces, LIpDockQ and LIpDockQ2 rank predictions; they are not DockQ estimates.</p>
+                <p style="font-size:0.78rem; color:#6B6B6B; margin-top:0.4rem; line-height:1.4;">PAE (Predicted Aligned Error) measures how confidently the model predicts the relative position of two residues &mdash; lower values indicate higher confidence.</p>
             </div>
         </div>
     </div>
@@ -543,10 +543,10 @@
 </div>
 
 <script src="js/livia-core.js?v=20260926b"></script>
-<script src="js/livia-reported.js?v=20260926c"></script>
+<script src="js/livia-reported.js?v=20260927a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20260926a"></script>
-<script src="js/livia-colors.js?v=20260926a"></script>
+<script src="js/livia-viewer.js?v=20260927a"></script>
+<script src="js/livia-colors.js?v=20260927a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260927a"></script>
 <script src="js/livia-subnav.js?v=20260926c"></script>
@@ -605,7 +605,7 @@ function applyChainToggleStyle(btn, visible) {
     const baseColor = getChainToggleColor(btn.dataset.chain);
     btn.style.cssText = visible
         ? `padding:0.2rem 0.6rem; border:1px solid ${baseColor}; background:${baseColor}; color:#fff; border-radius:4px; cursor:pointer; font-size:0.78rem; font-weight:600; min-width:1.6rem;`
-        : `padding:0.2rem 0.6rem; border:1px solid #ccc; background:#fff; color:#888; border-radius:4px; cursor:pointer; font-size:0.78rem; min-width:1.6rem; text-decoration:line-through;`;
+        : `padding:0.2rem 0.6rem; border:1px solid #ccc; background:#fff; color:#6B6B6B; border-radius:4px; cursor:pointer; font-size:0.78rem; min-width:1.6rem; text-decoration:line-through;`;
 }
 function toggleChainVisibility(name) {
     if (dimerHiddenChains.has(name)) dimerHiddenChains.delete(name);
@@ -2233,11 +2233,11 @@ function buildComparisonCharts() {
     statusEl.innerHTML =
         '<span style="color:#555;">Mean &Delta;pLDDT: </span>' +
         '<strong>' + (totalN ? (totalDelta / totalN).toFixed(1) : '—') + '</strong>' +
-        '<span style="color:#999;"> (all)</span>' +
+        '<span style="color:#707070;"> (all)</span>' +
         ' &middot; <strong style="color:#00897b;">' + (lirN ? (lirDelta / lirN).toFixed(1) : '—') + '</strong>' +
-        '<span style="color:#999;"> (LIR)</span>' +
-        ' &middot; <strong style="color:#888;">' + (nonLirN ? (nonLirDelta / nonLirN).toFixed(1) : '—') + '</strong>' +
-        '<span style="color:#999;"> (non-LIR)</span>';
+        '<span style="color:#707070;"> (LIR)</span>' +
+        ' &middot; <strong style="color:#6B6B6B;">' + (nonLirN ? (nonLirDelta / nonLirN).toFixed(1) : '—') + '</strong>' +
+        '<span style="color:#707070;"> (non-LIR)</span>';
 
     // Draw charts: LIS first, then pLDDT
     for (const cc of chainConfigs) {
@@ -2910,7 +2910,7 @@ function renderCustomLabelInputs() {
     const names = (dimerPairResult && dimerPairResult.chainNames) || [];
     cell.innerHTML = '';
     const hint = document.createElement('span');
-    hint.style.cssText = 'color:#aaa; font-size:0.75rem;';
+    hint.style.cssText = 'color:#707070; font-size:0.75rem;';
     hint.textContent = 'edit any "chain,label" line, then Apply to rename its chip';
     const ta = document.createElement('textarea');
     ta.id = 'custom-labels-text';
@@ -3395,7 +3395,7 @@ function createMapPanel(parentEl, label, mapCanvas, displaySize, colorFn, vmin, 
     cbarWrap.appendChild(cbar);
 
     const ticks = document.createElement('div');
-    ticks.style.cssText = `display:flex; flex-direction:column; justify-content:space-between; height:${displaySize}px; font-size:0.65rem; color:#888;`;
+    ticks.style.cssText = `display:flex; flex-direction:column; justify-content:space-between; height:${displaySize}px; font-size:0.65rem; color:#6B6B6B;`;
     // tickLabels top-to-bottom (max first since reversed)
     for (const t of tickLabels) {
         const s = document.createElement('span');

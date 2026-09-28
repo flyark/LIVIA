@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <title>LIVIA — FlyPredictome Analysis</title>
-    <link rel="stylesheet" href="css/livia.css?v=20260717">
+    <link rel="stylesheet" href="css/livia.css?v=20260927c">
     <style>
         /* ── Page-specific styles for FlyPredictome ── */
         .step-link { color: #2471A3; text-decoration: none; }
@@ -84,7 +84,7 @@
 <body>
 
 <div class="header">
-    <div class="container">
+    <div class="container" role="main">
         <h1><span style="color:#2471A3;">LIVIA</span> &mdash; FlyPredictome Analysis</h1>
         <p>Analyze <em>Drosophila</em> protein interactions from <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3;">FlyPredictome</a> predictions (<a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>)</p>
         <div class="header-links">
@@ -115,7 +115,7 @@
     <!-- Input -->
     <div class="card">
         <div class="step-header"><a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" class="step-link">FlyPredictome</a>&nbsp; Interaction Lookup</div>
-        <div style="font-size:0.8rem; color:#888; margin-bottom:0.6rem;">Precomputed PPI predictions for <em>Drosophila</em> from <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3;">FlyPredictome</a>. Search by gene name or paste a prediction page URL.</div>
+        <div style="font-size:0.8rem; color:#6B6B6B; margin-bottom:0.6rem;">Precomputed PPI predictions for <em>Drosophila</em> from <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3;">FlyPredictome</a>. Search by gene name or paste a prediction page URL.</div>
 
         <div class="input-tabs">
             <button class="input-tab active" data-tab="search" onclick="switchTab('search')">Search by Gene</button>
@@ -137,7 +137,7 @@
                 <button class="btn btn-primary" onclick="hideGeneAc();searchGene()">Search</button>
             </div>
             <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.5rem; align-items:center;">
-                <span style="font-size:0.8rem; color:#888;">Examples:</span>
+                <span style="font-size:0.8rem; color:#6B6B6B;">Examples:</span>
                 <button class="example-btn" onclick="document.getElementById('gene-search-input').value='Akt1';searchGene()">Akt1</button>
                 <button class="example-btn" onclick="document.getElementById('gene-search-input').value='foxo';searchGene()">foxo</button>
                 <button class="example-btn" onclick="document.getElementById('gene-search-input').value='Dl';searchGene()">Dl</button>
@@ -171,7 +171,7 @@
                 <button class="btn btn-primary" onclick="searchGenePair()">Search Pair</button>
             </div>
             <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.5rem; align-items:center;">
-                <span style="font-size:0.8rem; color:#888;">Examples:</span>
+                <span style="font-size:0.8rem; color:#6B6B6B;">Examples:</span>
                 <button class="example-btn" onclick="setPairAndSearch('Akt1','foxo')">Akt1 &amp; foxo</button>
                 <button class="example-btn" onclick="setPairAndSearch('Dl','N')">Dl &amp; N</button>
                 <button class="example-btn" onclick="setPairAndSearch('yki','sd')">yki &amp; sd</button>
@@ -192,7 +192,7 @@
                 <button class="btn btn-primary" id="btn-generate" onclick="generate()">Generate</button>
             </div>
             <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.5rem; align-items:center;">
-                <span style="font-size:0.8rem; color:#888;">Examples:</span>
+                <span style="font-size:0.8rem; color:#6B6B6B;">Examples:</span>
                 <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/Akt1/foxo/SET_47/';generate()">Akt1–Foxo</button>
                 <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/FBgn0283499/FBgn0036046/SET_487/';generate()">Ilp2–InR</button>
                 <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/FBgn0003731/FBgn0005672/SET_590/';generate()">Spi–Egfr</button>
@@ -232,20 +232,20 @@
                     <tbody id="ranks-tbody"></tbody>
                 </table>
             </div>
-            <div style="margin-top:0.6rem; font-size:0.75rem; color:#999; line-height:1.8;">
+            <div style="margin-top:0.6rem; font-size:0.75rem; color:#707070; line-height:1.8;">
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
                     <strong style="min-width:90px;">iLIS:</strong>
                     <span><span style="color:#6B21A8; font-weight:700;">&ge;0.551</span> (1% FPR)</span>
-                    <span><span style="color:#0e8a6e; font-weight:700;">&ge;0.339</span> (5% FPR)</span>
-                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.223</span> (10% FPR)</span>
-                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.223</span> (below threshold)</span>
+                    <span><span style="color:#0B7A61; font-weight:700;">&ge;0.339</span> (5% FPR)</span>
+                    <span><span style="color:#8F6400; font-weight:700;">&ge;0.223</span> (10% FPR)</span>
+                    <span><span style="color:#667080; font-weight:700;">&lt;0.223</span> (below threshold)</span>
                 </div>
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
                     <strong style="min-width:90px;">iLIS (average):</strong>
                     <span><span style="color:#6B21A8; font-weight:700;">&ge;0.268</span> (1% FPR)</span>
-                    <span><span style="color:#0e8a6e; font-weight:700;">&ge;0.120</span> (5% FPR)</span>
-                    <span><span style="color:#bf8700; font-weight:700;">&ge;0.072</span> (10% FPR)</span>
-                    <span><span style="color:#8b949e; font-weight:700;">&lt;0.072</span> (below threshold)</span>
+                    <span><span style="color:#0B7A61; font-weight:700;">&ge;0.120</span> (5% FPR)</span>
+                    <span><span style="color:#8F6400; font-weight:700;">&ge;0.072</span> (10% FPR)</span>
+                    <span><span style="color:#667080; font-weight:700;">&lt;0.072</span> (below threshold)</span>
                 </div>
                 <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details. Rank 1 (determined by ipTM) may not have the highest iLIS.</div>
             </div>
@@ -253,7 +253,7 @@
 
         <!-- Reported Interactions (MIST + BioGRID, js/livia-reported.js) -->
         <div class="card result-card" id="mist-card" style="display:none;">
-            <h2 data-nav="Reported">Reported Interactions <span style="font-weight:400; font-size:0.8rem; color:#888;">(<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>, <a href="https://thebiogrid.org/" target="_blank" style="color:#2471A3;">BioGRID</a>)</span></h2>
+            <h2 data-nav="Reported">Reported Interactions <span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>, <a href="https://thebiogrid.org/" target="_blank" style="color:#2471A3;">BioGRID</a>)</span></h2>
             <div id="mist-content"></div>
             <div id="mist-link" style="margin-top:0.5rem; font-size:0.82rem;"></div>
         </div>
@@ -261,7 +261,7 @@
         <!-- PAE Map -->
         <div class="card result-card" id="pae-card" style="display:none;">
             <h2 data-nav="PAE">Predicted Aligned Error (PAE)</h2>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">PAE matrix showing prediction confidence between all residue pairs. Blue = low error (high confidence).</div>
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">PAE matrix showing prediction confidence between all residue pairs. Blue = low error (high confidence).</div>
             <div style="text-align:center;">
                 <img id="pae-img" style="width:100%; border-radius:4px;" alt="PAE plot">
             </div>
@@ -273,7 +273,7 @@
                 <h2 data-nav="Sequence" style="margin-bottom:0;">Sequence Viewer</h2>
                 <div class="model-selector" id="seq-model-selector"></div>
             </div>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 Light background = LIR (PAE &le; 12 &Aring;). Dark background = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each chain uses its own color.
             </div>
             <div id="seq-viewer" style="overflow-x:auto;"></div>
@@ -285,7 +285,7 @@
                 <h2 data-nav="Linear map" style="margin-bottom:0;">Linear Contact Map</h2>
                 <div class="model-selector" id="contact-model-selector"></div>
             </div>
-            <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="display:flex; align-items:center; gap:0.9rem 1.2rem; flex-wrap:wrap; font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 <span>Lines connect cLIR residue pairs within C&beta; distance in the 3D structure. Per-rank structures fetched automatically.</span>
                 <div style="flex-basis:100%; height:0;"></div><!-- controls on their own line, below the description -->
                 <span style="font-size:0.82rem; color:#555; white-space:nowrap; display:inline-flex; align-items:center;">domains:</span>
@@ -297,7 +297,7 @@
                 <label style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">x-ticks <input type="number" id="contact-xticks" min="2" max="30" value="5" style="width:48px; font-size:0.8rem; padding:1px 3px;" onchange="window.__redrawConn&&window.__redrawConn()"></label>
             </div>
             <canvas id="connection-canvas"></canvas>
-            <div id="contact-count-text" style="font-size:0.8rem; color:#888; text-align:center; margin-top:4px;"></div>
+            <div id="contact-count-text" style="font-size:0.8rem; color:#6B6B6B; text-align:center; margin-top:4px;"></div>
             <div id="fly-domain-legend" style="margin-top:0.4rem; font-size:0.72rem; color:#666; display:flex; gap:0.8rem; flex-wrap:wrap;"></div>
         </div>
 
@@ -317,18 +317,18 @@
                 <label style="font-size:0.8rem; color:#555; display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;"><input type="checkbox" id="chord-show-ted" checked onchange="flyShowChordTed=this.checked; window.__redrawFlyChord&&window.__redrawFlyChord();"> TED</label>
                 <span style="display:inline-flex; align-items:center; gap:5px; margin-bottom:0.4rem; font-size:0.8rem; color:#555;" title="Direction of the arc labels: along the arc, or pointing outward"><span style="font-weight:600;">label direction</span><span style="display:inline-flex; align-items:center; border:1px solid #ccd; border-radius:5px; overflow:hidden; font-size:0.78rem;"><button type="button" onclick="flyShowChordRadial=false; LiviaMaps.segPick(this); window.__redrawFlyChord&&window.__redrawFlyChord();" style="border:0; padding:2px 8px; cursor:pointer; background:#2471A3; color:#fff; font:inherit;">along arc</button><button type="button" onclick="flyShowChordRadial=true; LiviaMaps.segPick(this); window.__redrawFlyChord&&window.__redrawFlyChord();" style="border:0; padding:2px 8px; cursor:pointer; background:transparent; color:#555; font:inherit;">outward</button></span></span>
             </div>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 Arcs represent chains (proportional to length). Lines connect cLIR residue pairs in physical contact.
             </div>
             <div id="chord-plddt-legend" style="display:none; align-items:center; gap:0.6rem; flex-wrap:wrap; font-size:0.72rem; color:#666; margin-bottom:0.5rem;"></div>
             <div style="display:flex; justify-content:center; gap:2rem; flex-wrap:wrap;">
                 <div style="text-align:center;">
                     <canvas id="chord-canvas"></canvas>
-                    <div style="font-size:0.75rem; color:#999; margin-top:0.25rem;">Selected Rank</div>
+                    <div style="font-size:0.75rem; color:#707070; margin-top:0.25rem;">Selected Rank</div>
                 </div>
                 <div id="chord-all-wrap" style="text-align:center; display:none;">
                     <canvas id="chord-canvas-all"></canvas>
-                    <div style="font-size:0.75rem; color:#999; margin-top:0.25rem;">All Ranks Combined</div>
+                    <div style="font-size:0.75rem; color:#707070; margin-top:0.25rem;">All Ranks Combined</div>
                 </div>
             </div>
         </div>
@@ -339,7 +339,7 @@
                 <h2 data-nav="3D structure" style="margin-bottom:0;">3D Structure Viewer</h2>
                 <div class="model-selector" id="viewer3d-model-selector"></div>
             </div>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 Interactive 3D preview powered by <a href="https://molstar.org" target="_blank" style="color:#2471A3;">Mol*</a> (<a href="https://doi.org/10.1093/nar/gkab314" target="_blank" style="color:#2471A3;">Sehnal et al. 2021</a>). LIR regions shown as cartoons; cLIR residues highlighted. Drag to rotate, scroll to zoom.
             </div>
             <div id="chain-toggle-bar" style="display:none; align-items:center; gap:0.4rem; margin-bottom:0.5rem; flex-wrap:wrap; font-size:0.82rem; color:#555;">
@@ -369,12 +369,12 @@
                     <span>residues</span>
                     <button class="btn btn-primary" style="font-size:0.82rem; padding:0.3rem 0.8rem;" onclick="updateGapFill()">Apply</button>
                 </div>
-                <div style="font-size:0.78rem; color:#999; margin-bottom:0.5rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
+                <div style="font-size:0.78rem; color:#707070; margin-bottom:0.5rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
                 <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:0.3rem;">
-                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure <span style="font-size:0.78rem; color:#999;">(display all residues instead of LIR only)</span>
+                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure <span style="font-size:0.78rem; color:#707070;">(display all residues instead of LIR only)</span>
                 </label>
                 <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:1rem; padding-left:1.2rem;">
-                    <input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"> Gray non-LIR <span style="font-size:0.78rem; color:#999;">(color non-interacting residues gray)</span>
+                    <input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"> Gray non-LIR <span style="font-size:0.78rem; color:#707070;">(color non-interacting residues gray)</span>
                 </label>
 
                 <label>Color Scheme</label>
@@ -474,7 +474,7 @@
                 <a class="btn-download cxc" id="dl-script-partial" download style="background:#8e44ad; border-color:#8e44ad;">&#8595; .cxc &middot; for partial</a>
                 <button class="btn-download" id="btn-copy" style="background:white; color:#2471A3; border:2px solid #2471A3; cursor:pointer;" onclick="copyScript()">Copy script</button>
             </div>
-            <div style="font-size:0.72rem; color:#999; margin-top:0.5rem; line-height:1.45;">
+            <div style="font-size:0.72rem; color:#707070; margin-top:0.5rem; line-height:1.45;">
                 <b>Full structure .pdb</b> = full length (surfaces include the floppy N/C-terminal tails). &nbsp;<b style="color:#8e44ad;">Partial structure .pdb</b> = both chains trimmed to exactly the LIR segments shown (Fill gaps / Min segment honored) — clean surfaces for post-processing; residue numbers preserved so the script still colors correctly. Download <b>one</b> structure file.
             </div>
             <div class="info-box" style="margin-top: 1rem;">
@@ -488,7 +488,7 @@
                 <h2 data-nav="Per-residue" style="margin-bottom:0;">Per-Residue pLDDT</h2>
                 <div class="model-selector" id="plddt-model-selector"></div>
             </div>
-            <div style="font-size:0.82rem; color:#888; margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 Per-residue pLDDT for each chain across all ranks. Selected rank as solid line; other ranks as avg &plusmn; SD shading.
             </div>
             <div id="plddt-charts"></div>
@@ -530,8 +530,8 @@
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>pDockQ</strong></td><td style="padding:0.25rem 0; color:#555;">predicted DockQ from the mean pLDDT of the interface and the number of contacting residue pairs (C&beta; &le; 8&nbsp;&Aring;), with no PAE (<a href="https://doi.org/10.1038/s41467-022-28865-w" target="_blank" style="color:#2471A3;">Bryant et al., 2022</a>)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIpDockQ</strong></td><td style="padding:0.25rem 0; color:#555;">the pDockQ formula computed only on cLIR pairs (PAE &le; 12&nbsp;&Aring; and C&beta; &le; 8&nbsp;&Aring;), so contacts the PAE does not support no longer count (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon, 2026</a>)</td></tr>
                 </table>
-                <p style="font-size:0.78rem; color:#888; margin-top:0.4rem; line-height:1.4;">pDockQ2 and LIpDockQ2 need the numeric PAE, which this source does not provide. Because their constants were fitted to DockQ on the original interfaces, LIpDockQ and LIpDockQ2 rank predictions; they are not DockQ estimates.</p>
-                <p style="font-size:0.78rem; color:#888; margin-top:0.4rem; line-height:1.4;">PAE (Predicted Aligned Error) measures how confidently the model predicts the relative position of two residues &mdash; lower values indicate higher confidence.</p>
+                <p style="font-size:0.78rem; color:#6B6B6B; margin-top:0.4rem; line-height:1.4;">pDockQ2 and LIpDockQ2 need the numeric PAE, which this source does not provide. Because their constants were fitted to DockQ on the original interfaces, LIpDockQ and LIpDockQ2 rank predictions; they are not DockQ estimates.</p>
+                <p style="font-size:0.78rem; color:#6B6B6B; margin-top:0.4rem; line-height:1.4;">PAE (Predicted Aligned Error) measures how confidently the model predicts the relative position of two residues &mdash; lower values indicate higher confidence.</p>
             </div>
         </div>
     </div>
@@ -546,10 +546,10 @@
 </div>
 
 <script src="js/livia-core.js?v=20260926b"></script>
-<script src="js/livia-reported.js?v=20260926c"></script>
+<script src="js/livia-reported.js?v=20260927a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20260926a"></script>
-<script src="js/livia-colors.js?v=20260926a"></script>
+<script src="js/livia-viewer.js?v=20260927a"></script>
+<script src="js/livia-colors.js?v=20260927a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260927a"></script>
 <script src="js/livia-subnav.js?v=20260926c"></script>
@@ -674,10 +674,10 @@ async function searchUniprotAc(query) {
                 const item = document.createElement('div');
                 item.style.cssText = 'padding:0.5rem 0.8rem; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;';
                 item.innerHTML = '<strong style="color:#2471A3;">' + esc(gene) + '</strong>' +
-                    (synonyms ? ' <span style="color:#999; font-size:0.75rem;">(' + esc(synonyms) + ')</span>' : '') +
-                    (fbgn ? ' <span style="color:#bbb; font-size:0.7rem;">' + esc(fbgn) + '</span>' : '') +
+                    (synonyms ? ' <span style="color:#707070; font-size:0.75rem;">(' + esc(synonyms) + ')</span>' : '') +
+                    (fbgn ? ' <span style="color:#707070; font-size:0.7rem;">' + esc(fbgn) + '</span>' : '') +
                     '<br><span style="color:#555; font-size:0.78rem;">' + esc(name.substring(0, 60)) + '</span>' +
-                    ' <span style="color:#aaa; font-size:0.72rem;">' + esc(acc) + '</span>';
+                    ' <span style="color:#707070; font-size:0.72rem;">' + esc(acc) + '</span>';
                 item.addEventListener('mouseenter', () => { item.style.background = '#eaf2f8'; });
                 item.addEventListener('mouseleave', () => { item.style.background = ''; });
                 item.addEventListener('click', ((g, f) => () => {
@@ -849,10 +849,10 @@ function searchPairAc(inputEl, listId) {
                 const item = document.createElement('div');
                 item.style.cssText = 'padding:0.5rem 0.8rem; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;';
                 item.innerHTML = '<strong style="color:#2471A3;">' + esc(gene) + '</strong>' +
-                    (synonyms ? ' <span style="color:#999; font-size:0.75rem;">(' + esc(synonyms) + ')</span>' : '') +
-                    (fbgn ? ' <span style="color:#bbb; font-size:0.7rem;">' + esc(fbgn) + '</span>' : '') +
+                    (synonyms ? ' <span style="color:#707070; font-size:0.75rem;">(' + esc(synonyms) + ')</span>' : '') +
+                    (fbgn ? ' <span style="color:#707070; font-size:0.7rem;">' + esc(fbgn) + '</span>' : '') +
                     '<br><span style="color:#555; font-size:0.78rem;">' + esc(name.substring(0, 60)) + '</span>' +
-                    ' <span style="color:#aaa; font-size:0.72rem;">' + esc(acc) + '</span>';
+                    ' <span style="color:#707070; font-size:0.72rem;">' + esc(acc) + '</span>';
                 item.addEventListener('mouseenter', () => { item.style.background = '#eaf2f8'; });
                 item.addEventListener('mouseleave', () => { item.style.background = ''; });
                 item.addEventListener('click', ((g, f) => () => {
@@ -1066,8 +1066,8 @@ function displayPairResults(matches) {
         const partial1 = p.isPartial1 ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Partial)</span>' : '';
         const partial2 = p.isPartial2 ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Partial)</span>' : '';
         tr.innerHTML =
-            '<td><strong>' + esc(p.sym1) + '</strong> <span style="color:#999; font-size:0.72rem;">' + esc(p.fbgn1) + '</span>' + partial1 + '</td>' +
-            '<td><strong>' + esc(p.sym2) + '</strong> <span style="color:#999; font-size:0.72rem;">' + esc(p.fbgn2) + '</span>' + partial2 + '</td>' +
+            '<td><strong>' + esc(p.sym1) + '</strong> <span style="color:#707070; font-size:0.72rem;">' + esc(p.fbgn1) + '</span>' + partial1 + '</td>' +
+            '<td><strong>' + esc(p.sym2) + '</strong> <span style="color:#707070; font-size:0.72rem;">' + esc(p.fbgn2) + '</span>' + partial2 + '</td>' +
             '<td>' + ilisColor(p.ilisBest) + '</td>' +
             '<td>' + p.iptmBest.toFixed(2) + '</td>' +
             '<td>' + p.lenA + '</td>' +
@@ -1426,7 +1426,7 @@ function displayPartnerTable(partners, querySymbol) {
             '<input type="checkbox" id="filter-fulllength" onchange="filterPartnerTable()"> ' +
             'Full-length only' +
         '</label>' +
-        '<span style="font-size:0.78rem; color:#999;" id="filter-count"></span>';
+        '<span style="font-size:0.78rem; color:#707070;" id="filter-count"></span>';
     container.appendChild(filterDiv);
 
     // → cLIP handoff: gather this gene's interactome and cluster by shared contact residues
@@ -1446,7 +1446,7 @@ function displayPartnerTable(partners, querySymbol) {
     uniqLabel.innerHTML = '<input type="checkbox" id="clip-unique" checked style="accent-color:#1a5276"> unique partners';
     clipDiv.appendChild(uniqLabel);
     const clipHint = document.createElement('span');
-    clipHint.style.cssText = 'font-size:0.76rem; color:#999;';
+    clipHint.style.cssText = 'font-size:0.76rem; color:#707070;';
     clipHint.textContent = 'clusters partners by shared contact residues (cLIR)';
     clipDiv.appendChild(clipHint);
     container.appendChild(clipDiv);
@@ -1516,7 +1516,7 @@ function filterPartnerTable() {
 
         const partialTag = p.isPartnerPartial ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Partial)</span>' : '';
         tr.innerHTML =
-            '<td><strong>' + esc(p.partnerSymbol) + '</strong> <span style="color:#999; font-size:0.72rem;">' + esc(p.partnerFbgn) + '</span>' + partialTag + '</td>' +
+            '<td><strong>' + esc(p.partnerSymbol) + '</strong> <span style="color:#707070; font-size:0.72rem;">' + esc(p.partnerFbgn) + '</span>' + partialTag + '</td>' +
             '<td>' + ilisColor(p.ilisBest) + '</td>' +
             '<td>' + ilisColor(p.ilisAvg, true) + '</td>' +
             '<td>' + p.iptmBest.toFixed(2) + '</td>' +
@@ -2025,7 +2025,7 @@ function applyChainToggleStyle(btn, visible) {
     const baseColor = getChainToggleColor(btn.dataset.chain);
     btn.style.cssText = visible
         ? `padding:0.2rem 0.6rem; border:1px solid ${baseColor}; background:${baseColor}; color:#fff; border-radius:4px; cursor:pointer; font-size:0.78rem; font-weight:600; min-width:1.6rem;`
-        : `padding:0.2rem 0.6rem; border:1px solid #ccc; background:#fff; color:#888; border-radius:4px; cursor:pointer; font-size:0.78rem; min-width:1.6rem; text-decoration:line-through;`;
+        : `padding:0.2rem 0.6rem; border:1px solid #ccc; background:#fff; color:#6B6B6B; border-radius:4px; cursor:pointer; font-size:0.78rem; min-width:1.6rem; text-decoration:line-through;`;
 }
 function toggleChainVisibility(name) {
     if (flyHiddenChains.has(name)) flyHiddenChains.delete(name);
@@ -3843,7 +3843,7 @@ function buildGatherOverlay(total) {
     box.style.cssText = 'background:#fff; border-radius:12px; padding:1.6rem 2rem; min-width:330px; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,0.3); font-family:inherit;';
     box.innerHTML =
         '<div style="font-weight:600; font-size:1rem; margin-bottom:0.3rem;">Gathering interactome for cLIP…</div>' +
-        '<div style="font-size:0.8rem; color:#888; margin-bottom:0.9rem;">Fetching contact residues (cLIR) from each partner prediction page</div>' +
+        '<div style="font-size:0.8rem; color:#6B6B6B; margin-bottom:0.9rem;">Fetching contact residues (cLIR) from each partner prediction page</div>' +
         '<div style="height:8px; background:#eee; border-radius:4px; overflow:hidden; margin-bottom:0.5rem;"><div id="gather-bar" style="height:100%; width:0%; background:#2471A3; transition:width 0.25s;"></div></div>' +
         '<div id="gather-stat" style="font-size:0.85rem; color:#555; margin-bottom:1rem;">0 / ' + total + '</div>' +
         '<button id="gather-stop" style="padding:0.4rem 1rem; border:1px solid #ccc; border-radius:8px; background:#fff; cursor:pointer; font-size:0.85rem;">Stop &amp; send gathered so far</button>';

@@ -11,7 +11,7 @@
         .header { background: white; color: #1a5276; padding: 0.8rem 2rem 0.8rem; border-bottom: 1px solid #e8e8e8; }
         .header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.15rem; color: #1a5276; letter-spacing: -0.02em; }
         .header h1 .livia { color: #2471A3; font-weight: 700; }
-        .header .subtitle { font-size: 0.92rem; color: #888; margin-bottom: 0.8rem; font-weight: 400; }
+        .header .subtitle { font-size: 0.92rem; color: #6B6B6B; margin-bottom: 0.8rem; font-weight: 400; }
         .header-links { display: flex; gap: 0.4rem; flex-wrap: wrap; }
         .header-links a { color: #555; text-decoration: none; font-size: 0.74rem; padding: 0.22rem 0.5rem; border: 1px solid #ddd; border-radius: 6px; transition: all 0.2s; background: #f8f9fa; }
         .header-links a:hover { background: #2471A3; color: white; border-color: #2471A3; }
@@ -33,13 +33,13 @@
         }
         .bm-link:hover { background: #1a5276; }
         .bm-link:active { cursor: grabbing; }
-        .bm-hint { font-size: 0.82rem; color: #888; }
+        .bm-hint { font-size: 0.82rem; color: #6B6B6B; }
 
         .targets { background: #f8f9fa; border-radius: 8px; padding: 0.8rem 1rem; margin-top: 0.8rem; }
         .targets table { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
         .targets td { padding: 0.3rem 0.5rem; vertical-align: top; }
         .targets td:first-child { color: #1a5276; font-weight: 600; white-space: nowrap; }
-        .targets td:nth-child(2) { color: #888; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.78rem; word-break: break-all; }
+        .targets td:nth-child(2) { color: #6B6B6B; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.78rem; word-break: break-all; }
         .targets td:nth-child(3) { color: #2471A3; font-weight: 600; font-size: 0.85rem; }
 
         .code { background: #f4f6f8; border: 1px solid #e0e6ec; border-radius: 8px; padding: 0.7rem 0.9rem; margin-top: 0.5rem; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.78rem; color: #555; line-height: 1.45; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
@@ -47,13 +47,13 @@
         .bm-film { width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; background: #0d1b2a; display: block; margin-top: 0.8rem; }
         .note { background: #eaf2f8; border: 1px solid #d4e3f0; border-radius: 8px; padding: 0.7rem 1rem; margin-top: 0.8rem; font-size: 0.85rem; color: #1a5276; }
 
-        .footer { text-align: center; padding: 1.5rem 2rem; font-size: 0.8rem; color: #999; }
+        .footer { text-align: center; padding: 1.5rem 2rem; font-size: 0.8rem; color: #707070; }
         .footer a { color: #2471A3; text-decoration: none; }
     </style>
 </head>
 <body>
 <div class="header">
-    <div class="container">
+    <div class="container" role="main">
         <h1><span class="livia">LIVIA</span> &mdash; Bookmarklet</h1>
         <p class="subtitle">One-click jump from AlphaFold DB or FlyPredictome to the matching LIVIA page</p>
         <div class="header-links">
@@ -122,7 +122,7 @@
                 </tr>
             </table>
         </div>
-        <p style="font-size:0.84rem; color:#888; margin-top:0.6rem;">On any other page the bookmarklet shows a short message and does nothing else.</p>
+        <p style="font-size:0.84rem; color:#6B6B6B; margin-top:0.6rem;">On any other page the bookmarklet shows a short message and does nothing else.</p>
     </div>
 
     <div class="card">
@@ -141,7 +141,7 @@
             <li>URL: paste the code below.</li>
         </ol>
         <div class="code">javascript:(function(){var u=location.href,p=location.origin+location.pathname,t=null,m;if(m=u.match(/alphafold\.ebi\.ac\.uk\/entry\/(AF-\d+)/))t='https://flyark.github.io/LIVIA/dimer.html?id='+m[1];else if(m=u.match(/alphafold\.ebi\.ac\.uk\/entry\/(?:AF-)?([A-Z][0-9][A-Z0-9]{3}[0-9](?:[A-Z][A-Z0-9]{2}[0-9])?)/i))t='https://flyark.github.io/LIVIA/monomer.html?id='+m[1].toUpperCase();else if(/flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details[a-z_]*\//.test(u)){var mt=u.match(/\/(\d+)\/(\d+)\/?(?:[?#]|$)/);t='https://flyark.github.io/LIVIA/'+((/_ortho/.test(u)||(mt&&mt[1]!=='7227'))?'ortholog_predictome':'flypredictome')+'.html?url='+encodeURIComponent(p);}if(t)window.open(t,'_blank','noopener');else alert('LIVIA bookmarklet is up to date. This page is not an AlphaFold DB entry or a FlyPredictome details page, so there is nothing to open here.');})();</div>
-        <p style="font-size:0.84rem; color:#888; margin-top:0.8rem;">Tested on desktop Chrome. Other browsers (Firefox, Safari, Edge) typically support bookmarklets too, but were not verified.</p>
+        <p style="font-size:0.84rem; color:#6B6B6B; margin-top:0.8rem;">Tested on desktop Chrome. Other browsers (Firefox, Safari, Edge) typically support bookmarklets too, but were not verified.</p>
     </div>
 
 </div>

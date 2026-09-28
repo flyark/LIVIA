@@ -12,10 +12,10 @@
 <script src="js/clip-clustering.js"></script>
 <script src="js/clip-pipeline.js?v=20260926b"></script>
 <script src="js/clip-resolver.js?v=20260924"></script>
-<script src="js/livia-viewer.js?v=20260926a"></script>
+<script src="js/livia-viewer.js?v=20260927a"></script>
 <script src="js/livia-subnav.js?v=20260926c"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="stylesheet" href="css/livia.css?v=20260717">
+<link rel="stylesheet" href="css/livia.css?v=20260927c">
 <style>
   /* cLIP-specific — livia.css provides the shell (body, .header, .container, .card, .btn) */
   .card h2 { margin:0 0 .5rem; font-size:1.05rem; color:#1a5276; font-weight:600; }
@@ -28,9 +28,9 @@
   .dz.hover { border-color:#2471A3; background:#eef5fb; }
   .dz-ic { font-size:1.4rem; }
   .dz-t { font-weight:600; color:#334; margin-top:.2rem; }
-  .dz-h { font-size:.72rem; color:#889; margin-top:.15rem; }
+  .dz-h { font-size:.72rem; color:#5E5E6E; margin-top:.15rem; }
   .dz-l { font-size:.8rem; color:#2471A3; font-weight:600; margin-top:.4rem; min-height:1em; }
-  .opt { font-weight:400; font-size:.72rem; color:#9aa; }
+  .opt { font-weight:400; font-size:.72rem; color:#5E6C6C; }
   @media (max-width:900px){ .dropgrid { grid-template-columns:repeat(2,1fr); } }
   @media (max-width:520px){ .dropgrid { grid-template-columns:1fr; } }
   .chips { display:flex; flex-wrap:wrap; gap:.4rem; }
@@ -49,7 +49,7 @@
   th { color:#556; font-weight:600; }
   .chip { display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:middle; margin-right:5px; }
   canvas { max-width:100%; }
-  .muted { color:#889; font-size:.82rem; }
+  .muted { color:#5E5E6E; font-size:.82rem; }
   .hidden { display:none; }
   .gtip { position:fixed; z-index:1000; pointer-events:none; background:rgba(23,38,58,.94); color:#fff; font-size:12.5px; line-height:1.4; padding:7px 10px; border-radius:8px; max-width:min(420px, calc(100vw - 20px)); box-shadow:0 8px 24px rgba(0,0,0,.18); }
   .gtip[hidden] { display:none; }
@@ -66,8 +66,8 @@
 </head>
 <body>
 <div class="header">
-  <div class="container">
-    <h1><span style="color:#2471A3;">LIVIA</span> &mdash; cLIP <span style="font-weight:400;">(<b style="color:#2471A3">c</b>lustered <b style="color:#2471A3">L</b>ocal <b style="color:#2471A3">I</b>nteraction <b style="color:#2471A3">P</b>rofiler)</span> <sup style="color:#e67e22; font-weight:700; font-size:.42em; letter-spacing:.02em;">beta</sup></h1>
+  <div class="container" role="main">
+    <h1><span style="color:#2471A3;">LIVIA</span> &mdash; cLIP <span style="font-weight:400;">(<b style="color:#2471A3">c</b>lustered <b style="color:#2471A3">L</b>ocal <b style="color:#2471A3">I</b>nteraction <b style="color:#2471A3">P</b>rofiler)</span> <sup style="color:#B35A12; font-weight:700; font-size:.42em; letter-spacing:.02em;">beta</sup></h1>
     <p>Cluster a protein's interactome by shared contact Local Interaction Residues (cLIR) &mdash; drop lis.py output, all in your browser</p>
     <div class="header-links">
       <a href="index.html">Home</a>
@@ -87,8 +87,8 @@
 
 <div class="container">
   <div class="card">
-      <div style="font-size:0.82rem; color:#888; margin-bottom:0.8rem;">
-    Need the input? Generate it with <code style="background:#d6e9f8; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis.py</code> from <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a>.
+      <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.8rem;">
+    Need the input? Generate it with <code style="background:#d6e9f8; color:#33414E; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis.py</code> from <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a>.
       </div>
     <div class="dropgrid">
       <div class="dz" id="dz-csv">
@@ -124,54 +124,54 @@
     </div>
     <div id="skel-wrap" class="hidden" style="margin-top:.5rem; font-size:.82rem; color:#556;">
       <b>Names showing as IDs</b> (UniProt accession, FlyBase, entry name) instead of gene symbols? &nbsp;<a href="#" id="mg-convert" style="display:inline-block; padding:3px 10px; background:#2471A3; color:#fff; border-radius:5px; font-weight:600; text-decoration:none">✨ Auto-convert names → gene symbols</a> &nbsp;— looks each ID up via mygene.info + UniProt. <select id="mg-species" style="font-size:.8rem; padding:1px 4px"><option value="">all species</option><option value="7227">fly</option><option value="9606">human</option><option value="10090">mouse</option><option value="10116">rat</option><option value="6239">worm</option><option value="7955">zebrafish</option><option value="559292">yeast</option><option value="3702">arabidopsis</option><option value="83333">E. coli</option></select> <label style="margin-left:2px"><input type="checkbox" id="mg-auto" checked style="accent-color:#1a5276"> auto on load</label>
-      <br><span style="color:#889; font-size:.78rem;">Or <a href="#" id="skel-link" style="color:#2471A3; font-weight:600">↓ download an identity-map template</a> to name each chain yourself.</span>
+      <br><span style="color:#5E5E6E; font-size:.78rem;">Or <a href="#" id="skel-link" style="color:#2471A3; font-weight:600">↓ download an identity-map template</a> to name each chain yourself.</span>
     </div>
     <div style="margin-top:.7rem; font-size:.85rem; color:#556;">
       ▶ Try examples — kinase-transcription factor screen (<a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank" style="color:#2471A3">Kim et al. 2025</a>):<br>
-      <span style="color:#889; font-size:.8rem;">fly TF &rarr;</span>
+      <span style="color:#5E5E6E; font-size:.8rem;">fly TF &rarr;</span>
       <a href="#" class="load-ex" data-file="ftz_kinase_screen.zip" data-gene="ftz" style="color:#2471A3; font-weight:600; text-decoration:none;">ftz</a> ·
       <a href="#" class="load-ex" data-file="eve_kinase_screen.zip" data-gene="eve" style="color:#2471A3; font-weight:600; text-decoration:none;">eve</a> ·
       <a href="#" class="load-ex" data-file="antp_kinase_screen.zip" data-gene="Antp" style="color:#2471A3; font-weight:600; text-decoration:none;">Antp</a>
-      &nbsp; <span style="color:#889; font-size:.8rem;">fly kinase &rarr;</span>
+      &nbsp; <span style="color:#5E5E6E; font-size:.8rem;">fly kinase &rarr;</span>
       <a href="#" class="load-ex" data-file="apkc_tf_screen.zip" data-gene="aPKC" style="color:#2471A3; font-weight:600; text-decoration:none;">aPKC</a> ·
       <a href="#" class="load-ex" data-file="pdk1_tf_screen.zip" data-gene="Pdk1" style="color:#2471A3; font-weight:600; text-decoration:none;">Pdk1</a> ·
       <a href="#" class="load-ex" data-file="s6k_tf_screen.zip" data-gene="S6k" style="color:#2471A3; font-weight:600; text-decoration:none;">S6k</a><br>
-      <span style="color:#889; font-size:.8rem;">human TF &rarr;</span>
+      <span style="color:#5E5E6E; font-size:.8rem;">human TF &rarr;</span>
       <a href="#" class="load-ex" data-file="jun_kinase_screen.zip" data-gene="JUN" style="color:#2471A3; font-weight:600; text-decoration:none;">JUN</a> ·
       <a href="#" class="load-ex" data-file="tp53_kinase_screen.zip" data-gene="TP53" style="color:#2471A3; font-weight:600; text-decoration:none;">TP53</a> ·
       <a href="#" class="load-ex" data-file="myc_kinase_screen.zip" data-gene="MYC" style="color:#2471A3; font-weight:600; text-decoration:none;">MYC</a>
-      &nbsp; <span style="color:#889; font-size:.8rem;">human kinase &rarr;</span>
+      &nbsp; <span style="color:#5E5E6E; font-size:.8rem;">human kinase &rarr;</span>
       <a href="#" class="load-ex" data-file="akt1_tf_screen.zip" data-gene="AKT1" style="color:#2471A3; font-weight:600; text-decoration:none;">AKT1</a> ·
       <a href="#" class="load-ex" data-file="p38a_tf_screen.zip" data-gene="MAPK14" style="color:#2471A3; font-weight:600; text-decoration:none;">p38&alpha;</a> ·
       <a href="#" class="load-ex" data-file="chk1_tf_screen.zip" data-gene="CHEK1" style="color:#2471A3; font-weight:600; text-decoration:none;">CHK1</a>
     </div>
     <div style="margin-top:.55rem; font-size:.85rem; color:#556;">
       ▶ …or one gene's evidence-supported interactome (fly literature or conserved interologs), from <a href="https://flyark.github.io/FlyPredictome-network/" target="_blank" style="color:#2471A3">FlyPredictome</a> (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3">Kim et al. 2026</a>):<br>
-      <span style="color:#889; font-size:.8rem;">RTK&ndash;Ras&ndash;MAPK &rarr;</span>
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0003731.zip" data-gene="Egfr" style="color:#2471A3; font-weight:600; text-decoration:none;">Egfr</a> <span style="color:#9aa4b2; font-size:.72rem;">(EGFR)</span> ·
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0283499.zip" data-gene="InR" style="color:#2471A3; font-weight:600; text-decoration:none;">InR</a> <span style="color:#9aa4b2; font-size:.72rem;">(insulin R)</span> ·
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0285896.zip" data-gene="btl" style="color:#2471A3; font-weight:600; text-decoration:none;">btl</a> <span style="color:#9aa4b2; font-size:.72rem;">(FGFR)</span> ·
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0003205.zip" data-gene="Ras85D" style="color:#2471A3; font-weight:600; text-decoration:none;">Ras85D</a> <span style="color:#9aa4b2; font-size:.72rem;">(Ras)</span> ·
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0003256.zip" data-gene="rl" style="color:#2471A3; font-weight:600; text-decoration:none;">rl</a> <span style="color:#9aa4b2; font-size:.72rem;">(ERK)</span><br>
-      <span style="color:#889; font-size:.8rem;">Notch &rarr;</span>
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0004647.zip" data-gene="N" style="color:#2471A3; font-weight:600; text-decoration:none;">N</a> <span style="color:#9aa4b2; font-size:.72rem;">(Notch)</span> ·
+      <span style="color:#5E5E6E; font-size:.8rem;">RTK&ndash;Ras&ndash;MAPK &rarr;</span>
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0003731.zip" data-gene="Egfr" style="color:#2471A3; font-weight:600; text-decoration:none;">Egfr</a> <span style="color:#667080; font-size:.72rem;">(EGFR)</span> ·
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0283499.zip" data-gene="InR" style="color:#2471A3; font-weight:600; text-decoration:none;">InR</a> <span style="color:#667080; font-size:.72rem;">(insulin R)</span> ·
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0285896.zip" data-gene="btl" style="color:#2471A3; font-weight:600; text-decoration:none;">btl</a> <span style="color:#667080; font-size:.72rem;">(FGFR)</span> ·
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0003205.zip" data-gene="Ras85D" style="color:#2471A3; font-weight:600; text-decoration:none;">Ras85D</a> <span style="color:#667080; font-size:.72rem;">(Ras)</span> ·
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0003256.zip" data-gene="rl" style="color:#2471A3; font-weight:600; text-decoration:none;">rl</a> <span style="color:#667080; font-size:.72rem;">(ERK)</span><br>
+      <span style="color:#5E5E6E; font-size:.8rem;">Notch &rarr;</span>
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0004647.zip" data-gene="N" style="color:#2471A3; font-weight:600; text-decoration:none;">N</a> <span style="color:#667080; font-size:.72rem;">(Notch)</span> ·
       <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0000463.zip" data-gene="Delta" style="color:#2471A3; font-weight:600; text-decoration:none;">Delta</a> ·
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0004197.zip" data-gene="Ser" style="color:#2471A3; font-weight:600; text-decoration:none;">Ser</a> <span style="color:#9aa4b2; font-size:.72rem;">(Jagged)</span> ·
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0004837.zip" data-gene="Su(H)" style="color:#2471A3; font-weight:600; text-decoration:none;">Su(H)</a> <span style="color:#9aa4b2; font-size:.72rem;">(CSL)</span> ·
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0004197.zip" data-gene="Ser" style="color:#2471A3; font-weight:600; text-decoration:none;">Ser</a> <span style="color:#667080; font-size:.72rem;">(Jagged)</span> ·
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0004837.zip" data-gene="Su(H)" style="color:#2471A3; font-weight:600; text-decoration:none;">Su(H)</a> <span style="color:#667080; font-size:.72rem;">(CSL)</span> ·
       <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0002973.zip" data-gene="numb" style="color:#2471A3; font-weight:600; text-decoration:none;">numb</a><br>
-      <span style="color:#889; font-size:.8rem;">Wnt &rarr;</span>
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0284084.zip" data-gene="wg" style="color:#2471A3; font-weight:600; text-decoration:none;">wg</a> <span style="color:#9aa4b2; font-size:.72rem;">(Wnt)</span> ·
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0001085.zip" data-gene="fz" style="color:#2471A3; font-weight:600; text-decoration:none;">fz</a> <span style="color:#9aa4b2; font-size:.72rem;">(Frizzled)</span> ·
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0000499.zip" data-gene="dsh" style="color:#2471A3; font-weight:600; text-decoration:none;">dsh</a> <span style="color:#9aa4b2; font-size:.72rem;">(Dishevelled)</span> ·
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0000117.zip" data-gene="arm" style="color:#2471A3; font-weight:600; text-decoration:none;">arm</a> <span style="color:#9aa4b2; font-size:.72rem;">(&beta;-catenin)</span> ·
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0003371.zip" data-gene="sgg" style="color:#2471A3; font-weight:600; text-decoration:none;">sgg</a> <span style="color:#9aa4b2; font-size:.72rem;">(GSK-3)</span><br>
-      <span style="color:#889; font-size:.8rem;">BMP / TGF-&beta; &rarr;</span>
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0000490.zip" data-gene="dpp" style="color:#2471A3; font-weight:600; text-decoration:none;">dpp</a> <span style="color:#9aa4b2; font-size:.72rem;">(BMP)</span> ·
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0003716.zip" data-gene="tkv" style="color:#2471A3; font-weight:600; text-decoration:none;">tkv</a> <span style="color:#9aa4b2; font-size:.72rem;">(BMPR-I)</span> ·
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0003169.zip" data-gene="put" style="color:#2471A3; font-weight:600; text-decoration:none;">put</a> <span style="color:#9aa4b2; font-size:.72rem;">(BMPR-II)</span> ·
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0011648.zip" data-gene="Mad" style="color:#2471A3; font-weight:600; text-decoration:none;">Mad</a> <span style="color:#9aa4b2; font-size:.72rem;">(Smad1/5)</span> ·
-      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0011655.zip" data-gene="Med" style="color:#2471A3; font-weight:600; text-decoration:none;">Med</a> <span style="color:#9aa4b2; font-size:.72rem;">(Smad4)</span><br>
-      <span style="color:#889; font-size:.8rem;">or jump to any gene &rarr;</span>
+      <span style="color:#5E5E6E; font-size:.8rem;">Wnt &rarr;</span>
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0284084.zip" data-gene="wg" style="color:#2471A3; font-weight:600; text-decoration:none;">wg</a> <span style="color:#667080; font-size:.72rem;">(Wnt)</span> ·
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0001085.zip" data-gene="fz" style="color:#2471A3; font-weight:600; text-decoration:none;">fz</a> <span style="color:#667080; font-size:.72rem;">(Frizzled)</span> ·
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0000499.zip" data-gene="dsh" style="color:#2471A3; font-weight:600; text-decoration:none;">dsh</a> <span style="color:#667080; font-size:.72rem;">(Dishevelled)</span> ·
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0000117.zip" data-gene="arm" style="color:#2471A3; font-weight:600; text-decoration:none;">arm</a> <span style="color:#667080; font-size:.72rem;">(&beta;-catenin)</span> ·
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0003371.zip" data-gene="sgg" style="color:#2471A3; font-weight:600; text-decoration:none;">sgg</a> <span style="color:#667080; font-size:.72rem;">(GSK-3)</span><br>
+      <span style="color:#5E5E6E; font-size:.8rem;">BMP / TGF-&beta; &rarr;</span>
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0000490.zip" data-gene="dpp" style="color:#2471A3; font-weight:600; text-decoration:none;">dpp</a> <span style="color:#667080; font-size:.72rem;">(BMP)</span> ·
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0003716.zip" data-gene="tkv" style="color:#2471A3; font-weight:600; text-decoration:none;">tkv</a> <span style="color:#667080; font-size:.72rem;">(BMPR-I)</span> ·
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0003169.zip" data-gene="put" style="color:#2471A3; font-weight:600; text-decoration:none;">put</a> <span style="color:#667080; font-size:.72rem;">(BMPR-II)</span> ·
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0011648.zip" data-gene="Mad" style="color:#2471A3; font-weight:600; text-decoration:none;">Mad</a> <span style="color:#667080; font-size:.72rem;">(Smad1/5)</span> ·
+      <a href="#" class="load-ex" data-file="https://flyark.github.io/FlyPredictome-clip-data/FBgn0011655.zip" data-gene="Med" style="color:#2471A3; font-weight:600; text-decoration:none;">Med</a> <span style="color:#667080; font-size:.72rem;">(Smad4)</span><br>
+      <span style="color:#5E5E6E; font-size:.8rem;">or jump to any gene &rarr;</span>
       <input id="clip-gene-jump" list="clip-gene-list" placeholder="e.g. aPKC, ci, Stat92E&hellip;" autocomplete="off" spellcheck="false" style="font-size:.8rem; padding:2px 7px; border:1px solid #ccd; border-radius:6px; width:160px;">
       <datalist id="clip-gene-list"></datalist>
       &nbsp; <a href="https://flyark.github.io/FlyPredictome-network/" target="_blank" style="color:#2471A3; font-weight:600; text-decoration:none;">browse the full network &rarr;</a>
@@ -288,7 +288,7 @@
       <div class="muted">Query protein structure, residues colored by the cluster that consensus-contacts them · click clusters to isolate.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.</div>
       <div class="muted" style="margin-top:.35rem">Highlight residues contacted by &ge; <select id="commonality" style="font-size:.82rem; padding:1px 4px" title="Fraction of a cluster's members (predictions) that must contact a residue for it to take the cluster's color"><option value="0.1">10%</option><option value="0.2">20%</option><option value="0.3">30%</option><option value="0.4">40%</option><option value="0.5" selected>50%</option><option value="0.6">60%</option><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option><option value="custom">custom&hellip;</option></select><span id="commonality-custom" class="hidden"> <input type="number" id="commonality-pct" min="1" max="100" step="1" style="width:4.2em; font-size:.82rem; padding:1px 4px" title="Any value from 1 to 100%; applied on Enter or when the field loses focus"> %</span> of a cluster's members (consensus / core residues).</div>
       <div class="muted" style="margin-top:.25rem">Color only clusters with &ge; <input id="min-cluster" type="number" min="1" value="5" style="width:46px; font-size:.82rem; padding:1px 4px"> predictions (hides tiny clusters).</div>
-      <div class="muted" style="font-size:.78rem; color:#99a">&nbsp;&nbsp;(the <b>(N)</b> on each cluster chip — AlphaFold ranks, not unique partners).</div>
+      <div class="muted" style="font-size:.78rem; color:#5E5E6E">&nbsp;&nbsp;(the <b>(N)</b> on each cluster chip — AlphaFold ranks, not unique partners).</div>
       <div id="cluster-chips" class="chips" style="margin:.5rem 0 0"></div>
       <div class="row" style="margin-top:.5rem; gap:.4rem; align-items:center; flex-wrap:wrap">
         <span class="muted">Color selection:</span>
@@ -1729,7 +1729,7 @@ function renderScatter(A){
   // instead of throwing, which used to take the table and cluster panels down with it.
   if (typeof Plotly === 'undefined'){
     const el = $('scatter'), tag = $('plotly-lib');
-    const note = (msg) => { if (el) el.innerHTML = '<div class="plotly-wait" style="padding:24px; color:#888; font-size:0.85rem;">' + msg + '</div>'; };
+    const note = (msg) => { if (el) el.innerHTML = '<div class="plotly-wait" style="padding:24px; color:#6B6B6B; font-size:0.85rem;">' + msg + '</div>'; };
     if (window.__PLOTLY_FAILED || !tag){ note('Scatter unavailable: the plotting library (Plotly) could not be loaded.'); return; }
     note('Loading plot…');
     if (!tag.dataset.waiting){

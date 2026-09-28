@@ -10,12 +10,13 @@
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; }
         .header { background: white; color: #1a5276; padding: 0.8rem 2rem 0.8rem; border-bottom: 1px solid #e8e8e8; }
         .header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.15rem; color: #1a5276; letter-spacing: -0.02em; }
-        .header p { font-size: 0.92rem; color: #888; margin-bottom: 0.8rem; font-weight: 400; }
+        .header p { font-size: 0.92rem; color: #6B6B6B; margin-bottom: 0.8rem; font-weight: 400; }
         .header-links { display: flex; gap: 0.4rem; flex-wrap: wrap; }
         .header-links a { color: #555; text-decoration: none; font-size: 0.74rem; padding: 0.22rem 0.5rem; border: 1px solid #ddd; border-radius: 6px; transition: all 0.2s; background: #f8f9fa; }
         .header-links a:hover { background: #2471A3; color: white; border-color: #2471A3; }
         .header-links a.active { background: #2471A3; color: white; border-color: #2471A3; cursor: default; }
         .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+        .container p a:not([class]), .container li a:not([class]), .container td a:not([class]) { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }   /* links in running text: more than color */
 
         .tool-section { margin-bottom: 3rem; }
         .tool-title { font-size: 1.4rem; color: #1a5276; margin-bottom: 1.5rem; padding-bottom: 0.5rem; border-bottom: 3px solid #2471A3; }
@@ -37,18 +38,18 @@
         .mock-results { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.8rem; }
         .mock-metric { background: #f8f9fa; border-radius: 8px; padding: 0.5rem; text-align: center; }
         .mock-metric .val { font-size: 1.1rem; font-weight: 700; color: #2471A3; }
-        .mock-metric .lbl { font-size: 0.7rem; color: #888; }
+        .mock-metric .lbl { font-size: 0.7rem; color: #6B6B6B; }
 
         .mock-maps { display: flex; gap: 0.4rem; margin-top: 0.8rem; }
         .mock-map { width: 80px; height: 80px; border-radius: 4px; border: 1px solid #ddd; position: relative; overflow: hidden; }
         .mock-map canvas { width: 100%; height: 100%; }
-        .mock-map-label { font-size: 0.6rem; color: #888; text-align: center; margin-top: 0.2rem; }
+        .mock-map-label { font-size: 0.6rem; color: #6B6B6B; text-align: center; margin-top: 0.2rem; }
 
         .mock-script { background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 0.8rem; font-family: monospace; font-size: 0.72rem; line-height: 1.5; margin-top: 0.8rem; max-height: 120px; overflow: hidden; }
         .mock-script .cmd { color: #89b4fa; }
-        .mock-script .cmt { color: #6c7086; }
+        .mock-script .cmt { color: #9399B2; }
 
-        .arrow { color: #E67E22; font-size: 1.5rem; margin: 0 0.3rem; }
+        .arrow { color: #B35A12; font-size: 1.5rem; margin: 0 0.3rem; }
         .tip { background: #fff3cd; border-left: 4px solid #ffc107; padding: 0.6rem 1rem; border-radius: 0 8px 8px 0; font-size: 0.85rem; color: #856404; margin-top: 0.8rem; }
         .output-flow { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.8rem; }
         .output-file { background: #f0f0f0; padding: 0.3rem 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.8rem; }
@@ -89,7 +90,7 @@
             .header-links { gap: 0.4rem; }
             .header-links a { font-size: 0.72rem; padding: 0.15rem 0.4rem; }
         }
-        .footer { text-align: center; padding: 1.5rem 2rem; font-size: 0.8rem; color: #999; }
+        .footer { text-align: center; padding: 1.5rem 2rem; font-size: 0.8rem; color: #707070; }
         .footer a { color: #2471A3; text-decoration: none; }
         .footer a:hover { text-decoration: underline; }
     </style>
@@ -97,7 +98,7 @@
 <body>
 
 <div class="header">
-    <div class="container">
+    <div class="container" role="main">
         <h1><span style="color:#2471A3;">LIVIA</span> &mdash; About</h1>
         <p>Metric definitions, color schemes, and references</p>
         <div class="header-links">
@@ -428,7 +429,7 @@
                 <li><strong>Gap filling</strong> (default: 10 residues) &mdash; bridges short breaks between LIR regions for continuous cartoon display.</li>
                 <li><strong>Min segment</strong> (default: 3 residues) &mdash; removes isolated LIR fragments shorter than the threshold. cLIR residues within removed segments are also removed.</li>
             </ul>
-            <p style="margin-top:0.5rem; font-size:0.85rem; color:#888;">Click <strong>Apply</strong> after changing values to update the visualization script and 3D viewer.</p>
+            <p style="margin-top:0.5rem; font-size:0.85rem; color:#6B6B6B;">Click <strong>Apply</strong> after changing values to update the visualization script and 3D viewer.</p>
         </div>
     </div>
     <!-- SEQUENCE VIEWER -->
@@ -441,7 +442,7 @@
             <div style="display:flex; gap:1.5rem; margin:0.8rem 0; flex-wrap:wrap;">
                 <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:60px; height:24px; background:#80CBC4; border-radius:4px; border:1px solid #ccc; text-align:center; font-family:monospace; font-size:0.8rem; line-height:24px;">A K L</div><span style="font-size:0.85rem;">LIR residues (light color)</span></div>
                 <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:60px; height:24px; background:#00897B; border-radius:4px; text-align:center; font-family:monospace; font-size:0.8rem; line-height:24px; color:white; font-weight:700;">R D E</div><span style="font-size:0.85rem;">cLIR residues (dark color, bold white)</span></div>
-                <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:60px; height:24px; background:#f0f0f0; border-radius:4px; text-align:center; font-family:monospace; font-size:0.8rem; line-height:24px; color:#999;">G P S</div><span style="font-size:0.85rem;">Non-interacting residues</span></div>
+                <div style="display:flex; align-items:center; gap:0.5rem;"><div style="width:60px; height:24px; background:#f0f0f0; border-radius:4px; text-align:center; font-family:monospace; font-size:0.8rem; line-height:24px; color:#707070;">G P S</div><span style="font-size:0.85rem;">Non-interacting residues</span></div>
             </div>
             <p>Residue numbering is shown at intervals. The viewer scrolls horizontally for long sequences. In <a href="clip.html">cLIP</a> the sequence is grouped by ten and stays searchable (&#8984;F / Ctrl-F), and when no FASTA is loaded it falls back to the UniProt canonical sequence.</p>
         </div>
@@ -460,9 +461,9 @@
                 <tr style="background:#f8f9fa;"><th style="text-align:left; padding:0.5rem 0.8rem; color:#1a5276;">Map</th><th style="text-align:left; padding:0.5rem 0.8rem; color:#1a5276;">Colormap</th><th style="text-align:left; padding:0.5rem 0.8rem; color:#1a5276;">Scale</th></tr>
                 <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><strong>PAE map</strong></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><span style="color:#2471A3;">blue</span> &ndash; white &ndash; <span style="color:#c0392b;">red</span> (bwr)</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">0 &Aring; (confident) &rarr; 30 &Aring; (uncertain)</td></tr>
                 <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><strong>LIS map</strong></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">matplotlib <span style="color:#2471A3;">Blues</span></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">0 &rarr; 1 (higher = stronger interaction)</td></tr>
-                <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><strong>cLIS map</strong></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">matplotlib <span style="color:#27ae60;">Greens</span></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">0 &rarr; 1 (higher = stronger contact-filtered interaction)</td></tr>
-                <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><strong>Score matrix (iLIS)</strong></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">matplotlib <span style="color:#E67E22;">Oranges</span></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">Lower-left triangle</td></tr>
-                <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><strong>Score matrix (cLIR / ipTM)</strong></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">white &rarr; <span style="color:#27ae60;">green</span> (or <span style="color:#7D3C98;">Purples</span> for ipTM)</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">Upper-right triangle</td></tr>
+                <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><strong>cLIS map</strong></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">matplotlib <span style="color:#1E7E46;">Greens</span></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">0 &rarr; 1 (higher = stronger contact-filtered interaction)</td></tr>
+                <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><strong>Score matrix (iLIS)</strong></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">matplotlib <span style="color:#B35A12;">Oranges</span></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">Lower-left triangle</td></tr>
+                <tr><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;"><strong>Score matrix (cLIR / ipTM)</strong></td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">white &rarr; <span style="color:#1E7E46;">green</span> (or <span style="color:#7D3C98;">Purples</span> for ipTM)</td><td style="padding:0.5rem 0.8rem; border-top:1px solid #eee;">Upper-right triangle</td></tr>
             </table>
         </div>
 
@@ -488,7 +489,7 @@
             <h3>Coloring Mode Presets</h3>
             <p>The Monomer tool provides additional coloring presets beyond the default domain-colored view:</p>
             <ul class="features-list">
-                <li><strong>pLDDT coloring</strong> &mdash; colors residues by AlphaFold confidence: <span style="color:#0053D6; font-weight:600;">very high (&gt;90)</span>, <span style="color:#65CBF3; font-weight:600;">confident (70&ndash;90)</span>, <span style="color:#FFDB13; font-weight:600;">low (50&ndash;70)</span>, <span style="color:#FF7D45; font-weight:600;">very low (&lt;50)</span></li>
+                <li><strong>pLDDT coloring</strong> &mdash; colors residues by AlphaFold confidence: <span style="display:inline-block; width:0.8em; height:0.8em; border-radius:2px; background:#0053D6; vertical-align:-1px; margin-right:3px;"></span><b>very high (&gt;90)</b>, <span style="display:inline-block; width:0.8em; height:0.8em; border-radius:2px; background:#65CBF3; vertical-align:-1px; margin-right:3px;"></span><b>confident (70&ndash;90)</b>, <span style="display:inline-block; width:0.8em; height:0.8em; border-radius:2px; background:#FFDB13; vertical-align:-1px; margin-right:3px;"></span><b>low (50&ndash;70)</b>, <span style="display:inline-block; width:0.8em; height:0.8em; border-radius:2px; background:#FF7D45; vertical-align:-1px; margin-right:3px;"></span><b>very low (&lt;50)</b></li>
                 <li><strong>color bychain</strong> &mdash; chain coloring</li>
                 <li><strong>color bypolymer</strong> &mdash; polymer coloring</li>
             </ul>
@@ -570,8 +571,8 @@
             <p style="margin-top:0.8rem;"><strong>Command line, for many predictions at once:</strong> use <code>make_lightweight_bundle.py</code> from the <a href="https://github.com/flyark/LIVIA/tree/main/python" target="_blank" style="color:#2471A3; font-weight:600;">python/</a> directory of this repository.</p>
             <div style="background:#1e1e2e; color:#cdd6f4; border-radius:8px; padding:0.8rem; font-family:monospace; font-size:0.82rem; line-height:1.6; margin-top:0.6rem;">
                 <span style="color:#89b4fa;">python</span> make_lightweight_bundle.py fold_mycomplex.zip -o bundles/<br>
-                <span style="color:#89b4fa;">python</span> make_lightweight_bundle.py preds/*.zip -o bundles/ &nbsp;<span style="color:#6c7086;"># batch, one bundle per prediction</span><br>
-                <span style="color:#89b4fa;">python</span> make_lightweight_bundle.py --check bundles/*.zip &nbsp;<span style="color:#6c7086;"># verify before publishing/sharing</span>
+                <span style="color:#89b4fa;">python</span> make_lightweight_bundle.py preds/*.zip -o bundles/ &nbsp;<span style="color:#9399B2;"># batch, one bundle per prediction</span><br>
+                <span style="color:#89b4fa;">python</span> make_lightweight_bundle.py --check bundles/*.zip &nbsp;<span style="color:#9399B2;"># verify before publishing/sharing</span>
             </div>
             <p style="margin-top:0.5rem;">Features: keeps every ranked model&rsquo;s scores in one <code>lis.csv</code>, auto-generates the PAE image, self-validates against the bundle format, and <code>--delete-original</code> only reclaims disk space once a bundle has already passed every check.</p>
             <p style="margin-top:0.8rem;">For the exact bundle format &mdash; useful if you&rsquo;re hosting your own catalog or building other tooling around it &mdash; see the <a href="https://github.com/flyark/LIVIA/blob/main/docs/lightweight-bundle.md" target="_blank" style="color:#2471A3; font-weight:600;">lightweight bundle authoring guide</a>.</p>
@@ -588,14 +589,14 @@
             <p>For large-scale batch analysis of many predictions, use <code>lis.py</code> from the <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a> repository. It supports all the same platforms (AlphaFold3, ColabFold, Boltz, Chai-1, OpenFold3, Protenix-v2, ESMFold2), auto-detects the prediction format, and outputs CSV.</p>
             <div style="background:#1e1e2e; color:#cdd6f4; border-radius:8px; padding:0.8rem; font-family:monospace; font-size:0.82rem; line-height:1.6; margin-top:0.6rem;">
                 <span style="color:#89b4fa;">python</span> lis.py /path/to/predictions/<br>
-                <span style="color:#89b4fa;">python</span> lis.py /path/to/predictions/ -w 4 &nbsp;<span style="color:#6c7086;"># parallel with 4 CPUs</span>
+                <span style="color:#89b4fa;">python</span> lis.py /path/to/predictions/ -w 4 &nbsp;<span style="color:#9399B2;"># parallel with 4 CPUs</span>
             </div>
             <p style="margin-top:0.5rem;">Features: <code>.gz</code>/<code>.xz</code> decompression, incremental CSV output (safe to interrupt and resume), progress bar with ETA.</p>
 
             <p style="margin-top:1.2rem;">For batch generation of ChimeraX visualization scripts from the <code>lis.py</code> CSV, use <code>lis_to_cxc.py</code> (also in <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a>). It writes one <code>.cxc</code> per fold &times; rank with LIR (light) and cLIR (dark) per-chain coloring, an iLIS/cLIS label panel, and an optional LIR-only partial PDB for Foldseek-multimer search.</p>
             <div style="background:#1e1e2e; color:#cdd6f4; border-radius:8px; padding:0.8rem; font-family:monospace; font-size:0.82rem; line-height:1.6; margin-top:0.6rem;">
                 <span style="color:#89b4fa;">python</span> lis_to_cxc.py --csv results_lis_analysis.csv --pdb-root . --out cxc/<br>
-                <span style="color:#89b4fa;">python</span> lis_to_cxc.py --csv results.csv --pdb-root . --out cxc/ --best-rank-only --save-lir-pdb &nbsp;<span style="color:#6c7086;"># 1 cxc per fold + Foldseek-ready PDB</span>
+                <span style="color:#89b4fa;">python</span> lis_to_cxc.py --csv results.csv --pdb-root . --out cxc/ --best-rank-only --save-lir-pdb &nbsp;<span style="color:#9399B2;"># 1 cxc per fold + Foldseek-ready PDB</span>
             </div>
             <p style="margin-top:0.5rem;">Features: per-chain LIR/cLIR coloring with custom palettes, iLIS-based rank reassignment for AF3/Boltz/Chai/OpenFold3/Protenix, gap-fill + isolated-residue pruning, ChimeraX figure-save tip embedded.</p>
         </div>

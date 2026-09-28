@@ -12,7 +12,7 @@
         .header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.15rem; color: #1a5276; letter-spacing: -0.02em; }
         .header h1 .livia { color: #2471A3; font-weight: 700; }
         .header h1 .acro { color: #2471A3; }
-        .header .subtitle { font-size: 0.92rem; color: #888; margin-bottom: 0.8rem; font-weight: 400; }
+        .header .subtitle { font-size: 0.92rem; color: #6B6B6B; margin-bottom: 0.8rem; font-weight: 400; }
         .header-links { display: flex; gap: 0.4rem; flex-wrap: wrap; }
         .header-links a { color: #555; text-decoration: none; font-size: 0.74rem; padding: 0.22rem 0.5rem; border: 1px solid #ddd; border-radius: 6px; transition: all 0.2s; background: #f8f9fa; }
         .header-links a:hover { background: #2471A3; color: white; border-color: #2471A3; }
@@ -39,20 +39,20 @@
         .hero-card p { font-size: 0.92rem; color: #555; line-height: 1.5; }
         .hero-cta { display: inline-block; margin-top: 1rem; padding: 0.5rem 1.2rem; background: #2471A3; color: white; border-radius: 8px; font-weight: 600; font-size: 0.9rem; text-decoration: none; transition: background 0.2s; }
         .hero-cta:hover { background: #1a5276; }
-        .hero-hint { font-size: 0.8rem; color: #888; margin-top: 0.6rem; }
+        .hero-hint { font-size: 0.8rem; color: #6B6B6B; margin-top: 0.6rem; }
         .hero-pair { display: grid; grid-template-columns: 3fr 2fr; gap: 1.5rem; margin-bottom: 2rem; }
         /* the 34-second tour (files on flyark.github.io/livia-media; nothing downloads until play) */
         .tour-card { display: grid; grid-template-columns: 2fr 3fr; gap: 1.75rem; align-items: center; background: white; border-radius: 14px; padding: 1.5rem 1.75rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 2rem; }
         .tour-card h2 { font-size: 1.35rem; color: #1a5276; margin-bottom: 0.4rem; }
         .tour-card p { font-size: 0.92rem; color: #555; line-height: 1.5; margin-bottom: 0.8rem; }
-        .tour-card .tour-meta { display: block; font-size: 0.78rem; color: #888; margin-bottom: 0.8rem; }
+        .tour-card .tour-meta { display: block; font-size: 0.78rem; color: #6B6B6B; margin-bottom: 0.8rem; }
         .tour-more { font-size: 0.88rem; font-weight: 600; color: #2471A3; text-decoration: none; }
         .tour-more:hover { text-decoration: underline; }
         .tour-video { width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; background: #0d1b2a; display: block; }
         .hero-pair .hero-card { margin-bottom: 0; }
 
         /* Section divider */
-        .section-divider { font-size: 0.88rem; font-weight: 600; color: #888; margin-bottom: 1rem; padding-bottom: 0.4rem; border-bottom: 1px solid #e0e0e0; }
+        .section-divider { font-size: 0.88rem; font-weight: 600; color: #6B6B6B; margin-bottom: 1rem; padding-bottom: 0.4rem; border-bottom: 1px solid #e0e0e0; }
 
         /* Small cards grid */
         .cards-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
@@ -60,19 +60,19 @@
         .small-card:hover { border-color: #2471A3; box-shadow: 0 4px 12px rgba(36,113,163,0.12); }
         .small-card h3 { font-size: 0.95rem; color: #1a5276; margin-bottom: 0.25rem; }
         .small-card p { font-size: 0.8rem; color: #666; line-height: 1.4; }
-        .small-card .examples { font-size: 0.72rem; color: #999; margin-top: 0.3rem; }
+        .small-card .examples { font-size: 0.72rem; color: #707070; margin-top: 0.3rem; }
 
         /* Bottom links */
         .bottom-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
         .bottom-link { flex: 1; background: #f8f9fa; border-radius: 8px; padding: 0.8rem 1rem; text-decoration: none; color: #555; transition: all 0.2s; border: 1px solid #e8e8e8; display: block; }
         .bottom-link:hover { border-color: #2471A3; color: #2471A3; }
         .bottom-link h4 { font-size: 0.88rem; color: #1a5276; margin-bottom: 0.15rem; }
-        .bottom-link p { font-size: 0.78rem; color: #888; }
+        .bottom-link p { font-size: 0.78rem; color: #6B6B6B; }
 
         .links { text-align: center; margin: 0.5rem 0 1rem; }
         .links a { color: #2471A3; text-decoration: none; font-size: 0.85rem; margin: 0 0.6rem; }
         .links a:hover { text-decoration: underline; }
-        .footer { text-align: center; padding: 1.5rem 2rem; font-size: 0.8rem; color: #999; }
+        .footer { text-align: center; padding: 1.5rem 2rem; font-size: 0.8rem; color: #707070; }
         .footer a { color: #2471A3; text-decoration: none; }
 
         @media (max-width: 1024px) {
@@ -90,7 +90,7 @@
 </head>
 <body>
 <div class="header">
-    <div class="container">
+    <div class="container" role="main">
         <h1><span class="livia">LIVIA</span> &mdash; <span class="acro">L</span>ocal <span class="acro">I</span>nteraction <span class="acro">VI</span>sualization and <span class="acro">A</span>nalysis</h1>
         <p class="subtitle">Analyze protein-protein interactions from structure predictions and generate visualization scripts</p>
         <div class="header-links">
@@ -141,13 +141,13 @@
     <!-- Heroes: cLIP + PPI Network Builder (side by side) -->
     <div class="hero-pair">
     <a class="hero-card" href="clip.html">
-        <h2>cLIP <sup style="color:#e67e22; font-weight:700; font-size:0.5em; vertical-align:super;">beta</sup> <span style="font-weight:400; color:#555;">(<b style="color:#2471A3">c</b>lustered <b style="color:#2471A3">L</b>ocal <b style="color:#2471A3">I</b>nteraction <b style="color:#2471A3">P</b>rofiler)</span></h2>
+        <h2>cLIP <sup style="color:#B35A12; font-weight:700; font-size:0.5em; vertical-align:super;">beta</sup> <span style="font-weight:400; color:#555;">(<b style="color:#2471A3">c</b>lustered <b style="color:#2471A3">L</b>ocal <b style="color:#2471A3">I</b>nteraction <b style="color:#2471A3">P</b>rofiler)</span></h2>
         <p>Cluster a protein's interactome by shared contact Local Interaction Residues (cLIR) &mdash; drop <strong>lis.py</strong> output, all in your browser.</p>
         <span class="hero-cta">Launch cLIP &rarr;</span>
         <div class="hero-hint">Resolves AlphaFold DB structures automatically from sequence or protein name.</div>
     </a>
     <a class="hero-card" href="network.html">
-        <h2>PPI Network Builder <sup style="color:#e67e22; font-weight:700; font-size:0.5em; vertical-align:super;">beta</sup></h2>
+        <h2>PPI Network Builder <sup style="color:#B35A12; font-weight:700; font-size:0.5em; vertical-align:super;">beta</sup></h2>
         <p>Build an interaction network from <strong>lis.py</strong> output &mdash; Leiden communities run in your browser.</p>
         <span class="hero-cta">Launch PPI Network &rarr;</span>
         <div class="hero-hint">Interactive layouts, name&rarr;symbol auto-convert, and export to Cytoscape/SVG.</div>
@@ -201,7 +201,7 @@
 </div>
 
 <div style="max-width:1100px; margin:0 auto; padding:0 1.5rem 1rem;">
-    <div style="background:#f8f9fa; border-radius:8px; padding:0.8rem 1.2rem; font-size:0.78rem; color:#888; line-height:1.6;">
+    <div style="background:#f8f9fa; border-radius:8px; padding:0.8rem 1.2rem; font-size:0.78rem; color:#6B6B6B; line-height:1.6;">
         <strong style="color:#555;">Browser:</strong> Tested on Chrome and Safari (macOS/iOS). All analysis runs in your browser, and your files are never uploaded. To add names, domains and reported interactions, some pages look things up at public services (UniProt, EBI BLAST, AlphaFold DB, MIST, BioGRID): see <a href="about.html#data">what leaves your browser</a>.
         <br>
         <strong style="color:#555;">Note:</strong> Each prediction platform (AlphaFold3, ColabFold, Boltz, Chai-1, etc.) may produce different confidence calibrations. The iLIS &ge; 0.223 threshold was established using ColabFold/AlphaFold-Multimer predictions. Other platforms may require adjusted thresholds.

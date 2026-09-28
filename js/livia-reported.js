@@ -66,14 +66,14 @@ function render(withId, subs, pairMap, opts){
         const n = list.length - 5;
         return list.slice(0, 5).map(pmidLink).join(', ')
             + '<span id="' + id + '" style="display:none;">, ' + list.slice(5).map(pmidLink).join(', ') + '</span>'
-            + ' <a href="javascript:void(0)" onclick="var e=document.getElementById(\'' + id + '\'),o=e.style.display===\'none\';e.style.display=o?\'\':\'none\';this.textContent=o?\' less\':\' +' + n + ' more\'" style="color:#888; font-size:0.72rem;">+' + n + ' more</a>';
+            + ' <a href="javascript:void(0)" onclick="var e=document.getElementById(\'' + id + '\'),o=e.style.display===\'none\';e.style.display=o?\'\':\'none\';this.textContent=o?\' less\':\' +' + n + ' more\'" style="color:#6B6B6B; font-size:0.72rem;">+' + n + ' more</a>';
     };
     const warn = (msg) => '<div style="background:#fff3cd; border-left:4px solid #ffc107; padding:0.6rem 0.8rem; border-radius:0 6px 6px 0; font-size:0.85rem; color:#856404;">' + msg + '</div>';
     const selfOk = (s) => (s.copies || 1) >= 2;                         // a homomeric subunit's self-pair is a real contact
     if (withId.length === 1 && !selfOk(withId[0])){                    // single resolved protein, one copy → its reported-partner count
         const s = withId[0], sg = String(s.geneId);
         const partners = new Set((s.results || []).map(r => { const ga = String(r.GeneA), gb = String(r.GeneB); return ga === sg ? gb : (gb === sg ? ga : null); }).filter(g => g && g !== sg));
-        const note = subs.length > 1 ? ' <span style="color:#999;">(other chains not resolved to a Gene ID)</span>' : '';
+        const note = subs.length > 1 ? ' <span style="color:#707070;">(other chains not resolved to a Gene ID)</span>' : '';
         return '<div style="font-size:0.85rem; color:#444;"><strong>' + esc(s.sym) + '</strong> has <strong>' + partners.size + '</strong> reported interaction partner' + (partners.size === 1 ? '' : 's') + ' in MIST.' + note + ' Single resolved protein — browse them via the link below.</div>';
     }
     const pairs = [];
@@ -106,7 +106,7 @@ function render(withId, subs, pairMap, opts){
     function heatmap(t, label){
         const max = maxOf[t];
         if (!max) return '';                                           // no evidence of this type → omit its heatmap
-        let h = '<div data-mist-hm data-n="' + n + '" style="margin:0 ' + Math.round(hdrH * 0.85) + 'px 0.7rem 0;"><div style="font-size:0.8rem; font-weight:700; color:#2471A3; margin-bottom:0.3rem;">' + esc(label) + ' <span style="color:#aaa; font-weight:400;">(max ' + max + ')</span></div>';
+        let h = '<div data-mist-hm data-n="' + n + '" style="margin:0 ' + Math.round(hdrH * 0.85) + 'px 0.7rem 0;"><div style="font-size:0.8rem; font-weight:700; color:#2471A3; margin-bottom:0.3rem;">' + esc(label) + ' <span style="color:#707070; font-weight:400;">(max ' + max + ')</span></div>';
         h += '<table style="border-collapse:collapse; font-size:' + fs + ';"><thead><tr><th style="padding:0;"></th>';
         for (let j = 0; j < n; j++) h += '<th style="padding:0; vertical-align:bottom; height:' + hdrH + 'px;"><div style="width:var(--cs); height:' + hdrH + 'px; position:relative;"><span style="position:absolute; left:50%; bottom:2px; transform-origin:left bottom; transform:rotate(-45deg); white-space:nowrap; font-weight:600; color:#444;">' + esc(withId[j].sym) + '</span></div></th>';
         h += '</tr></thead><tbody>';
@@ -135,7 +135,7 @@ function render(withId, subs, pairMap, opts){
     // PMIDs — collapsed by default so the card stays compact; click a count above to open all papers in
     // PubMed, or expand here to read/copy the raw PMIDs (each links to its paper; Copy grabs them all).
     html += '<details style="margin-top:0.5rem;"><summary style="cursor:pointer; color:#2471A3; font-size:0.8rem;">Show PMIDs</summary><div style="margin-top:0.3rem; font-size:0.78rem; color:#555;">';
-    const copyLink = (ids) => '<a href="javascript:void(0)" onclick="navigator.clipboard&&navigator.clipboard.writeText(\'' + ids.join(', ') + '\');this.textContent=\'copied\';setTimeout(()=>this.textContent=\'copy\',1200)" style="color:#888; font-size:0.72rem;">copy</a>';
+    const copyLink = (ids) => '<a href="javascript:void(0)" onclick="navigator.clipboard&&navigator.clipboard.writeText(\'' + ids.join(', ') + '\');this.textContent=\'copied\';setTimeout(()=>this.textContent=\'copy\',1200)" style="color:#6B6B6B; font-size:0.72rem;">copy</a>';
     for (const p of reported){
         html += '<div style="margin:0.4rem 0;"><b>' + (p.a === p.b ? esc(p.a.sym) + ' (self)' : esc(p.a.sym) + ' — ' + esc(p.b.sym)) + '</b>';
         for (const [t, label] of types){ const set = p.byType[t]; if (!set || !set.size) continue; const list = [...set];   // one line per evidence category: "copy — Label: pmids", each separately copyable
@@ -144,7 +144,7 @@ function render(withId, subs, pairMap, opts){
         html += '</div>';
     }
     html += '</div></details>';
-    if (unreported.length) html += '<div style="margin-top:0.4rem; font-size:0.78rem; color:#999;">Not reported in ' + source + ': ' + unreported.map(pairName).join(', ') + '</div>';
+    if (unreported.length) html += '<div style="margin-top:0.4rem; font-size:0.78rem; color:#707070;">Not reported in ' + source + ': ' + unreported.map(pairName).join(', ') + '</div>';
     return html;
 }
 
@@ -197,7 +197,7 @@ async function query(o){
     const stale = o.isStale || (() => false);
     if (!content || !subs.length) return;
     if (linkEl) linkEl.innerHTML = '';
-    content.innerHTML = '<span style="color:#888; font-size:0.85rem;">Querying MIST for ' + subs.map(s => esc(s.sym)).join(', ') + '…</span>';
+    content.innerHTML = '<span style="color:#6B6B6B; font-size:0.85rem;">Querying MIST for ' + subs.map(s => esc(s.sym)).join(', ') + '…</span>';
     await Promise.all(subs.map(async s => {                            // accession → NCBI Gene ID (MIST) + BioGRID xref + taxon
         if (!s.acc) return;
         const x = await accToXrefs(s.acc);
@@ -209,7 +209,7 @@ async function query(o){
     const rep = { mist: null, mistError: null, mistDone: false, bg: null };
     const drawReported = () => {
         if (stale() || !rep.mistDone) return;
-        if (!rep.mist && !rep.bg){ content.innerHTML = '<span style="color:#999; font-size:0.85rem;">Could not query MIST: ' + esc(rep.mistError || 'no answer') + '</span>'; return; }
+        if (!rep.mist && !rep.bg){ content.innerHTML = '<span style="color:#707070; font-size:0.85rem;">Could not query MIST: ' + esc(rep.mistError || 'no answer') + '</span>'; return; }
         const merged = new Map(), src = new Map();                     // src: pair → type → { MIST: n, BioGRID: n } for the cell tooltips
         const add = (map, name) => { if (!map) return; for (const [key, byType] of map){
             const m = merged.get(key) || {}, s = src.get(key) || {}; merged.set(key, m); src.set(key, s);
@@ -238,9 +238,9 @@ async function query(o){
                 + shown.map(s => '<a href="https://thebiogrid.org/' + encodeURIComponent(s.bioGridId || found[s.geneId]) + '" target="_blank" style="color:#2471A3;">' + esc(s.sym) + '</a>'
                     + (s.bioGridN != null ? ' (' + s.bioGridN + ' interactor' + (s.bioGridN == 1 ? '' : 's') + ')' : '')).join(', ') : '';
         };
-        linkEl.innerHTML = '<div id="bg-also" style="color:#888;">' + bgLine({}) + '</div>';
+        linkEl.innerHTML = '<div id="bg-also" style="color:#6B6B6B;">' + bgLine({}) + '</div>';
         if (new Set(withId.map(s => String(s.geneId))).size >= 2){
-            linkEl.innerHTML += '<div id="bg-pairs" style="color:#888; margin-top:2px;">Checking BioGRID for reported pairs among these subunits…</div>';
+            linkEl.innerHTML += '<div id="bg-pairs" style="color:#6B6B6B; margin-top:2px;">Checking BioGRID for reported pairs among these subunits…</div>';
             biogridPairCheck(withId).then(res => {
                 if (stale()) return;
                 const el = document.getElementById('bg-pairs'); if (el) el.remove();
@@ -259,7 +259,7 @@ async function query(o){
             });
         }
     }
-    if (!withId.length){ content.innerHTML = '<span style="color:#999; font-size:0.85rem;">No NCBI Gene ID for these chains — cannot query MIST.</span>'; return; }
+    if (!withId.length){ content.innerHTML = '<span style="color:#707070; font-size:0.85rem;">No NCBI Gene ID for these chains — cannot query MIST.</span>'; return; }
     try {
         await Promise.all(withId.map(async s => { s.results = await mistInteractions(s.geneId); }));   // one query per subunit
         if (stale()) return;
