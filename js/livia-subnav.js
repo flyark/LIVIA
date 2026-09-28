@@ -10,8 +10,8 @@
  * (<div id="results" data-subnav>). It mounts itself; LiviaSubnav.mount(el) mounts one by hand.
  *
  * News: LiviaSubnav.notify(el, badge, title) marks the section holding `el` as having new information (a chain
- * identified, reported interactions found). Its button pulses three times and keeps a small badge until the
- * reader opens the section or scrolls to it. Reduced-motion readers get the badge without the pulse.
+ * identified, reported interactions found). Its button pulses three times and keeps a small badge, which stays while the
+ * reader scrolls or opens the section: it tells what the section holds. Reduced-motion readers get the badge without the pulse.
  * Dependencies: none (injects its own CSS).
  */
 (function (root) {
@@ -72,7 +72,6 @@
                 }
             });
         }
-        function seen(card) { if (news.delete(card)) paintNews(); }
 
         function spy() {
             spyRaf = 0;
@@ -83,7 +82,6 @@
             if (c === cur) return;
             cur = c;
             Array.prototype.forEach.call(bar.children, (b, i) => b.classList.toggle('on', i === c));
-            if (c >= 0 && items[c] && news.has(target(items[c])) && !toPulse.has(target(items[c]))) seen(target(items[c]));   // read by scrolling there
         }
         function rebuild() {
             raf = 0;
@@ -102,7 +100,6 @@
         bar.addEventListener('click', (e) => {
             const b = e.target.closest('button'); if (!b) return;
             const it = items[+b.dataset.i]; if (!it) return;
-            seen(target(it));
             const y = target(it).getBoundingClientRect().top + window.scrollY - bar.offsetHeight - 12;
             const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             window.scrollTo({ top: Math.max(0, y), behavior: still ? 'auto' : 'smooth' });
