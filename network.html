@@ -209,6 +209,10 @@
 const $ = id => document.getElementById(id);
 const RAWPAIRS = new Map();         // prediction name -> {name, ci, cj, s1, s2, iLIS, ipTM}  (best iLIS per prediction)
 const FILES_RAW = [];              // [{name,text}] kept for the cLIP hand-off
+// A network the LIVIA Atlas sent (its pair table has scores, not interaction residues): cLIP for a protein opens that
+// protein's Atlas page, which clusters its full predictions. { url, sp, keys: { symbol: Atlas key } } or null
+let ATLAS_SRC = null;
+const ATLAS_OK = /^(https:\/\/flyark\.github\.io\/livia-atlas\/|http:\/\/(\[::1\]|localhost|127\.0\.0\.1)(:\d+)?\/)/;   // the published Atlas, or a local copy
 let FASTA_RAW = '';                 // concatenated FASTA text (paired or per-symbol) for the cLIP hand-off
 let NAME_OF = {};                  // resolved node id -> Set(original prediction names)  (for the hand-off filter)
 let FILECOUNT = 0, PYODIDE = null, NETWORK = null, NODES = null, EDGES = null, LAST = null;
@@ -665,6 +669,7 @@ function showNodeInfo(sym){
   $('ni-meta').textContent = `${commLabel(LAST.membership[i])} · ${LAST.degree[i]} partners`;
   $('ni-meta').title = 'partners: proteins whose best model with this one reaches the iLIS cutoff. cLIP counts a partner when the top-ranked model reaches it, so it can list fewer.';
   $('ni-clip').onclick = ()=>openInClip(sym);
+  $('ni-clip').textContent = atlasKey(sym) ? 'Binding sites in the Atlas (cLIP) →' : 'Open in cLIP →';
   $('ni-ego').onclick = ()=>egoView(sym);
   $('ni-layer').onclick = ()=>layerLayout(sym);
   $('nodeinfo').classList.remove('hidden');
@@ -714,7 +719,10 @@ function netFind(q){
   }
   netFocusNode(id);
 }
+function atlasKey(nodeId){ if (!ATLAS_SRC) return null; const k = ATLAS_SRC.keys; return k[nodeId] || k[String(nodeId).toUpperCase()] || null; }
 function openInClip(nodeId){
+  const ak = atlasKey(nodeId);
+  if (ak){ window.open(`${ATLAS_SRC.url}#/${encodeURIComponent(ATLAS_SRC.sp)}/${encodeURIComponent(ak)}`, '_blank', 'noopener'); return; }   // an Atlas network: its protein page runs cLIP on every prediction
   const names = NAME_OF[nodeId] || new Set([nodeId]);   // original prediction names contributing this node
   let header=null; const keep=[];
   for (const f of FILES_RAW){ const lines=f.text.split(/\r?\n/); if(!header) header=lines[0];
@@ -1082,6 +1090,7 @@ function applyNetOpts(ilis, species){
       const fname = /\.(zip|gz|csv)$/i.test(nm) ? nm : nm + '.zip';
       setStatus('Loading ' + (m.name || 'network') + '…');
       RAWPAIRS.clear(); FILES_RAW.length=0; FASTA_RAW=''; FILECOUNT=0; META=null; META_COL=null;
+      const a = m.atlas; ATLAS_SRC = a && typeof a.url === 'string' && ATLAS_OK.test(a.url) && /^[a-z]+$/.test(String(a.sp || '')) && a.keys && typeof a.keys === 'object' ? { url: a.url, sp: a.sp, keys: a.keys } : null;
       await routeFiles([new File([blob], fname, { type: 'application/zip' })]);
       applyNetOpts(m.ilis, m.species);
       if (RAWPAIRS.size){ await build(); await afterBuild(URLP); }
