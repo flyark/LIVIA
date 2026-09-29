@@ -1032,6 +1032,9 @@ $('run').onclick = () => {
     const t0 = performance.now();
     const allRows = FILES.flatMap(f=>f.rows);
     const rows = PARTNER_EXCLUDE.size ? allRows.filter(r => { const pt = r.Symbol_1===gene ? r.Symbol_2 : (r.Symbol_2===gene ? r.Symbol_1 : null); return !(pt && PARTNER_EXCLUDE.has(pt)); }) : allRows;
+    const RESCOL = ['cLIR_indice_A', 'cLIR_indice_B', 'cLIR_indices_i', 'cLIR_indices_j'];   // the contact residues cLIP clusters on
+    if (rows.length && !rows.some((r) => RESCOL.some((k) => r[k] != null && String(r[k]).trim() !== ''))) {
+      $('status').textContent = 'This table has scores but no interaction residues (lis.py’s cLIR_indices columns), so cLIP cannot cluster the partners. Load the lis.py output for these pairs; for a network from the LIVIA Atlas, the protein’s Atlas page clusters its partners.'; return; }
     const pipe = CLIPPipeline.runPipelineRows(rows, gene, opts);
     if (pipe.fingerprints.length < 2){ $('status').textContent = `Only ${pipe.fingerprints.length} partner(s) passed filtering — need ≥2.`; return; }
     const cl = CLIPCluster.clusterInteractions(pipe.fingerprints, { maxK:30, dropThreshold:0.05 });
