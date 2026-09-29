@@ -385,7 +385,7 @@ async function loadExample(){
     return;
   }
   setStatus('Loading example…');
-  RAWPAIRS.clear(); FILES_RAW.length=0; FASTA_RAW=''; FILECOUNT=0; META=null; META_COL=null;
+  RAWPAIRS.clear(); ATLAS_SRC = null; FILES_RAW.length=0; FASTA_RAW=''; FILECOUNT=0; META=null; META_COL=null;
   try {
     const buf = await (await fetch('examples/fly_pathway_interactome.zip')).arrayBuffer();
     await routeFiles([new File([buf], 'fly_pathway_interactome.zip', {type:'application/zip'})]);
@@ -654,7 +654,7 @@ function renderModules({ nodes, edges, membership, degree }){
       const top=m.members[0], mem=m.members.slice(0,24).map(nodeLabel).join(', ')+(m.members.length>24?` … +${m.members.length-24}`:'');
       return `<div class="mod">
         <div class="hd"><input type="color" value="${commHex(m.c)}" data-c="${m.c}" title="community color">${esc(commLabel(m.c))}
-          <span class="clipbtn" data-sym="${esc(top)}" title="open the hub in cLIP">${esc(nodeLabel(top))} → cLIP</span></div>
+          <span class="clipbtn" data-sym="${esc(top)}" title="${atlasKey(top) ? 'the hub’s predicted interaction residues on its LIVIA Atlas page (cLIP)' : 'open the hub in cLIP'}">${esc(nodeLabel(top))} → ${atlasKey(top) ? 'Atlas (cLIP)' : 'cLIP'}</span></div>
         <div class="st">${m.n} proteins · ${m.e} edges · mean iLIS ${m.mean.toFixed(3)}</div>
         <div class="mem">${esc(mem)}</div></div>`;
     }).join('');
@@ -669,7 +669,7 @@ function showNodeInfo(sym){
   $('ni-meta').textContent = `${commLabel(LAST.membership[i])} · ${LAST.degree[i]} partners`;
   $('ni-meta').title = 'partners: proteins whose best model with this one reaches the iLIS cutoff. cLIP counts a partner when the top-ranked model reaches it, so it can list fewer.';
   $('ni-clip').onclick = ()=>openInClip(sym);
-  $('ni-clip').textContent = atlasKey(sym) ? 'Binding sites in the Atlas (cLIP) →' : 'Open in cLIP →';
+  $('ni-clip').textContent = atlasKey(sym) ? 'Interaction residues in the Atlas (cLIP) →' : 'Open in cLIP →';
   $('ni-ego').onclick = ()=>egoView(sym);
   $('ni-layer').onclick = ()=>layerLayout(sym);
   $('nodeinfo').classList.remove('hidden');
@@ -719,7 +719,9 @@ function netFind(q){
   }
   netFocusNode(id);
 }
-function atlasKey(nodeId){ if (!ATLAS_SRC) return null; const k = ATLAS_SRC.keys; return k[nodeId] || k[String(nodeId).toUpperCase()] || null; }
+function atlasKey(nodeId){ if (!ATLAS_SRC) return null; const k = ATLAS_SRC.keys;   // own string values only: a node named "constructor" finds nothing
+  for (const id of [String(nodeId), String(nodeId).toUpperCase()]) if (Object.prototype.hasOwnProperty.call(k, id) && typeof k[id] === 'string') return k[id];
+  return null; }
 function openInClip(nodeId){
   const ak = atlasKey(nodeId);
   if (ak){ window.open(`${ATLAS_SRC.url}#/${encodeURIComponent(ATLAS_SRC.sp)}/${encodeURIComponent(ak)}`, '_blank', 'noopener'); return; }   // an Atlas network: its protein page runs cLIP on every prediction
@@ -937,7 +939,7 @@ function wireZone(dzId, inId, handler){
   dz.addEventListener('drop', e=>{ e.preventDefault(); dz.classList.remove('drag'); handler(e.dataTransfer.files); });
   inp.addEventListener('change', e=>handler(e.target.files));
 }
-wireZone('dz','in',routeFiles); wireZone('dzmeta','inmeta',routeMeta); wireZone('dzsub','insub',routeSubset); wireZone('dzclust','inclust',routeCluster);
+wireZone('dz','in',(fl)=>{ ATLAS_SRC = null; return routeFiles(fl); }); wireZone('dzmeta','inmeta',routeMeta); wireZone('dzsub','insub',routeSubset); wireZone('dzclust','inclust',routeCluster);   // the reader’s own files: not an Atlas network
 $('clustmode').addEventListener('change', rebuildIfBuilt);
 function linkSlider(sId, nId, effect){ const s=$(sId), n=$(nId);   // slider + typed number stay in sync; the number is authoritative (allows custom values)
   s.addEventListener('input', ()=>{ n.value=s.value; if(effect) effect(); });
@@ -1051,7 +1053,7 @@ function applyNetOpts(ilis, species){
     setStatus('loading data…');
     const resp = await fetch(url); if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const blob = await resp.blob();
-    RAWPAIRS.clear(); FILES_RAW.length=0; FASTA_RAW=''; FILECOUNT=0; META=null; META_COL=null;
+    RAWPAIRS.clear(); ATLAS_SRC = null; FILES_RAW.length=0; FASTA_RAW=''; FILECOUNT=0; META=null; META_COL=null;
     applyNetOpts(params.get('ilis'), params.get('species'));
     await routeFiles([new File([blob], (url.split('/').pop() || 'data.zip'), { type: blob.type })]);
     applyNetOpts(params.get('ilis'), params.get('species'));   // routeFiles may reset the species hint
