@@ -6,3 +6,6 @@ __pycache__/
 CLAUDE.md
 tools/cloudflare-worker/.wrangler/
 tools/cloudflare-worker/.dev.vars
+
+# stray downloads at the root; examples/*.zip stay tracked
+/*.zip
