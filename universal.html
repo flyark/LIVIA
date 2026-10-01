@@ -122,8 +122,6 @@
             canvas { max-width: 100%; height: auto; }
             .colorbar-labels { width: 100%; max-width: 300px; }
         }
-        /* the note on model order only matters when there are models to order: hidden while the table has fewer than two rows */
-        #rank-note:not(:has(~ div #pairs-tbody > tr:nth-child(2))) { display: none; }
     </style>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20260927a"></script>
@@ -245,7 +243,7 @@
                 </span>
             </div>
             <div id="interactome-summary" style="display:none; font-size:0.85rem; color:#334; margin:0.2rem 0 0.1rem;"></div>
-            <div class="info-box" id="rank-note">Rows are sorted by iLIS. A model's rank in its name (rank_001 …) is the predictor's own order (ipTM-based for AlphaFold and ColabFold), so it can differ from the iLIS order. Click a row to switch models; this updates all visualizations and the script below.</div>
+            <div class="info-box" id="rank-note" style="display:none">Rows are sorted by iLIS. A model's rank in its name (rank_001 …) is the predictor's own order (ipTM-based for AlphaFold and ColabFold), so it can differ from the iLIS order. Click a row to switch models; this updates all visualizations and the script below.</div>
             <input type="hidden" id="seed-select" value="0">
             <label style="font-size:0.78rem; color:#666; display:inline-flex; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem;"><input type="checkbox" id="toggle-lir-cols" onchange="document.getElementById('pairs-table').classList.toggle('show-lir-cols', this.checked)"> Show iLIA/LIR/cLIR columns</label>
             <label id="toggle-neg-pairs-label" style="display:none; font-size:0.78rem; color:#666; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem 1rem;" title="A pair is negative when it misses both 10% FPR cutoffs: best-model iLIS below 0.223 and average-of-models iLIS below 0.072"><input type="checkbox" id="toggle-neg-pairs" onchange="setNegPairsShown(this.checked)"> Show <span id="neg-pairs-count"></span> negative pairs (best iLIS &lt; 0.223 and average iLIS &lt; 0.072)</label>
@@ -4419,6 +4417,7 @@ function displayResults(results, jobName) {
     tbody.innerHTML = '';
 
     const hasMultipleModels = perModelSym.length > 1;
+    { const note = document.getElementById('rank-note'); if (note) note.style.display = hasMultipleModels ? '' : 'none'; }   // the model-order note only when there are models to order
 
     // Find model with highest max iLIS (across all pairs) to auto-select
     let bestIdx = 0;
