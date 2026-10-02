@@ -11,9 +11,10 @@
         .header { background: white; color: #1a5276; padding: 0.8rem 2rem 0.8rem; border-bottom: 1px solid #e8e8e8; }
         .header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.15rem; color: #1a5276; letter-spacing: -0.02em; }
         .header p { font-size: 0.92rem; color: #6B6B6B; margin-bottom: 0.8rem; font-weight: 400; }
-        .header-links { display: flex; gap: 0.25rem; flex-wrap: wrap; }
-        .header-links a { color: #555; text-decoration: none; font-size: 0.72rem; padding: 0.22rem 0.4rem; border: 1px solid #ddd; border-radius: 6px; transition: all 0.2s; background: #f8f9fa; }
+        .header-links { display: flex; gap: 0.5rem 0.25rem; flex-wrap: wrap; }
+        .header-links a { position: relative; color: #555; text-decoration: none; font-size: 0.72rem; padding: 0.22rem 0.4rem; border: 1px solid #ddd; border-radius: 6px; transition: all 0.2s; background: #f8f9fa; }
         .header-links a:hover { background: #2471A3; color: white; border-color: #2471A3; }
+        .header-links .new-tag { position: absolute; top: -7px; right: -3px; padding: 0 4px; border-radius: 6px; background: #B35A12; color: #fff; font-size: 8px; font-weight: 700; line-height: 11px; letter-spacing: 0.02em; pointer-events: none; }
         .header-links a.active { background: #2471A3; color: white; border-color: #2471A3; cursor: default; }
         .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
         .container p a:not([class]), .container li a:not([class]), .container td a:not([class]) { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }   /* links in running text: more than color */
@@ -87,7 +88,7 @@
         @media (max-width: 768px) {
             .header { padding: 1rem; }
             .header h1 { font-size: 1.2rem; }
-            .header-links { gap: 0.25rem; }
+            .header-links { gap: 0.5rem 0.25rem; }
             .header-links a { font-size: 0.72rem; padding: 0.15rem 0.4rem; }
         }
         .footer { text-align: center; padding: 1.5rem 2rem; font-size: 0.8rem; color: #707070; }
@@ -110,7 +111,7 @@
             <a href="monomer.html">AFDB Monomer Subdomain</a>
             <a href="clip.html">cLIP</a>
             <a href="network.html">PPI Network</a>
-            <a href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener">LIVIA Atlas</a>
+            <a href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener">LIVIA Atlas<span class="new-tag">new</span></a>
             <a href="tutorials.html">Tutorials</a>
             <a href="about.html" class="active">About</a>
             <a href="https://github.com/flyark/LIVIA" target="_blank">GitHub</a>
