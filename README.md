@@ -1,8 +1,12 @@
 # LIVIA — **L**ocal **I**nteraction **VI**sualization and **A**nalysis
 
-Browser-based tools for analyzing protein-protein interactions from structure predictions. All analysis runs locally in your browser — no data leaves your device and no installation is needed.
+Browser-based tools for analyzing protein-protein interactions from structure predictions. Prediction files are read in your browser and never uploaded, and no installation is needed; to name chains, LIVIA sends sequence checksums and unmatched sequences to UniProt and EBI BLAST ([what leaves your browser](https://flyark.github.io/LIVIA/about.html#data)).
 
-**Web:** https://flyark.github.io/LIVIA/ &nbsp;·&nbsp; **Preprint:** [Kim & Perrimon 2026, *bioRxiv*](https://doi.org/10.64898/2026.05.01.721633)
+**Web:** https://flyark.github.io/LIVIA/ &nbsp;·&nbsp; **Preprint:** [Kim & Perrimon 2026, *bioRxiv*](https://doi.org/10.64898/2026.05.01.721633) &nbsp;·&nbsp; **Atlas:** [LIVIA Atlas](https://flyark.github.io/livia-atlas/)
+
+## LIVIA Atlas
+
+[LIVIA Atlas](https://flyark.github.io/livia-atlas/) is a searchable atlas of AlphaFold-Multimer protein–protein interaction predictions resolved to residues, scored with LIVIA: for a protein, the partners predicted to bind it, how confident each prediction is, and where on the protein each partner binds, across human, mouse, rat, fly, zebrafish, *C. elegans*, yeast, viruses and other species, with orthologs side by side. Data: [Zenodo, doi:10.5281/zenodo.22964479](https://doi.org/10.5281/zenodo.22964479); code: [flyark/livia-atlas](https://github.com/flyark/livia-atlas).
 
 ## Example
 
