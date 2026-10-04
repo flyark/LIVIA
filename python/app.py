@@ -275,8 +275,8 @@ def generate_cxc_with_colors(
     lines.append("")
     # Legend
     lines.append("# ── Color Legend ──")
-    lines.append(f"# LIR  = Local Interaction Region (PAE <= 12)")
-    lines.append(f"# cLIR = contact LIR (PAE <= 12 & C-beta distance <= 8 Å)")
+    lines.append(f"# LIR  = Local Interaction Residues (PAE <= 12)")
+    lines.append(f"# cLIR = contact residues (PAE <= 12 & C-beta distance <= 8 Å)")
     lines.append(f"#")
     lines.append(f"# LIR cartoons  ({lir_a_color}) = {symbol_1} LIR (chain A)")
     lines.append(f"# cLIR cartoons ({clir_a_color}) = {symbol_1} cLIR (chain A)")

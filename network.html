@@ -103,7 +103,7 @@
           <div class="hint" style="margin-top:3px">iLIS read directly · CSV, .zip, .xlsx (+ FASTA for the cLIP hand-off) · all-by-all → rich network</div>
           <input id="in" type="file" accept=".csv,.zip,.xlsx,.fasta,.fa,.faa,.fas,.fna,.mfa,.pep,.seq" multiple class="hidden">
         </div>
-        <div class="hint" style="margin-top:6px">▶ <a id="load-ex" href="#" style="font-weight:600">Try example</a> — fly small interactome · 565 proteins (from <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:var(--accent)">Kim et al. 2026</a>)</div>
+        <div class="hint" style="margin-top:6px">▶ <a id="load-ex" href="#" style="font-weight:600">Try example</a> — fly small interactome · 565 proteins in the file; those with no pair past the cutoff are left out of the network (from <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:var(--accent)">Kim et al. 2026</a>)</div>
       </div>
       <div class="zonecol">
         <div class="zonehdr">② Identity map <span class="opt">optional</span></div>
@@ -366,9 +366,11 @@ async function routeFiles(list){
   }
   if (!items.length){ setStatus(FASTA_RAW ? 'FASTA loaded, but no lis.py CSV in the upload — add the CSV/XLSX.' : 'No CSVs found in the upload.'); return; }
   setStatus(`Parsing ${items.length} file(s)…`);
+  const seenCols = new Set();   // for the message when no file has lis.py's columns
   for (const it of items){
     let rows;
     try { rows = CLIPPipeline.convertRows(CLIPPipeline.parseCSV(it.text).rows); } catch(e){ continue; }
+    if (rows[0]) Object.keys(rows[0]).forEach((k) => seenCols.add(k));
     FILES_RAW.push({ name:it.name, text:it.text });
     for (const r of rows){                              // one record per prediction, best-iLIS row (identities resolved at build)
       const nm=r.name; if(!nm) continue;
@@ -377,6 +379,7 @@ async function routeFiles(list){
     }
     FILECOUNT++;
   }
+  if (!RAWPAIRS.size){ const cols=[...seenCols].slice(0,12).join(', '); setStatus(`No pair could be read: a network needs lis.py's columns, at least name (or Symbol_1 and Symbol_2) and iLIS. ${cols ? `This file has: ${cols}${seenCols.size>12?', …':''}.` : 'The file could not be read as a table.'}`); return; }
   updateLoaded();
   if (RAWPAIRS.size && $('mg-auto') && $('mg-auto').checked && !META) await maybeAutoConvert();
 }
@@ -497,7 +500,7 @@ async function ensurePyodide(){
   if (!window.loadPyodide) await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
   PYODIDE = await loadPyodide({ indexURL:'https://cdn.jsdelivr.net/pyodide/v0.27.2/full/' });
   await PYODIDE.loadPackage('micropip'); setStatus('Installing igraph…');
-  await PYODIDE.pyimport('micropip').install('igraph');
+  await PYODIDE.pyimport('micropip').install('igraph==0.11.4');   // pinned: Leiden's result depends on the implementation (Pyodide 0.27.2, igraph 0.11.4, Python 3.12)
   return PYODIDE;
 }
 async function leiden(nodes, edges, res, obj, seed){
@@ -885,7 +888,7 @@ function downloadCluster(){ download('cluster_map_template.csv', buildClusterTem
 function exportCSVs(){
   if (!LAST) return; const { nodes, edges, membership, degree } = LAST;
   const cIdx=new Map(nodes.map((s,i)=>[s,membership[i]])), fills=nodeColors({nodes, membership, degree});
-  download('network_edges.csv','Symbol_1,Symbol_2,iLIS,ipTM,intra_community\n'+edges.map(e=>[csvq(nodeLabel(e.a)),csvq(nodeLabel(e.b)),e.iLIS.toFixed(4),e.ipTM.toFixed(3),cIdx.get(e.a)===cIdx.get(e.b)?csvq(commOut(cIdx.get(e.a))):''].join(',')).join('\n'));
+  download('network_edges.csv','Symbol_1,Symbol_2,iLIS,ipTM,intra_community,community\n'+edges.map(e=>{ const intra=cIdx.get(e.a)===cIdx.get(e.b); return [csvq(nodeLabel(e.a)),csvq(nodeLabel(e.b)),e.iLIS.toFixed(4),e.ipTM.toFixed(3),intra?1:0,intra?csvq(commOut(cIdx.get(e.a))):''].join(','); }).join('\n'));
   download('network_communities.csv','Symbol,community,degree\n'+nodes.map((s,i)=>[csvq(nodeLabel(s)),csvq(commOut(membership[i])),degree[i]].join(',')).join('\n'));   // 'community' carries the user label when set → re-importable
 }
 function buildGraphML(){   // Cytoscape-importable GraphML: node name/community/degree/x/y + edge iLIS/ipTM/intra_community
@@ -908,6 +911,7 @@ function collectSettings(){
   const s={}; SETTING_IDS.forEach(id=>{ const el=$(id); if(el) s[id]=el.value; });
   s.nborder=$('nborder').checked; s.lbloutline=$('lbloutline').checked; s.intraonly=$('intraonly').checked; s.commColors={...COMMCOLORS}; s.nodeColors={...NODECOLORS}; if(SUBSET) s.subset=[...SUBSET];
   if (META && META_COL) s.labelby=META_COL;
+  s.method = { leiden_n_iterations: 10, edge_weight: 'iLIS', duplicate_pairs: 'the higher iLIS of the two orders is kept', pyodide: '0.27.2', igraph: '0.11.4', livia: window.LIVIA_BUILD || '', saved: new Date().toISOString(), page: location.href.split('#')[0] };   // what the settings do not show but a rerun needs
   if (USERCLUST && USERCLUST.size){ s.clusters=[...USERCLUST.entries()]; s.clustmode=$('clustmode')?$('clustmode').value:'user'; }
   return s;
 }
@@ -1105,5 +1109,6 @@ function applyNetOpts(ilis, species){
 <script>window.goatcounter = { path: function () { return location.pathname.replace(/index\.html$/, ''); }, title: 'LIVIA ' + (location.pathname.split('/').pop() || 'index.html') };   /* the page only: never the file, pair or query */</script>
 <script data-goatcounter="https://livia.goatcounter.com/count"
         async src="https://gc.zgo.at/count.js"></script>
+<script src="js/livia-version.js?v=20261003a"></script>
 </body>
 </html>

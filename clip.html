@@ -72,7 +72,7 @@
 <div class="header">
   <div class="container" role="main">
     <h1><span style="color:#2471A3;">LIVIA</span> &mdash; cLIP <span style="font-weight:400;">(<b style="color:#2471A3">c</b>lustered <b style="color:#2471A3">L</b>ocal <b style="color:#2471A3">I</b>nteraction <b style="color:#2471A3">P</b>rofiler)</span></h1>
-    <p>Cluster a protein's interactome by shared contact Local Interaction Residues (cLIR) &mdash; drop lis.py output, all in your browser</p>
+    <p>Cluster a protein's interactome by shared contact residues (cLIR) &mdash; drop lis.py output, all in your browser</p>
     <div class="header-links">
       <a href="index.html">Home</a>
       <a href="universal.html">Prediction Analysis</a>
@@ -272,7 +272,7 @@
     <div class="card" id="pair-card">
       <h2 data-nav="Residues">Interaction Residues</h2>
       <div class="muted">The interaction residues on each protein, taken from the lis.py indices. No structure file needed.<br>
-        <b>LIR</b> = local interaction residue (PAE &le; 12&nbsp;&Aring;); <b>cLIR</b> = contact LIR (PAE &le; 12&nbsp;&Aring; &amp; C&beta; &le; 8&nbsp;&Aring;).</div>
+        <b>LIR</b> = local interaction residue (PAE &le; 12&nbsp;&Aring;); <b>cLIR</b> = contact residue (PAE &le; 12&nbsp;&Aring; &amp; C&beta; &le; 8&nbsp;&Aring;).</div>
       <h3 style="margin-top:.9rem">Interface map</h3>
       <div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin:.4rem 0 .2rem">
         <label style="margin:0">partner <select id="pair-partner" style="max-width:340px"></select></label>
@@ -1017,6 +1017,7 @@ function updateLoaded(){
   $('ld-meta').textContent = META ? '✓ identity map' : '';
   { const sw = $('skel-wrap'); if (sw) sw.classList.toggle('hidden', !FILES.length); }
   $('status').textContent = FILES.length ? `${$('gene').options.length} proteins — pick a query and generate.` : 'Drop a lis.py CSV to begin.';
+  if (FILES.length && !$('gene').options.length) { const cols = Object.keys((FILES.find((f) => f.rows && f.rows[0]) || { rows: [{}] }).rows[0] || {}); $('status').textContent = `No protein could be read: cLIP needs lis.py's columns (name, iLIS and the residue columns cLIR_indices_i / cLIR_indices_j). ${cols.length ? `This file has: ${cols.slice(0, 12).join(', ')}${cols.length > 12 ? ', …' : ''}.` : 'The file could not be read as a table.'}`; }
   { const tr = FILES.reduce((n,f)=>n+f.rows.length,0); if (tr > 500000) $('status').textContent += ` ⚠ ${Math.round(tr/1000)}K predictions (~${Math.round(tr*1030/1e6)} MB in memory) — very large loads can hit the browser memory limit; split by query if a tab crashes.`; }
 }
 
@@ -1950,7 +1951,7 @@ $('export').onclick = async () => {
     let out = await (await fetch(location.href)).text();
     const navBase = location.origin + location.pathname.replace(/[^/]*$/, '');   // downloaded nav points back at the live site
     out = out.replace(/href="(?!https?:|#|mailto:)([^"]+\.html[^"]*)"/g, 'href="' + navBase + '$1"');
-    const locals = ['js/canvas2svg.js', 'js/livia-maps.js', 'js/livia-xlsx.js', 'js/clip-clustering.js', 'js/clip-pipeline.js', 'js/clip-resolver.js', 'js/livia-viewer.js', 'js/livia-subnav.js'];
+    const locals = ['js/canvas2svg.js', 'js/livia-maps.js', 'js/livia-xlsx.js', 'js/clip-clustering.js', 'js/clip-pipeline.js', 'js/clip-resolver.js', 'js/livia-viewer.js', 'js/livia-subnav.js', 'js/livia-version.js'];
     // Match the tag with a pattern, not a literal: these <script src> carry ?v= cache-busts,
     // and a literal target stops matching the moment a module is bumped — which silently
     // dropped that module from the downloaded report with no error.
@@ -2157,5 +2158,6 @@ if (typeof window !== 'undefined' && window.__CLIP_DATA__) loadExportData(window
 <script>window.goatcounter = { path: function () { return location.pathname.replace(/index\.html$/, ''); }, title: 'LIVIA ' + (location.pathname.split('/').pop() || 'index.html') };   /* the page only: never the file, pair or query */</script>
 <script data-goatcounter="https://livia.goatcounter.com/count"
         async src="https://gc.zgo.at/count.js"></script>
+<script src="js/livia-version.js?v=20261003a"></script>
 </body>
 </html>

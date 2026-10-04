@@ -250,7 +250,7 @@
             <label id="toggle-neg-pairs-label" style="display:none; font-size:0.78rem; color:#666; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem 1rem;" title="A pair is negative when it misses both 10% FPR cutoffs: best-model iLIS below 0.223 and average-of-models iLIS below 0.072"><input type="checkbox" id="toggle-neg-pairs" onchange="setNegPairsShown(this.checked)"> Show <span id="neg-pairs-count"></span> negative pairs (best iLIS &lt; 0.223 and average iLIS &lt; 0.072)</label>
             <div style="overflow-x:auto;" tabindex="0" role="region" aria-label="Scores of every model">
             <table class="data-table" id="pairs-table">
-                <thead><tr><th>Rank/Model</th><th>Pair</th><th>iLIS</th><th>iLISA</th><th>ipSAE</th><th>actifpTM</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th title="Bryant et al. 2022, pure geometric interface, no PAE">pDockQ</th><th title="pDockQ fed this file's own PAE+contact-gated cLIR interface">LIpDockQ</th><th title="Zhu et al. 2023, CA-based interface; mean of the two per-chain directions">pDockQ2</th><th title="pDockQ2's PAE-decay applied to this file's own cLIR interface; mean of the two per-chain directions">LIpDockQ2</th><th class="col-extra">iLIA</th><th class="col-extra">LIR (i/j)</th><th class="col-extra">cLIR (i/j)</th></tr></thead>
+                <thead><tr><th>Rank/Model</th><th>Pair</th><th>iLIS</th><th>iLISA</th><th>ipSAE</th><th id="th-actifptm">actifpTM</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th title="Bryant et al. 2022, pure geometric interface, no PAE">pDockQ</th><th title="pDockQ fed this file's own PAE+contact-gated cLIR interface">LIpDockQ</th><th title="Zhu et al. 2023, CA-based interface; mean of the two per-chain directions">pDockQ2</th><th title="pDockQ2's PAE-decay applied to this file's own cLIR interface; mean of the two per-chain directions">LIpDockQ2</th><th class="col-extra">iLIA</th><th class="col-extra">LIR (i/j)</th><th class="col-extra">cLIR (i/j)</th></tr></thead>
                 <tbody id="pairs-tbody"></tbody>
             </table>
             </div>
@@ -262,13 +262,14 @@
                     <span><span style="color:#8F6400; font-weight:700;">&ge;0.223</span> (10% FPR)</span>
                     <span><span style="color:#667080; font-weight:700;">&lt;0.223</span> (below threshold)</span>
                 </div>
-                <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
-                    <strong style="min-width:90px;">iLIS (average):</strong>
+                <div id="avg-legend" style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
+                    <strong style="min-width:90px;" title="the mean iLIS of a pair over the models of the run (a model with no interface counts 0); calibrated on runs of five ColabFold models">iLIS (average of the models):</strong>
                     <span><span style="color:#6B21A8; font-weight:700;">&ge;0.268</span> (1% FPR)</span>
                     <span><span style="color:#0B7A61; font-weight:700;">&ge;0.120</span> (5% FPR)</span>
                     <span><span style="color:#8F6400; font-weight:700;">&ge;0.072</span> (10% FPR)</span>
                     <span><span style="color:#667080; font-weight:700;">&lt;0.072</span> (below threshold)</span>
                 </div>
+                <div id="cal-note" style="display:none; color:#8F6400; font-weight:600;"></div>
                 <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details. Different platforms may require different thresholds.</div>
             </div>
         </div>
@@ -367,7 +368,7 @@
 
         <!-- LIS Maps -->
         <div class="card result-card" id="lis-maps-card">
-            <h2 data-nav="LIS maps" style="margin:0 0 0.5rem;">Local Interaction Score (LIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(PAE &le; 12 &Aring;)</span></h2>
+            <h2 data-nav="LIS maps" style="margin:0 0 0.5rem;">Local Interaction Score (LIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(PAE &le; <span class="pae-v">12</span> &Aring;)</span></h2>
             <div id="lis-scale-slot"></div>
             <div class="map-row" id="lis-row"></div>
             <div class="colorbar-row">
@@ -378,7 +379,7 @@
 
         <!-- cLIS Maps -->
         <div class="card result-card" id="clis-maps-card">
-            <h2 data-nav="cLIS maps" style="margin:0 0 0.5rem;">contact Local Interaction Score (cLIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</span></h2>
+            <h2 data-nav="cLIS maps" style="margin:0 0 0.5rem;">contact Local Interaction Score (cLIS) Maps <span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(PAE &le; <span class="pae-v">12</span> &Aring; &amp; C&beta; &le; <span class="cb-v">8</span> &Aring;)</span></h2>
             <div id="clis-scale-slot"></div>
             <div class="map-row" id="clis-row"></div>
             <div class="colorbar-row">
@@ -401,7 +402,7 @@
                 <div class="model-selector" id="seq-model-selector"></div>
             </div>
             <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
-                Light background = LIR (PAE &le; 12 &Aring;). Dark background with white text = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each chain uses its own color.
+                Light background = LIR (PAE &le; <span class="pae-v">12</span> &Aring;). Dark background with white text = cLIR (PAE &le; <span class="pae-v">12</span> &Aring; &amp; C&beta; &le; <span class="cb-v">8</span> &Aring;). Each chain uses its own color.
             </div>
             <div id="seq-viewer" style="font-family:'SF Mono','Fira Code',monospace; overflow-x:auto;"></div>
         </div>
@@ -647,17 +648,17 @@
                 <table style="font-size:0.85rem;">
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLIS</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LIS &mdash; &radic;(LIS &times; cLIS)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLIA</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LIA &mdash; &radic;(LIA &times; cLIA), geometric mean of interface area counts</td></tr>
-                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLISA</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LISA &mdash; iLIS &times; iLIA, overall binding strength</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLISA</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LISA &mdash; iLIS &times; iLIA, iLIS weighted by interface size (not an affinity)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIS</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Score &mdash; normalized PAE confidence (0&ndash;1)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIS</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIS &mdash; restricted to direct contacts</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIR</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Residues (PAE &le; 12 &Aring;)</td></tr>
-                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIR</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIR</strong></td><td style="padding:0.25rem 0; color:#555;">contact residues: LIR also in contact (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</td></tr>
                 </table>
                 <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">Other interface scores</h4>
                 <table style="font-size:0.85rem;">
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>ipTM</strong></td><td style="padding:0.25rem 0; color:#555;">interface predicted TM-score &mdash; global interface confidence from the prediction model</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>ipSAE</strong></td><td style="padding:0.25rem 0; color:#555;">interaction prediction Score from Aligned Errors (<a href="https://doi.org/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack, 2025</a>)</td></tr>
-                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>actifpTM</strong></td><td style="padding:0.25rem 0; color:#555;">actual interface pTM (<a href="https://doi.org/10.1093/bioinformatics/btaf107" target="_blank" style="color:#2471A3;">Varga et al., 2025</a>)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>actifpTM</strong></td><td style="padding:0.25rem 0; color:#555;">actual interface pTM (<a href="https://doi.org/10.1093/bioinformatics/btaf107" target="_blank" style="color:#2471A3;">Varga et al., 2025</a>): the platform's own value when the file carries it (ColabFold); otherwise LIVIA's estimate from the PAE and Cβ contacts, marked "(approx.)" in the table</td></tr>
                 </table>
                 <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">pDockQ family</h4>
                 <table style="font-size:0.85rem;">
@@ -2594,6 +2595,8 @@ function extractConfidenceScores(confidencePath, platform) {
         if (json.ptm !== undefined) scores.pTM = unwrap(json.ptm);
         if (json.iptm !== undefined) scores.ipTM = unwrap(json.iptm);
         if (json.chain_pair_iptm) scores.chainPairIptm = json.chain_pair_iptm;
+        if (json.actifptm !== undefined) scores.actifpTM = unwrap(json.actifptm);   // ColabFold's own actifpTM (Varga et al.), used instead of LIVIA's estimate
+        if (json.pairwise_actifptm && typeof json.pairwise_actifptm === 'object') scores.pairActifptm = json.pairwise_actifptm;   // per chain pair, keyed 'A-B'
         if (json.atom_plddts) scores.pLDDT = json.atom_plddts.reduce((a, b) => a + b, 0) / json.atom_plddts.length;
         if (json.fraction_disordered !== undefined) scores.fractionDisordered = unwrap(json.fraction_disordered);
         if (json.ranking_score !== undefined) scores.rankingScore = unwrap(json.ranking_score);
@@ -3227,6 +3230,7 @@ function computeContactMap(coords, threshold) {
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function processFiles() {
+    uniState.actApprox = false;   // set again by the pairs whose actifpTM LIVIA had to estimate
     document.getElementById('btn-process').disabled = true;
     document.getElementById('results').classList.remove('active');
     document.getElementById('error-msg').classList.remove('active');
@@ -3559,8 +3563,12 @@ async function processFiles() {
                     try { ipsae = calcIpSAE(pae, si, Math.min(ei, pae.length), sj, Math.min(ej, pae.length), 10); } catch(e) { }
 
                     // actifpTM approximation (Varga & Ovchinnikov 2025)
-                    let actifptm = 0;
-                    try { actifptm = calcActifpTM(pae, contact, nCoords, si, Math.min(ei, nTotal), sj, Math.min(ej, nTotal), cbCutoff); } catch(e) { }
+                    // the platform's own value when the file has it (ColabFold: pairwise_actifptm 'A-B', or actifptm for two chains); else LIVIA's estimate, marked "(approx.)"
+                    let actifptm = 0, actNative = false;
+                    { const pa = scores.pairActifptm, ka = `${chainNames[i]}-${chainNames[j]}`, kb = `${chainNames[j]}-${chainNames[i]}`;
+                      if (pa && (pa[ka] != null || pa[kb] != null)) { actifptm = +(pa[ka] != null ? pa[ka] : pa[kb]); actNative = true; }
+                      else if (nc === 2 && scores.actifpTM != null && Number.isFinite(+scores.actifpTM)) { actifptm = +scores.actifpTM; actNative = true; } }
+                    if (!actNative) { try { actifptm = calcActifpTM(pae, contact, nCoords, si, Math.min(ei, nTotal), sj, Math.min(ej, nTotal), cbCutoff); } catch(e) { } uniState.actApprox = true; }
 
                     // LIA/cLIA count BOTH PAE directions (i→j and j→i), matching lis.py
                     // (lia_count = ab + ba) and the AFM-LIS reference. The per-entry comment
@@ -3595,7 +3603,7 @@ async function processFiles() {
 
                     pairs[`${chainNames[i]},${chainNames[j]}`] = {
                         ci: chainNames[i], cj: chainNames[j],
-                        LIS: lis, cLIS: clis, iLIS: ilis, iLIA: ilia, iLISA: ilisa, ipTM: iptm, ipSAE: ipsae, actifpTM: actifptm,
+                        LIS: lis, cLIS: clis, iLIS: ilis, iLIA: ilia, iLISA: ilisa, ipTM: iptm, ipSAE: ipsae, actifpTM: actifptm, actifpTMNative: actNative,
                         LIA: liaCount, cLIA: cliaCount,
                         LIpLDDT_i: liplddtI, LIpLDDT_j: liplddtJ,
                         cLIpLDDT_i: cliplddtI, cLIpLDDT_j: cliplddtJ,
@@ -4258,7 +4266,7 @@ function symmetrizePairsFromComma(pairs) {
                 cLIS: (val.cLIS + rv.cLIS) / 2,
                 ipTM: (val.ipTM + rv.ipTM) / 2,
                 ipSAE: Math.max(val.ipSAE || 0, rv.ipSAE || 0),
-                actifpTM: Math.max(val.actifpTM || 0, rv.actifpTM || 0),
+                actifpTM: Math.max(val.actifpTM || 0, rv.actifpTM || 0), actifpTMNative: !!(val.actifpTMNative && rv.actifpTMNative),
                 // val.LIA already covers both AB and BA directions, so no extra sum
                 LIA: val.LIA || 0,
                 cLIA: val.cLIA || 0,
@@ -4378,6 +4386,14 @@ function updateInteractomeSummary() {
 }
 
 function displayResults(results, jobName) {
+    {   // headings follow the cutoffs used; the FPR bands are calibrated only for ColabFold AlphaFold-Multimer at 12 / 8 Å
+        const pae = parseFloat(document.getElementById('pae-cutoff').value) || 12, cb = parseFloat(document.getElementById('cb-cutoff').value) || 8;
+        document.querySelectorAll('.pae-v').forEach((e) => { e.textContent = pae; }); document.querySelectorAll('.cb-v').forEach((e) => { e.textContent = cb; });
+        const calOK = uniState.platform === 'colabfold' && pae === 12 && cb === 8, note = document.getElementById('cal-note');
+        if (note) { note.style.display = calOK ? 'none' : ''; note.textContent = calOK ? '' : `The FPR bands were calibrated on ColabFold AlphaFold-Multimer models at PAE ≤ 12 Å and Cβ ≤ 8 Å${uniState.platform && uniState.platform !== 'colabfold' ? `; for ${platformLabel(uniState.platform)} models they are a guide, not a measured false-positive rate` : ''}${pae !== 12 || cb !== 8 ? `; at PAE ≤ ${pae} Å and Cβ ≤ ${cb} Å the scores change, and the bands no longer apply` : ''}.`; }
+        const al = document.getElementById('avg-legend'); if (al) al.style.display = (uniState.modelPairs || []).length > 1 ? 'flex' : 'none';
+    }
+    { const th = document.getElementById('th-actifptm'); if (th) { th.textContent = uniState.actApprox ? 'actifpTM (approx.)' : 'actifpTM'; th.title = uniState.actApprox ? 'LIVIA\'s estimate from the PAE and Cβ contacts: this file does not carry the platform\'s own actifpTM (Varga et al. 2025); ColabFold\'s value is used whenever the file has it' : 'the platform\'s own actifpTM (Varga et al. 2025)'; } }
     document.getElementById('result-title').textContent = jobName;
     // "Lightweight bundle" button: only for a full upload with numeric PAE to shrink (not an
     // already-lightweight bundle, which has no numeric PAE).
@@ -5195,7 +5211,7 @@ function generateCxc(v, structFilename, colors) {
         `# Chain /${v.ci}: ${v.lenI} residues, LIR: ${lirIStr}`,
         `# Chain /${v.cj}: ${v.lenJ} residues, LIR: ${lirJStr}`,
         `# Platform: ${platformLabel(uniState.platform)}`,
-        `# Generated by LIVIA (Local Interaction Visualization and Analysis)`, '',
+        `# Generated by LIVIA (Local Interaction Visualization and Analysis), build ${window.LIVIA_BUILD || "?"}, ${new Date().toLocaleDateString("en-CA")}`, '',
         'close', `open ${structFilename}`, '',
         '# \u2500\u2500 Setup \u2500\u2500',
         'set bgColor white', 'graphics silhouettes true', 'lighting soft',
@@ -5293,8 +5309,8 @@ function generateCxc(v, structFilename, colors) {
     lines.push(`# save ${structFilename.replace(/\.[^.]+$/, '')}_session.cxs`);
     lines.push('');
     lines.push('# \u2500\u2500 Color Legend \u2500\u2500');
-    lines.push(`# LIR  = Local Interaction Region (PAE <= ${paeCut})`);
-    lines.push(`# cLIR = contact LIR (PAE <= ${paeCut} & C-beta <= ${cbCut} \u00c5)`);
+    lines.push(`# LIR  = Local Interaction Residues (PAE <= ${paeCut})`);
+    lines.push(`# cLIR = contact residues (PAE <= ${paeCut} & C-beta <= ${cbCut} \u00c5)`);
     lines.push('#');
     lines.push(`# LIR  (${colors.lir_a}) = Chain ${v.ci}`, `# cLIR (${colors.clir_a}) = Chain ${v.ci}`);
     lines.push(`# LIR  (${colors.lir_b}) = Chain ${v.cj}`, `# cLIR (${colors.clir_b}) = Chain ${v.cj}`);
@@ -5329,9 +5345,9 @@ function generatePml(v, structFilename, colors) {
     let lines = [
         `# PyMOL: Chain ${v.ci} \u2014 Chain ${v.cj} (iLIS=${iLIS}, ipTM=${ipTM})`,
         `# Platform: ${platformLabel(uniState.platform)}`,
-        `# Generated by LIVIA (Local Interaction Visualization and Analysis)`,
-        `# LIR = Local Interaction Region (PAE \u2264 ${paeCut})`,
-        `# cLIR = contact LIR (PAE \u2264 ${paeCut} & C\u03b2 \u2264 ${cbCut} \u00c5)`,
+        `# Generated by LIVIA (Local Interaction Visualization and Analysis), build ${window.LIVIA_BUILD || "?"}, ${new Date().toLocaleDateString("en-CA")}`,
+        `# LIR = Local Interaction Residues (PAE \u2264 ${paeCut})`,
+        `# cLIR = contact residues (PAE \u2264 ${paeCut} & C\u03b2 \u2264 ${cbCut} \u00c5)`,
         ``,
         `reinitialize`,
         `load ${structFilename}`,
@@ -6704,8 +6720,9 @@ function lisScoreCols(v, plddtI, plddtJ, pi, pj, ptmStr) {
 function downloadCSV() {
     if (!uniState.modelPairs || !uniState.avgResults || !uniState.chainNames) return;
     const jobName = document.getElementById('result-title')?.textContent || 'prediction';
-    const rows = [LIS_CSV_HEADER];
+    const rows = [LIS_CSV_HEADER + ',model_label,actifpTM_source'];   // two columns after lis.py's: the model as the page names it (file rank and model), and whether actifpTM is the platform's own value or LIVIA's estimate
     const platform = platformLabel(uniState.platform);
+    const csvq = (x) => (/[",\n]/.test(String(x)) ? `"${String(x).replace(/"/g, '""')}"` : String(x));
 
     for (let mi = 0; mi < uniState.modelPairs.length; mi++) {
         const md = uniState.modelData[mi] || {};
@@ -6718,7 +6735,7 @@ function downloadCSV() {
             const plddtI = isNaN(pi) ? '' : pi.toFixed(1);
             const plddtJ = isNaN(pj) ? '' : pj.toFixed(1);
             rows.push([jobName, `model_${mi}`, v.ci, v.cj,
-                ...lisScoreCols(v, plddtI, plddtJ, pi, pj, ms.pTM != null ? ms.pTM.toFixed(3) : '')].join(','));
+                ...lisScoreCols(v, plddtI, plddtJ, pi, pj, ms.pTM != null ? ms.pTM.toFixed(3) : ''), csvq(md.label || `model_${mi}`), v.actifpTMNative ? 'platform' : 'LIVIA estimate'].join(','));
         }
     }
     if (uniState.modelPairs.length > 1) {
@@ -6748,14 +6765,14 @@ function downloadCSV() {
             const plddtI = isNaN(pi) ? '' : pi.toFixed(1);
             const plddtJ = isNaN(pj) ? '' : pj.toFixed(1);
             rows.push([jobName, 'average', v.ci, v.cj,
-                ...lisScoreCols(v, plddtI, plddtJ, pi, pj, avgPtmVal != null ? avgPtmVal.toFixed(3) : '')].join(','));
+                ...lisScoreCols(v, plddtI, plddtJ, pi, pj, avgPtmVal != null ? avgPtmVal.toFixed(3) : ''), 'average of the models', uniState.actApprox ? 'LIVIA estimate' : 'platform'].join(','));
         }
     }
 
     const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${jobName}_lis_analysis.csv`;
+    a.download = `${jobName}_lis_analysis_pae${parseFloat(document.getElementById('pae-cutoff').value) || 12}_cb${parseFloat(document.getElementById('cb-cutoff').value) || 8}.csv`;   // the cutoffs in the name: CSVs made at different cutoffs are told apart
     a.click();
 }
 
@@ -6958,9 +6975,9 @@ function buildAllChainsCxc(overrideFilename, sel) {
     let lines = [
         `# ChimeraX: All chains \u2014 LIR regions`,
         `# Platform: ${platformLabel(uniState.platform)}`,
-        `# Generated by LIVIA (Local Interaction Visualization and Analysis)`,
-        `# LIR = Local Interaction Region (PAE <= ${paeCut})`,
-        `# cLIR = contact LIR (PAE <= ${paeCut} & C-beta <= ${cbCut} \u00c5)`, '',
+        `# Generated by LIVIA (Local Interaction Visualization and Analysis), build ${window.LIVIA_BUILD || "?"}, ${new Date().toLocaleDateString("en-CA")}`,
+        `# LIR = Local Interaction Residues (PAE <= ${paeCut})`,
+        `# cLIR = contact residues (PAE <= ${paeCut} & C-beta <= ${cbCut} \u00c5)`, '',
         'close',
         `open ${structFilename}`, '',
         '# \u2500\u2500 Setup \u2500\u2500',
@@ -7230,7 +7247,7 @@ function buildAllChainsPml(overrideFilename) {
     let lines = [
         `# PyMOL: All chains \u2014 LIR regions`,
         `# Platform: ${platformLabel(uniState.platform)}`,
-        `# Generated by LIVIA`, '',
+        `# Generated by LIVIA, build ${window.LIVIA_BUILD || "?"}, ${new Date().toLocaleDateString("en-CA")}`, '',
         'reinitialize',
         `load ${structFilename}`, '',
         'bg_color white',
@@ -8902,5 +8919,6 @@ function copyScript() {
 <script>window.goatcounter = { path: function () { return location.pathname.replace(/index\.html$/, ''); }, title: 'LIVIA ' + (location.pathname.split('/').pop() || 'index.html') };   /* the page only: never the file, pair or query */</script>
 <script data-goatcounter="https://livia.goatcounter.com/count"
         async src="https://gc.zgo.at/count.js"></script>
+<script src="js/livia-version.js?v=20261003a"></script>
 </body>
 </html>

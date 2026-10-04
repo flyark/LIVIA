@@ -469,8 +469,8 @@ def generate_chimerax_script(
     lines.append("")
 
     lines.append("# — Color Legend —")
-    lines.append(f"# LIR  = Local Interaction Region (PAE <= 12)")
-    lines.append(f"# cLIR = contact LIR (PAE <= 12 & C-beta distance <= 8 \u00c5)")
+    lines.append(f"# LIR  = Local Interaction Residues (PAE <= 12)")
+    lines.append(f"# cLIR = contact residues (PAE <= 12 & C-beta distance <= 8 \u00c5)")
     lines.append(f"#")
     lines.append(f"# LIR cartoons  ({colors['lir_a']}) = Chain {ci} LIR")
     lines.append(f"# cLIR cartoons ({colors['clir_a']}) = Chain {ci} cLIR")
