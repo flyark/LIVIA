@@ -139,12 +139,13 @@
     if (hasRank1.size) r = r.filter((x) => hasRank1.has(key(x)));
     if (!r.length) return r;
 
-    // stable sort by iLIS desc, then dedup by (Symbol_1,Symbol_2,Rank) keep first
+    // stable sort by iLIS desc, then dedup by (Symbol_1,Symbol_2,Rank) keep first; onePerPartner dedups by
+    // (Symbol_1,Symbol_2) alone, so each partner keeps only its best-iLIS prediction
     const sv = (x) => (x['_' + sortBy] != null ? x['_' + sortBy] : (x._iLIS || 0));
     r = r.map((x, i) => [x, i]).sort((A, B) => (sv(B[0]) - sv(A[0])) || (A[1] - B[1])).map((p) => p[0]);
     const seen = new Set();
     const dedup = [];
-    for (const x of r) { const k = key(x) + '' + x._Rank; if (!seen.has(k)) { seen.add(k); dedup.push(x); } }
+    for (const x of r) { const k = opts.onePerPartner ? key(x) : key(x) + '' + x._Rank; if (!seen.has(k)) { seen.add(k); dedup.push(x); } }
     r = dedup;
 
     if (topN != null) r = r.slice(0, topN);

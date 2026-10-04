@@ -191,6 +191,7 @@
         <option value="0.551">1% (0.551)</option>
       </select></label>
       <label>top N <input id="topn" type="number" placeholder="all" step="5" style="width:64px"></label>
+      <label title="Cluster each partner once, on its best-iLIS prediction (any model rank), instead of every model of the pair that passes the cutoff"><input type="checkbox" id="one-per-partner"> one prediction per partner</label>
       <button id="run" class="btn btn-primary" disabled>Generate report</button>
       <span id="status"></span>
     </div>
@@ -264,7 +265,7 @@
 
     <div class="card">
       <h2 data-nav="Clusters">Cluster info</h2>
-      <div class="muted">Partners in each cluster (dendrogram order) — <b>(proteins / predictions)</b>. A partner can have several AlphaFold ranks (each prediction's own model order, ipTM-based, not the iLIS order), so it may appear at multiple rows and across clusters.</div>
+      <div class="muted">Partners in each cluster (dendrogram order) — <b>(proteins / predictions)</b>. A partner can have several AlphaFold ranks (each prediction's own model order, ipTM-based, not the iLIS order), so it may appear at multiple rows and across clusters. With <i>one prediction per partner</i> ticked, each partner is clustered once, on its best-iLIS prediction.</div>
       <div id="cluster-info" style="margin-top:.5rem; font-size:.85rem; line-height:1.55"></div>
     </div>
 
@@ -293,7 +294,7 @@
       <div class="muted">Query protein structure, residues colored by the cluster that consensus-contacts them · click clusters to isolate.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.</div>
       <div class="muted" style="margin-top:.35rem">Highlight residues contacted by &ge; <select id="commonality" style="font-size:.82rem; padding:1px 4px" title="Fraction of a cluster's members (predictions) that must contact a residue for it to take the cluster's color"><option value="0.1">10%</option><option value="0.2">20%</option><option value="0.3">30%</option><option value="0.4">40%</option><option value="0.5" selected>50%</option><option value="0.6">60%</option><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option><option value="custom">custom&hellip;</option></select><span id="commonality-custom" class="hidden"> <input type="number" id="commonality-pct" min="1" max="100" step="1" style="width:4.2em; font-size:.82rem; padding:1px 4px" title="Any value from 1 to 100%; applied on Enter or when the field loses focus"> %</span> of a cluster's members (consensus / core residues).</div>
       <div class="muted" style="margin-top:.25rem">Color only clusters with &ge; <input id="min-cluster" type="number" min="1" value="5" style="width:46px; font-size:.82rem; padding:1px 4px"> predictions (hides tiny clusters).</div>
-      <div class="muted" style="font-size:.78rem; color:#5E5E6E">&nbsp;&nbsp;(the <b>(N)</b> on each cluster chip — AlphaFold ranks, not unique partners).</div>
+      <div id="chip-n-note" class="muted" style="font-size:.78rem; color:#5E5E6E">&nbsp;&nbsp;(the <b>(N)</b> on each cluster chip — AlphaFold ranks, not unique partners).</div>
       <div id="cluster-chips" class="chips" style="margin:.5rem 0 0"></div>
       <div class="row" style="margin-top:.5rem; gap:.4rem; align-items:center; flex-wrap:wrap">
         <span class="muted">Color selection:</span>
@@ -1027,7 +1028,7 @@ $('run').onclick = () => {
   const gene = $('gene').value;
   const tn = $('topn').value.trim();   // blank = all partners (no cap)
   const _cut = parseFloat($('ilis').value);   // 0 is a legitimate cutoff — `||` would swallow it
-  const opts = { ilisCutoff: Number.isFinite(_cut) ? _cut : 0.223, topN: tn==='' ? Infinity : (parseInt(tn)||Infinity), sortBy:'iLIS',
+  const opts = { ilisCutoff: Number.isFinite(_cut) ? _cut : 0.223, topN: tn==='' ? Infinity : (parseInt(tn)||Infinity), sortBy:'iLIS', onePerPartner: !!($('one-per-partner') && $('one-per-partner').checked),
     fastaParse: FASTA_PARSE, alignMap: (window.CLIPResolver && CLIPResolver.alignMap) };   // normalize mixed full/partial constructs onto one frame
   $('status').textContent = 'clustering…';
   setTimeout(() => {
@@ -1060,7 +1061,8 @@ function render(A){
   TABLE_SORT = null; TABLE_FILTER = ''; SCATTER_HL = '';
   { const a=$('ptable-search'), b=$('scatter-search'); if(a){a.value='';a.classList.remove('nf');} if(b){b.value='';b.classList.remove('nf');} }
   $('report').classList.remove('hidden');
-  $('title').textContent = `${gene} — interactome (${uniqueP} partners, ${n} predictions, ${k} clusters)`;
+  $('title').textContent = A.opts && A.opts.onePerPartner ? `${gene} — interactome (${uniqueP} partners, one prediction each, ${k} clusters)` : `${gene} — interactome (${uniqueP} partners, ${n} predictions, ${k} clusters)`;
+  { const nt = $('chip-n-note'); if (nt) nt.innerHTML = A.opts && A.opts.onePerPartner ? '&nbsp;&nbsp;(the <b>(N)</b> on each cluster chip — partners, one prediction each).' : '&nbsp;&nbsp;(the <b>(N)</b> on each cluster chip — AlphaFold ranks, not unique partners).'; }
   const _norm = pipe.constructNorm || {};
   $('subtitle').textContent = `query length ${plen} aa · ` + (cl.commNames ? 'clusters: user-defined · tree = fingerprint similarity' : 'cosine + average linkage · silhouette-optimal k')
     + (_norm.remapped ? ` · ⤳ ${_norm.remapped} partial-construct row${_norm.remapped>1?'s':''} remapped to full-length coordinates` : '')
