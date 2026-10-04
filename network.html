@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LIVIA — PPI Network</title>
 <script src="js/livia-xlsx.js"></script>
-<script src="js/livia-maps.js?v=20260927a"></script>
-<script src="js/clip-pipeline.js?v=20260926b"></script>
+<script src="js/livia-maps.js?v=20261004a"></script>
+<script src="js/clip-pipeline.js?v=20261004a"></script>
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -224,8 +224,11 @@ let NET_HL = null;                 // node id currently highlighted by the searc
 let EGO_ROOT = null, PHYS = false, DRAWN = '';   // neighbors-only view root; whether the force layout is running; the drawn node/edge set
 
 // ---------- helpers ----------
+// community colors: Tableau 10 without its gray (the Atlas uses the same nine), then golden-angle hues kept mid-tone (no pale fills)
+const COMM_TAB = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#bcbd22','#17becf'];
 function commColor(i){
-  const h=(i*137.508)%360, s=(62+(i%2)*14)/100, l=(50+(i%3)*10)/100, a=s*Math.min(l,1-l);
+  if (i >= 0 && i < COMM_TAB.length) return COMM_TAB[i];
+  const h=(i*137.508)%360, s=(62+(i%2)*14)/100, l=(42+(i%3)*8)/100, a=s*Math.min(l,1-l);
   const f=n=>{ const k=(n+h/30)%12, c=l-a*Math.max(-1,Math.min(k-3,9-k,1)); return Math.round(255*c).toString(16).padStart(2,'0'); };
   return `#${f(0)}${f(8)}${f(4)}`;
 }

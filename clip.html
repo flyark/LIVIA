@@ -7,10 +7,10 @@
 <script async id="plotly-lib" src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.3/plotly.min.js" onerror="window.__PLOTLY_FAILED = true"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260927a"></script>
+<script src="js/livia-maps.js?v=20261004a"></script>
 <script src="js/livia-xlsx.js"></script>
 <script src="js/clip-clustering.js"></script>
-<script src="js/clip-pipeline.js?v=20260926b"></script>
+<script src="js/clip-pipeline.js?v=20261004a"></script>
 <script src="js/clip-resolver.js?v=20260928a"></script>
 <script src="js/livia-viewer.js?v=20260927a"></script>
 <script src="js/livia-subnav.js?v=20260928c"></script>
@@ -55,7 +55,7 @@
   .gtip[hidden] { display:none; }
   .hot { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:.5rem; }
   .hot span { font-family:ui-monospace, Menlo, monospace; font-size:12px; padding:2px 8px; border-radius:6px; background:#E0F2F1; color:#00695C; }
-  .hot .hot-lbl { background:none; color:#8a97a8; font-family:inherit; padding-left:0; }
+  .hot .hot-lbl { background:none; color:#667080; font-family:inherit; padding-left:0; }
   #status { font-size:.85rem; color:#667; margin-left:.5rem; }
   @media (max-width:768px){
     .seq-flow { font-size:0.68rem; }                 /* match universal.html — fit 4 blocks/line, no wasted right gap */
@@ -333,11 +333,11 @@
 </div>
 
 <script>
-const TAB10 = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
-const TAB20 = ['#1f77b4','#aec7e8','#ff7f0e','#ffbb78','#2ca02c','#98df8a','#d62728','#ff9896','#9467bd','#c5b0d5','#8c564b','#c49c94','#e377c2','#f7b6d2','#7f7f7f','#c7c7c7','#bcbd22','#dbdb8d','#17becf','#9edae5'];
+const TAB10 = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#bcbd22','#17becf'];   // Tableau 10 without its gray (gray reads as "not clustered"); the Atlas uses the same
+const TAB20 = TAB10.concat(['#aec7e8','#ffbb78','#98df8a','#ff9896','#c5b0d5','#c49c94','#f7b6d2','#dbdb8d','#9edae5']);   // Tableau 20 without its two grays, strong nine first, then the pale nine (the Atlas uses the same order)
 const TAB20B = ['#393b79','#5254a3','#6b6ecf','#9c9ede','#637939','#8ca252','#b5cf6b','#cedb9c','#8c6d31','#bd9e39','#e7ba52','#e7cb94','#843c39','#ad494a','#d6616b','#e7969c','#7b4173','#a55194','#ce6dbd','#de9ed6'];
 const TAB20C = ['#3182bd','#6baed6','#9ecae1','#c6dbef','#e6550d','#fd8d3c','#fdae6b','#fdd0a2','#31a354','#74c476','#a1d99b','#c7e9c0','#756bb1','#9e9ac8','#bcbddc','#dadaeb','#636363','#969696','#bdbdbd','#d9d9d9'];
-const TAB60 = TAB20.concat(TAB20B, TAB20C);   // 60 distinct — 'auto' uses this beyond k=20
+const TAB60 = TAB20.concat(TAB20B, TAB20C.filter((c) => !['#636363','#969696','#bdbdbd','#d9d9d9'].includes(c)));   // 54 distinct, no grays — 'auto' uses this beyond 18 clusters
 const PALETTES = { tab10: TAB10, tab20: TAB20, tab20b: TAB20B, tab20c: TAB20C, distinct: TAB60 };
 let PALETTE = 'auto';   // default; 'auto' scales with k (tab10->tab20->tab60->HSL); fixed palettes extend with generated colors past their length
 let CLUSTER_OVERRIDE = {};   // per-cluster custom color (cluster id -> hex); wins over the palette
@@ -398,10 +398,10 @@ function clearClipClusters(){ USERCLUST_CLIP = null; clipClustStat(); regenerate
 function hslDistinct(i){ const h = (i * 137.508) % 360, s = (62 + (i % 2) * 16)/100, l = (42 + (i % 3) * 13)/100, a = s * Math.min(l, 1-l); const f = (n) => { const k = (n + h/30) % 12, c = l - a * Math.max(-1, Math.min(k-3, 9-k, 1)); return Math.round(255*c).toString(16).padStart(2,'0'); }; return `#${f(0)}${f(8)}${f(4)}`; }
 function clusterColor(id, k){
   if (CLUSTER_OVERRIDE[id]) return CLUSTER_OVERRIDE[id];                                     // user custom color wins
-  if (PALETTE === 'distinct') return id <= 60 ? TAB60[id - 1] : hslDistinct(id - 1);        // never cycles, any N
+  if (PALETTE === 'distinct') return id <= TAB60.length ? TAB60[id - 1] : hslDistinct(id - 1);        // never cycles, any N
   if (PALETTE !== 'auto' && PALETTES[PALETTE]){ const p = PALETTES[PALETTE]; return id <= p.length ? p[id - 1] : hslDistinct(id - 1); }   // fixed palette, extends with generated colors past its length
-  const pal = k <= 10 ? TAB10 : k <= 20 ? TAB20 : k <= 60 ? TAB60 : null;                    // auto: smallest curated palette that fits
-  return pal ? pal[(id - 1) % pal.length] : hslDistinct(id - 1);                             // k>60 -> generated distinct colors
+  const pal = k <= TAB10.length ? TAB10 : k <= TAB20.length ? TAB20 : k <= TAB60.length ? TAB60 : null;                    // auto: smallest curated palette that fits
+  return pal ? pal[(id - 1) % pal.length] : hslDistinct(id - 1);                             // more clusters -> generated distinct colors
 }
 // Single-model iLIS thresholds (Y2H reference sets in yeast/fly/human via ColabFold; Kim et al. 2026)
 function amColor(v){ const t=Math.max(0,Math.min(1,v));   // AlphaMissense: benign(blue) -> ambiguous(gray) -> pathogenic(red)
@@ -1418,7 +1418,7 @@ function seqPanel(label, seq, lir, clir, col){
   for (let i = 0; i < seq.length; i++){
     if (i % 10 === 0){ if (i) body += '</span><wbr>'; body += `<span class="g10" data-n="${Math.min(i + 10, seq.length)}">`; }
     const r = i + 1, ch = esc(seq[i]);
-    if (clir.has(r))      body += `<span style="background:${col.clir}; color:#fff; font-weight:700">${ch}</span>`;
+    if (clir.has(r))      { const cf = LiviaMaps.chipFill(col.clir); body += `<span style="background:${cf.fill}; color:${cf.ink}; font-weight:700">${ch}</span>`; }
     else if (lir.has(r))  body += `<span style="background:${col.lir}">${ch}</span>`;
     else                  body += ch;
   }
@@ -1624,7 +1624,7 @@ function renderFreq(A){
     if (hot) hot.innerHTML = top.length ? `<span class="hot-lbl">Most contacted</span>${top.slice(0, 12).map((r) => `<span title="${tot[r]} prediction${tot[r] === 1 ? '' : 's'}">${_esc(residueLabel(A, r))} \u00b7 ${tot[r]}</span>`).join('')}` : ''; }
   { const dl = $('freq-domains');
     if (dl){ if (doms.length){
-      const items = doms.map(d => `<b style="color:#456">D${d.idx}</b> = ${_esc(d.name)} <span style="color:#8a97a8">(${d.start}\u2013${d.end})</span>`).join(' &nbsp;\u00b7&nbsp; ');
+      const items = doms.map(d => `<b style="color:#456">D${d.idx}</b> = ${_esc(d.name)} <span style="color:#667080">(${d.start}\u2013${d.end})</span>`).join(' &nbsp;\u00b7&nbsp; ');
       const acc = A._accession, link = acc ? ` &nbsp;\u2014&nbsp; <a href="https://www.uniprot.org/uniprotkb/${acc}/entry#family_and_domains" target="_blank" style="color:#2471A3">on UniProt ${acc} \u2197</a>` : '';
       dl.innerHTML = `<b style="color:#456">Domains:</b> ${items}${link}`;
     } else dl.innerHTML = ''; } }
@@ -1864,13 +1864,14 @@ function renderScatter(A){
     mode:'markers', type:'scatter', legendrank:+lab, name:'cluster '+lab+' ('+traces[lab].x.length+')', marker:{ size:9, color:clusterColor(+lab,k), line:{width:.5,color:'#fff'} }, hovertemplate: HT }));
   const axTitle = (kk) => kk===RANK_METRIC ? `global rank (by ${rankBy})` : kk;
   const layout = { margin:{t:10,r:10,b:45,l:62}, xaxis:{title:axTitle(xKey), rangemode:'tozero'}, yaxis:{title:axTitle(yKey), rangemode:'tozero'}, legend:{font:{size:10}} };
-  // FPR iLIS reference lines when iLIS is on an axis (active cutoff = dashed+bold, others dotted)
+  // FPR iLIS reference lines when iLIS is on an axis, each in its band color (LiviaMaps.BAND; active cutoff bolder)
+  const bandOf = (v) => LiviaMaps.BAND[v >= 0.551 ? 1 : v >= 0.339 ? 5 : 10];
   const fprShape = (ax, v) => ax==='y'
-    ? { type:'line', xref:'paper', x0:0, x1:1, y0:v, y1:v, line:{ color:'#e07a5f', width: v===cutoff?1.5:0.8, dash: 'dash' } }
-    : { type:'line', yref:'paper', y0:0, y1:1, x0:v, x1:v, line:{ color:'#e07a5f', width: v===cutoff?1.5:0.8, dash: 'dash' } };
+    ? { type:'line', xref:'paper', x0:0, x1:1, y0:v, y1:v, line:{ color:bandOf(v), width: v===cutoff?1.5:0.8, dash: 'dash' } }
+    : { type:'line', yref:'paper', y0:0, y1:1, x0:v, x1:v, line:{ color:bandOf(v), width: v===cutoff?1.5:0.8, dash: 'dash' } };
   const fprAnn = (ax, lbl, v) => ax==='y'
-    ? { xref:'paper', x:1, xanchor:'right', y:v, yanchor:'bottom', text:`${lbl} (${v})`, showarrow:false, font:{size:9, color:'#e07a5f'} }
-    : { yref:'paper', y:1, yanchor:'top', x:v, xanchor:'left', text:`${lbl} (${v})`, showarrow:false, font:{size:9, color:'#e07a5f'}, textangle:-90 };
+    ? { xref:'paper', x:1, xanchor:'right', y:v, yanchor:'bottom', text:`${lbl} (${v})`, showarrow:false, font:{size:9, color:bandOf(v)} }
+    : { yref:'paper', y:1, yanchor:'top', x:v, xanchor:'left', text:`${lbl} (${v})`, showarrow:false, font:{size:9, color:bandOf(v)}, textangle:-90 };
   const ax = yKey==='iLIS' ? 'y' : (xKey==='iLIS' ? 'x' : null);
   if (ax){ layout.shapes = FPR_ILIS.map(([,v])=>fprShape(ax,v)); layout.annotations = FPR_ILIS.map(([l,v])=>fprAnn(ax,l,v)); }
   const _cx=[], _cy=[];   // Spearman rank correlation of the two axes across all plotted predictions

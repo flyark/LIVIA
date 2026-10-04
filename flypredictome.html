@@ -547,12 +547,12 @@
 </div>
 
 <script src="js/livia-core.js?v=20260928a"></script>
-<script src="js/livia-reported.js?v=20260928c"></script>
+<script src="js/livia-reported.js?v=20261004a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260927a"></script>
 <script src="js/livia-colors.js?v=20260927a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260927a"></script>
+<script src="js/livia-maps.js?v=20261004a"></script>
 <script src="js/livia-subnav.js?v=20260928c"></script>
 <script>
 // Wire shared module callbacks
@@ -2025,7 +2025,7 @@ function getChainToggleColor(chainName) {
 function applyChainToggleStyle(btn, visible) {
     const baseColor = getChainToggleColor(btn.dataset.chain);
     btn.style.cssText = visible
-        ? `padding:0.2rem 0.6rem; border:1px solid ${baseColor}; background:${baseColor}; color:#fff; border-radius:4px; cursor:pointer; font-size:0.78rem; font-weight:600; min-width:1.6rem;`
+        ? `padding:0.2rem 0.6rem; border:1px solid ${LiviaMaps.chipFill(baseColor).fill}; background:${LiviaMaps.chipFill(baseColor).fill}; color:${LiviaMaps.chipFill(baseColor).ink}; border-radius:4px; cursor:pointer; font-size:0.78rem; font-weight:600; min-width:1.6rem;`
         : `padding:0.2rem 0.6rem; border:1px solid #ccc; background:#fff; color:#6B6B6B; border-radius:4px; cursor:pointer; font-size:0.78rem; min-width:1.6rem; text-decoration:line-through;`;
 }
 function toggleChainVisibility(name) {
@@ -3269,16 +3269,8 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     { const _cc = document.getElementById('contact-count-text'); if (_cc) _cc.textContent = `${contacts.length} cLIR contact pairs (C\u03B2 \u2264 ${contactDist} \u00C5)`; }
 
     // Domain annotations
-    const domPalette = [
-        'rgba(102,194,165,0.35)', 'rgba(252,141,98,0.35)', 'rgba(141,160,203,0.35)',
-        'rgba(231,138,195,0.35)', 'rgba(166,216,84,0.35)', 'rgba(255,217,47,0.35)',
-        'rgba(229,196,148,0.35)', 'rgba(179,179,179,0.35)'
-    ];
-    const domBorderPalette = [
-        'rgba(102,194,165,0.7)', 'rgba(252,141,98,0.7)', 'rgba(141,160,203,0.7)',
-        'rgba(231,138,195,0.7)', 'rgba(166,216,84,0.7)', 'rgba(255,217,47,0.7)',
-        'rgba(229,196,148,0.7)', 'rgba(179,179,179,0.7)'
-    ];
+    const domPalette = ['rgba(183,192,202,0.45)', 'rgba(148,159,172,0.45)'];
+    const domBorderPalette = ['rgba(75,85,99,0.8)', 'rgba(75,85,99,0.8)'];
     if (hasDomains) {
         const domBlockH = 14, domGap = 2;
         // Chain A domains above bar
@@ -3315,7 +3307,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
 
     // Draw TED domain annotations
     if (hasTed) {
-        const TED_PALETTE = ['#7E57C2', '#5C6BC0', '#26A69A', '#8D6E63', '#EC407A', '#42A5F5', '#AB47BC', '#66BB6A'];
+        const TED_PALETTE = ['#6B7684', '#4E5866'];
         const tedBlockH = 14, tedGap = 2;
 
         // Chain A TED domains — above UniProt domains (further above chain A bar)
@@ -3379,7 +3371,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
         legendEl.innerHTML = '';
         legendEl.style.flexDirection = 'column';
         legendEl.style.gap = '0.3rem';
-        const TED_PALETTE_LEG = ['#7E57C2', '#5C6BC0', '#26A69A', '#8D6E63', '#EC407A', '#42A5F5', '#AB47BC', '#66BB6A'];
+        const TED_PALETTE_LEG = ['#6B7684', '#4E5866'];
         const chainLabels = [
             { key: 'A', label: `${sym1} (${swap ? 'B' : 'A'})`, domains: _dmA, tedDomains: _tdA, info: _diA },
             { key: 'B', label: `${sym2} (${swap ? 'A' : 'B'})`, domains: _dmB, tedDomains: _tdB, info: _diB },
@@ -3453,8 +3445,8 @@ let flyShowChordRadial = false;   // Circular Contact Map: arc labels along the 
 let flyShowChordDom = true;   // Circular Contact Map: UniProt/Pfam domain ring (outside the arc)
 let flyShowChordTed = true;   // Circular Contact Map: TED domain ring
 let flyShowChordPlddt = true;   // Circular Contact Map: per-residue pLDDT ring (between the arc and the domain rings)
-const CHORD_DOM_FILL = ['#66c2a5','#fc8d62','#8da0cb','#e78ac3','#a6d854','#ffd92f','#e5c494','#b3b3b3'];   // UniProt/Pfam
-const CHORD_TED_FILL = ['#7E57C2','#5C6BC0','#26A69A','#8D6E63','#EC407A','#42A5F5','#AB47BC','#66BB6A'];   // TED
+const CHORD_DOM_FILL = ['#B7C0CA', '#949FAC'];   // UniProt/Pfam
+const CHORD_TED_FILL = ['#6B7684', '#4E5866'];   // TED
 let flyShowChordLabels = true;   // Circular Contact Map: show the gene name
 let flyShowChordLength = true;   // Circular Contact Map: show the residue-count number   // Circular Contact Map: include the chain-ID suffix "(A)" in arc labels (toggle in the header)
 const flyChordLabel = (sym, id) => { const g = flyShowChordLabels ? sym : ''; if (g && flyShowChordIDs) return `${g} (${id})`; if (g) return g; if (flyShowChordIDs) return id; return flyShowChordLabels ? id : ''; };

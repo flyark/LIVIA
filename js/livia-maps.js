@@ -676,9 +676,33 @@
         const f = t * (stops.length - 1), i = Math.min(stops.length - 2, Math.floor(f)), u = f - i;
         return stops[i].map((a, k) => Math.round(a + (stops[i + 1][k] - a) * u));
     }
-    function inkOn(rgb) {                                             // text color that reads on this fill
+    // FPR band colors (1%, 5%, 10%, below), the same as js/livia-core.js ilisColor and the Atlas BAND, so every
+    // FPR line, swatch and value reads as one scale across the pages.
+    const BAND = { 1: '#6B21A8', 5: '#0C735C', 10: '#875F00', 0: '#A7B2BF' };
+    function _lum(rgb) {                                              // WCAG relative luminance of [r, g, b]
         const l = rgb.map((c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
-        return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2] > 0.4 ? '#333' : '#fff';
+        return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2];
+    }
+    // Text color that reads on this fill. 0.19 is where white and #111 give the same contrast, so the ink
+    // picked always has the higher of the two (white only on fills dark enough for it).
+    function inkOn(rgb) {
+        return _lum(rgb) > 0.19 ? '#111' : '#fff';
+    }
+    // A chip that carries white text: keep the fill when white reads on it (at least 4.5:1); a pale fill
+    // takes dark text instead; a mid-tone fill (the default teal and orange) is darkened just enough
+    // for white. Returns { fill, ink } as hex.
+    function chipFill(hex) {
+        const rgb = /^#[0-9a-f]{6}/i.test(hex || '') ? _hex(hex) : null;
+        if (!rgb) return { fill: hex, ink: '#fff' };
+        const dflt = { '#00897b': '#00776B', '#e64a19': '#C13E15' }[hex.toLowerCase()];   // the default cLIR colors: the same darker shades the Atlas uses for text
+        if (dflt) return { fill: dflt, ink: '#fff' };
+        const toHex = (c) => '#' + c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
+        const L = _lum(rgb);
+        if (1.05 / (L + 0.05) >= 4.5) return { fill: hex, ink: '#fff' };
+        if (L > 0.3) return { fill: hex, ink: '#111' };
+        let k = 1;
+        while (k > 0.3 && 1.05 / (_lum(rgb.map((v) => v * k)) + 0.05) < 4.5) k -= 0.02;
+        return { fill: toHex(rgb.map((v) => v * k)), ink: '#fff' };
     }
     // A horizontal color bar: label, the ramp (small blocks, so an SVG export needs no gradient), end ticks and values.
     // o = { x, y, w, h, cmap, lo, hi, fmt, label, font } in canvas pixels; returns the height it used.
@@ -704,7 +728,7 @@
     }
 
     global.LiviaMaps = {
-        SEQ_CMAPS, cmapRGB, inkOn, drawColorbar,
+        SEQ_CMAPS, cmapRGB, inkOn, chipFill, BAND, drawColorbar,
         setExportOpts, applyExportOpts,
         svgFromDraw, svgFromFixedCanvas,
         downloadSVGFile, downloadSVGFromCanvas, downloadCanvasPNG,

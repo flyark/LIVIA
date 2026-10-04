@@ -102,7 +102,7 @@ function render(withId, subs, pairMap, opts){
     const fs = n <= 10 ? '0.72rem' : '0.64rem';
     const maxLen = withId.reduce((m, s) => Math.max(m, String(s.sym).length), 0);
     const hdrH = Math.min(96, 18 + Math.round(maxLen * 4.6));          // header height fits the rotated labels
-    const heat = (c, max) => { if (!c) return 'background:#fbfcfd; color:#d0d0d0;'; const t = max ? c / max : 1; return 'background:rgba(36,113,163,' + (0.14 + t * 0.78).toFixed(3) + '); color:' + (t > 0.5 ? '#fff' : '#14324a') + ';'; };
+    const heat = (c, max) => { if (!c) return 'background:#fbfcfd; color:#d0d0d0;'; const t = max ? c / max : 1; return 'background:rgba(36,113,163,' + (0.14 + t * 0.78).toFixed(3) + '); color:' + (t > 0.92 ? '#fff' : '#0B2238') + ';'; };   // the ink with the higher contrast on that cell (they cross near t = 0.92)
     function heatmap(t, label){
         const max = maxOf[t];
         if (!max) return '';                                           // no evidence of this type → omit its heatmap

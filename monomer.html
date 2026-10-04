@@ -235,7 +235,7 @@
             </div>
             <div id="pairs-note" style="font-size:0.78rem; color:#6B6B6B; margin:-0.4rem 0 0.2rem;"></div>
             <div style="margin-top:0.5rem;">
-                <a class="btn-download cxc" style="background:#27ae60; border-color:#27ae60; font-size:0.82rem; cursor:pointer;" onclick="downloadCSV()">&#8595; Download CSV</a>
+                <a class="btn-download cxc" style="background:#1D7D45; border-color:#1D7D45; font-size:0.82rem; cursor:pointer;" onclick="downloadCSV()">&#8595; Download CSV</a>
             </div>
             <div style="margin-top:0.6rem; font-size:0.75rem; color:#707070; line-height:1.8;">
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
@@ -476,7 +476,7 @@
 <script src="js/livia-viewer.js?v=20260927a"></script>
 <script src="js/livia-colors.js?v=20260927a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260927a"></script>
+<script src="js/livia-maps.js?v=20261004a"></script>
 <script src="js/livia-subnav.js?v=20260928c"></script>
 <script>
 // ── Callbacks for shared modules (monomer overrides most of these) ──
@@ -526,15 +526,9 @@ let monTedDomains = [];     // TED domain annotations [{name, start, end, segmen
 let domainCache = new Map(); // UniProt ID -> domain array cache
 let tedCache = new Map();    // UniProt ID -> TED domain array cache
 
-const DOMAIN_PALETTE = [
-    '#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3'
-];
-const DOMAIN_PALETTE_LIGHT = [
-    'rgba(102,194,165,0.35)', 'rgba(252,141,98,0.35)', 'rgba(141,160,203,0.35)',
-    'rgba(231,138,195,0.35)', 'rgba(166,216,84,0.35)', 'rgba(255,217,47,0.35)',
-    'rgba(229,196,148,0.35)', 'rgba(179,179,179,0.35)'
-];
-const TED_PALETTE = ['#7E57C2', '#5C6BC0', '#26A69A', '#8D6E63', '#EC407A', '#42A5F5', '#AB47BC', '#66BB6A'];
+const DOMAIN_PALETTE = ['#B7C0CA', '#949FAC'];
+const DOMAIN_PALETTE_LIGHT = ['rgba(183,192,202,0.45)', 'rgba(148,159,172,0.45)'];
+const TED_PALETTE = ['#6B7684', '#4E5866'];
 
 const TAB10 = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
 const TAB20 = ['#1f77b4','#aec7e8','#ff7f0e','#ffbb78','#2ca02c','#98df8a','#d62728','#ff9896','#9467bd','#c5b0d5','#8c564b','#c49c94','#e377c2','#f7b6d2','#7f7f7f','#c7c7c7','#bcbd22','#dbdb8d','#17becf','#9edae5'];
@@ -1819,7 +1813,8 @@ function drawDomainMap(validRegions) {
         for (const r of validRegions) {
             const x0 = resX(r.start);
             const x1 = resX(r.end);
-            ctx.fillStyle = r.color;
+            const _cf = LiviaMaps.chipFill(r.color);   // the region letter is white only where it reads; the fill darkens just enough
+            ctx.fillStyle = _cf.fill;
             ctx.fillRect(x0, y1, x1 - x0, barH);
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 1;
@@ -1827,7 +1822,7 @@ function drawDomainMap(validRegions) {
             // Label
             const rw = x1 - x0;
             if (rw > 18) {
-                ctx.fillStyle = '#fff';
+                ctx.fillStyle = _cf.ink;
                 ctx.font = 'bold 9px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -1909,7 +1904,7 @@ function drawDomainMap(validRegions) {
             const x1 = resX(mainSeg.end);
             const rw = x1 - x0;
             if (rw > 20) {
-                ctx.fillStyle = '#333';
+                ctx.fillStyle = '#111';
                 ctx.font = '8px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';

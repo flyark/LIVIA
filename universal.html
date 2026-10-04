@@ -124,7 +124,7 @@
         }
     </style>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20260927a"></script>
+<script src="js/livia-maps.js?v=20261004a"></script>
 <script src="js/clip-resolver.js?v=20260928a"></script>
 <script src="js/remotezip.js?v=20260918"></script>
 </head>
@@ -683,7 +683,7 @@
 </div>
 
 <script src="js/livia-core.js?v=20260928a"></script>
-<script src="js/livia-reported.js?v=20260928c"></script>
+<script src="js/livia-reported.js?v=20261004a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20260927a"></script>
 <script src="js/livia-colors.js?v=20260927a"></script>
@@ -1528,6 +1528,10 @@ const TAB10 = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e37
 const TAB20 = ['#1f77b4','#aec7e8','#ff7f0e','#ffbb78','#2ca02c','#98df8a','#d62728','#ff9896','#9467bd','#c5b0d5','#8c564b','#c49c94','#e377c2','#f7b6d2','#7f7f7f','#c7c7c7','#bcbd22','#dbdb8d','#17becf','#9edae5'];
 const SET1 = ['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999'];
 const SET2 = ['#66c2a5','#fc8d62','#8da0cb','#e78ac3','#a6d854','#ffd92f','#e5c494','#b3b3b3'];
+// Domain tracks on the contact maps: neutral grays, alternating so neighbors read apart (light for UniProt/Pfam,
+// darker for TED), so no domain shares a hue with a chain, a cluster or the pLDDT scale. Same on every page.
+const DOM_GRAYS = ['#B7C0CA', '#949FAC'];
+const TED_GRAYS = ['#6B7684', '#4E5866'];
 const DARK2 = ['#1b9e77','#d95f02','#7570b3','#e7298a','#66a61e','#e6ab02','#a6761d','#666666'];
 const PAIRED = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b15928'];
 const OKABE_ITO = ['#0072B2','#E69F00','#009E73','#D55E00','#56B4E9','#CC79A7','#F0E442','#000000'];
@@ -1767,7 +1771,7 @@ function getChainToggleColor(chainName) {
 function applyChainToggleStyle(btn, visible) {
     const baseColor = getChainToggleColor(btn.dataset.chain);
     btn.style.cssText = visible
-        ? `padding:0.2rem 0.6rem; border:1px solid ${baseColor}; background:${baseColor}; color:#fff; border-radius:4px; cursor:pointer; font-size:0.78rem; font-weight:600; min-width:1.6rem;`
+        ? `padding:0.2rem 0.6rem; border:1px solid ${LiviaMaps.chipFill(baseColor).fill}; background:${LiviaMaps.chipFill(baseColor).fill}; color:${LiviaMaps.chipFill(baseColor).ink}; border-radius:4px; cursor:pointer; font-size:0.78rem; font-weight:600; min-width:1.6rem;`
         : `padding:0.2rem 0.6rem; border:1px solid #ccc; background:#fff; color:#6B6B6B; border-radius:4px; cursor:pointer; font-size:0.78rem; min-width:1.6rem; text-decoration:line-through;`;
 }
 function toggleChainVisibility(name) {
@@ -6162,14 +6166,9 @@ let uniLabelDirX = 'horizontal';   // Maps/Score Matrix: top (column) name direc
 let uniLabelStyle = 'filled';   // Maps/Score Matrix: NAME style — 'filled' (chain-color chip, contrast text) | 'text' (colored text)
 let uniSizeFormat = 'count';  // Maps: length number format — 'count' ("746") | 'range' ("1-746")
 let uniSizeColorMode = 'black';   // Maps: length number color — 'black' | 'chain'
-// Text color that reads on a given background (luminance split) — for the filled-chip name style.
-function contrastText(hex) {
-    if (!hex || hex[0] !== '#' || hex.length < 7) return '#fff';
-    const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-    // Threshold 165: vivid saturated fills (orange/green/red/blue) read better with WHITE text; only
-    // genuinely pale chips flip to black.
-    return (0.299 * r + 0.587 * g + 0.114 * b) > 165 ? '#000' : '#fff';
-}
+// Fill and text color for a filled name chip: white text on a fill dark enough for it (at least 4.5:1),
+// the fill darkened just enough when it is not (js/livia-maps.js chipFill).
+function contrastText(hex) { return LiviaMaps.chipFill(hex).ink; }
 function roundRectPath(ctx, x, y, w, h, r) {
     r = Math.min(r, w / 2, h / 2);
     ctx.beginPath();
@@ -6196,7 +6195,7 @@ function drawMapName(ctx, text, cx, cy, fontPx, align, baseline, plainColor, chi
         const baseY = baseline === 'middle' ? cy + (asc - desc) / 2 : baseline === 'bottom' ? cy - desc : cy + asc;
         const glyphCenter = baseY + (desc - asc) / 2;   // exact vertical center of the glyph box
         const rx = cx - (align === 'center' ? w / 2 : align === 'right' ? w : 0);
-        ctx.fillStyle = chipBg;
+        ctx.fillStyle = LiviaMaps.chipFill(chipBg).fill;
         roundRectPath(ctx, rx - padX, glyphCenter - rectH / 2, rectW, rectH, Math.min(fontPx * 0.22, rectH * 0.32));
         ctx.fill();
         ctx.fillStyle = contrastText(chipBg);
@@ -6327,7 +6326,7 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
     // Reads uniState.chainDomains — the same auto-fetched data the Linear/Circular Contact Map
     // domain tracks already use; no separate UniProt fetch needed here.
     const domsByChain = uniState.chainDomains || {};
-    const DOM_FILL_MAP = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3'];   // Set2, matches the Linear/Circular Contact Map domain palette
+    const DOM_FILL_MAP = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3'];   // Set2, for the opt-in by-domain color mode (the contact maps draw domains in neutral grays)
     const hasAnyDom = chainNames.some(cn => domsByChain[cn] && domsByChain[cn].length);
     const showDomTrack = uniShowMapDom && hasAnyDom;
     const domLaneH = Math.max(8, Math.min(14, chainFontBase * 0.8));   // pre-HIRES; loosely follows the label font
@@ -8101,9 +8100,7 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
     const showPlddt = document.getElementById('contact-show-plddt') ? document.getElementById('contact-show-plddt').checked : true;      // per-residue pLDDT strip
     const colors = getColorsForPair(v.ci, v.cj);
 
-    // Domain palettes — Set2 fills for UniProt/Pfam, CATH-ish solids for TED (match the legend swatches)
-    const DOM_FILL = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3'];
-    const TED_FILL = ['#7E57C2', '#5C6BC0', '#26A69A', '#8D6E63', '#EC407A', '#42A5F5', '#AB47BC', '#66BB6A'];
+    // Domain tracks in neutral grays (DOM_GRAYS / TED_GRAYS, top of the script); the chain colors stay for contacts
 
     // Chain-i / chain-j roles; the A/B swap flips which one is drawn on top.
     const mkRole = (name, lir, clir, len, lirCol, clirCol) => ({ name, lir, clir, len, lirCol, clirCol,
@@ -8178,7 +8175,7 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
         if (tr.dom) for (const d of tr.dom.list){
             const x0 = xFn(Math.max(1, d.start)), x1 = xFn(Math.min(role.len, d.end)), w = Math.max(2, x1 - x0);
             const laneY = dir < 0 ? baseY - off - (d._lane + 1) * laneH + (laneH - boxH) / 2 : baseY + off + d._lane * laneH;
-            const col = DOM_FILL[role.doms.indexOf(d) % DOM_FILL.length];
+            const col = DOM_GRAYS[role.doms.indexOf(d) % DOM_GRAYS.length];
             ctx.fillStyle = hexToRgba(col, 0.45); ctx.fillRect(x0, laneY, w, boxH);
             ctx.strokeStyle = hexToRgba(col, 0.9); ctx.lineWidth = 0.8; ctx.strokeRect(x0, laneY, w, boxH);
             if (w > 18){ ctx.fillStyle = '#333'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const cap = Math.max(3, Math.floor(w / 6)); ctx.fillText(d.name.length > cap ? d.name.slice(0, cap - 1) + '\u2026' : d.name, (x0 + x1) / 2, laneY + boxH / 2 + 0.5); }
@@ -8186,13 +8183,13 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
         if (tr.ted){
             const tedBase = dir < 0 ? baseY - off - (tr.dom ? tr.dom.n * laneH + trackGap : 0) : baseY + off + (tr.dom ? tr.dom.n * laneH + trackGap : 0);
             for (const d of tr.ted.list){
-                const col = TED_FILL[role.ted.indexOf(d) % TED_FILL.length];
+                const col = TED_GRAYS[role.ted.indexOf(d) % TED_GRAYS.length];
                 const laneY = dir < 0 ? tedBase - (d._lane + 1) * laneH + (laneH - boxH) / 2 : tedBase + d._lane * laneH;
                 const segs = d.segments && d.segments.length ? d.segments : [{ start: d.start, end: d.end }];
                 for (const sg of segs){ const x0 = xFn(Math.max(1, sg.start)), x1 = xFn(Math.min(role.len, sg.end)), w = Math.max(2, x1 - x0); ctx.fillStyle = hexToRgba(col, 0.6); ctx.fillRect(x0, laneY, w, boxH); ctx.strokeStyle = hexToRgba(col, 0.95); ctx.lineWidth = 0.8; ctx.strokeRect(x0, laneY, w, boxH); }
                 const main = segs.reduce((a, b) => (b.end - b.start) > (a.end - a.start) ? b : a, segs[0]);
                 const mx0 = xFn(Math.max(1, main.start)), mx1 = xFn(Math.min(role.len, main.end)), mw = mx1 - mx0;
-                if (mw > 18){ ctx.fillStyle = '#fff'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const lab = d.cath || ('D' + d.tedNo); const cap = Math.max(3, Math.floor(mw / 6)); ctx.fillText(lab.length > cap ? lab.slice(0, cap - 1) + '\u2026' : lab, (mx0 + mx1) / 2, laneY + boxH / 2 + 0.5); }
+                if (mw > 18){ ctx.fillStyle = '#1f2937'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const lab = d.cath || ('D' + d.tedNo); const cap = Math.max(3, Math.floor(mw / 6)); ctx.fillText(lab.length > cap ? lab.slice(0, cap - 1) + '\u2026' : lab, (mx0 + mx1) / 2, laneY + boxH / 2 + 0.5); }
             }
         }
     };
@@ -8219,7 +8216,7 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
     if (countEl) countEl.textContent = uniState.noStructure
         ? `${clirI_f.size} + ${clirJ_f.size} cLIR residues (no structure in bundle \u2014 contact lines omitted)`
         : `${contacts.length} cLIR contact pairs (C\u03B2 \u2264 8 \u00C5)`;
-    renderContactHtmlLegend([top, bot], DOM_FILL, TED_FILL, legendEl);   // clickable HTML legend below
+    renderContactHtmlLegend([top, bot], DOM_GRAYS, TED_GRAYS, legendEl);   // clickable HTML legend below
     return true;
 }
 
@@ -8345,7 +8342,7 @@ function buildContactMap(_pairKey) { buildLinearContactMaps(); }
 
 // The clickable HTML twin of the canvas legend (UniProt links work here; the canvas legend is what
 // lands in the exported figure). Rendered into the map's legend element below it.
-function renderContactHtmlLegend(roles, DOM_FILL, TED_FILL, legendEl){
+function renderContactHtmlLegend(roles, domFills, tedFills, legendEl){
     const el = legendEl || document.getElementById('contact-domain-legend'); if (!el) return;
     const showDom = document.getElementById('contact-show-domains') ? document.getElementById('contact-show-domains').checked : true;
     const showTed = document.getElementById('contact-show-ted') ? document.getElementById('contact-show-ted').checked : true;
@@ -8358,8 +8355,8 @@ function renderContactHtmlLegend(roles, DOM_FILL, TED_FILL, legendEl){
     if (showDom || showTed) for (const role of roles){
         if (!role.info && !role.doms.length && !role.ted.length) continue;
         const parts = [];
-        if (showDom) role.doms.forEach((d,i) => parts.push(`${sw(DOM_FILL[i % DOM_FILL.length])}${esc(d.name)} (${d.start}–${d.end})`));
-        if (showTed) role.ted.forEach((d,i) => parts.push(`${sw(TED_FILL[i % TED_FILL.length])}${esc(d.name)} (${d.start}–${d.end})`));
+        if (showDom) role.doms.forEach((d,i) => parts.push(`${sw(domFills[i % domFills.length])}${esc(d.name)} (${d.start}–${d.end})`));
+        if (showTed) role.ted.forEach((d,i) => parts.push(`${sw(tedFills[i % tedFills.length])}${esc(d.name)} (${d.start}–${d.end})`));
         const txt = ({ '#00897b': '#00776B', '#e64a19': '#C13E15' })[String(role.clirCol).toLowerCase()] || role.clirCol;   // the default chain colors as text, at least 4.5:1
         let line = `<b style="color:${txt}">${esc(chainLabel(role.name))}:</b> ` + (parts.length ? parts.join(' &middot; ') : '<span style="color:#707070;">no annotated domains</span>');
         if (role.info && role.info.isPartial && role.info.startInFull) line += ` <span style="color:#c0392b; font-style:italic;">(partial: aa ${role.info.startInFull}–${role.info.endInFull} of ${role.info.fullLength})</span>`;
@@ -8429,8 +8426,8 @@ let uniShowChordRadial = false;   // Circular Contact Map: arc labels along the 
 let uniShowChordDom = true;   // Circular Contact Map: UniProt/Pfam domain ring (just inside the arc)
 let uniShowChordTed = false;   // Circular Contact Map: TED domain ring (off by default — TED clutters the view)
 let uniShowChordPlddt = true;   // Circular Contact Map: per-residue pLDDT ring (between the arc and the domain rings)
-const CHORD_DOM_FILL = ['#66c2a5','#fc8d62','#8da0cb','#e78ac3','#a6d854','#ffd92f','#e5c494','#b3b3b3'];   // UniProt/Pfam — matches the linear map
-const CHORD_TED_FILL = ['#7E57C2','#5C6BC0','#26A69A','#8D6E63','#EC407A','#42A5F5','#AB47BC','#66BB6A'];   // TED — matches the linear map
+const CHORD_DOM_FILL = DOM_GRAYS;   // UniProt/Pfam — matches the linear map
+const CHORD_TED_FILL = TED_GRAYS;   // TED — matches the linear map
 // The ruler itself lives in the shared module (LiviaMaps.drawChordRuler) so every chord page uses one implementation.
 function chordArcLabel(arc) {
     if (arc.type === 'ion') return arc.displayName;
