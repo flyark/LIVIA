@@ -62,7 +62,7 @@ Prediction Analysis auto-detects the platform from uploaded files:
 - **iLISA** — `iLIS × iLIA`
 - **ipSAE** — interaction prediction Score from Aligned Errors ([Dunbrack, 2025](https://doi.org/10.1101/2025.02.10.637595))
 - **actifpTM** — actual interface pTM ([Varga et al., 2025](https://doi.org/10.1093/bioinformatics/btaf107))
-- **LIR / cLIR** — Local Interaction Residues / contact-filtered LIR
+- **LIR / cLIR** — Local Interaction Residues / contact residues (LIR also in contact)
 - **LIpLDDT / cLIpLDDT** — average pLDDT of LIR / cLIR residues per chain
 
 ## Batch Analysis: `lis.py` + `lis_to_cxc.py`
