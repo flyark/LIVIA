@@ -250,7 +250,7 @@
             <label id="toggle-neg-pairs-label" style="display:none; font-size:0.78rem; color:#666; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem 1rem;" title="A pair is negative when it misses both 10% FPR cutoffs: best-model iLIS below 0.223 and average-of-models iLIS below 0.072"><input type="checkbox" id="toggle-neg-pairs" onchange="setNegPairsShown(this.checked)"> Show <span id="neg-pairs-count"></span> negative pairs (best iLIS &lt; 0.223 and average iLIS &lt; 0.072)</label>
             <div style="overflow-x:auto;" tabindex="0" role="region" aria-label="Scores of every model">
             <table class="data-table" id="pairs-table">
-                <thead><tr><th>Rank/Model</th><th>Pair</th><th>iLIS</th><th>iLISA</th><th>ipSAE</th><th id="th-actifptm">actifpTM</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th title="Bryant et al. 2022, pure geometric interface, no PAE">pDockQ</th><th title="pDockQ fed this file's own PAE+contact-gated cLIR interface">LIpDockQ</th><th title="Zhu et al. 2023, CA-based interface; mean of the two per-chain directions">pDockQ2</th><th title="pDockQ2's PAE-decay applied to this file's own cLIR interface; mean of the two per-chain directions">LIpDockQ2</th><th class="col-extra">iLIA</th><th class="col-extra">LIR (i/j)</th><th class="col-extra">cLIR (i/j)</th></tr></thead>
+                <thead><tr><th>Rank/Model</th><th>Pair</th><th>iLIS</th><th>iLISA</th><th>ipSAE</th><th id="th-actifptm" title="lis.py's approximation of actifpTM (Varga et al. 2025), from the PAE over residue pairs in contact (Cβ cutoff), as lis.py computes it; a platform's own actifpTM (ColabFold writes one) is not used">actifpTM (approx.)</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th title="Bryant et al. 2022, pure geometric interface, no PAE">pDockQ</th><th title="pDockQ fed this file's own PAE+contact-gated cLIR interface">LIpDockQ</th><th title="Zhu et al. 2023, CA-based interface; mean of the two per-chain directions">pDockQ2</th><th title="pDockQ2's PAE-decay applied to this file's own cLIR interface; mean of the two per-chain directions">LIpDockQ2</th><th class="col-extra">iLIA</th><th class="col-extra">LIR (i/j)</th><th class="col-extra">cLIR (i/j)</th></tr></thead>
                 <tbody id="pairs-tbody"></tbody>
             </table>
             </div>
@@ -658,7 +658,7 @@
                 <table style="font-size:0.85rem;">
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>ipTM</strong></td><td style="padding:0.25rem 0; color:#555;">interface predicted TM-score &mdash; global interface confidence from the prediction model</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>ipSAE</strong></td><td style="padding:0.25rem 0; color:#555;">interaction prediction Score from Aligned Errors (<a href="https://doi.org/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack, 2025</a>)</td></tr>
-                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>actifpTM</strong></td><td style="padding:0.25rem 0; color:#555;">actual interface pTM (<a href="https://doi.org/10.1093/bioinformatics/btaf107" target="_blank" style="color:#2471A3;">Varga et al., 2025</a>): the platform's own value when the file carries it (ColabFold); otherwise LIVIA's estimate from the PAE and Cβ contacts, marked "(approx.)" in the table</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>actifpTM</strong></td><td style="padding:0.25rem 0; color:#555;">actual interface pTM (<a href="https://doi.org/10.1093/bioinformatics/btaf107" target="_blank" style="color:#2471A3;">Varga et al., 2025</a>): LIVIA reports lis.py's approximation (the PAE over residue pairs in contact, best residue in either direction), the value its FPR cutoffs were benchmarked on; it runs higher than the published metric, and a platform's own actifpTM (ColabFold writes one) is not used</td></tr>
                 </table>
                 <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">pDockQ family</h4>
                 <table style="font-size:0.85rem;">
@@ -2595,8 +2595,6 @@ function extractConfidenceScores(confidencePath, platform) {
         if (json.ptm !== undefined) scores.pTM = unwrap(json.ptm);
         if (json.iptm !== undefined) scores.ipTM = unwrap(json.iptm);
         if (json.chain_pair_iptm) scores.chainPairIptm = json.chain_pair_iptm;
-        if (json.actifptm !== undefined) scores.actifpTM = unwrap(json.actifptm);   // ColabFold's own actifpTM (Varga et al.), used instead of LIVIA's estimate
-        if (json.pairwise_actifptm && typeof json.pairwise_actifptm === 'object') scores.pairActifptm = json.pairwise_actifptm;   // per chain pair, keyed 'A-B'
         if (json.atom_plddts) scores.pLDDT = json.atom_plddts.reduce((a, b) => a + b, 0) / json.atom_plddts.length;
         if (json.fraction_disordered !== undefined) scores.fractionDisordered = unwrap(json.fraction_disordered);
         if (json.ranking_score !== undefined) scores.rankingScore = unwrap(json.ranking_score);
@@ -3230,7 +3228,6 @@ function computeContactMap(coords, threshold) {
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function processFiles() {
-    uniState.actApprox = false;   // set again by the pairs whose actifpTM LIVIA had to estimate
     document.getElementById('btn-process').disabled = true;
     document.getElementById('results').classList.remove('active');
     document.getElementById('error-msg').classList.remove('active');
@@ -3563,12 +3560,9 @@ async function processFiles() {
                     try { ipsae = calcIpSAE(pae, si, Math.min(ei, pae.length), sj, Math.min(ej, pae.length), 10); } catch(e) { }
 
                     // actifpTM approximation (Varga & Ovchinnikov 2025)
-                    // the platform's own value when the file has it (ColabFold: pairwise_actifptm 'A-B', or actifptm for two chains); else LIVIA's estimate, marked "(approx.)"
-                    let actifptm = 0, actNative = false;
-                    { const pa = scores.pairActifptm, ka = `${chainNames[i]}-${chainNames[j]}`, kb = `${chainNames[j]}-${chainNames[i]}`;
-                      if (pa && (pa[ka] != null || pa[kb] != null)) { actifptm = +(pa[ka] != null ? pa[ka] : pa[kb]); actNative = true; }
-                      else if (nc === 2 && scores.actifpTM != null && Number.isFinite(+scores.actifpTM)) { actifptm = +scores.actifpTM; actNative = true; } }
-                    if (!actNative) { try { actifptm = calcActifpTM(pae, contact, nCoords, si, Math.min(ei, nTotal), sj, Math.min(ej, nTotal), cbCutoff); } catch(e) { } uniState.actApprox = true; }
+                    // lis.py's approximation, always (the author's choice, 2026-10-03: the same value as lis.py and its benchmarked cutoffs, not the platform's own actifpTM)
+                    let actifptm = 0;
+                    try { actifptm = calcActifpTM(pae, contact, nCoords, si, Math.min(ei, nTotal), sj, Math.min(ej, nTotal), cbCutoff); } catch(e) { }
 
                     // LIA/cLIA count BOTH PAE directions (i→j and j→i), matching lis.py
                     // (lia_count = ab + ba) and the AFM-LIS reference. The per-entry comment
@@ -3603,7 +3597,7 @@ async function processFiles() {
 
                     pairs[`${chainNames[i]},${chainNames[j]}`] = {
                         ci: chainNames[i], cj: chainNames[j],
-                        LIS: lis, cLIS: clis, iLIS: ilis, iLIA: ilia, iLISA: ilisa, ipTM: iptm, ipSAE: ipsae, actifpTM: actifptm, actifpTMNative: actNative,
+                        LIS: lis, cLIS: clis, iLIS: ilis, iLIA: ilia, iLISA: ilisa, ipTM: iptm, ipSAE: ipsae, actifpTM: actifptm,
                         LIA: liaCount, cLIA: cliaCount,
                         LIpLDDT_i: liplddtI, LIpLDDT_j: liplddtJ,
                         cLIpLDDT_i: cliplddtI, cLIpLDDT_j: cliplddtJ,
@@ -4266,7 +4260,7 @@ function symmetrizePairsFromComma(pairs) {
                 cLIS: (val.cLIS + rv.cLIS) / 2,
                 ipTM: (val.ipTM + rv.ipTM) / 2,
                 ipSAE: Math.max(val.ipSAE || 0, rv.ipSAE || 0),
-                actifpTM: Math.max(val.actifpTM || 0, rv.actifpTM || 0), actifpTMNative: !!(val.actifpTMNative && rv.actifpTMNative),
+                actifpTM: Math.max(val.actifpTM || 0, rv.actifpTM || 0),
                 // val.LIA already covers both AB and BA directions, so no extra sum
                 LIA: val.LIA || 0,
                 cLIA: val.cLIA || 0,
@@ -4393,7 +4387,6 @@ function displayResults(results, jobName) {
         if (note) { note.style.display = calOK ? 'none' : ''; note.textContent = calOK ? '' : `The FPR bands were calibrated on ColabFold AlphaFold-Multimer models at PAE ≤ 12 Å and Cβ ≤ 8 Å${uniState.platform && uniState.platform !== 'colabfold' ? `; for ${platformLabel(uniState.platform)} models they are a guide, not a measured false-positive rate` : ''}${pae !== 12 || cb !== 8 ? `; at PAE ≤ ${pae} Å and Cβ ≤ ${cb} Å the scores change, and the bands no longer apply` : ''}.`; }
         const al = document.getElementById('avg-legend'); if (al) al.style.display = (uniState.modelPairs || []).length > 1 ? 'flex' : 'none';
     }
-    { const th = document.getElementById('th-actifptm'); if (th) { th.textContent = uniState.actApprox ? 'actifpTM (approx.)' : 'actifpTM'; th.title = uniState.actApprox ? 'LIVIA\'s estimate from the PAE and Cβ contacts: this file does not carry the platform\'s own actifpTM (Varga et al. 2025); ColabFold\'s value is used whenever the file has it' : 'the platform\'s own actifpTM (Varga et al. 2025)'; } }
     document.getElementById('result-title').textContent = jobName;
     // "Lightweight bundle" button: only for a full upload with numeric PAE to shrink (not an
     // already-lightweight bundle, which has no numeric PAE).
@@ -6720,7 +6713,7 @@ function lisScoreCols(v, plddtI, plddtJ, pi, pj, ptmStr) {
 function downloadCSV() {
     if (!uniState.modelPairs || !uniState.avgResults || !uniState.chainNames) return;
     const jobName = document.getElementById('result-title')?.textContent || 'prediction';
-    const rows = [LIS_CSV_HEADER + ',model_label,actifpTM_source'];   // two columns after lis.py's: the model as the page names it (file rank and model), and whether actifpTM is the platform's own value or LIVIA's estimate
+    const rows = [LIS_CSV_HEADER + ',model_label'];   // one column after lis.py's: the model as the page names it (file rank and model)
     const platform = platformLabel(uniState.platform);
     const csvq = (x) => (/[",\n]/.test(String(x)) ? `"${String(x).replace(/"/g, '""')}"` : String(x));
 
@@ -6735,7 +6728,7 @@ function downloadCSV() {
             const plddtI = isNaN(pi) ? '' : pi.toFixed(1);
             const plddtJ = isNaN(pj) ? '' : pj.toFixed(1);
             rows.push([jobName, `model_${mi}`, v.ci, v.cj,
-                ...lisScoreCols(v, plddtI, plddtJ, pi, pj, ms.pTM != null ? ms.pTM.toFixed(3) : ''), csvq(md.label || `model_${mi}`), v.actifpTMNative ? 'platform' : 'LIVIA estimate'].join(','));
+                ...lisScoreCols(v, plddtI, plddtJ, pi, pj, ms.pTM != null ? ms.pTM.toFixed(3) : ''), csvq(md.label || `model_${mi}`)].join(','));
         }
     }
     if (uniState.modelPairs.length > 1) {
@@ -6765,7 +6758,7 @@ function downloadCSV() {
             const plddtI = isNaN(pi) ? '' : pi.toFixed(1);
             const plddtJ = isNaN(pj) ? '' : pj.toFixed(1);
             rows.push([jobName, 'average', v.ci, v.cj,
-                ...lisScoreCols(v, plddtI, plddtJ, pi, pj, avgPtmVal != null ? avgPtmVal.toFixed(3) : ''), 'average of the models', uniState.actApprox ? 'LIVIA estimate' : 'platform'].join(','));
+                ...lisScoreCols(v, plddtI, plddtJ, pi, pj, avgPtmVal != null ? avgPtmVal.toFixed(3) : ''), 'average of the models'].join(','));
         }
     }
 
