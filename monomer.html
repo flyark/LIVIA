@@ -245,7 +245,7 @@
                     <span><span style="color:#8F6400; font-weight:700;">&ge;0.223</span> (10% FPR)</span>
                     <span><span style="color:#667080; font-weight:700;">&lt;0.223</span> (below threshold)</span>
                 </div>
-                <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details.</div>
+                <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold, calibrated on the top-ranked of five models (five recycles); applied to other models, to the best of several, or to other platforms, they are a guide. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details.</div>
             </div>
         </div>
         <!-- Subdomain Interaction Map (chord diagram) -->
@@ -273,7 +273,7 @@
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
             <h2 data-nav="Sequence">Sequence Viewer</h2>
             <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
-                Light background = LIR (PAE &le; 12 &Aring;). Dark background with white text = cLIR (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;). Each region uses its own color.
+                Light background = LIR (PAE &le; <span class="pae-v">12</span> &Aring;). Dark background with white text = cLIR (PAE &le; <span class="pae-v">12</span> &Aring; &amp; C&beta; &le; <span class="cb-v">8</span> &Aring;). Each region uses its own color.<span class="cut-note" style="display:none; color:#8F6400;"> At these cutoffs the scores change, and the FPR bands (set at PAE &le; 12 &Aring; and C&beta; &le; 8 &Aring;) no longer apply.</span>
                 <span id="seq-uniprot-link"></span>
             </div>
             <div id="seq-viewer" style="font-family:'SF Mono','Fira Code',monospace; overflow-x:auto;"></div>
@@ -1492,7 +1492,7 @@ function calculate() {
 
     const paeCutoff = parseFloat(document.getElementById('pae-cutoff').value) || 12;
     const cbCutoff = parseFloat(document.getElementById('cb-cutoff').value) || 8;
-    const boundaryMargin = parseInt(document.getElementById('detect-boundary-margin')?.value) || 2;
+    const boundaryMargin = (() => { const v = parseInt(document.getElementById('detect-boundary-margin')?.value, 10); return Number.isFinite(v) && v >= 0 ? v : 2; })();   // 0 is a valid margin
 
     // Build contact map from coords
     const coordMap = new Map();
@@ -2569,7 +2569,7 @@ function buildMonomerColorComponents(validRegions) {
         // (only for interacting region pairs, to include residues at region edges)
         const paeCutoff = parseFloat(document.getElementById('pae-cutoff')?.value) || 12;
         const cbCutoff = parseFloat(document.getElementById('cb-cutoff')?.value) || 8;
-        const boundaryMargin = parseInt(document.getElementById('detect-boundary-margin')?.value) || 2;
+        const boundaryMargin = (() => { const v = parseInt(document.getElementById('detect-boundary-margin')?.value, 10); return Number.isFinite(v) && v >= 0 ? v : 2; })();   // 0 is a valid margin
         const coordMap = new Map();
         for (const c of monCoords) coordMap.set(c.resnum, c);
         for (let ri = 0; ri < validRegions.length; ri++) {
@@ -2902,9 +2902,9 @@ function generatePmlMono(validRegions) {
         lines.push('set_color af_high, [0.416, 0.796, 0.945]');
         lines.push('set_color af_low, [0.996, 0.851, 0.212]');
         lines.push('set_color af_vlow, [0.992, 0.490, 0.302]');
-        lines.push('color af_vlow, all and b < 50');
-        lines.push('color af_low, all and b > 50 and b < 70');
-        lines.push('color af_high, all and b > 70 and b < 90');
+        lines.push('color af_vlow, all and not b > 50');
+        lines.push('color af_low, all and b > 50 and not b > 70');
+        lines.push('color af_high, all and b > 70 and not b > 90');
         lines.push('color af_vhigh, all and b > 90');
     } else if (monCxcColorMode === 'bychain' || monCxcColorMode === 'bypolymer') {
         lines.push('util.cbc');
@@ -3481,7 +3481,7 @@ function drawChordDiagram(validRegions) {
                 if (!cB) continue;
                 const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
                 const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                if (dist >= cbCutoff * 1.5) continue; // slightly wider than cutoff for visibility
+                if (dist > cbCutoff) continue; // the cLIR contact rule: Cβ ≤ cutoff
 
                 const angA = resToAngle(resA);
                 const angB = resToAngle(resB);
@@ -3664,5 +3664,15 @@ function copyScript() {
 <script data-goatcounter="https://livia.goatcounter.com/count"
         async src="https://gc.zgo.at/count.js"></script>
 <script src="js/livia-version.js?v=20261003a"></script>
+<script>
+// the captions follow the cutoff inputs; a non-default cutoff says the FPR bands no longer apply
+(function () {
+  const sync = () => { const p = parseFloat((document.getElementById('pae-cutoff') || {}).value) || 12, c = parseFloat((document.getElementById('cb-cutoff') || {}).value) || 8;
+    document.querySelectorAll('.pae-v').forEach((e) => { e.textContent = p; }); document.querySelectorAll('.cb-v').forEach((e) => { e.textContent = c; });
+    document.querySelectorAll('.cut-note').forEach((e) => { e.style.display = p === 12 && c === 8 ? 'none' : ''; }); };
+  ['pae-cutoff', 'cb-cutoff'].forEach((id) => { const el = document.getElementById(id); if (el) { el.addEventListener('input', sync); el.addEventListener('change', sync); } });
+  sync();
+})();
+</script>
 </body>
 </html>

@@ -228,7 +228,7 @@
             <div style="overflow-x:auto;">
                 <table class="data-table" id="ranks-table">
                     <thead>
-                        <tr><th>Rank</th><th>Symbol 1</th><th>Symbol 2</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipTM</th><th title="Bryant et al. 2022, pure geometric interface, no PAE; computed from the fetched structure">pDockQ</th><th title="pDockQ fed this file's own cLIR interface">LIpDockQ</th><th>LIR (A/B)</th><th>cLIR (A/B)</th><th>Len (A/B)</th></tr>
+                        <tr><th>Rank</th><th>Symbol 1</th><th>Symbol 2</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipTM</th><th title="Bryant et al. 2022, pure geometric interface, no PAE; computed from the fetched structure">pDockQ</th><th title="pDockQ formula on this file's own cLIR interface (approx.: contacts among cLIR residues, not only confident contacting pairs as in lis.py)">LIpDockQ</th><th>LIR (A/B)</th><th>cLIR (A/B)</th><th>Len (A/B)</th></tr>
                     </thead>
                     <tbody id="ranks-tbody"></tbody>
                 </table>
@@ -248,7 +248,7 @@
                     <span><span style="color:#8F6400; font-weight:700;">&ge;0.072</span> (10% FPR)</span>
                     <span><span style="color:#667080; font-weight:700;">&lt;0.072</span> (below threshold)</span>
                 </div>
-                <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details. Rank 1 (determined by ipTM) may not have the highest iLIS.</div>
+                <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold, calibrated on the top-ranked of five models (five recycles); applied to other models, to the best of several, or to other platforms, they are a guide. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details. Rank 1 (determined by ipTM) may not have the highest iLIS.</div>
             </div>
         </div>
 
@@ -1417,7 +1417,7 @@ function displayPartnerTable(partners, querySymbol) {
         '</label>' +
         '<label style="font-size:0.82rem; color:#555;">' +
             '<input type="checkbox" id="filter-threshold" onchange="filterPartnerTable()"> ' +
-            'iLIS &ge; 0.223' +
+            'best iLIS &ge; 0.223' +
         '</label>' +
         '<label style="font-size:0.82rem; color:#555;">' +
             '<input type="checkbox" id="filter-mist" onchange="filterPartnerTable()"> ' +
@@ -1468,8 +1468,8 @@ function displayPartnerTable(partners, querySymbol) {
                 '<th>iLIS (avg)</th>' +
                 '<th>ipTM (best)</th>' +
                 '<th>ipTM (avg)</th>' +
-                '<th title="pDockQ formula fed this file\'s own PAE+contact-gated cLIR interface; no numeric PAE here, so pDockQ2/LIpDockQ2 are not computable">LIpDockQ (best)</th>' +
-                '<th title="pDockQ formula fed this file\'s own PAE+contact-gated cLIR interface; no numeric PAE here, so pDockQ2/LIpDockQ2 are not computable">LIpDockQ (avg)</th>' +
+                '<th title="pDockQ formula with cLIA as the contact count: an estimate, not lis.py\'s LIpDockQ (which counts confident contacting residue pairs); no numeric PAE here, so pDockQ2/LIpDockQ2 are not computable">LIpDockQ (best)</th>' +
+                '<th title="pDockQ formula with cLIA as the contact count: an estimate, not lis.py\'s LIpDockQ (which counts confident contacting residue pairs); no numeric PAE here, so pDockQ2/LIpDockQ2 are not computable">LIpDockQ (avg)</th>' +
                 '<th>Len A/B</th>' +
                 '<th>PPI</th>' +
                 '<th>GI</th>' +
@@ -1954,9 +1954,9 @@ function generatePml(row, pdbFilename, colors) {
         lines.push('set_color af_high, [0.416, 0.796, 0.945]');
         lines.push('set_color af_low, [0.996, 0.851, 0.212]');
         lines.push('set_color af_vlow, [0.992, 0.490, 0.302]');
-        lines.push('color af_vlow, all and b < 50');
-        lines.push('color af_low, all and b > 50 and b < 70');
-        lines.push('color af_high, all and b > 70 and b < 90');
+        lines.push('color af_vlow, all and not b > 50');
+        lines.push('color af_low, all and b > 50 and not b > 70');
+        lines.push('color af_high, all and b > 70 and not b > 90');
         lines.push('color af_vhigh, all and b > 90');
     } else if (cxcColorMode === 'bychain' || cxcColorMode === 'bypolymer') {
         lines.push('util.cbc');

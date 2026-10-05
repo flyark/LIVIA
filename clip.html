@@ -183,15 +183,15 @@
     </div>
     <div class="row" style="margin-top:1rem">
       <label>Query protein: <select id="gene"><option>—</option></select></label>
-      <label>iLIS ≥ <input id="ilis" type="number" value="0.223" step="0.01" style="width:92px"></label>
+      <label title="a partner is included when its rank-1 model reaches the cutoff; its other models that reach it are added">iLIS ≥ <input id="ilis" type="number" value="0.223" step="0.01" style="width:92px"></label>
       <label>FPR <select id="fpr">
         <option value="">custom</option>
         <option value="0.223" selected>10% (0.223)</option>
         <option value="0.339">5% (0.339)</option>
         <option value="0.551">1% (0.551)</option>
       </select></label>
-      <label>top N <input id="topn" type="number" placeholder="all" step="5" style="width:64px"></label>
-      <label title="Cluster each partner once, on its best-iLIS prediction (any model rank), instead of every model of the pair that passes the cutoff"><input type="checkbox" id="one-per-partner"> one prediction per partner</label>
+      <label title="the N highest-iLIS predictions (partners, when one prediction per partner is on)">top N <input id="topn" type="number" placeholder="all" step="5" style="width:64px"></label>
+      <label title="Cluster each partner once, on its best-iLIS prediction among its models that pass (a partner is included when its rank-1 model passes), instead of every passing model"><input type="checkbox" id="one-per-partner"> one prediction per partner</label>
       <button id="run" class="btn btn-primary" disabled>Generate report</button>
       <span id="status"></span>
     </div>
@@ -246,7 +246,7 @@
       <h2 data-nav="Frequency" style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap">Contact residue frequency
         <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem">SVG&nbsp; w<input id="svg-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="svg-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="svg-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"> &middot; x-ticks<input id="clip-xticks" type="number" value="15" min="2" max="40" step="1" title="residue x-tick count (frequency + fingerprint)" style="width:44px" onchange="if(LAST){renderFreq(LAST);renderHeatmap(LAST);}"> <button class="ghost" id="svg-freq">&#8595; SVG</button></span>
       </h2>
-      <div class="muted">How often each query residue is a contact Local Interaction Residue (cLIR) across partners, colored by the dominant cluster · click clusters to filter.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.<br>Tracks below the bars: AlphaFold <b>pLDDT</b> (0&ndash;100) &mdash; <span style="white-space:nowrap"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#FF7D45"></span> &lt;50 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#FFDB13"></span> 50&ndash;70 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#65CBF3"></span> 70&ndash;90 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#0053D6"></span> &ge;90</span><span class="am-only hidden"><br><b style="color:#a33">AM path.</b> = AlphaMissense mean pathogenicity per residue (averaged over all ~19 substitutions at that position; blue = benign &rarr; red = pathogenic; human only, from AlphaFold DB).</span></div>
+      <div class="muted">How often each query residue is a contact residue (cLIR) across predictions (each model of each partner; one per partner when that box is ticked), colored by the dominant cluster · click clusters to filter.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.<br>Tracks below the bars: AlphaFold <b>pLDDT</b> (0&ndash;100) &mdash; <span style="white-space:nowrap"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#FF7D45"></span> &le;50 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#FFDB13"></span> 50&ndash;70 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#65CBF3"></span> 70&ndash;90 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#0053D6"></span> &gt;90</span><span class="am-only hidden"><br><b style="color:#a33">AM path.</b> = AlphaMissense mean pathogenicity per residue (averaged over all ~19 substitutions at that position; blue = benign &rarr; red = pathogenic; human only, from AlphaFold DB).</span></div>
       <div id="freq-chips" class="chips" style="margin:.4rem 0"></div>
       <canvas id="freq"></canvas>
       <div id="freq-domains" style="font-size:.8rem; color:#556; margin-top:.35rem; line-height:1.55"></div>
@@ -1736,7 +1736,7 @@ function redraw(A){ renderHeatmap(A); renderFreq(A); renderScatter(A); renderTab
 
 
 // pDockQ (Bryant, Pozzati & Elofsson 2022, author-corrected constants), fed this file's own cLIR
-// interface (cLIpLDDT + cLIA) to give LIpDockQ -- matches lis.py's calc_pdockq() exactly. Only a
+// interface (cLIpLDDT + cLIA) to give an estimated LIpDockQ: lis.py counts confident contacting residue pairs, cLIA differs. Only a
 // fallback for a CSV that predates lis.py's own pDockQ family (no LIpDockQ column at all): a CSV
 // that already carries the column hits the literal parseFloat(o[key]) path above and never reaches
 // this. pDockQ (needs a structure-derived geometric interface) and pDockQ2/LIpDockQ2 (need raw PAE)
@@ -1784,7 +1784,8 @@ function availableMetrics(rows){
 const RANK_METRIC = '_rank';   // synthetic axis: pure global rank (1..N) by iLIS across every prediction
 function populateAxes(A){
   const metrics = availableMetrics(A.pipe.rows).concat(RANK_METRIC);
-  const LABEL = { [RANK_METRIC]: 'rank (global)' };
+  const first = A.pipe.rows[0] || {}, litLiq = first.LIpDockQ != null && first.LIpDockQ !== '' && !isNaN(parseFloat(first.LIpDockQ));
+  const LABEL = { [RANK_METRIC]: 'rank (global)', ...(litLiq ? {} : { LIpDockQ: 'LIpDockQ (est.)' }) };   // without the column, an estimate from cLIA
   const fill = (id, def) => { const s=$(id); if(!s) return; const cur=s.value;
     s.innerHTML=''; for (const m of metrics){ const o=document.createElement('option'); o.value=m; o.textContent=LABEL[m]||m; s.appendChild(o); }
     s.value = metrics.includes(cur) ? cur : def; };

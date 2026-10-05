@@ -144,7 +144,7 @@
     <span><label class="lb">resolution</label> <input id="res" aria-label="Leiden resolution" type="range" min="0.1" max="5" step="0.05" value="1.0"> <input id="resv" aria-label="Leiden resolution value" type="number" min="0" max="50" step="0.05" value="1.0" style="width:62px"></span>
     <span><label class="lb">objective</label> <select id="objfn" aria-label="Leiden objective" title="modularity: standard (resolution ~0.5–3). CPM: resolution-limit-free — finds small communities; use a lower resolution near the iLIS scale (~0.2–0.5)."><option value="modularity">modularity</option><option value="CPM">CPM</option></select></span>
     <span id="clustmode-wrap" class="hidden"><label class="lb">clustering</label> <select id="clustmode" title="user-defined: color + group by your uploaded cluster map (Leiden not run). Leiden: ignore the map and detect communities."><option value="user">user-defined</option><option value="leiden">Leiden (auto)</option></select></span>
-    <span><label class="lb" title="seeds both Leiden and the layout: the same data, settings and seed give the same picture">seed</label> <input id="seed" aria-label="Leiden seed" type="number" min="0" step="1" value="1" style="width:56px"></span>
+    <span><label class="lb" title="seeds both Leiden and the layout: the same data, settings and seed give the same picture">seed</label> <input id="seed" aria-label="Leiden seed" type="number" min="1" step="1" value="1" style="width:56px"></span>
     <span id="labelby-wrap" class="hidden"><label class="lb">Label by</label> <select id="labelby"></select></span>
     <button id="build" disabled>Build network</button>
     <button id="expsvg" class="ghost hidden" title="download the region currently visible (respects zoom)">↓ SVG (view)</button>
@@ -171,7 +171,7 @@
     <span class="sep"></span>
     <span><label class="lb">node size</label> <input id="nsize" type="range" min="0.3" max="2.5" step="0.1" value="1"> <input id="nsizev" type="number" min="0.1" max="8" step="0.1" value="1" style="width:52px"></span>
     <span><label class="lb">min edges/node</label> <input id="mindeg" type="range" min="1" max="20" step="1" value="1"> <input id="mindegv" type="number" min="1" max="9999" step="1" value="1" style="width:56px"></span>
-    <span><label class="lb">edge width (∝iLIS)</label> <input id="emin" type="range" min="0.5" max="10" step="0.5" value="4"> <input id="eminv" type="number" min="0" max="50" step="0.5" value="4" style="width:52px"></span>
+    <span><label class="lb">edge width (by iLIS)</label> <input id="emin" type="range" min="0.5" max="10" step="0.5" value="4"> <input id="eminv" type="number" min="0" max="50" step="0.5" value="4" style="width:52px"></span>
     <span><label class="lb">labels ≥ deg</label> <input id="lbldeg" type="range" min="1" max="40" step="1" value="1"> <input id="lbldegv" type="number" min="1" max="9999" step="1" value="1" style="width:56px"></span>
     <span><label class="lb" title="label only the N proteins with the most partners (0 = use labels ≥ deg)">label top N</label> <input id="lbltop" type="number" min="0" max="9999" step="1" value="0" style="width:52px"></span>
     <span><label class="lb">label size</label> <input id="lblsize" type="range" min="6" max="30" step="1" value="12"> <input id="lblsizev" type="number" min="4" max="60" step="1" value="12" style="width:52px"></span>
@@ -914,7 +914,7 @@ function collectSettings(){
   const s={}; SETTING_IDS.forEach(id=>{ const el=$(id); if(el) s[id]=el.value; });
   s.nborder=$('nborder').checked; s.lbloutline=$('lbloutline').checked; s.intraonly=$('intraonly').checked; s.commColors={...COMMCOLORS}; s.nodeColors={...NODECOLORS}; if(SUBSET) s.subset=[...SUBSET];
   if (META && META_COL) s.labelby=META_COL;
-  s.method = { leiden_n_iterations: 10, edge_weight: 'iLIS', duplicate_pairs: 'the higher iLIS of the two orders is kept', pyodide: '0.27.2', igraph: '0.11.4', livia: window.LIVIA_BUILD || '', saved: new Date().toISOString(), page: location.href.split('#')[0] };   // what the settings do not show but a rerun needs
+  s.method = { leiden_n_iterations: 10, edge_weight: 'iLIS', duplicate_pairs: 'the highest iLIS among all predictions of the same resolved pair (each prediction\'s best model)', pyodide: '0.27.2', igraph: '0.11.4', livia: window.LIVIA_BUILD || '', saved: new Date().toISOString(), page: location.href.split('#')[0] };   // what the settings do not show but a rerun needs
   if (USERCLUST && USERCLUST.size){ s.clusters=[...USERCLUST.entries()]; s.clustmode=$('clustmode')?$('clustmode').value:'user'; }
   return s;
 }

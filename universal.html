@@ -270,7 +270,7 @@
                     <span><span style="color:#667080; font-weight:700;">&lt;0.072</span> (below threshold)</span>
                 </div>
                 <div id="cal-note" style="display:none; color:#8F6400; font-weight:600;"></div>
-                <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details. Different platforms may require different thresholds.</div>
+                <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold, calibrated on the top-ranked of five models (five recycles); applied to other models, to the best of several, or to other platforms, they are a guide. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details. Different platforms may require different thresholds.</div>
             </div>
         </div>
 
@@ -656,7 +656,7 @@
                 </table>
                 <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">Other interface scores</h4>
                 <table style="font-size:0.85rem;">
-                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>ipTM</strong></td><td style="padding:0.25rem 0; color:#555;">interface predicted TM-score &mdash; global interface confidence from the prediction model</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>ipTM</strong></td><td style="padding:0.25rem 0; color:#555;">interface predicted TM-score &mdash; global interface confidence from the prediction model; marked &dagger; when estimated from PAE because the format gives no per-chain-pair value</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>ipSAE</strong></td><td style="padding:0.25rem 0; color:#555;">interaction prediction Score from Aligned Errors (<a href="https://doi.org/10.1101/2025.02.10.637595" target="_blank" style="color:#2471A3;">Dunbrack, 2025</a>)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>actifpTM</strong></td><td style="padding:0.25rem 0; color:#555;">actual interface pTM (<a href="https://doi.org/10.1093/bioinformatics/btaf107" target="_blank" style="color:#2471A3;">Varga et al., 2025</a>): LIVIA reports lis.py's approximation (the PAE over residue pairs in contact, best residue in either direction), the value its FPR cutoffs were benchmarked on; it runs higher than the published metric, and a platform's own actifpTM (ColabFold writes one) is not used</td></tr>
                 </table>
@@ -1015,7 +1015,7 @@ async function handleInputFiles(fileList) {
     uniState.multiChainColors = null;
     uniState.currentPairResult = null;
     uniState.hiddenChains = new Set();
-    uniState.ipTMIsRankingScore = false;
+    uniState.ipTMIsRankingScore = false; uniState.ipTMIsEstimate = false;
     if (uniState.loadedImages) { for (const u of Object.values(uniState.loadedImages)) { try { URL.revokeObjectURL(u); } catch (e) {} } }
     uniState.loadedImages = {};
     uniState.lightweight = null;
@@ -1176,7 +1176,7 @@ async function selectJob(jobName) {
     uniState.multiChainColors = null;
     uniState.currentPairResult = null;
     uniState.hiddenChains = new Set();
-    uniState.ipTMIsRankingScore = false;
+    uniState.ipTMIsRankingScore = false; uniState.ipTMIsEstimate = false;
     await loadFilesIntoState(jobFiles, true, folderName);
 
     const nFiles = Object.keys(uniState.loadedFiles).length;
@@ -3287,7 +3287,7 @@ async function processFiles() {
         uniState.nTotal = 0;
         uniState.multiChainColors = null;
         uniState.hiddenChains = new Set();
-        uniState.ipTMIsRankingScore = false;
+        uniState.ipTMIsRankingScore = false; uniState.ipTMIsEstimate = false;
         // Reset Mol* viewer. Preserve the warmed-up iframe (Mol* JS already loaded);
         // just invalidate the structure cache so the next updateViewer3d does an in-place swap.
         viewer3dStructText = null;
@@ -3437,6 +3437,7 @@ async function processFiles() {
             // ranking-preserving.
             if (!iptmMatrix && (chainNames.length >= 3 || scores.ipTM === undefined)) {
                 iptmMatrix = computePaeChainPairIptm(pae, starts, cumSum, chainNames.length, nTotal);
+                uniState.ipTMIsEstimate = true;
             }
 
 
@@ -4007,7 +4008,7 @@ async function processPrecomputedBundle() {
     uniState.nTotal = 0;
     uniState.multiChainColors = null;
     uniState.hiddenChains = new Set();
-    uniState.ipTMIsRankingScore = false;
+    uniState.ipTMIsRankingScore = false; uniState.ipTMIsEstimate = false;
     viewer3dStructText = null;
     if (!isMolstarFrameWarmedUp('viewer3d-frame')) {
         if (viewer3dBlobUrl) { URL.revokeObjectURL(viewer3dBlobUrl); viewer3dBlobUrl = null; }
@@ -4332,6 +4333,7 @@ function iptmCell(val) {
     if (uniState.ipTMIsRankingScore) {
         return `<td title="iPTM+pTM ranking confidence (0.8·iPTM + 0.2·pTM). Pure iPTM is not available for this prediction format.">${v}*</td>`;
     }
+    if (uniState.ipTMIsEstimate) return `<td title="estimated from PAE: this format gives no per-chain-pair ipTM; usually 0.01–0.07 below the model's own value">${v}†</td>`;
     return `<td>${v}</td>`;
 }
 
@@ -4387,8 +4389,9 @@ function displayResults(results, jobName) {
     {   // headings follow the cutoffs used; the FPR bands are calibrated only for ColabFold AlphaFold-Multimer at 12 / 8 Å
         const pae = parseFloat(document.getElementById('pae-cutoff').value) || 12, cb = parseFloat(document.getElementById('cb-cutoff').value) || 8;
         document.querySelectorAll('.pae-v').forEach((e) => { e.textContent = pae; }); document.querySelectorAll('.cb-v').forEach((e) => { e.textContent = cb; });
-        const calOK = uniState.platform === 'colabfold' && pae === 12 && cb === 8, note = document.getElementById('cal-note');
-        if (note) { note.style.display = calOK ? 'none' : ''; note.textContent = calOK ? '' : `The FPR bands were calibrated on ColabFold AlphaFold-Multimer models at PAE ≤ 12 Å and Cβ ≤ 8 Å${uniState.platform && uniState.platform !== 'colabfold' ? `; for ${platformLabel(uniState.platform)} models they are a guide, not a measured false-positive rate` : ''}${pae !== 12 || cb !== 8 ? `; at PAE ≤ ${pae} Å and Cβ ≤ ${cb} Å the scores change, and the bands no longer apply` : ''}.`; }
+        const nMod = (uniState.modelPairs || []).length, n5 = nMod <= 1 || nMod === 5;
+        const calOK = uniState.platform === 'colabfold' && pae === 12 && cb === 8 && n5, note = document.getElementById('cal-note');
+        if (note) { note.style.display = calOK ? 'none' : ''; note.textContent = calOK ? '' : `The FPR bands were calibrated on ColabFold AlphaFold-Multimer models at PAE ≤ 12 Å and Cβ ≤ 8 Å${uniState.platform && uniState.platform !== 'colabfold' ? `; for ${platformLabel(uniState.platform)} models they are a guide, not a measured false-positive rate` : ''}${pae !== 12 || cb !== 8 ? `; at PAE ≤ ${pae} Å and Cβ ≤ ${cb} Å the scores change, and the bands no longer apply` : ''}${!n5 ? `; the average bands assume five models, so with ${nMod} models they are a guide` : ''}.`; }
         const al = document.getElementById('avg-legend'); if (al) al.style.display = (uniState.modelPairs || []).length > 1 ? 'flex' : 'none';
     }
     document.getElementById('result-title').textContent = jobName;
@@ -4403,11 +4406,14 @@ function displayResults(results, jobName) {
     // Update iPTM column header: append asterisk + tooltip when value is iPTM+pTM
     const ths = document.querySelectorAll('#pairs-table thead th');
     for (const th of ths) {
-        const txt = th.textContent.replace(/\*$/, '');
+        const txt = th.textContent.replace(/[*†]$/, '');
         if (txt === 'ipTM') {
             if (uniState.ipTMIsRankingScore) {
                 th.textContent = 'ipTM*';
                 th.title = 'iPTM+pTM ranking confidence (0.8·iPTM + 0.2·pTM). Pure iPTM is not available for this prediction format.';
+            } else if (uniState.ipTMIsEstimate) {
+                th.textContent = 'ipTM†';
+                th.title = 'estimated from PAE: this format gives no per-chain-pair ipTM; usually 0.01–0.07 below the model\'s own value';
             } else {
                 th.textContent = 'ipTM';
                 th.removeAttribute('title');
@@ -5398,9 +5404,9 @@ function generatePml(v, structFilename, colors) {
         lines.push('set_color af_vlow, [0.992, 0.490, 0.302]');
     };
     const colorByPlddt = (sel) => {
-        lines.push(`color af_vlow, ${sel} and b < 50`);
-        lines.push(`color af_low, ${sel} and b > 50 and b < 70`);
-        lines.push(`color af_high, ${sel} and b > 70 and b < 90`);
+        lines.push(`color af_vlow, ${sel} and not b > 50`);
+        lines.push(`color af_low, ${sel} and b > 50 and not b > 70`);
+        lines.push(`color af_high, ${sel} and b > 70 and not b > 90`);
         lines.push(`color af_vhigh, ${sel} and b > 90`);
     };
 
@@ -7252,9 +7258,9 @@ function buildAllChainsPml(overrideFilename) {
     ];
 
     const colorByPlddt = (sel) => {
-        lines.push(`color af_vlow, ${sel} and b < 50`);
-        lines.push(`color af_low, ${sel} and b > 50 and b < 70`);
-        lines.push(`color af_high, ${sel} and b > 70 and b < 90`);
+        lines.push(`color af_vlow, ${sel} and not b > 50`);
+        lines.push(`color af_low, ${sel} and b > 50 and not b > 70`);
+        lines.push(`color af_high, ${sel} and b > 70 and not b > 90`);
         lines.push(`color af_vhigh, ${sel} and b > 90`);
     };
 
@@ -8080,7 +8086,7 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
         for (const c of coords) { const key = c.chain; if (!chainCoordMap.has(key)) chainCoordMap.set(key, new Map()); chainCoordMap.get(key).set(c.resnum, c); }
         const coordA = chainCoordMap.get(v.ci), coordB = chainCoordMap.get(v.cj);
         if (!coordA || !coordB) return false;
-        const contactDist = 8;
+        const contactDist = parseFloat((document.getElementById('cb-cutoff') || {}).value) || 8;   // the Cβ cutoff the cLIR sets used
         for (const resA of clirI_f) {
             const cA = coordA.get(resA); if (!cA) continue;
             for (const resB of clirJ_f) {
@@ -8591,7 +8597,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
 
     // Draw residue-level contact lines (apply Min segment filter to both chains;
     // cLIR is restricted to filtered LIR before pair drawing)
-    const contactDist = 8;
+    const contactDist = parseFloat((document.getElementById('cb-cutoff') || {}).value) || 8;   // the Cβ cutoff the cLIR sets used
     for (const cp of contactPairs) {
         if (hiddenSet.has(cp.ci) || hiddenSet.has(cp.cj)) continue; // chain visibility toggle
         const idxI = chainNames.indexOf(cp.ci), idxJ = chainNames.indexOf(cp.cj);
@@ -8620,7 +8626,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
                 if (!cB) continue;
                 const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
                 const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                if (dist >= contactDist) continue;
+                if (dist > contactDist) continue;
 
                 const angA = resToAngle(cp.ci, resA);
                 const angB = resToAngle(cp.cj, resB);
@@ -8629,7 +8635,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
                 const xB = cxC + Math.cos(angB) * chordR;
                 const yB = cyC + Math.sin(angB) * chordR;
 
-                const t = 1 - dist / contactDist;
+                const t = Math.max(0, 1 - dist / contactDist);
                 const alpha = 0.08 + t * 0.2;
 
                 // Two solid half-curves instead of a per-line gradient — same two-tone
@@ -8740,7 +8746,7 @@ function buildChordDiagram() {
 
     if (hasMultipleModels && canvasAll) {
         // Collect contacts from each model using its own structure coordinates
-        const contactDist = 8;
+        const contactDist = parseFloat((document.getElementById('cb-cutoff') || {}).value) || 8;   // the Cβ cutoff the cLIR sets used
         const allContactsByPair = {}; // pairKey → Map("resA-resB" → {resA, resB, dist, ci, cj})
         // Per-chain LIR/cLIR unioned across ALL models, for the all-models arc shading
         const allLIR = {}, allCLIR = {};
