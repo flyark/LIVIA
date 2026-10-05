@@ -263,7 +263,7 @@
                     <span><span style="color:#667080; font-weight:700;">&lt;0.223</span> (below threshold)</span>
                 </div>
                 <div id="avg-legend" style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
-                    <strong style="min-width:90px;" title="the mean iLIS of a pair over the models of the run (a model with no interface counts 0); calibrated on runs of five ColabFold models">iLIS (average of the models):</strong>
+                    <strong style="min-width:90px;" title="the mean of the per-model iLIS of a pair over the models of the run (a model with no interface counts 0); iLISA of the average = this mean × the average iLIA; calibrated on runs of five ColabFold models">iLIS (average of the models):</strong>
                     <span><span style="color:#6B21A8; font-weight:700;">&ge;0.268</span> (1% FPR)</span>
                     <span><span style="color:#0B7A61; font-weight:700;">&ge;0.120</span> (5% FPR)</span>
                     <span><span style="color:#8F6400; font-weight:700;">&ge;0.072</span> (10% FPR)</span>
@@ -4245,7 +4245,14 @@ function averageModels(allPairs) {
         averaged[key].iLIA = Math.sqrt(averaged[key].LIA * averaged[key].cLIA);
         averaged[key].iLISA = averaged[key].iLIS * averaged[key].iLIA;
     }
-    return symmetrizePairsFromComma(averaged);
+    // iLIS of the average = the mean of each model's own iLIS over the models that have the pair (as FlyPredictome and
+    // Ortholog, and as the average cutoffs 0.072 / 0.120 / 0.268 were benchmarked); iLISA follows from it.
+    const sym = symmetrizePairsFromComma(averaged), perModel = allPairs.map((mp) => symmetrizePairsFromComma(mp));
+    for (const [k, v] of Object.entries(sym)) {
+        const xs = perModel.map((m) => m[k]).filter((x) => x && Number.isFinite(x.iLIS)).map((x) => x.iLIS);
+        if (xs.length) { v.iLIS = xs.reduce((a, b) => a + b, 0) / xs.length; v.iLISA = v.iLIS * v.iLIA; }
+    }
+    return sym;
 }
 
 function symmetrizePairsFromComma(pairs) {
