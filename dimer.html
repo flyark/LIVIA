@@ -1203,7 +1203,7 @@ function buildDimerContactMap() {
     if (!coordA || !coordB) { card.style.display = 'none'; return; }
 
     // Find contact pairs — uses the REAL chain-A/B residues + coords (display swap applied later)
-    const contactDist = 8;
+    const contactDist = parseFloat((document.getElementById('cb-cutoff') || {}).value) || 8;   // the Cβ cutoff the cLIR sets used
     const contacts = [];
     for (const resA of clirI_real) {
         const cA = coordA.get(resA);
@@ -1638,7 +1638,7 @@ function buildChordDiagram() {
     { const _lg = document.getElementById('chord-plddt-legend'); if (_lg) { _lg.innerHTML = LiviaMaps.plddtLegendHtml(); _lg.style.display = _plddtOn ? 'flex' : 'none'; } }
 
     // Find cLIR-cLIR contact pairs (Cβ ≤ 8 Å) using filtered sets
-    const contactDist = 8;
+    const contactDist = parseFloat((document.getElementById('cb-cutoff') || {}).value) || 8;   // the Cβ cutoff the cLIR sets used
     const contacts = [];
     for (const resA of clirI_f) {
         const cA = coordA.get(resA);
