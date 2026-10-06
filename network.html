@@ -6,7 +6,7 @@
 <title>LIVIA — PPI Network</title>
 <script src="js/livia-xlsx.js"></script>
 <script src="js/livia-maps.js?v=20261004a"></script>
-<script src="js/clip-pipeline.js?v=20261004a"></script>
+<script src="js/clip-pipeline.js?v=20261006a"></script>
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -674,7 +674,7 @@ function showNodeInfo(sym){
   const i = LAST.nodes.indexOf(sym); if(i<0) return;
   $('ni-name').textContent = nodeLabel(sym);
   $('ni-meta').textContent = `${commLabel(LAST.membership[i])} · ${LAST.degree[i]} partners`;
-  $('ni-meta').title = 'partners: proteins whose best model with this one reaches the iLIS cutoff. cLIP counts a partner when the top-ranked model reaches it, so it can list fewer.';
+  $('ni-meta').title = 'partners: proteins whose best model with this one reaches the iLIS cutoff. cLIP clusters every model that reaches it (partners named phospho- or mutant left out).';
   $('ni-clip').onclick = ()=>openInClip(sym);
   $('ni-clip').textContent = atlasKey(sym) ? 'Interaction residues in the Atlas (cLIP) →' : 'Open in cLIP →';
   $('ni-ego').onclick = ()=>egoView(sym);

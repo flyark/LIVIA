@@ -10,7 +10,7 @@
 <script src="js/livia-maps.js?v=20261004a"></script>
 <script src="js/livia-xlsx.js"></script>
 <script src="js/clip-clustering.js"></script>
-<script src="js/clip-pipeline.js?v=20261004a"></script>
+<script src="js/clip-pipeline.js?v=20261006a"></script>
 <script src="js/clip-resolver.js?v=20260928a"></script>
 <script src="js/livia-viewer.js?v=20260927a"></script>
 <script src="js/livia-subnav.js?v=20260928c"></script>
@@ -183,7 +183,7 @@
     </div>
     <div class="row" style="margin-top:1rem">
       <label>Query protein: <select id="gene"><option>—</option></select></label>
-      <label title="a partner is included when its rank-1 model reaches the cutoff; its other models that reach it are added">iLIS ≥ <input id="ilis" type="number" value="0.223" step="0.01" style="width:92px"></label>
+      <label title="every model that reaches the cutoff is clustered, whatever its rank">iLIS ≥ <input id="ilis" type="number" value="0.223" step="0.01" style="width:92px"></label>
       <label>FPR <select id="fpr">
         <option value="">custom</option>
         <option value="0.223" selected>10% (0.223)</option>
@@ -191,7 +191,7 @@
         <option value="0.551">1% (0.551)</option>
       </select></label>
       <label title="the N highest-iLIS predictions (partners, when one prediction per partner is on)">top N <input id="topn" type="number" placeholder="all" step="5" style="width:64px"></label>
-      <label title="Cluster each partner once, on its best-iLIS prediction among its models that pass (a partner is included when its rank-1 model passes), instead of every passing model"><input type="checkbox" id="one-per-partner"> one prediction per partner</label>
+      <label title="Cluster each partner once, on its best-iLIS prediction among its models that pass (any model of a partner that passes counts), instead of every passing model"><input type="checkbox" id="one-per-partner"> one prediction per partner</label>
       <button id="run" class="btn btn-primary" disabled>Generate report</button>
       <span id="status"></span>
     </div>

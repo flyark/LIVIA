@@ -132,12 +132,16 @@
     r = r.filter((x) => { const s = String(x.Symbol_2).toLowerCase(); return !el.some((k) => s.includes(k)); });
     if (!r.length) return r;
 
-    // best Rank-1 per (Symbol_1,Symbol_2): keep pairs that have a rank-1 row
+    // every model that passes takes part, whatever its rank: the rank-1 model is the predictor's choice by ipTM, not by iLIS, and a
+    // partner that passes only in other models may bind in another mode (author, 2026-10-06). opts.rank1Only restores the old rule:
+    // a pair only when its rank-1 model passes
     const key = (x) => x.Symbol_1 + '' + x.Symbol_2;
-    const hasRank1 = new Set();
-    for (const x of r) if (x._Rank === 1) hasRank1.add(key(x));
-    if (hasRank1.size) r = r.filter((x) => hasRank1.has(key(x)));
-    if (!r.length) return r;
+    if (opts.rank1Only) {
+      const hasRank1 = new Set();
+      for (const x of r) if (x._Rank === 1) hasRank1.add(key(x));
+      if (hasRank1.size) r = r.filter((x) => hasRank1.has(key(x)));
+      if (!r.length) return r;
+    }
 
     // stable sort by iLIS desc, then dedup by (Symbol_1,Symbol_2,Rank) keep first; onePerPartner dedups by
     // (Symbol_1,Symbol_2) alone, so each partner keeps only its best-iLIS prediction
