@@ -1786,7 +1786,7 @@ const RANK_METRIC = '_rank';   // synthetic axis: pure global rank (1..N) by iLI
 function populateAxes(A){
   const metrics = availableMetrics(A.pipe.rows).concat(RANK_METRIC);
   const first = A.pipe.rows[0] || {}, litLiq = first.LIpDockQ != null && first.LIpDockQ !== '' && !isNaN(parseFloat(first.LIpDockQ));
-  const LABEL = { [RANK_METRIC]: 'rank (global)', ...(litLiq ? {} : { LIpDockQ: 'LIpDockQ (est.)' }) };   // without the column, an estimate from cLIA
+  const LABEL = { [RANK_METRIC]: 'rank (global)', actifpTM: 'actifpTM*', ...(litLiq ? {} : { LIpDockQ: 'LIpDockQ (est.)' }) };   // without the column, an estimate from cLIA
   const fill = (id, def) => { const s=$(id); if(!s) return; const cur=s.value;
     s.innerHTML=''; for (const m of metrics){ const o=document.createElement('option'); o.value=m; o.textContent=LABEL[m]||m; s.appendChild(o); }
     s.value = metrics.includes(cur) ? cur : def; };
@@ -1845,7 +1845,7 @@ function renderScatter(A){
   const HM_BASE = ['iLIS','iLIA','iLISA','ipTM'], HM_FMT = {iLIS:'.4g', iLIA:'.4g', iLISA:'.1f', ipTM:'.3g'};
   const hoverM = HM_BASE.concat([...new Set([yKey, xKey])].filter(m => !HM_BASE.includes(m)));   // append the selected Y/X metric when it isn't one of the four already shown (e.g. ipSAE, actifpTM)
   const cd = (p) => hoverM.map(m => val(p, m));
-  const HT = '%{text}' + hoverM.map((m,i) => `<br>${m} %{customdata[${i}]:${HM_FMT[m]||'.4g'}}`).join('') + '<extra></extra>';
+  const HT = '%{text}' + hoverM.map((m,i) => `<br>${m==='actifpTM' ? 'actifpTM*' : m} %{customdata[${i}]:${HM_FMT[m]||'.4g'}}`).join('') + '<extra></extra>';
   // Color is per PREDICTION, not per gene: clustering runs on each prediction's contact fingerprint,
   // so the same partner's different ranks can land in different clusters (a protein that binds two
   // domains of the target shows up as two clusters). Key the cluster by gene+rank. A prediction that
@@ -1866,7 +1866,7 @@ function renderScatter(A){
     traces[lab].x.push(val(p,xKey)); traces[lab].y.push(val(p,yKey)); traces[lab].text.push(rl(p)); traces[lab].cd.push(cd(p)); }
   const clTraces = Object.keys(traces).sort((a,b)=>a-b).map(lab=>({ x:traces[lab].x, y:traces[lab].y, text:traces[lab].text, customdata:traces[lab].cd,
     mode:'markers', type:'scatter', legendrank:+lab, name:'cluster '+lab+' ('+traces[lab].x.length+')', marker:{ size:9, color:clusterColor(+lab,k), line:{width:.5,color:'#fff'} }, hovertemplate: HT }));
-  const axTitle = (kk) => kk===RANK_METRIC ? `global rank (by ${rankBy})` : kk;
+  const axTitle = (kk) => kk===RANK_METRIC ? `global rank (by ${rankBy})` : kk==='actifpTM' ? 'actifpTM* (approximate)' : kk;
   const layout = { margin:{t:10,r:10,b:45,l:62}, xaxis:{title:axTitle(xKey), rangemode:'tozero'}, yaxis:{title:axTitle(yKey), rangemode:'tozero'}, legend:{font:{size:10}} };
   // FPR iLIS reference lines when iLIS is on an axis, each in its band color (LiviaMaps.BAND; active cutoff bolder)
   const bandOf = (v) => LiviaMaps.BAND[v >= 0.551 ? 1 : v >= 0.339 ? 5 : 10];
