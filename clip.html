@@ -1917,6 +1917,7 @@ function renderTable(A){
   ];
   const M = (l, key, dp) => { if (key==='iLISA' || has(key)) cols.push({ l, fmt:numFmt(key,dp), sort:numSort(key) }); };
   M('iLIS','iLIS',3); M('iLIA','iLIA',1); M('iLISA','iLISA',1); M('ipSAE','ipSAE',3); M('actifpTM*','actifpTM',3); M('ipTM','ipTM',3);
+  { const nt = $('ptable-note'); if (nt) nt.hidden = !has('actifpTM'); }
   if (plddtKey) cols.push({ l:'pLDDT', fmt:numFmt(plddtKey,1), sort:numSort(plddtKey) });
   M('LIS','LIS',3); M('cLIS','cLIS',3);
   if (has('LIR_A')||has('LIR_B')) cols.push({ l:'LIR (i/j)', fmt:combo('LIR_A','LIR_B'), sort:(r)=>(+r.LIR_A||0)+(+r.LIR_B||0) });
