@@ -287,7 +287,7 @@
         <div class="card result-card" id="seq-viewer-card" style="display:none;">
             <h2 data-nav="Sequence">Sequence Viewer</h2>
             <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
-                Light background = LIR (PAE &le; <span class="pae-v">12</span> &Aring;). Dark background with white text = cLIR (PAE &le; <span class="pae-v">12</span> &Aring; &amp; C&beta; &le; <span class="cb-v">8</span> &Aring;). Each chain uses its own color.<span class="cut-note" style="display:none; color:#8F6400;"> At these cutoffs the scores change, and the FPR bands (set at PAE &le; 12 &Aring; and C&beta; &le; 8 &Aring;) no longer apply.</span>
+                Light background = interaction residue (LIR: PAE &le; <span class="pae-v">12</span>&nbsp;&Aring;). Dark background = contact residue (cLIR: also C&beta; &le; <span class="cb-v">8</span>&nbsp;&Aring;). Each chain uses its own color.<span class="cut-note" style="display:none; color:#8F6400;"> At these cutoffs the scores change, and the FPR bands (set at PAE &le; 12 &Aring; and C&beta; &le; 8 &Aring;) no longer apply.</span>
             </div>
             <div id="seq-viewer" style="font-family:'SF Mono','Fira Code',monospace; overflow-x:auto;"></div>
         </div>
@@ -363,7 +363,7 @@
             <h2 data-nav="Scripts">Visualization Script</h2>
             <div style="margin-bottom:1rem;">
 
-                <label>Local Interaction Residue (LIR) Display</label>
+                <label>Local interaction residue (LIR) display</label>
                 <div style="display:flex; align-items:baseline; gap:0.6rem; margin-bottom:0.5rem; font-size:0.85rem; color:#555; flex-wrap:wrap;">
                     <span>Fill gaps &le;</span>
                     <input type="number" id="gap-fill-input" value="10" min="0" max="200" style="width:55px; padding:0.3rem 0.4rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.85rem; text-align:center;">
@@ -512,7 +512,7 @@
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>iLISA</strong></td><td style="padding:0.25rem 0; color:#555;">integrated LISA &mdash; iLIS &times; iLIA, iLIS weighted by interface size (not an affinity)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIS</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Score &mdash; normalized PAE confidence (0&ndash;1)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIS</strong></td><td style="padding:0.25rem 0; color:#555;">contact-filtered LIS &mdash; restricted to direct contacts</td></tr>
-                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIR</strong></td><td style="padding:0.25rem 0; color:#555;">Local Interaction Residues (PAE &le; 12 &Aring;)</td></tr>
+                    <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>LIR</strong></td><td style="padding:0.25rem 0; color:#555;">Local interaction residues (PAE &le; 12 &Aring;)</td></tr>
                     <tr><td style="padding:0.25rem 0.5rem 0.25rem 0; vertical-align:top; color:#555;"><strong>cLIR</strong></td><td style="padding:0.25rem 0; color:#555;">contact residues: LIR also in contact (PAE &le; 12 &Aring; &amp; C&beta; &le; 8 &Aring;)</td></tr>
                 </table>
                 <h4 style="font-size:0.9rem; color:#1a5276; margin-top:0.8rem; margin-bottom:0.5rem;">Other interface scores</h4>
@@ -546,11 +546,11 @@
 <script src="js/livia-core.js?v=20260928a"></script>
 <script src="js/livia-reported.js?v=20261004a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20260927a"></script>
+<script src="js/livia-viewer.js?v=20261007a"></script>
 <script src="js/livia-colors.js?v=20260927a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20261004a"></script>
-<script src="js/livia-subnav.js?v=20260928c"></script>
+<script src="js/livia-subnav.js?v=20261007a"></script>
 <script>
 // ── Callbacks for shared modules ──
 onColorChange = () => { if (dimerPairResult) { generateAndDisplayScript(); buildDimerSequenceViewer(); buildDimerContactMap(); buildChordDiagram(); buildComparisonCharts(); updateViewer3d(); renderChainToggleBar(); } };
@@ -3694,7 +3694,7 @@ function generateAndDisplayScript() {
     lines.push(`# save ${dimerCifFilename.replace(/\.[^.]+$/, '')}_session.cxs`);
     lines.push('');
     lines.push('# \u2500\u2500 Color Legend \u2500\u2500');
-    lines.push(`# LIR  = Local Interaction Residues (PAE <= ${paeCut})`);
+    lines.push(`# LIR  = Local interaction residues (PAE <= ${paeCut})`);
     lines.push(`# cLIR = contact residues (PAE <= ${paeCut} & C-beta <= ${cbCut} \u00c5)`);
     lines.push('#');
     lines.push(`# LIR  (${colors.lir_a}) = Chain ${v.ci}`, `# cLIR (${colors.clir_a}) = Chain ${v.ci}`);

@@ -180,7 +180,7 @@ function applyColorsToMolstarFrame(frameId, colorComponents, fmt) {
 // The iframe must have been built with buildMolstarPage. Use this to replace the
 // placeholder structure loaded at page-entry warmup with the real prediction structure
 // once analysis finishes, without rebuilding the iframe (avoids re-downloading Mol* JS).
-function swapMolstarStructure(frameId, structData, colorComponents, fmt) {
+function swapMolstarStructure(frameId, structData, colorComponents, fmt, label) {   // label: a readable name for Mol*'s structure panel, in place of the blob URL
     const frame = document.getElementById(frameId);
     if (!frame || !frame.contentWindow) return false;
     const mvsJson = buildMvsJson(colorComponents, fmt);
@@ -189,6 +189,7 @@ function swapMolstarStructure(frameId, structData, colorComponents, fmt) {
         structData: structData,
         mvsStr: JSON.stringify(mvsJson),
         fmt: fmt,
+        label: label || '',
     }, '*');
     return true;
 }
@@ -314,6 +315,28 @@ var _structUrl = null;
 var _ready = false;
 var _pendingColorMvs = null;
 var _pendingStructure = null;
+// The structure arrives as a blob URL, which Mol*'s structure panel would show as its name: once a load has built the
+// download cell, its label is replaced with the name the page sent (e.g. "HGTX × Akt, rank 1").
+var _structLabel = '', _relabelT = 0;
+function _relabelSoon() {   // debounced: the selection cells have no label yet when they are created
+    clearTimeout(_relabelT);
+    _relabelT = setTimeout(function() {
+        try {
+            if (!_viewer || !_viewer.plugin) return;
+            var pl = _viewer.plugin, b = null, nth = {};
+            pl.state.data.cells.forEach(function(cell) {
+                var t = cell.transform, pr = t && t.params, u = pr && pr.url && (typeof pr.url === 'string' ? pr.url : pr.url.url);
+                if (_structLabel && typeof u === 'string' && u.indexOf('blob:') === 0 && pr.label !== _structLabel) {
+                    b = b || pl.build(); b.to(t.ref).update(Object.assign({}, pr, { label: _structLabel }));
+                }
+                // a highlighted residue set reads "Custom Selection: [{label_asym_id: …}]": named by its chain instead
+                var lb = cell.obj && cell.obj.label, m = typeof lb === 'string' && lb.indexOf('Custom Selection') === 0 && /label_asym_id: "([^"]+)"/.exec(lb);
+                if (m && pr && (!pr.label || String(pr.label).indexOf('Custom Selection') === 0)) { nth[m[1]] = (nth[m[1]] || 0) + 1; b = b || pl.build(); b.to(t.ref).update(Object.assign({}, pr, { label: 'Chain ' + m[1] + ', set ' + nth[m[1]] })); }
+            });
+            if (b) b.commit();
+        } catch (_e) {}
+    }, 300);
+}
 
 function _setLoadingSource(label) {
     var el = document.getElementById('loading-source');
@@ -421,6 +444,7 @@ window.addEventListener('message', function(ev) {
     if (!ev.data) return;
     if (ev.data.type === 'loadStructure' && ev.data.structData && ev.data.mvsStr) {
         if (!_ready || !_viewer) { _pendingStructure = ev.data; return; }
+        _structLabel = ev.data.label || '';
         try {
             if (_structUrl) { try { URL.revokeObjectURL(_structUrl); } catch(_) {} }
             var newBlob = new Blob([ev.data.structData], { type: 'text/plain' });
@@ -501,6 +525,7 @@ function _notifyReady() {
     _ready = true;
     try { parent.postMessage({ type: 'molstarReady' }, '*'); } catch(e) {}
     if (_pendingStructure && _viewer) {
+        _structLabel = _pendingStructure.label || '';
         // Process queued structure swap (warm-up → real prediction transition)
         try {
             if (_structUrl) { try { URL.revokeObjectURL(_structUrl); } catch(_) {} }
@@ -572,6 +597,7 @@ async function init() {
         viewportShowAnimation: false,
     });
     _viewer = viewer;
+    try { viewer.plugin.state.data.events.cell.created.subscribe(_relabelSoon); } catch (_e) {}
 
     var structBlob = new Blob([structData], { type: 'text/plain' });
     var structUrl = URL.createObjectURL(structBlob);

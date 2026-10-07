@@ -35,6 +35,8 @@
         '@keyframes livia-news { 0% { box-shadow: 0 0 0 0 rgba(211, 84, 0, 0.6); } 100% { box-shadow: 0 0 0 10px rgba(211, 84, 0, 0); } }',
         '@media (prefers-reduced-motion: reduce) { .livia-subnav button.pulse { animation: none; } }',
         '@media (max-width: 720px) { .livia-subnav { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; } }',
+        // on a phone the bar scrolls sideways: its right edge fades while more sections lie beyond it
+        '.livia-subnav.more-r { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); }',
         '@media print { .livia-subnav { display: none !important; } }',
     ].join('\n');
 
@@ -57,6 +59,9 @@
         const bar = document.createElement('nav');
         bar.className = 'livia-subnav'; bar.setAttribute('aria-label', 'Report sections'); bar.hidden = true;
         box.insertBefore(bar, box.firstChild);
+        const edge = () => bar.classList.toggle('more-r', bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 2);
+        bar.addEventListener('scroll', edge, { passive: true }); window.addEventListener('resize', edge);
+        if (window.ResizeObserver) new ResizeObserver(edge).observe(bar); new MutationObserver(edge).observe(bar, { childList: true, attributes: true, attributeFilter: ['hidden'] });
         let items = [], key = null, cur = -2, raf = 0, spyRaf = 0;
         const target = (it) => it.h.closest('.card') || it.h;
         const news = new Map(), toPulse = new Set();                     // section (card) → { badge, title }; sections still to pulse

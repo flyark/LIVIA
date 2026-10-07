@@ -12,8 +12,8 @@
 <script src="js/clip-clustering.js"></script>
 <script src="js/clip-pipeline.js?v=20261006a"></script>
 <script src="js/clip-resolver.js?v=20260928a"></script>
-<script src="js/livia-viewer.js?v=20260927a"></script>
-<script src="js/livia-subnav.js?v=20260928c"></script>
+<script src="js/livia-viewer.js?v=20261007a"></script>
+<script src="js/livia-subnav.js?v=20261007a"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="css/livia.css?v=20261002b">
 <style>
@@ -284,7 +284,7 @@
       <div id="pair-map-wrap"><canvas id="pair-canvas"></canvas></div>
       <div id="pair-seq" style="margin-top:1rem; border-top:1px solid var(--line, #e2e6ea); padding-top:.8rem">
         <h3 style="margin:0 0 .2rem; display:flex; align-items:baseline; gap:.55rem; flex-wrap:wrap">Sequence viewer <label style="font-size:.78rem; font-weight:400; color:#556"><select id="pair-seq-rank" title="model rank from the prediction — ColabFold/AlphaFold-Multimer rank by ipTM (rank 1 = top model)" style="font:inherit; padding:1px 5px"></select></label></h3>
-        <div class="muted" style="font-size:.8rem">Light background = LIR (PAE &le; 12&nbsp;&Aring;). Dark background with white text = cLIR (PAE &le; 12&nbsp;&Aring; &amp; C&beta; &le; 8&nbsp;&Aring;).</div>
+        <div class="muted" style="font-size:.8rem">Light background = interaction residue (LIR: PAE &le; 12&nbsp;&Aring;). Dark background = contact residue (cLIR: also C&beta; &le; 8&nbsp;&Aring;).</div>
         <div id="pair-seq-msg" class="muted" style="font-size:.82rem; margin-top:.5rem"></div>
         <div id="pair-seq-body" style="font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace; margin-top:.5rem; overflow-x:auto"></div>
       </div>
