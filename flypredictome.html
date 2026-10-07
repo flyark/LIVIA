@@ -228,10 +228,11 @@
             <div style="overflow-x:auto;">
                 <table class="data-table" id="ranks-table">
                     <thead>
-                        <tr><th>Rank</th><th>Symbol 1</th><th>Symbol 2</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipTM</th><th title="Bryant et al. 2022, pure geometric interface, no PAE; computed from the fetched structure">pDockQ</th><th title="pDockQ formula on this file's own cLIR interface (approx.: contacts among cLIR residues, not only confident contacting pairs as in lis.py)">LIpDockQ</th><th>LIR (A/B)</th><th>cLIR (A/B)</th><th>Len (A/B)</th></tr>
+                        <tr id="ranks-head"><th>Rank</th><th>Symbol 1</th><th>Symbol 2</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipTM</th><th title="Bryant et al. 2022, pure geometric interface, no PAE; computed from the fetched structure">pDockQ</th><th title="pDockQ formula on this file's own cLIR interface (approx.: contacts among cLIR residues, not only confident contacting pairs as in lis.py)">LIpDockQ</th><th>LIR (A/B)</th><th>cLIR (A/B)</th><th>Len (A/B)</th></tr>
                     </thead>
                     <tbody id="ranks-tbody"></tbody>
                 </table>
+                <p id="atlas-scores-note" hidden style="font-size:0.78rem; color:#6B6B6B; margin:0.4rem 0 0; line-height:1.45;">Scores from the <a href="https://flyark.github.io/livia-atlas/" target="_blank" style="color:#2471A3;">LIVIA Atlas</a>: lis.py on the original prediction files, numeric PAE included, so pDockQ2 and LIpDockQ2 are shown and nothing is recomputed here. actifpTM* is approximate (About).</p>
             </div>
             <div style="margin-top:0.6rem; font-size:0.75rem; color:#707070; line-height:1.8;">
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
@@ -531,7 +532,7 @@
                     <tr><td><strong>pDockQ</strong></td><td>predicted DockQ from the mean pLDDT of the interface and the number of contacting residue pairs (C&beta; &le; 8&nbsp;&Aring;), with no PAE (<a href="https://doi.org/10.1038/s41467-022-28865-w" target="_blank" style="color:#2471A3;">Bryant et al., 2022</a>)</td></tr>
                     <tr><td><strong>LIpDockQ</strong></td><td>the pDockQ formula computed only on cLIR pairs (PAE &le; 12&nbsp;&Aring; and C&beta; &le; 8&nbsp;&Aring;), so contacts the PAE does not support no longer count (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon, 2026</a>)</td></tr>
                 </table>
-                <p style="font-size:0.78rem; color:#6B6B6B; margin-top:0.4rem; line-height:1.4;">pDockQ2 and LIpDockQ2 need the numeric PAE, which this source does not provide. Because their constants were fitted to DockQ on the original interfaces, LIpDockQ and LIpDockQ2 rank predictions; they are not DockQ estimates.</p>
+                <p id="pdq2-note" style="font-size:0.78rem; color:#6B6B6B; margin-top:0.4rem; line-height:1.4;">pDockQ2 and LIpDockQ2 need the numeric PAE, which this source does not provide. Because their constants were fitted to DockQ on the original interfaces, LIpDockQ and LIpDockQ2 rank predictions; they are not DockQ estimates.</p>
                 <p style="font-size:0.78rem; color:#6B6B6B; margin-top:0.4rem; line-height:1.4;">PAE (Predicted Aligned Error) measures how confidently the model predicts the relative position of two residues &mdash; lower values indicate higher confidence.</p>
             </div>
         </div>
@@ -2102,6 +2103,7 @@ async function generate() {
             // Sync URL so this analysis is shareable / reloadable
             const u = new URL(window.location);
             u.searchParams.set('url', urlInput);
+            if (urlInput.trim() !== ATLAS_URL0) u.hash = '';   // the Atlas scores belong to the pair the link opened
             u.searchParams.delete('gene');
             u.searchParams.delete('pair');
             history.replaceState({}, '', u);
@@ -2184,6 +2186,7 @@ async function generate() {
     flyCurrentRank = rank;
 
     // Build All Ranks table (clickable rows)
+    readAtlasScores(); atlasHead();
     document.getElementById('ranks-tbody').innerHTML = flyParsed.rows.map(r => {
         const rk = r['Rank'] || '?';
         // Compute iLIA from LIA/cLIA columns
@@ -2197,13 +2200,13 @@ async function generate() {
         const ilia = iliaVal.toFixed(1);
         const ilisa = ilisaVal.toFixed(1);
         const rankPdb = flyPdbPerRank[parseInt(rk)];
-        const pdqVal = rankPdb ? pDockqForRank(rankPdb) : null;
-        const cpdqVal = rankPdb ? LIpDockqForRank(r, rankPdb) : null;
+        const pdqVal = rankPdb && !flyAtlas ? pDockqForRank(rankPdb) : null;
+        const cpdqVal = rankPdb && !flyAtlas ? LIpDockqForRank(r, rankPdb) : null;
         return `<tr class="clickable ${parseInt(rk) === rank ? 'selected' : ''}" onclick="loadRank(${parseInt(rk)})">
             <td>${rk}</td><td>${r['Symbol 1']||''}</td><td>${r['Symbol 2']||''}</td>
             <td>${ilisColor(parseFloat(r['iLIS']||0))}</td><td>${ilia}</td><td>${ilisa}</td><td>${r['ipTM']||''}</td>
-            <td id="pdq-rank-${rk}">${pdqVal != null ? pdqFmt(pdqVal) : '…'}</td>
-            <td id="cpdq-rank-${rk}">${cpdqVal != null ? pdqFmt(cpdqVal) : '…'}</td>
+            ${flyAtlas ? atlasCells(rk) : `<td id="pdq-rank-${rk}">${pdqVal != null ? pdqFmt(pdqVal) : '…'}</td>
+            <td id="cpdq-rank-${rk}">${cpdqVal != null ? pdqFmt(cpdqVal) : '…'}</td>`}
             <td>${r._LIR_A.size} / ${r._LIR_B.size}</td>
             <td>${r._cLIR_A.size} / ${r._cLIR_B.size}</td>
             <td>${r['Len A']||'?'} / ${r['Len B']||'?'}</td>
@@ -2262,8 +2265,8 @@ async function generate() {
         avgTr.onclick = () => loadRank('avg');
         avgTr.innerHTML = `<td>Avg</td><td>${rows[0]['Symbol 1']||''}</td><td>${rows[0]['Symbol 2']||''}</td>` +
             `<td>${ilisColor(parseFloat(avgILIS), true)}</td><td>${iliaStr}</td><td>${ilisaStr}</td><td>${avgIpTM}</td>` +
-            `<td id="pdq-rank-avg" title="the mean over ranks, filled in once every rank's structure has loaded">…</td>` +
-            `<td id="cpdq-rank-avg" title="the mean over ranks with a value, filled in once every rank's structure has loaded">…</td>` +
+            (flyAtlas ? atlasCells('avg') : `<td id="pdq-rank-avg" title="the mean over ranks, filled in once every rank's structure has loaded">…</td>` +
+            `<td id="cpdq-rank-avg" title="the mean over ranks with a value, filled in once every rank's structure has loaded">…</td>`) +
             `<td>${avgLirA} / ${avgLirB}</td>` +
             `<td>${avgClirA} / ${avgClirB}</td>` +
             `<td>${rows[0]['Len A']||'?'} / ${rows[0]['Len B']||'?'}</td>`;
@@ -2409,6 +2412,38 @@ async function fetchRankPdb(rankNum) {
     return false;
 }
 
+// Scores handed over by the LIVIA Atlas (#atlas=… in the link it opens): lis.py's own values for each rank, computed from the
+// original prediction files, numeric PAE included. Used only when every rank's iLIS matches this page's table (within 0.002);
+// otherwise nothing changes and pDockQ/LIpDockQ are computed from the structures as before. A hash never reaches a server.
+const ATLAS_COLS = ['ipSAE', 'actifpTM', 'pDockQ', 'LIpDockQ', 'pDockQ2', 'LIpDockQ2'];
+let flyAtlas = null, flyRanksHead0 = null;
+const ATLAS_URL0 = (new URLSearchParams(location.search).get('url') || '').trim();   // the pair the Atlas link was made for
+function readAtlasScores() {
+    flyAtlas = null;
+    const m = /(?:^#|&)atlas=([^&]*)/.exec(location.hash); if (!m || !flyParsed || !flyParsed.rows) return;
+    const cur = ((document.getElementById('url-input') || {}).value || '').trim(); if (cur && cur !== ATLAS_URL0) return;   // another pair opened since
+    let d; try { d = JSON.parse(decodeURIComponent(m[1])); } catch (e) { return; }
+    if (!d || !Array.isArray(d.k) || !d.r || typeof d.r !== 'object') return;
+    const by = new Map();
+    for (const [rk, vals] of Object.entries(d.r)) { if (!Array.isArray(vals)) return; const o = {}; d.k.forEach((k, i) => { if (vals[i] != null && Number.isFinite(+vals[i])) o[k] = +vals[i]; }); by.set(+rk, o); }
+    for (const r of flyParsed.rows) { const a = by.get(parseInt(r['Rank'])), fi = parseFloat(r['iLIS']);
+        if (!a || !Number.isFinite(a.iLIS) || !Number.isFinite(fi) || Math.abs(a.iLIS - fi) > 0.002) return; }
+    flyAtlas = by;
+}
+function atlasHead() {
+    const tr = document.getElementById('ranks-head'); if (!tr) return;
+    if (flyRanksHead0 == null) flyRanksHead0 = tr.innerHTML;
+    tr.innerHTML = flyAtlas ? '<th>Rank</th><th>Symbol 1</th><th>Symbol 2</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipTM</th><th>ipSAE</th><th title="lis.py\'s approximation of actifpTM (Varga et al. 2025)">actifpTM*</th><th>pDockQ</th><th>LIpDockQ</th><th>pDockQ2</th><th>LIpDockQ2</th><th>LIR (A/B)</th><th>cLIR (A/B)</th><th>Len (A/B)</th>' : flyRanksHead0;
+    const nt = document.getElementById('atlas-scores-note'); if (nt) nt.hidden = !flyAtlas;
+    const pn = document.getElementById('pdq2-note'); if (pn) pn.hidden = !!flyAtlas;
+}
+function atlasCells(rk) {   // the Atlas's six scores for one rank, or their mean over the ranks for the Avg row
+    let a = {};
+    if (rk === 'avg') { for (const k of ATLAS_COLS) { const xs = [...flyAtlas.values()].map((o) => o[k]).filter(Number.isFinite); if (xs.length) a[k] = xs.reduce((x, y) => x + y, 0) / xs.length; } }
+    else a = flyAtlas.get(parseInt(rk)) || {};
+    return ATLAS_COLS.map((k) => `<td>${Number.isFinite(a[k]) ? a[k].toFixed(3) : '—'}</td>`).join('');
+}
+
 async function fetchAllRankPdbs() {
     if (!flyParsed || !flyParsed.rows || flyParsed.rows.length <= 1) return;
     for (const r of flyParsed.rows) {
@@ -2428,7 +2463,7 @@ async function fetchAllRankPdbs() {
     }
     // Rank 1's structure was already available at first render, but the Avg row's LIpDockQ needs
     // every rank's cLIA (mean across ranks) — recompute it now that all ranks have been fetched.
-    if (flyAverageRow) {   // the Avg row: the mean of each rank's own pDockQ and LIpDockQ (a rank with no value is left out)
+    if (flyAverageRow && !flyAtlas) {   // the Avg row: the mean of each rank's own pDockQ and LIpDockQ (a rank with no value is left out)
         const pd = [], lp = [];
         flyParsed.rows.forEach((rr, k) => { const t = flyPdbPerRank[k + 1]; if (!t) return;
             const a = pDockqForRank(t), b = LIpDockqForRank(rr, t); if (Number.isFinite(a)) pd.push(a); if (Number.isFinite(b)) lp.push(b); });
