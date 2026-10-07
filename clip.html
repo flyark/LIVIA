@@ -322,6 +322,7 @@
     <div class="card">
       <h2 data-nav="Partners" style="display:flex; align-items:center; gap:.4rem; flex-wrap:wrap;">Partners <input id="ptable-search" type="search" list="ptable-list" placeholder="🔍 filter partner…" autocomplete="off" spellcheck="false" style="font:inherit; font-size:.8rem; font-weight:400; padding:2px 8px; width:150px; border:1px solid #ccd6e0; border-radius:6px; vertical-align:middle"><span id="ptable-count" class="muted" style="font-size:.72rem; font-weight:400"></span> <button id="export" class="ghost" style="margin-left:auto">⬇ Download report HTML</button><datalist id="ptable-list"></datalist></h2>
       <div style="max-height:360px; overflow:auto"><table id="ptable"></table></div>
+      <p id="ptable-note" style="font-size:0.78rem; color:#6B6B6B; margin:0.35rem 0 0">* actifpTM is approximate: lis.py's estimate from the PAE over residue pairs in contact (About).</p>
     </div>
   </div>
   <div class="footer">
@@ -1915,7 +1916,7 @@ function renderTable(A){
     { l:'Cluster', fmt:(r,lab)=>`<span class="chip" style="background:${clusterColor(lab,k)}"></span>${lab}`, sort:(r,lab)=>lab },
   ];
   const M = (l, key, dp) => { if (key==='iLISA' || has(key)) cols.push({ l, fmt:numFmt(key,dp), sort:numSort(key) }); };
-  M('iLIS','iLIS',3); M('iLIA','iLIA',1); M('iLISA','iLISA',1); M('ipSAE','ipSAE',3); M('actifpTM','actifpTM',3); M('ipTM','ipTM',3);
+  M('iLIS','iLIS',3); M('iLIA','iLIA',1); M('iLISA','iLISA',1); M('ipSAE','ipSAE',3); M('actifpTM*','actifpTM',3); M('ipTM','ipTM',3);
   if (plddtKey) cols.push({ l:'pLDDT', fmt:numFmt(plddtKey,1), sort:numSort(plddtKey) });
   M('LIS','LIS',3); M('cLIS','cLIS',3);
   if (has('LIR_A')||has('LIR_B')) cols.push({ l:'LIR (i/j)', fmt:combo('LIR_A','LIR_B'), sort:(r)=>(+r.LIR_A||0)+(+r.LIR_B||0) });

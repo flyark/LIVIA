@@ -2165,6 +2165,7 @@ async function generate() {
                 const colors = { lir_a: document.getElementById('color-lir-a')?.value || '#80CBC4', clir_a: document.getElementById('color-clir-a')?.value || '#00897B', lir_b: document.getElementById('color-lir-b')?.value || '#FFAB91', clir_b: document.getElementById('color-clir-b')?.value || '#E64A19' };
                 if (flyDomains.A.length > 0 || flyDomains.B.length > 0 || flyTedDomains.A.length > 0 || flyTedDomains.B.length > 0) {
                     buildConnectionDiagram(target, sym1, sym2, colors, flyPdbText);
+                    if (window.__redrawFlyChord) window.__redrawFlyChord();   // the selected-rank circle was drawn before the domains arrived
                 }
                 // Rebuild sequence viewer to show partial protein info and UniProt links
                 buildFlySeqViewer(target, sym1, sym2, colors, flyChainSeqs);
@@ -2589,8 +2590,10 @@ function renderModelSelectors() {
         const sel = (flyCurrentRank !== 'avg' && rk === parseInt(flyCurrentRank)) ? ' selected' : '';
         const ilis = parseFloat(r['iLIS']);
         const ilisStr = isNaN(ilis) ? '—' : ilis.toFixed(3);
+        const iptm = parseFloat(r['ipTM']);
+        const iptmStr = isNaN(iptm) ? '—' : iptm.toFixed(2);
         const label = 'Rank ' + rk;
-        return `<button type="button" class="model-chip${sel}" onclick="loadRank(${rk})" title="Select ${esc(label)}: FlyPredictome's ipTM-based rank (iLIS ${ilisStr})"><span class="model-chip-name">${esc(label)}</span><span class="model-chip-ilis"><span class="model-chip-metric">iLIS</span>${ilisStr}</span></button>`;
+        return `<button type="button" class="model-chip${sel}" onclick="loadRank(${rk})" title="Select ${esc(label)}: FlyPredictome's ipTM-based rank (iLIS ${ilisStr}, ipTM ${iptmStr})"><span class="model-chip-name">${esc(label)}</span><span class="model-chip-ilis"><span class="model-chip-metric">iLIS</span>${ilisStr}</span><span class="model-chip-ilis"><span class="model-chip-metric">ipTM</span>${iptmStr}</span></button>`;
     }).join('');
     selectors.forEach(s => { s.innerHTML = html; s.style.display = 'flex'; });
 }
