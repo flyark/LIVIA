@@ -195,7 +195,7 @@
                     </thead>
                     <tbody id="ranks-tbody"></tbody>
                 </table>
-                <p id="atlas-scores-note" hidden style="font-size:0.78rem; color:#6B6B6B; margin:0.4rem 0 0; line-height:1.45;">Scores from the <a href="https://flyark.github.io/livia-atlas/" target="_blank" style="color:#2471A3;">LIVIA Atlas</a>: lis.py on the original prediction files, numeric PAE included, so pDockQ2 and LIpDockQ2 are shown and nothing is recomputed here. actifpTM* is approximate (About).</p>
+                <p id="atlas-scores-note" hidden style="font-size:0.78rem; color:#6B6B6B; margin:0.4rem 0 0; line-height:1.45;">Scores from the <a href="https://flyark.github.io/livia-atlas/" target="_blank" style="color:#2471A3;">LIVIA Atlas</a>: lis.py on the original prediction files, numeric PAE included, so pDockQ2 and LIpDockQ2 are shown and nothing is recomputed here. actifpTM* is approximate (<a href="about.html" target="_blank" style="color:#2471A3;">About</a>).</p>
             </div>
             <div style="margin-top:0.6rem; font-size:0.75rem; color:#707070; line-height:1.8;">
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
@@ -1870,7 +1870,7 @@ const ATLAS_URL0 = (new URLSearchParams(location.search).get('url') || '').trim(
 function readAtlasScores() {
     flyAtlas = null;
     const m = /(?:^#|&)atlas=([^&]*)/.exec(location.hash); if (!m || !flyParsed || !flyParsed.rows) return;
-    const cur = ((document.getElementById('url-input') || {}).value || '').trim(); if (cur && cur !== ATLAS_URL0) return;   // another pair opened since
+    const cur = ((document.getElementById('url-input') || {}).value || '').trim(); if (!ATLAS_URL0 || (cur && cur !== ATLAS_URL0)) return;   // another pair opened since
     let d; try { d = JSON.parse(decodeURIComponent(m[1])); } catch (e) { return; }
     if (!d || !Array.isArray(d.k) || !d.r || typeof d.r !== 'object') return;
     const by = new Map();
