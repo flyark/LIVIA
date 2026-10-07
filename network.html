@@ -615,7 +615,7 @@ function render({ nodes, edges, membership, degree }, still){   // still: positi
   })));
   EDGES = new vis.DataSet(edges.map((e,i)=>{ const intra=cIdx.get(e.a)===cIdx.get(e.b);
     return { id:i, from:e.a, to:e.b, width:edgeWidth(e.iLIS,imin,imax,emin),
-      color:{ color: intra?commHex(cIdx.get(e.a)):'#c7ced6', highlight:'#e67e22', hover:'#e67e22', opacity: intra?0.75:0.3 },
+      color:{ color: intra?commHex(cIdx.get(e.a)):'#c7ced6', highlight:'#e67e22', hover:'#e67e22', opacity: intra?0.75:0.3 }, chosen:{ edge:EDGE_CHOSEN },
       title:`${nodeLabel(e.a)}–${nodeLabel(e.b)} · iLIS ${e.iLIS.toFixed(3)}` }; }));
   const opts={ nodes:{ shape:'dot', font:{ size:12, color:'#33414f' } }, edges:{ smooth:false }, layout:{ randomSeed: +$('seed').value||1 },
     physics:{ enabled:!still, stabilization:{ enabled:!still, iterations: +$('layiter').value||250 }, barnesHut:{ gravitationalConstant:-9000, springLength:130, springConstant:0.03, damping:0.25 } },
@@ -626,6 +626,8 @@ function render({ nodes, edges, membership, degree }, still){   // still: positi
   NETWORK.on('click', p=>{ if(p.nodes && p.nodes.length) showNodeInfo(p.nodes[0]); else hideNodeInfo(); });
   LAYER_ROOT=null; NET_HL=null; EGO_ROOT=null; { const lb=$('layerbar'); if(lb) lb.classList.add('hidden'); } $('egobar').classList.add('hidden');
 }
+// a selected or hovered pair at full strength: a pair between communities is otherwise drawn at 0.3 and its highlight stays faint
+const EDGE_CHOSEN = (v) => { v.opacity = 1; };
 // a node's colors: its fill stays when selected or hovered (an orange ring marks it) instead of vis-network's pale default
 const nodeColor = (fill, border) => ({ background:fill, border, highlight:{ background:fill, border:'#e67e22' }, hover:{ background:fill, border:'#e67e22' } });
 function setPhysics(on){
@@ -642,7 +644,7 @@ function restyle(){
   NODES.update(nodes.map((s,i)=>({ id:s, label: lab.has(s)?nodeLabel(s):'', size:nodeRadius(degree[i],dmax,nsize),
     color: nodeColor(fills[i], bcolor), borderWidth:border?1.5:0, font:{ size:lblsize, color:lblcolor, strokeWidth:outline?2.5:0, strokeColor:lblstroke }, title:`${nodeLabel(s)} · ${commLabel(membership[i])} · ${degree[i]} partners` })));
   EDGES.update(edges.map((e,i)=>{ const intra=cIdx.get(e.a)===cIdx.get(e.b);
-    return { id:i, width:edgeWidth(e.iLIS,imin,imax,emin), color:{ color:intra?commHex(cIdx.get(e.a)):'#c7ced6', highlight:'#e67e22', hover:'#e67e22', opacity:intra?0.75:0.3 } }; }));
+    return { id:i, width:edgeWidth(e.iLIS,imin,imax,emin), color:{ color:intra?commHex(cIdx.get(e.a)):'#c7ced6', highlight:'#e67e22', hover:'#e67e22', opacity:intra?0.75:0.3 }, chosen:{ edge:EDGE_CHOSEN } }; }));
 }
 
 // ---------- modules ----------
