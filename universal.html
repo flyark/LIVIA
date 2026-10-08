@@ -1804,7 +1804,7 @@ function setBlobHref(el, text) {
 let _labelRedrawT = 0;
 function redrawMapLabelsSoon() { clearTimeout(_labelRedrawT); _labelRedrawT = setTimeout(redrawMapLabels, 150); }
 function refreshChainVisibilityViews() {
-    // Re-render 3D viewer (the Mol* frame reloads the structure with the new colors and visible chains)
+    // Re-render 3D viewer (Mol* keeps the parsed structure and updates only the changed components and colors)
     if (uniState.currentPairKey) updateViewer3d(uniState.currentPairKey);
     // Re-render chord (both Selected Model + All Models Combined)
     buildChordDiagram();
