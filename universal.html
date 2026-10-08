@@ -613,6 +613,7 @@
             <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;" id="per-residue-desc">
                 Per-residue metrics for each chain across all models. Selected model as solid line; other models as light traces; average as dashed line.
             </div>
+            <div id="per-residue-mono-note" hidden style="font-size:0.82rem; color:#555; margin:-0.2rem 0 0.6rem; padding:0.4rem 0.6rem; border-left:3px solid #2E7D32; background:#F3F8F3; border-radius:4px;"><strong>Reading the green line.</strong> The AlphaFold Database monomer is a separate prediction, with its own AlphaFold version, models, recycles and MSA, so its pLDDT and intra-chain LIS are not on exactly the same scale as this prediction's. Use it as a reference: the shape of the difference is more informative than its size. A region that gains or loses confidence with the partner stands out; an offset across the whole chain usually reflects the runs, not the partner.</div>
             <div id="per-residue-charts"></div>
         </div>
     </div>
@@ -7772,7 +7773,8 @@ function buildPerResidueCharts(pairKey) {
           : 'Per-residue pLDDT for each chain across all models. Intra-chain LIS is hidden — this bundle has no numeric PAE (only a PAE image), so LIS cannot be computed.')
         + ' Selected model as solid line; other models as light traces; average as dashed line.'
         + (chainData.some(cd => cd.mono) ? ' Green: the same protein predicted alone, its AlphaFold Database monomer, on the same residues.' : '')
-        + (monoWait.length ? ' Reading the AlphaFold Database monomer\u2026' : ''); }
+        + (monoWait.length ? ' Reading the AlphaFold Database monomer\u2026' : '');
+      const mn = document.getElementById('per-residue-mono-note'); if (mn) mn.hidden = !chainData.some(cd => cd.mono); }   // how to read the green line, whenever it is drawn
 
     // (Model label now shown by the per-model selector chips via renderModelSelectors.)
     const singleModel = uniState.modelData.length === 1;
