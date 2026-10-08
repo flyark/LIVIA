@@ -7531,6 +7531,45 @@ function parsePdbSequence(pdbText) {
 // ============================================================================
 // PER-RESIDUE INTRA-CHAIN LIS & pLDDT CHARTS
 // ============================================================================
+// A chain's AlphaFold DB monomer (the protein predicted alone): pLDDT and numeric PAE of the entry that covers the chain, read once
+// per accession and kept (AFDB_MONO: the request; AFDB_MONO_VAL: its result, null when there is no entry).
+const AFDB_MONO = new Map(), AFDB_MONO_VAL = new Map();
+function afdbMonomer(acc, span) {
+    const key = acc + (span ? ':' + span.join('-') : '');
+    if (!AFDB_MONO.has(key)) AFDB_MONO.set(key, (async () => {
+        const arr = await fetch('https://alphafold.ebi.ac.uk/api/prediction/' + encodeURIComponent(acc)).then(r => r.ok ? r.json() : null).catch(() => null);
+        const list = (Array.isArray(arr) ? arr : arr ? [arr] : []).filter(e => e && e.uniprotAccession === acc && e.pdbUrl && e.paeDocUrl);
+        const e = list.length === 1 ? list[0] : list.find(x => span && x.uniprotStart <= span[0] && x.uniprotEnd >= span[1]);   // a long protein comes in fragments: the one covering the chain
+        if (!e) return null;
+        const [pdb, paeJ] = await Promise.all([fetch(e.pdbUrl).then(r => r.ok ? r.text() : null).catch(() => null), fetch(e.paeDocUrl).then(r => r.ok ? r.json() : null).catch(() => null)]);
+        const paeObj = Array.isArray(paeJ) ? paeJ[0] : paeJ, pae = paeObj && paeObj.predicted_aligned_error;
+        if (!pdb || !pae) return null;
+        const plddt = [];
+        for (const line of pdb.split('\n')) if (line.startsWith('ATOM') && line.substring(12, 16).trim() === 'CA') plddt[parseInt(line.substring(22, 26), 10) - 1] = parseFloat(line.substring(60, 66));
+        const seq = e.sequence || (e.uniprotSequence || '').slice(e.uniprotStart - 1, e.uniprotEnd);
+        return { id: e.entryId || e.modelEntityId || ('AF-' + acc), seq, plddt, pae };
+    })().catch(() => null).then(v => { AFDB_MONO_VAL.set(key, v); return v; }));
+    return { key, promise: AFDB_MONO.get(key), value: AFDB_MONO_VAL.get(key) };
+}
+// The monomer's values on this chain's residues: the chain aligned to the monomer's sequence; intra-chain LIS over the same residues
+// as the chain's (the residues the construct shares with the monomer), each row read in its own direction as for the chain, so the
+// two lines differ only by the partner. null where a residue has no counterpart.
+function monomerOnChain(mono, chainSeq, chainLen, paeCutoff) {
+    if (!mono || !chainSeq || typeof CLIPResolver === 'undefined' || !CLIPResolver.alignMap) return null;
+    const al = CLIPResolver.alignMap(chainSeq, mono.seq), map = (al && al.map) || [];
+    const mapped = map.filter(c => c != null).length;
+    if (mapped < 0.8 * Math.min(chainLen, mono.seq.length)) return null;   // not the same protein, or too little of it
+    const plddt = [], lis = [];
+    for (let i = 0; i < chainLen; i++) {
+        const p = map[i];
+        if (p == null || !mono.pae[p - 1]) { plddt.push(null); lis.push(null); continue; }
+        plddt.push(mono.plddt[p - 1] != null ? mono.plddt[p - 1] : null);
+        let sum = 0; const row = mono.pae[p - 1];
+        for (let j = 0; j < chainLen; j++) { if (j === i || map[j] == null) continue; const v = row[map[j] - 1]; if (v != null && v <= paeCutoff) sum += 1 - v / paeCutoff; }
+        lis.push(chainLen > 1 ? sum / (chainLen - 1) : 0);
+    }
+    return { id: mono.id, plddt, lis };
+}
 function buildPerResidueCharts(pairKey) {
     const card = document.getElementById('per-residue-card');
     const container = document.getElementById('per-residue-charts');
@@ -7650,6 +7689,23 @@ function buildPerResidueCharts(pairKey) {
 
     if (chainData.length === 0) { card.style.display = 'none'; return; }
 
+    // Each identified chain beside its AlphaFold DB monomer: drawn when it has arrived; a request in flight redraws the card on arrival.
+    const monoWait = [];
+    { const md0 = uniState.modelData[0], fmt = md0.structFormat || uniState.structureFormat, info = uniState.chainDomainInfo || {};
+      let seqs = null;
+      for (const cd of chainData) {
+          const inf = info[cd.name]; if (!inf || !inf.accession) continue;
+          const span = inf.startInFull != null && inf.endInFull != null ? [inf.startInFull, inf.endInFull] : null;
+          const m = afdbMonomer(String(inf.accession).split('_')[0], span);
+          if (m.value === undefined) { monoWait.push(m.promise); continue; }
+          if (!m.value) continue;
+          if (!seqs) { try { seqs = fmt === 'pdb' ? parsePdbSequence(md0.structText) : parseCifSequence(md0.structText); } catch (e) { seqs = new Map(); } }
+          const chainSeq = (seqs.get(cd.name) || []).filter(r => r.type === 'protein').map(r => r.aa).join('');
+          cd.mono = monomerOnChain(m.value, chainSeq, cd.size, paeCutoff);
+      }
+      if (monoWait.length) { const epoch = uniState.loadEpoch;
+          Promise.all(monoWait).then(() => { if (uniState.loadEpoch === epoch && uniState.currentPairKey === pairKey) buildPerResidueCharts(pairKey); }); } }
+
     container.innerHTML = '';
     card.style.display = '';
     container.offsetWidth; // force reflow
@@ -7663,7 +7719,9 @@ function buildPerResidueCharts(pairKey) {
       if (d) d.textContent = (hasPAE
           ? 'Per-residue metrics for each chain across all models.'
           : 'Per-residue pLDDT for each chain across all models. Intra-chain LIS is hidden — this bundle has no numeric PAE (only a PAE image), so LIS cannot be computed.')
-        + ' Selected model as solid line; other models as light traces; average as dashed line.'; }
+        + ' Selected model as solid line; other models as light traces; average as dashed line.'
+        + (chainData.some(cd => cd.mono) ? ' Green: the same protein predicted alone, its AlphaFold Database monomer, on the same residues.' : '')
+        + (monoWait.length ? ' Reading the AlphaFold Database monomer\u2026' : ''); }
 
     // (Model label now shown by the per-model selector chips via renderModelSelectors.)
     const singleModel = uniState.modelData.length === 1;
@@ -7694,6 +7752,25 @@ function computeStd(models, accessor, avg, n) {
     return stdArr;
 }
 
+// The AlphaFold DB monomer on the per-residue charts: one green solid line (broken where a residue has no counterpart) and its legend
+// entry with the mean over the residues it covers.
+const MONO_COLOR = '#2E7D32';
+function monoLegend(mono, vals, digits) {
+    if (!mono || !vals) return '';
+    const ok = vals.filter(v => v != null), mean = ok.length ? ok.reduce((a, b) => a + b, 0) / ok.length : null;
+    return '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;" title="' + mono.id + ', the protein predicted alone, read from the AlphaFold Database"><span style="display:inline-block; width:20px; height:2px; background:' + MONO_COLOR + ';"></span> AlphaFold DB monomer' + (mean != null ? ' (' + mean.toFixed(digits) + ')' : '') + '</span>';
+}
+function drawMonoTrace(ctx, vals, n, xScale, yScale) {
+    ctx.save(); ctx.strokeStyle = MONO_COLOR; ctx.lineWidth = 1.2; ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < n; i++) {
+        if (vals[i] == null) { started = false; continue; }
+        const x = xScale(i + 0.5), y = yScale(vals[i]);
+        if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke(); ctx.restore();
+}
+
 function drawPerResLisChart(container, cd, selectedIdx, singleModel) {
     const W = Math.max(Math.min(container.clientWidth || 900, 1200), 400);
     const H = 145;
@@ -7710,6 +7787,7 @@ function drawPerResLisChart(container, cd, selectedIdx, singleModel) {
         if (upper > maxLis) maxLis = upper;
     }
     for (const m of cd.models) for (const v of m.intraLis) if (v > maxLis) maxLis = v;
+    if (cd.mono) for (const v of cd.mono.lis) if (v != null && v > maxLis) maxLis = v;
     maxLis = Math.ceil(maxLis * 20) / 20;
     if (maxLis < 0.05) maxLis = 0.05;
 
@@ -7725,9 +7803,12 @@ function drawPerResLisChart(container, cd, selectedIdx, singleModel) {
     if (!singleModel) {
         legendHtml += '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:2px; background:#C62828;"></span> Selected (' + selLis.toFixed(3) + ')</span>';
         legendHtml += '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:0; border-top:2px dashed #1565C0;"></span> Avg \u00b1 SD (' + avgLis.toFixed(3) + ')</span>';
+    } else if (cd.mono) {
+        legendHtml += '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:2px; background:#C62828;"></span> This prediction (' + selLis.toFixed(3) + ')</span>';
     } else {
         legendHtml += '<span style="font-size:0.75rem; color:#555;">(' + selLis.toFixed(3) + ')</span>';
     }
+    legendHtml += monoLegend(cd.mono, cd.mono && cd.mono.lis, 3);
     headerEl.innerHTML = legendHtml;
     container.appendChild(headerEl);
 
@@ -7789,6 +7870,8 @@ function drawPerResLisChart(container, cd, selectedIdx, singleModel) {
         ctx.setLineDash([]);
     }
 
+    if (cd.mono) drawMonoTrace(ctx, cd.mono.lis, n, xScale, yScale);
+
     // Selected model (solid)
     const drawData = selModel ? selModel.intraLis : cd.avgLis;
     ctx.strokeStyle = '#C62828'; ctx.lineWidth = 1;
@@ -7835,9 +7918,12 @@ function drawPerResPlddtChart(container, cd, selectedIdx, singleModel) {
     if (!singleModel) {
         legendHtml += '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:2px; background:#C62828;"></span> Selected (' + selPlddt + ')</span>';
         legendHtml += '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:0; border-top:2px dashed #1565C0;"></span> Avg \u00b1 SD (' + avgPlddt + ')</span>';
+    } else if (cd.mono) {
+        legendHtml += '<span style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:#333;"><span style="display:inline-block; width:20px; height:2px; background:#C62828;"></span> This prediction (' + selPlddt + ')</span>';
     } else {
         legendHtml += '<span style="font-size:0.75rem; color:#555;">(' + selPlddt + ')</span>';
     }
+    legendHtml += monoLegend(cd.mono, cd.mono && cd.mono.plddt, 1);
     headerEl.innerHTML = legendHtml;
     container.appendChild(headerEl);
 
@@ -7905,6 +7991,8 @@ function drawPerResPlddtChart(container, cd, selectedIdx, singleModel) {
         ctx.stroke();
         ctx.setLineDash([]);
     }
+
+    if (cd.mono) drawMonoTrace(ctx, cd.mono.plddt, n, xScale, yPlddt);
 
     // Selected model (solid)
     const selData = selModel ? selModel.plddt : cd.avgPlddt;
