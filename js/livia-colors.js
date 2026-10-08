@@ -346,12 +346,12 @@ function mapScaleControl(kind) {
     el.innerHTML = '<span>' + c.label + ' colors</span>'
         + '<select class="map-scale-sel" aria-label="Color scale for the ' + c.label + ' maps" title="Color scale for the ' + c.label + ' maps, ' + c.low + ' to ' + c.high + '" style="font-size:0.78rem; padding:1px 3px; border:1px solid #ccd; border-radius:4px;">'
         + c.options.map(([v, l]) => '<option value="' + v + '">' + l + '</option>').join('') + '</select>'
-        + '<span class="map-custom" style="display:none; align-items:center; gap:4px;">'
+        + '<span class="map-custom" style="display:none; align-items:center; gap:4px; flex-wrap:wrap; flex-basis:100%; min-width:0;">'   // its own line under the select: a narrow panel never pushes it past the card's edge
         + pick(0, c.low) + '<span style="color:#707070;">&rarr;</span>'
         + '<span class="map-mid" style="display:none; align-items:center; gap:4px;">' + pick(1, 'middle') + '<span style="color:#707070;">&rarr;</span></span>'
         + pick(2, c.high)
-        + '<label style="display:inline-flex; align-items:center; gap:3px; cursor:pointer; margin:0;"><input type="checkbox" class="map-3" style="margin:0;"> 3 colors</label>'
-        + '<input type="text" class="map-hex" placeholder="' + hexHint + '" title="2 or 3 hex colors, ' + c.low + ' to ' + c.high + '" style="width:' + Math.round(hexHint.length * 6.2 + 10) + 'px; font-size:0.72rem; padding:1px 4px; border:1px solid #ccd; border-radius:4px;">'
+        + '<label style="display:inline-flex; align-items:center; gap:3px; cursor:pointer; margin:0; white-space:nowrap;"><input type="checkbox" class="map-3" style="margin:0;"> 3 colors</label>'
+        + '<input type="text" class="map-hex" placeholder="' + hexHint + '" title="2 or 3 hex colors, ' + c.low + ' to ' + c.high + '" style="flex:1 1 ' + Math.round(hexHint.length * 6.2 + 10) + 'px; min-width:8rem; max-width:100%; box-sizing:border-box; font-size:0.72rem; padding:1px 4px; border:1px solid #ccd; border-radius:4px;">'
         + '</span>';
     const stop = (i) => el.querySelector('.map-stop[data-i="' + i + '"]').value;
     const custom = () => el.querySelector('.map-3').checked ? [stop(0), stop(1), stop(2)] : [stop(0), stop(2)];
