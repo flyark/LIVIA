@@ -995,7 +995,7 @@ async function handleInputFiles(fileList) {
     // click would run processFiles with platform=null (fallback: generic, wrong PAE source).
     document.getElementById('btn-process').disabled = true;
     uniState.loadEpoch = (uniState.loadEpoch || 0) + 1;   // invalidate any in-flight identifyChains from the previous prediction (its async result must not clobber this load's labels)
-    uniState.loadedFiles = {};
+    uniState.loadedFiles = {}; uniState._srcHintKey = null;   // a new load names its source afresh
     uniState.loadedZip = null;
     uniState.predictions = [];
     uniState.platform = null;
@@ -1103,7 +1103,7 @@ async function handleInputFiles(fileList) {
     const pklWarning = hasPkl ? ' Note: .pkl files detected — PAE data must be converted to JSON first (use: python -c "import pickle,json,sys; d=pickle.load(open(sys.argv[1],\'rb\')); json.dump([{\'predicted_aligned_error\':d[\'predicted_aligned_error\'].tolist()}],open(sys.argv[2],\'w\'))" result_model_1.pkl pae_model_1.json)' : '';
 
     document.getElementById('btn-process').disabled = false;
-    setStatus(`Detected: ${platformLabel(platform)}. Analyzing…${pklWarning}`);
+    setStatus(`Detected: ${platformShown(platform)}. Analyzing…${pklWarning}`);
     // Auto-process so the user doesn't need a second click after drop/select.
     processFiles();
 }
@@ -1159,7 +1159,7 @@ async function selectJob(jobName) {
     setStatus(`Loading ${jobName}...`, 'loading');
     document.getElementById('file-name').textContent = `${folderName}/${jobName}`;
 
-    uniState.loadedFiles = {};
+    uniState.loadedFiles = {}; uniState._srcHintKey = null;   // a new load names its source afresh
     uniState.loadedZip = null;
     uniState.results = null;
     uniState.modelData = [];
@@ -1187,7 +1187,7 @@ async function selectJob(jobName) {
     uniState.platform = platform;
     showPlatformBadge(platform);
     document.getElementById('btn-process').disabled = false;
-    setStatus(`Loaded ${jobName}: ${nFiles} files (${platformLabel(platform)}). Analyzing…`, 'success');
+    setStatus(`Loaded ${jobName}: ${nFiles} files (${platformShown(platform)}). Analyzing…`, 'success');
     // Auto-process: skip the extra "Process" click after selecting a prediction.
     processFiles();
 }
@@ -1455,6 +1455,45 @@ function detectPlatform() {
     return 'generic';
 }
 
+// A "Generic" upload (file names that match no platform) named by what its files contain: AlphaFold Database file names,
+// the fields a platform's JSON carries, or the software its structure header names. Only a label: Generic already reads
+// scores by content. Cached per load (the file list).
+function genericSourceHint() {
+    const files = uniState.loadedFiles || {}, names = Object.keys(files), key = names.length + ':' + (names[0] || '');
+    if (uniState._srcHintKey === key) return uniState._srcHint;
+    const base = names.map(f => f.split('/').pop()), text = (f) => (typeof files[f] === 'string' ? files[f] : '');
+    let hint = '';
+    if (base.some(f => /^AF-[A-Z0-9]+(-\d+)?-F\d+-(model|predicted_aligned_error|confidence)_v\d+\.(cif|pdb|json)$/.test(f) || /^AF-\d{8,}-(model|predicted_aligned_error|confidence)_v\d+\.(cif|pdb|json)$/.test(f))) hint = 'AlphaFold Database';
+    const jsons = names.filter(f => f.endsWith('.json'));
+    const has = (k) => jsons.some(f => text(f).indexOf('"' + k + '"') >= 0);
+    if (!hint) {
+        if (has('contact_probs') && has('atom_plddts')) hint = 'AlphaFold3';
+        else if (has('chain_pair_iptm') && has('ranking_score') && has('fraction_disordered')) hint = 'AlphaFold3';
+        else if (has('gpde')) hint = 'Protenix';
+        else if (has('confidence_score') && has('complex_plddt')) hint = 'Boltz';
+        else if (has('aggregate_score') && has('per_chain_ptm')) hint = 'Chai-1';
+        else if (has('max_pae') && has('plddt') && has('pae')) hint = 'ColabFold';
+        else if (has('max_predicted_aligned_error')) hint = 'AlphaFold';   // the AlphaFold PAE format: the Database only by its AF- file names (above)
+    }
+    if (!hint) {   // the structure header's software (mmCIF _software / ModelCIF _ma_software_group, PDB REMARK lines)
+        const st = names.find(f => /\.(cif|pdb)$/i.test(f)), head = st ? text(st).slice(0, 60000) : '';
+        const cut = head.indexOf('_atom_site.'), h = (cut > 0 ? head.slice(0, cut) : head).toLowerCase();
+        const sw = [[/\balphafold server\b/, 'AlphaFold Server'], [/\balphafold-multimer\b/, 'AlphaFold-Multimer'], [/\balphafold\b/, 'AlphaFold'], [/\bboltz(-?[12])?\b/, 'Boltz'],
+                    [/\bchai-1\b|\bchai[ _-]?lab\b|\bchai discovery\b/, 'Chai-1'], [/\bprotenix\b/, 'Protenix'], [/\bopenfold3?\b/, 'OpenFold'], [/\besmfold2?\b/, 'ESMFold'], [/\bcolabfold\b/, 'ColabFold']];   // whole words: "chain" is not Chai-1
+        const keep = []; let inLoop = false, tags = false;   // software lines only: _software. / _ma_software tags and REMARK lines, plus the rows of a loop whose tags are those
+        for (const raw of h.split('\n')) { const l = raw.trim();
+            if (l === 'loop_') { inLoop = false; tags = true; continue; }
+            if (l.startsWith('_')) { if (/^_software\.|^_ma_software/.test(l)) { keep.push(l); if (tags) inLoop = true; } else if (!tags) inLoop = false; continue; }
+            tags = false; if (/^remark\b/.test(l)) { keep.push(l); continue; }
+            if (!l || l.startsWith('#') || l.startsWith('data_')) { inLoop = false; continue; }
+            if (inLoop) keep.push(l); }
+        const lines = keep.join('\n');
+        const m = sw.find(([re]) => re.test(lines)); if (m) hint = m[1];
+    }
+    uniState._srcHintKey = key; uniState._srcHint = hint;
+    return hint;
+}
+function platformShown(p) { if (p === 'generic') { const h = genericSourceHint(); if (h) return h + ' (from its files)'; } return platformLabel(p); }   // on the page only; files and scripts keep the platform as detected
 function platformLabel(p) {
     const labels = {
         alphafold3: 'AlphaFold3',
@@ -1475,7 +1514,7 @@ function platformLabel(p) {
 
 function showPlatformBadge(p) {
     const el = document.getElementById('platform-detected');
-    el.innerHTML = `<span class="platform-badge ${p}">${platformLabel(p)}</span>`;
+    el.innerHTML = `<span class="platform-badge ${p}">${platformShown(p)}</span>`;
 }
 
 function setStatus(msg, type = '') {
@@ -3714,8 +3753,8 @@ async function processFiles() {
         // Store confidence scores for CSV export
         uniState.confidenceScores = globalConfidenceScores;
 
-        setStatus(`Done! Processed ${modelIndices.length} model(s) from ${platformLabel(uniState.platform)}.`, 'success');
-        const displayName = selectedPred + ' (' + platformLabel(uniState.platform) + ')';
+        setStatus(`Done! Processed ${modelIndices.length} model(s) from ${platformShown(uniState.platform)}.`, 'success');
+        const displayName = selectedPred + ' (' + platformShown(uniState.platform) + ')';
         displayResults(uniState.results, displayName);
 
     } catch (e) {
