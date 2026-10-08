@@ -316,24 +316,25 @@ var _ready = false;
 var _pendingColorMvs = null;
 var _pendingStructure = null;
 // The structure arrives as a blob URL, which Mol*'s structure panel would show as its name: once a load has built the
-// download cell, its label is replaced with the name the page sent (e.g. "HGTX × Akt, rank 1").
+// download cell, its displayed label is replaced with the name the page sent (e.g. "HGTX × Akt, rank 1"). Only the shown label
+// changes (cell.obj.label): updating the transform's params instead would make Mol* rebuild the structure and every
+// representation under it, a second full load on each structure or color change.
 var _structLabel = '', _relabelT = 0;
 function _relabelSoon() {   // debounced: the selection cells have no label yet when they are created
     clearTimeout(_relabelT);
     _relabelT = setTimeout(function() {
         try {
             if (!_viewer || !_viewer.plugin) return;
-            var pl = _viewer.plugin, b = null, nth = {};
-            pl.state.data.cells.forEach(function(cell) {
-                var t = cell.transform, pr = t && t.params, u = pr && pr.url && (typeof pr.url === 'string' ? pr.url : pr.url.url);
-                if (_structLabel && typeof u === 'string' && u.indexOf('blob:') === 0 && pr.label !== _structLabel) {
-                    b = b || pl.build(); b.to(t.ref).update(Object.assign({}, pr, { label: _structLabel }));
-                }
+            var pl = _viewer.plugin, st = pl.state.data, nth = {}, changed = [];
+            st.cells.forEach(function(cell) {
+                var t = cell.transform, pr = t && t.params, o = cell.obj, u = pr && pr.url && (typeof pr.url === 'string' ? pr.url : pr.url.url);
+                if (!o) return;
+                if (_structLabel && typeof u === 'string' && u.indexOf('blob:') === 0 && o.label !== _structLabel) { o.label = _structLabel; changed.push(cell); }
                 // a highlighted residue set reads "Custom Selection: [{label_asym_id: …}]": named by its chain instead
-                var lb = cell.obj && cell.obj.label, m = typeof lb === 'string' && lb.indexOf('Custom Selection') === 0 && /label_asym_id: "([^"]+)"/.exec(lb);
-                if (m && pr && (!pr.label || String(pr.label).indexOf('Custom Selection') === 0)) { nth[m[1]] = (nth[m[1]] || 0) + 1; b = b || pl.build(); b.to(t.ref).update(Object.assign({}, pr, { label: 'Chain ' + m[1] + ', set ' + nth[m[1]] })); }
+                var m = typeof o.label === 'string' && o.label.indexOf('Custom Selection') === 0 && /label_asym_id: "([^"]+)"/.exec(o.label);
+                if (m) { nth[m[1]] = (nth[m[1]] || 0) + 1; o.label = 'Chain ' + m[1] + ', set ' + nth[m[1]]; changed.push(cell); }
             });
-            if (b) b.commit();
+            changed.forEach(function(cell) { try { st.events.cell.stateUpdated.next({ state: st, ref: cell.transform.ref, cell: cell }); } catch (_e) {} });   // the panel redraws the names
         } catch (_e) {}
     }, 300);
 }
