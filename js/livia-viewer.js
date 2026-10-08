@@ -161,7 +161,7 @@ function buildMvsJson(colorComponents, fmt) {
     };
 }
 
-// ── Send a color-only update to a Mol* iframe (no structure reload) ──
+// ── Send new colors to a Mol* iframe: the frame reloads the structure with them (loadMvsData), keeping the camera ──
 // Iframe must have been built with buildMolstarPage (which embeds the listener).
 // fmt: 'pdb' or 'mmcif' (must match initial load).
 // Returns true if message was sent; false if iframe isn't ready yet.
@@ -319,7 +319,7 @@ var _pendingStructure = null;
 // download cell, its displayed label is replaced with the name the page sent (e.g. "HGTX × Akt, rank 1"). Only the shown label
 // changes (cell.obj.label): updating the transform's params instead would make Mol* rebuild the structure and every
 // representation under it, a second full load on each structure or color change.
-var _structLabel = '', _relabelT = 0;
+var _structLabel = '', _relabelT = 0, _lastWH = '';
 function _relabelSoon() {   // debounced: the selection cells have no label yet when they are created
     clearTimeout(_relabelT);
     _relabelT = setTimeout(function() {
@@ -466,7 +466,8 @@ window.addEventListener('message', function(ev) {
                         // results), ResizeObserver may not have fired yet and the
                         // camera would fit using stale 0x0 dimensions (looks broken
                         // on mobile in particular).
-                        if (c3d && typeof c3d.handleResize === 'function') c3d.handleResize();
+                        var wh = window.innerWidth + 'x' + window.innerHeight;   // the retries below resize only when the frame's size moved (each resize can reallocate the render buffers)
+                        if (c3d && typeof c3d.handleResize === 'function' && wh !== _lastWH) { c3d.handleResize(); _lastWH = wh; }
                         if (c3d && typeof c3d.requestCameraReset === 'function') c3d.requestCameraReset();
                         else if (_viewer && _viewer.plugin && _viewer.plugin.managers && _viewer.plugin.managers.camera && typeof _viewer.plugin.managers.camera.reset === 'function') _viewer.plugin.managers.camera.reset();
                     } catch(_e) {}
@@ -544,7 +545,8 @@ function _notifyReady() {
                         // results), ResizeObserver may not have fired yet and the
                         // camera would fit using stale 0x0 dimensions (looks broken
                         // on mobile in particular).
-                        if (c3d && typeof c3d.handleResize === 'function') c3d.handleResize();
+                        var wh = window.innerWidth + 'x' + window.innerHeight;   // the retries below resize only when the frame's size moved (each resize can reallocate the render buffers)
+                        if (c3d && typeof c3d.handleResize === 'function' && wh !== _lastWH) { c3d.handleResize(); _lastWH = wh; }
                         if (c3d && typeof c3d.requestCameraReset === 'function') c3d.requestCameraReset();
                         else if (_viewer && _viewer.plugin && _viewer.plugin.managers && _viewer.plugin.managers.camera && typeof _viewer.plugin.managers.camera.reset === 'function') _viewer.plugin.managers.camera.reset();
                     } catch(_e) {}

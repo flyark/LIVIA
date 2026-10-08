@@ -325,7 +325,7 @@
                 <span style="justify-self:start; margin-left:0.6rem;" title="Text color (used by the text style): each chain's color, or plain black">color</span>
                 <select id="map-label-color" aria-label="Map label color" onchange="setLabelBlack(this.value==='black')" style="font-size:0.8rem; padding:1px 2px;"><option value="chain">chain</option><option value="black">black</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Chain/gene name font size (1 = default; type any value, e.g. 1.2)">font</span>
-                <input type="number" id="map-label-scale" aria-label="Map label font scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniLabelScale=parseFloat(this.value)||1; redrawMapLabels();">
+                <input type="number" id="map-label-scale" aria-label="Map label font scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniLabelScale=parseFloat(this.value)||1; redrawMapLabelsSoon();">
                 <span></span><span></span>
 
                 <span style="font-weight:600; color:#6B6B6B;">Length</span>
@@ -336,7 +336,7 @@
                 <span style="justify-self:start; margin-left:0.6rem;" title="Length-number color: plain black, or each chain's color">color</span>
                 <select id="map-size-color" aria-label="Chain length color" onchange="uniSizeColorMode=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="black">black</option><option value="chain">chain</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Length-number font size (1 = default; type any value)">font</span>
-                <input type="number" id="map-size-scale" aria-label="Chain length font scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniSizeScale=parseFloat(this.value)||1; redrawMapLabels();">
+                <input type="number" id="map-size-scale" aria-label="Chain length font scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniSizeScale=parseFloat(this.value)||1; redrawMapLabelsSoon();">
 
                 <span style="font-weight:600; color:#6B6B6B;">Domains</span>
                 <label for="map-label-domains" style="justify-self:start; margin-left:0.6rem; cursor:pointer; font-weight:400; color:#555;" title="UniProt/Pfam domain track along the top and left edges of the PAE/LIS/cLIS maps (same source as the Linear/Circular Contact Map domain tracks)">show</label>
@@ -1691,12 +1691,14 @@ function setupMultiChainColors() {
                 uniState.multiChainColors._active = true;
                 uniState.multiChainColors._palette = null;
                 document.querySelectorAll('.palette-chip').forEach(c => c.classList.remove('active'));
-                renderChainToggleBar();
-                if (typeof buildChordDiagram === 'function') buildChordDiagram();
-                if (typeof drawAllScoreMatrices === 'function') drawAllScoreMatrices();
                 const sel = document.querySelector('#pairs-tbody tr.selected');
-                if (sel) sel.click();                                             // re-renders contact map + per-residue + ChimeraX title + 3D
-                else if (uniState.currentPairKey) buildContactMap(uniState.currentPairKey);
+                if (sel) sel.click();                                             // the pair redraws everything: chain bar, chord, score matrices, contact map, per-residue, ChimeraX title, 3D
+                else {
+                    renderChainToggleBar();
+                    if (typeof buildChordDiagram === 'function') buildChordDiagram();
+                    if (typeof drawAllScoreMatrices === 'function') drawAllScoreMatrices();
+                    if (uniState.currentPairKey) buildContactMap(uniState.currentPairKey);
+                }
             }
             return applied;
         },
@@ -1791,8 +1793,18 @@ function resetChainVisibility() {
     document.querySelectorAll('#chain-toggle-buttons button, #chord-chain-chips button').forEach(b => applyChainToggleStyle(b, true));
     refreshChainVisibilityViews();
 }
+// A download link's file, made in memory: the link's previous file is freed first, so a session of clicks does not keep a copy
+// of the structure per click.
+function setBlobHref(el, text) {
+    if (el._blobUrl) { try { URL.revokeObjectURL(el._blobUrl); } catch (e) {} }
+    el._blobUrl = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+    el.href = el._blobUrl;
+}
+// Typing in a label-size box redraws the maps once the typing pauses, not on every keystroke.
+let _labelRedrawT = 0;
+function redrawMapLabelsSoon() { clearTimeout(_labelRedrawT); _labelRedrawT = setTimeout(redrawMapLabels, 150); }
 function refreshChainVisibilityViews() {
-    // Re-render 3D viewer (color-only fast path since structure text unchanged)
+    // Re-render 3D viewer (the Mol* frame reloads the structure with the new colors and visible chains)
     if (uniState.currentPairKey) updateViewer3d(uniState.currentPairKey);
     // Re-render chord (both Selected Model + All Models Combined)
     buildChordDiagram();
@@ -5059,7 +5071,7 @@ function selectPair(key) {
 
     const structContent = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
     const dlStruct = document.getElementById('dl-structure');
-    dlStruct.href = URL.createObjectURL(new Blob([structContent], { type: 'text/plain' }));
+    setBlobHref(dlStruct, structContent);
     dlStruct.download = structFilename;
     dlStruct.textContent = `\u2193 Full structure .${uniState.structureFormat}`;
     dlStruct.className = `btn-download cif`;
@@ -5076,7 +5088,7 @@ function selectPair(key) {
             km[c] = seg.size ? seg : null;
         });
         const confText = trimStructure(structContent, uniState.structureFormat, km);
-        dlStructConf.href = URL.createObjectURL(new Blob([confText], { type: 'text/plain' }));
+        setBlobHref(dlStructConf, confText);
         dlStructConf.download = structFilename.replace(/(\.[^.]+)$/, '_partial$1');
         dlStructConf.textContent = `\u2193 Partial structure .${uniState.structureFormat}`;
     }
@@ -5184,7 +5196,7 @@ function updateScriptButtons(v, structFilename, colors) {
     const fullScript = gen(structFilename), partialScript = gen(partialFilename);
     const pv = document.getElementById('script-preview'); if (pv) pv.innerHTML = highlightCxc(fullScript);
     const setBtn = (id, blob, name, text) => { const el = document.getElementById(id); if (!el) return;
-        el.href = URL.createObjectURL(new Blob([blob], { type: 'text/plain' })); el.download = name; el.textContent = text; };
+        setBlobHref(el, blob); el.download = name; el.textContent = text; };
     setBtn('dl-script-full', fullScript, base + '_full' + scriptExt, '↓ ' + scriptExt + ' · full structure');
     setBtn('dl-script-partial', partialScript, base + '_partial' + scriptExt, '↓ ' + scriptExt + ' · partial structure');
 }
