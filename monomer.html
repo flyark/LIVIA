@@ -2272,6 +2272,13 @@ function trimPdb(pdbText, keepMap){
   }).join('\n');
 }
 
+// A download link's file, made in memory: the link's previous file is freed first, so a session of clicks does not keep a copy
+// of the structure per click.
+function setBlobHref(el, text) {
+    if (el._blobUrl) { try { URL.revokeObjectURL(el._blobUrl); } catch (e) {} }
+    el._blobUrl = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+    el.href = el._blobUrl;
+}
 function generateAndShowScript(validRegions) {
     const paeCut = document.getElementById('pae-cutoff')?.value || '12';
     const cbCut = document.getElementById('cb-cutoff')?.value || '8';
@@ -2397,12 +2404,12 @@ function generateAndShowScript(validRegions) {
     const partialFilename = monPdbFilename.replace(/(\.[^.]+)$/, '_partial$1');
     const openWord = isPymol ? 'load ' : 'open ';
     const partialScript = visScript.replace(openWord + monPdbFilename, openWord + partialFilename);   // partial script opens the _partial file
-    const setBtn = (id, blob, name) => { const el = document.getElementById(id); if (!el) return; el.href = URL.createObjectURL(new Blob([blob], { type: 'text/plain' })); el.download = name; };
+    const setBtn = (id, blob, name) => { const el = document.getElementById(id); if (!el) return; setBlobHref(el, blob); el.download = name; };
     setBtn('dl-script-full', visScript, `${monUniprotId}_regions_full${scriptExt}`);
     setBtn('dl-script-partial', partialScript, `${monUniprotId}_regions_partial${scriptExt}`);
 
     const dlPdb = document.getElementById('dl-pdb');
-    dlPdb.href = URL.createObjectURL(new Blob([monPdbText], { type: 'text/plain' }));
+    setBlobHref(dlPdb, monPdbText);
     dlPdb.download = monPdbFilename;
 
     // Partial structure: chain A trimmed to the LIR span across all region pairs (floppy termini removed).
@@ -2413,7 +2420,7 @@ function generateAndShowScript(validRegions) {
         if (set.size && monPdbText) {
             const seg = fillGaps(filterSmallSegments(set));            // LIR segments shown (Fill-gaps / Min-segment honored)
             const km = { A: seg.size ? seg : null };
-            dlPdbConf.href = URL.createObjectURL(new Blob([trimPdb(monPdbText, km)], { type: 'text/plain' }));
+            setBlobHref(dlPdbConf, trimPdb(monPdbText, km));
             dlPdbConf.download = partialFilename;
             dlPdbConf.style.display = '';
         } else {

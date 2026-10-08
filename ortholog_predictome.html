@@ -1252,6 +1252,13 @@ function confidentSpanAB(LIR_A, LIR_B){
 }
 
 // Wire the 4 download buttons: full/partial scripts (each opens its matching structure) + full/partial PDB.
+// A download link's file, made in memory: the link's previous file is freed first, so a session of clicks does not keep a copy
+// of the structure per click.
+function setBlobHref(el, text) {
+    if (el._blobUrl) { try { URL.revokeObjectURL(el._blobUrl); } catch (e) {} }
+    el._blobUrl = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+    el.href = el._blobUrl;
+}
 function orthoWireDownloads(target, colors) {
     const isPymol = scriptMode === 'pymol';
     const scriptExt = isPymol ? '.pml' : '.cxc';
@@ -1263,7 +1270,7 @@ function orthoWireDownloads(target, colors) {
     const gen = fn => isPymol ? generatePml(target, fn, colors) : generateCxc(target, fn, colors);
     const fullScript = gen(pdbFilename), partialScript = gen(partialFilename);
     document.getElementById('script-preview').innerHTML = highlightCxc(fullScript);
-    const setBtn = (id, blob, name) => { const el = document.getElementById(id); if (!el) return; el.href = URL.createObjectURL(new Blob([blob], { type: 'text/plain' })); el.download = name; };
+    const setBtn = (id, blob, name) => { const el = document.getElementById(id); if (!el) return; setBlobHref(el, blob); el.download = name; };
     setBtn('dl-script-full', fullScript, base + '_full' + scriptExt);
     setBtn('dl-script-partial', partialScript, base + '_partial' + scriptExt);
     const dlPdb = document.getElementById('dl-pdb');
@@ -1274,7 +1281,7 @@ function orthoWireDownloads(target, colors) {
         // the download button always offers the same content the viewer/scripts are using.
         const fullPdbText = (typeof flyPdbPerRank !== 'undefined' && flyPdbPerRank[flyCurrentRank]) || flyPdbText;
         if (fullPdbText) {
-            dlPdb.href = URL.createObjectURL(new Blob([fullPdbText], { type: 'text/plain' }));
+            setBlobHref(dlPdb, fullPdbText);
             dlPdb.download = pdbFilename;
             dlPdb.style.display = '';
         } else if (flyParsed.pdbUrl) {
@@ -1289,7 +1296,7 @@ function orthoWireDownloads(target, colors) {
         if (pdbText && (target._LIR_A || target._LIR_B)) {
             const km = {};
             [['A', target._LIR_A], ['B', target._LIR_B]].forEach(([c, raw]) => { const seg = raw ? fillGaps(filterSmallSegments(raw)) : null; km[c] = (seg && seg.size) ? seg : null; });
-            dlPdbConf.href = URL.createObjectURL(new Blob([trimPdb(pdbText, km)], { type: 'text/plain' }));
+            setBlobHref(dlPdbConf, trimPdb(pdbText, km));
             dlPdbConf.download = partialFilename; dlPdbConf.style.display = '';
         } else dlPdbConf.style.display = 'none';
     }

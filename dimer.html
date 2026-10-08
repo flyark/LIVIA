@@ -238,7 +238,7 @@
                 <span style="justify-self:start; margin-left:0.6rem;" title="Text color (used by the text style): each chain's color, or plain black">color</span>
                 <select id="map-label-color" onchange="setLabelBlack(this.value==='black')" style="font-size:0.8rem; padding:1px 2px;"><option value="chain">chain</option><option value="black">black</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Chain/gene name font size (1 = default; type any value, e.g. 1.2)">font</span>
-                <input type="number" id="map-label-scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniLabelScale=parseFloat(this.value)||1; redrawMapLabels();">
+                <input type="number" id="map-label-scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniLabelScale=parseFloat(this.value)||1; redrawMapLabelsSoon();">
                 <span></span><span></span>
 
                 <span style="font-weight:600; color:#6B6B6B;">Length</span>
@@ -249,7 +249,7 @@
                 <span style="justify-self:start; margin-left:0.6rem;" title="Length-number color: plain black, or each chain's color">color</span>
                 <select id="map-size-color" onchange="uniSizeColorMode=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="black">black</option><option value="chain">chain</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Length-number font size (1 = default; type any value)">font</span>
-                <input type="number" id="map-size-scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniSizeScale=parseFloat(this.value)||1; redrawMapLabels();">
+                <input type="number" id="map-size-scale" value="1" min="0.4" max="4" step="0.05" style="width:3.4rem; font-size:0.8rem; padding:1px 3px;" oninput="uniSizeScale=parseFloat(this.value)||1; redrawMapLabelsSoon();">
 
                 <span style="font-weight:600; color:#6B6B6B;">Domains</span>
                 <label for="map-label-domains" style="justify-self:start; margin-left:0.6rem; cursor:pointer; font-weight:400; color:#555;" title="UniProt/Pfam domain track along the top and left edges of the PAE/LIS/cLIS maps (same source as the Linear/Circular Contact Map domain tracks)">show</label>
@@ -3597,6 +3597,16 @@ function confidentSpan(v){
   if(si) m[v.ci]=si; if(sj) m[v.cj]=sj; return m;
 }
 
+// A download link's file, made in memory: the link's previous file is freed first, so a session of clicks does not keep a copy
+// of the structure per click.
+// Typing in a label-size box redraws the maps once the typing pauses, not on every keystroke.
+let _labelRedrawT = 0;
+function redrawMapLabelsSoon() { clearTimeout(_labelRedrawT); _labelRedrawT = setTimeout(redrawMapLabels, 150); }
+function setBlobHref(el, text) {
+    if (el._blobUrl) { try { URL.revokeObjectURL(el._blobUrl); } catch (e) {} }
+    el._blobUrl = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+    el.href = el._blobUrl;
+}
 function generateAndDisplayScript() {
     const v = dimerPairResult;
     const colors = {
@@ -3716,14 +3726,14 @@ function generateAndDisplayScript() {
 
     document.getElementById('script-preview').innerHTML = highlightCxc(fullScript);
 
-    const setBtn = (id, blob, name) => { const el = document.getElementById(id); if (!el) return; el.href = URL.createObjectURL(new Blob([blob], { type: 'text/plain' })); el.download = name; };
+    const setBtn = (id, blob, name) => { const el = document.getElementById(id); if (!el) return; setBlobHref(el, blob); el.download = name; };
     setBtn('dl-script-full', fullScript, base + '_full' + scriptExt);
     setBtn('dl-script-partial', partialScript, base + '_partial' + scriptExt);
 
     // Structure downloads — always every subunit. Full = whole structure; Partial = interface chains trimmed to their LIR segments.
     const dlFull = document.getElementById('dl-cif-full');
     if (dlFull) {
-        dlFull.href = URL.createObjectURL(new Blob([dimerCifText], { type: 'text/plain' }));
+        setBlobHref(dlFull, dimerCifText);
         dlFull.download = dimerCifFilename;
     }
     const dlConf = document.getElementById('dl-cif-conf');
@@ -3731,7 +3741,7 @@ function generateAndDisplayScript() {
         const km = {}; cifChains(dimerCifText).forEach(c => km[c] = null);            // keep every subunit
         const si = fillGaps(filterSmallSegments(v.lirI)); if (si.size) km[v.ci] = si;  // interface chains → the LIR segments shown (Fill-gaps / Min-segment honored)
         const sj = fillGaps(filterSmallSegments(v.lirJ)); if (sj.size) km[v.cj] = sj;
-        dlConf.href = URL.createObjectURL(new Blob([trimCif(dimerCifText, km)], { type: 'text/plain' }));
+        setBlobHref(dlConf, trimCif(dimerCifText, km));
         dlConf.download = partialFilename;
     }
 }
