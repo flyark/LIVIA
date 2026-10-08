@@ -494,6 +494,8 @@
                 <table class="help-table">
                     <tr><td><strong>pDockQ</strong></td><td>predicted DockQ from the mean pLDDT of the interface and the number of contacting residue pairs (C&beta; &le; 8&nbsp;&Aring;), with no PAE (<a href="https://doi.org/10.1038/s41467-022-28865-w" target="_blank" style="color:#2471A3;">Bryant et al., 2022</a>)</td></tr>
                     <tr><td><strong>LIpDockQ</strong></td><td>the pDockQ formula computed only on cLIR pairs (PAE &le; 12&nbsp;&Aring; and C&beta; &le; 8&nbsp;&Aring;), so contacts the PAE does not support no longer count (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon, 2026</a>)</td></tr>
+                    <tr class="pdq2-row" hidden><td><strong>pDockQ2</strong></td><td>pDockQ with each contact weighted by its PAE, per chain (<a href="https://doi.org/10.1093/bioinformatics/btad424" target="_blank" style="color:#2471A3;">Zhu et al., 2023</a>)</td></tr>
+                    <tr class="pdq2-row" hidden><td><strong>LIpDockQ2</strong></td><td>the pDockQ2 formula on cLIR pairs only, so a small confident interface is not diluted by a large, poorly placed contact surface (<a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" style="color:#2471A3;">Kim &amp; Perrimon, 2026</a>)</td></tr>
                 </table>
                 <p id="pdq2-note" style="font-size:0.78rem; color:#6B6B6B; margin-top:0.4rem; line-height:1.4;">pDockQ2 and LIpDockQ2 need the numeric PAE, which this source does not provide. Because their constants were fitted to DockQ on the original interfaces, LIpDockQ and LIpDockQ2 rank predictions; they are not DockQ estimates.</p>
                 <p style="font-size:0.78rem; color:#6B6B6B; margin-top:0.4rem; line-height:1.4;">PAE (Predicted Aligned Error) measures how confidently the model predicts the relative position of two residues &mdash; lower values indicate higher confidence.</p>
@@ -1893,7 +1895,9 @@ function atlasHead() {
     const ab = r0['Symbol 1'] && r0['Symbol 2'] ? `(${e(r0['Symbol 1'])} / ${e(r0['Symbol 2'])})` : '(A/B)';   // the two proteins, chain A first, in place of "A/B"
     tr.innerHTML = (flyAtlas ? '<th>Rank</th><th>Symbol 1</th><th>Symbol 2</th><th>iLIS</th><th>iLIA</th><th>iLISA</th><th>ipTM</th><th>ipSAE</th><th title="lis.py\'s approximation of actifpTM (Varga et al. 2025)">actifpTM*</th><th>pDockQ</th><th>LIpDockQ</th><th>pDockQ2</th><th>LIpDockQ2</th><th>LIR (A/B)</th><th>cLIR (A/B)</th><th>Len (A/B)</th>' : flyRanksHead0).replace(/\(A\/B\)/g, ab);
     const nt = document.getElementById('atlas-scores-note'); if (nt) nt.hidden = !flyAtlas;
-    const pn = document.getElementById('pdq2-note'); if (pn) pn.hidden = !!flyAtlas;
+    const pn = document.getElementById('pdq2-note');   // with the Atlas scores, pDockQ2 and LIpDockQ2 are shown: their rows appear and the note keeps only its caveat
+    if (pn) { pn.dataset.base = pn.dataset.base || pn.innerHTML; pn.innerHTML = flyAtlas ? 'pDockQ2 and LIpDockQ2 come with the LIVIA Atlas scores (lis.py on the numeric PAE). Because their constants were fitted to DockQ on the original interfaces, LIpDockQ and LIpDockQ2 rank predictions; they are not DockQ estimates.' : pn.dataset.base; }
+    document.querySelectorAll('.pdq2-row').forEach(r => { r.hidden = !flyAtlas; });
 }
 function ranksHint() {   // the summary table is wider than a phone: say so, as the Atlas does
     const w = document.getElementById('ranks-wrap'), h = document.getElementById('ranks-hint'); if (!w || !h) return;
