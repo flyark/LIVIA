@@ -682,7 +682,7 @@
 </div>
 </div>
 
-<script src="js/livia-core.js?v=20260928a"></script>
+<script src="js/livia-core.js?v=20261008b"></script>
 <script src="js/livia-reported.js?v=20261004a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20261008a"></script>
@@ -4595,6 +4595,7 @@ function displayResults(results, jobName) {
         cb.checked = !offerToggle;
         setNegPairsShown(!offerToggle);
     }
+    uniState.emptyCols = hideEmptyColumns(document.getElementById('pairs-table'));   // e.g. pDockQ2/LIpDockQ2 from a lis.py too old to write them
 
     // Show/hide multi-chain cards
     const nc = uniState.chainNames ? uniState.chainNames.length : 0;
@@ -5901,6 +5902,12 @@ function drawAllScoreMatrices() {
 
     // selectable metric per triangle (default iLIS lower-left, iLIA upper-right)
     const MTX_UNIT = { iLIS:1, iLIA:0, iLISA:0, ipTM:1, ipSAE:1, actifpTM:1, LIS:1, cLIS:1, LIR:0, cLIR:0, pDockQ:1, LIpDockQ:1, pDockQ2:1, LIpDockQ2:1 };  // 1 = 0..1 scale, 0 = count (scale by global max)
+    {   // a metric with no value for any pair of any model (e.g. pDockQ2 from a lis.py too old to write it) is not offered, as the summary table hides its column
+        const gone = new Set((uniState.emptyCols || []).map((t) => t.replace(/\*$/, ''))), has = (m) => !gone.has(m);   // the grids store a missing value as 0, so the table's check decides
+        for (const [id, dflt] of [['mtx-lower', 'iLIS'], ['mtx-upper', 'iLISA']]) { const sel = document.getElementById(id); if (!sel) continue;
+            for (const o of sel.options) o.hidden = o.disabled = o.value !== 'iLIS' && !has(o.value);
+            if (sel.selectedOptions[0] && sel.selectedOptions[0].disabled) sel.value = dflt; }
+    }
     const lowerM = (document.getElementById('mtx-lower')||{}).value || 'iLIS';
     const upperM = (document.getElementById('mtx-upper')||{}).value || 'iLISA';
     const gridOf = (md, m) => (md.metricGrids && md.metricGrids[m]) || md.ilisGrid;

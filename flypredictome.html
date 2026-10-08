@@ -550,7 +550,7 @@
 </div>
 </div>
 
-<script src="js/livia-core.js?v=20260928a"></script>
+<script src="js/livia-core.js?v=20261008b"></script>
 <script src="js/livia-reported.js?v=20261004a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20261008a"></script>
@@ -2284,10 +2284,11 @@ async function generate() {
     }
 
     makeSortable(document.getElementById('ranks-table'));
+    hideEmptyColumns(document.getElementById('ranks-table'));   // an Atlas score column with no value for any rank
     ranksHint();
 
     // Load the selected rank
-    loadRank(rank);
+    loadRank(flyAtlasOpen || rank);   // an Atlas link opens the rank its row shows; otherwise rank 1
 
     document.getElementById('results').classList.add('active');
 
@@ -2427,10 +2428,10 @@ async function fetchRankPdb(rankNum) {
 // original prediction files, numeric PAE included. Used only when every rank's iLIS matches this page's table (within 0.002);
 // otherwise nothing changes and pDockQ/LIpDockQ are computed from the structures as before. A hash never reaches a server.
 const ATLAS_COLS = ['ipSAE', 'actifpTM', 'pDockQ', 'LIpDockQ', 'pDockQ2', 'LIpDockQ2'];
-let flyAtlas = null, flyRanksHead0 = null;
+let flyAtlas = null, flyRanksHead0 = null, flyAtlasOpen = null;   // flyAtlasOpen: the rank the Atlas row shows, opened first
 const ATLAS_URL0 = (new URLSearchParams(location.search).get('url') || '').trim();   // the pair the Atlas link was made for
 function readAtlasScores() {
-    flyAtlas = null;
+    flyAtlas = null; flyAtlasOpen = null;
     const m = /(?:^#|&)atlas=([^&]*)/.exec(location.hash); if (!m || !flyParsed || !flyParsed.rows) return;
     const cur = ((document.getElementById('url-input') || {}).value || '').trim(); if (!ATLAS_URL0 || (cur && cur !== ATLAS_URL0)) return;   // another pair opened since
     let d; try { d = JSON.parse(decodeURIComponent(m[1])); } catch (e) { return; }
@@ -2440,6 +2441,7 @@ function readAtlasScores() {
     for (const r of flyParsed.rows) { const a = by.get(parseInt(r['Rank'])), fi = parseFloat(r['iLIS']);
         if (!a || !Number.isFinite(a.iLIS) || !Number.isFinite(fi) || Math.abs(a.iLIS - fi) > 0.002) return; }
     flyAtlas = by;
+    const o = parseInt(d.o); if (by.has(o) && flyParsed.rows.some((r) => parseInt(r['Rank']) === o)) flyAtlasOpen = o;   // the Atlas link names the row's rank
 }
 function atlasHead() {
     const tr = document.getElementById('ranks-head'); if (!tr) return;

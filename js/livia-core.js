@@ -242,3 +242,23 @@ async function fetchStructureTextViaProxy(url) {
 
 // ── Amino acid 3-letter to 1-letter code mapping ──
 const AA3TO1 = {ALA:'A',ARG:'R',ASN:'N',ASP:'D',CYS:'C',GLN:'Q',GLU:'E',GLY:'G',HIS:'H',ILE:'I',LEU:'L',LYS:'K',MET:'M',PHE:'F',PRO:'P',SER:'S',THR:'T',TRP:'W',TYR:'Y',VAL:'V'};
+
+// ── Score-table columns with no value in any row ──
+// Hides each column of `table` whose cells are empty in every row (hidden rows included: negative pairs count), and names
+// them in one line after the table ("Not in this file: …"), so a file without those scores does not show blank columns.
+// A column with any value stays, its missing cells shown as they are. Downloads read the data, not the table: unaffected.
+function hideEmptyColumns(table) {
+    if (!table || !table.tHead || !table.tHead.rows[0]) return [];
+    const rows = [...table.tBodies].flatMap((b) => [...b.rows]), blank = (t) => /^[\s—–-]*$/.test(t);
+    const gone = [];
+    [...table.tHead.rows[0].cells].forEach((th, ci) => {
+        const empty = rows.length > 0 && rows.every((r) => !r.cells[ci] || blank(r.cells[ci].textContent));
+        th.style.display = empty ? 'none' : ''; rows.forEach((r) => { if (r.cells[ci]) r.cells[ci].style.display = empty ? 'none' : ''; });
+        if (empty) gone.push(th.textContent.trim());
+    });
+    const host = table.parentElement && table.parentElement.tagName === 'DIV' && table.parentElement.children.length === 1 ? table.parentElement : table;
+    let note = host.nextElementSibling && host.nextElementSibling.classList.contains('empty-cols-note') ? host.nextElementSibling : null;
+    if (!note && gone.length) { note = document.createElement('p'); note.className = 'empty-cols-note'; note.style.cssText = 'font-size:0.78rem; color:#666; margin:0.35rem 0 0;'; host.after(note); }
+    if (note) { note.textContent = gone.length ? `Not in this file: ${gone.join(', ')}.` : ''; note.hidden = !gone.length; }
+    return gone;
+}
