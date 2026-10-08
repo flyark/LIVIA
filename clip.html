@@ -506,11 +506,26 @@ function applyClipOpts(ilis, topn){
       const main = document.querySelector('[role="main"]'); main ? main.prepend(n) : document.body.prepend(n); }
     n.textContent = 'Loaded from ' + from + ': these data were sent by another page, not opened from your files.';
   };
+  // While the opener is still reading (the LIVIA Atlas reads the data first): a status line at the top of the page, fed by
+  // {type:'livia-status', text, error} from the opener only, so the tab is never a blank page with nothing happening.
+  const banner = (text, kind) => {
+    let n = document.getElementById('post-status');
+    if (!n) { n = document.createElement('div'); n.id = 'post-status'; n.setAttribute('role', 'status'); n.setAttribute('aria-live', 'polite');
+      const main = document.querySelector('[role="main"]'); main ? main.prepend(n) : document.body.prepend(n); }
+    if (!text) { n.remove(); return; }
+    const err = kind === 'error';
+    n.style.cssText = 'max-width:1100px; margin:0.6rem auto 0.8rem; padding:0.55rem 0.8rem; border-radius:8px; font-size:0.9rem; font-weight:600; '
+      + (err ? 'border:1px solid #e3b4ad; background:#fbefed; color:#8a2c1f;' : 'border:1px solid #c9dbe9; background:#eef5fb; color:#1f4e79;');
+    n.textContent = text;
+  };
+  if (window.opener) banner('Waiting for the data from the page that opened this tab…');   // opened by hand (no opener): nothing is coming, so no waiting line
   window.addEventListener('message', async (ev) => {
     const m = ev.data;
     if (!m || typeof m !== 'object') return;
     if (m.type === 'livia-ping') { ready(ev.source); return; }
+    if (m.type === 'livia-status') { if (ev.source && ev.source === window.opener && m.text) banner(String(m.text).slice(0, 400), m.error ? 'error' : ''); return; }
     if (m.type !== 'livia-load' || m.data == null) return;
+    banner('');
     showOrigin(ev);
     try {
       const blob = (m.data instanceof Blob) ? m.data : new Blob([m.data]);

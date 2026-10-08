@@ -211,6 +211,36 @@ async function handleBiogrid(reqUrl, allowOrigin, env, ctx) {
   return resp;
 }
 
+// AlphaFold Database collaboration archives, read by byte range (?afdbArchive=<folder>/<file>.tar&range=<start>-<end>).
+// The LIVIA Atlas opens single AFDB models from EBI's release tars by range. When https://ftp.ebi.ac.uk does not answer (it
+// stopped accepting HTTPS in October 2026 while plain HTTP kept serving the same files), the page cannot read http:// itself
+// (mixed content), so this route fetches the range over HTTP server-side and returns it over HTTPS. Narrow on purpose: three
+// archive folders, .tar files only, one range of at most 64 MB, nothing else on the host.
+const AFDB_ARCHIVE_BASE = 'http://ftp.ebi.ac.uk/pub/databases/alphafold/collaborations/nvda/';
+const AFDB_ARCHIVE_PATH = /^(heterodimers|homodimers|pandemic_prep)\/[A-Za-z0-9_.-]+\.tar$/;
+const AFDB_ARCHIVE_MAX = 64 * 1024 * 1024;
+async function handleAfdbArchive(reqUrl, allowOrigin) {
+  const text = (status, msg) => new Response(msg, { status, headers: { ...corsHeaders(allowOrigin), 'Content-Type': 'text/plain' } });
+  const path = reqUrl.searchParams.get('afdbArchive') || '', m = /^(\d+)-(\d+)$/.exec(reqUrl.searchParams.get('range') || '');
+  if (!AFDB_ARCHIVE_PATH.test(path) || path.includes('..')) return text(400, 'afdbArchive expects <heterodimers|homodimers|pandemic_prep>/<file>.tar');
+  if (!m) return text(400, 'range expects <start>-<end> (bytes, inclusive)');
+  const a = Number(m[1]), b = Number(m[2]);
+  if (!(b >= a) || b - a + 1 > AFDB_ARCHIVE_MAX) return text(400, 'range must be one span of at most 64 MB');
+  let upstream;
+  try {
+    upstream = await fetch(AFDB_ARCHIVE_BASE + path, {
+      headers: { Range: `bytes=${a}-${b}`, 'User-Agent': 'Mozilla/5.0 (compatible; LIVIA-proxy/1.0; +https://flyark.github.io/LIVIA)' },
+    });
+  } catch (e) { return text(502, 'EBI archive fetch failed: ' + (e && e.message || e)); }
+  if (upstream.status !== 206) return text(502, 'EBI archive answered ' + upstream.status + ' (expected 206 for a range)');
+  const headers = new Headers(corsHeaders(allowOrigin));
+  headers.set('Content-Type', 'application/octet-stream');
+  for (const k of ['Content-Range', 'Content-Length']) { const v = upstream.headers.get(k); if (v) headers.set(k, v); }
+  headers.set('Access-Control-Expose-Headers', 'Content-Range');
+  headers.set('Cache-Control', 'public, max-age=86400');
+  return new Response(upstream.body, { status: 206, headers });
+}
+
 function corsHeaders(allowOrigin) {
   return {
     'Access-Control-Allow-Origin': allowOrigin,
@@ -239,6 +269,9 @@ export default {
     // Fast FlyPredictome partner-list endpoint (server-side extract + cache; see handleFpSummary).
     const fpSummaryFbgn = reqUrl.searchParams.get('fpSummary');
     if (fpSummaryFbgn) return handleFpSummary(fpSummaryFbgn, allowOrigin, ctx);
+
+    // AFDB collaboration archives by byte range, over HTTP server-side (see handleAfdbArchive).
+    if (reqUrl.searchParams.get('afdbArchive')) return handleAfdbArchive(reqUrl, allowOrigin);
 
     // BioGRID pairwise-interaction check by NCBI Gene ID — key attached server-side only; see handleBiogrid.
     if (reqUrl.searchParams.get('biogrid')) return handleBiogrid(reqUrl, allowOrigin, env, ctx);
