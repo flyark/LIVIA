@@ -226,12 +226,19 @@ async function handleAfdbArchive(reqUrl, allowOrigin) {
   if (!m) return text(400, 'range expects <start>-<end> (bytes, inclusive)');
   const a = Number(m[1]), b = Number(m[2]);
   if (!(b >= a) || b - a + 1 > AFDB_ARCHIVE_MAX) return text(400, 'range must be one span of at most 64 MB');
+  // .tar is on Cloudflare's default cache list: a cacheable subrequest can be fetched whole for the cache and answered 200 without
+  // the range. So no caching here, and a 200 (whole file) is cancelled and asked again.
   let upstream;
-  try {
-    upstream = await fetch(AFDB_ARCHIVE_BASE + path, {
-      headers: { Range: `bytes=${a}-${b}`, 'User-Agent': 'Mozilla/5.0 (compatible; LIVIA-proxy/1.0; +https://flyark.github.io/LIVIA)' },
-    });
-  } catch (e) { return text(502, 'EBI archive fetch failed: ' + (e && e.message || e)); }
+  for (let t = 0; t < 3; t++) {
+    try {
+      upstream = await fetch(AFDB_ARCHIVE_BASE + path, {
+        headers: { Range: `bytes=${a}-${b}`, 'User-Agent': 'Mozilla/5.0 (compatible; LIVIA-proxy/1.0; +https://flyark.github.io/LIVIA)' },
+        cache: 'no-store',
+      });
+    } catch (e) { return text(502, 'EBI archive fetch failed: ' + (e && e.message || e)); }
+    if (upstream.status === 206) break;
+    try { upstream.body && upstream.body.cancel(); } catch (e) { /* nothing to cancel */ }
+  }
   if (upstream.status !== 206) return text(502, 'EBI archive answered ' + upstream.status + ' (expected 206 for a range)');
   const headers = new Headers(corsHeaders(allowOrigin));
   headers.set('Content-Type', 'application/octet-stream');
