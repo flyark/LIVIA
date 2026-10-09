@@ -692,10 +692,12 @@ function mountViewer3dColorBar() {
 .v3d-chip .preset-strip { width:34px; height:10px; }
 .v3d-more { background:none; border:0; padding:0.2rem 0.3rem; color:#2471A3; cursor:pointer; font:inherit; font-size:0.78rem; text-decoration:underline; }
 .v3d-note { color:#7A8899; font-size:0.78rem; }
-.v3d-num { width:3.4rem; padding:0.2rem 0.3rem; border:1px solid #DCE3EB; border-radius:5px; font:inherit; font-size:0.8rem; text-align:center; }
-.v3d-apply { border:1px solid #2C6E9F; background:#2C6E9F; color:#fff; border-radius:5px; padding:0.2rem 0.6rem; font-family:inherit; font-size:0.78rem; font-weight:600; cursor:pointer; }
-.v3d-cb { display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer; user-select:none; }
+.v3d-num, .v3d-apply { box-sizing:border-box; height:26px; margin:0; vertical-align:middle; border-radius:5px; font-family:inherit; font-size:0.8rem; line-height:1; }
+.v3d-num { width:3.4rem; padding:0 0.3rem; border:1px solid #DCE3EB; text-align:center; }
+.v3d-apply { display:inline-flex; align-items:center; border:1px solid #2C6E9F; background:#2C6E9F; color:#fff; padding:0 0.65rem; font-weight:600; cursor:pointer; }
+.v3d-bar label.v3d-cb { display:inline-flex; align-items:center; gap:0.3rem; margin:0; font-size:0.8rem; cursor:pointer; user-select:none; }
 .v3d-pipe { color:#ccc; }
+.v3d-sep { width:1px; align-self:stretch; background:#DCE3EB; margin:0 0.2rem; }
 .v3d-key { display:flex; flex-wrap:wrap; gap:0.25rem 0.9rem; align-items:center; margin-top:0.45rem; font-size:0.8rem; color:#444; }
 .v3d-key i { display:inline-block; width:11px; height:11px; border-radius:2px; margin-right:0.3rem; vertical-align:-1px; border:1px solid rgba(0,0,0,0.25); }
 .v3d-key .muted { color:#888; }
@@ -716,11 +718,43 @@ function mountViewer3dColorBar() {
         return 'interface'; };
     const MODES = [['interface', 'Interface'], ['plddt', 'pLDDT'], ['bychain', 'Chain'], ['bypolymer', 'Polymer'], ['domains', 'Domains']].filter(([m]) => m === 'interface' || m === 'domains' || modeChip(m));
     const gap = document.getElementById('gap-fill-input'), seg = document.getElementById('min-segment-input');
+    // Shade: Gradient (LIR light, cLIR dark) or Solid (one color per chain) for any palette, so the bar needs no separate solid chips.
+    // Two chains: Solid = each palette's cLIR color for both LIR and cLIR, read off the chip's strip (LIR A, cLIR A, cLIR B, LIR B);
+    // the Scripts card's solid chip with those colors lights up when there is one. 3+ chains: the card's own Gradient/Solid chips.
+    const mcRow = () => { const mc = document.getElementById('multichain-presets'); return mc && mc.style.display !== 'none' && mc.querySelector('.preset-chip') ? mc : null; };
+    const hexOf = (c) => { const m = String(c).match(/\d+/g); return m && /rgb/.test(c) ? '#' + m.slice(0, 3).map((x) => (+x).toString(16).padStart(2, '0')).join('') : String(c).toLowerCase(); };
+    const cols = (o) => [...o.querySelectorAll('.preset-strip span')].map((x) => hexOf(x.style.background));
+    const val = (id) => { const e = document.getElementById(id); return e ? String(e.value).toLowerCase() : ''; };
+    const pals = () => { const mc = mcRow(); return mc ? [...mc.querySelectorAll('.palette-chip')] : palRow ? [...palRow.querySelectorAll('.preset-chip')].slice(0, 6) : []; };
+    const isSolid = () => { const mc = mcRow(); if (mc) { const a = mc.querySelector('.mode-chip.active'); return !!a && /solid/i.test(a.textContent); }
+        return !!val('color-clir-a') && val('color-lir-a') === val('color-clir-a') && val('color-lir-b') === val('color-clir-b'); };
+    const sameDark = (o) => { const c = cols(o); return c.length === 4 && c[1] === val('color-clir-a') && c[2] === val('color-clir-b'); };
+    const setTwo = (la, ca, lb, cb) => {
+        const twin = [...document.querySelectorAll('.presets-row .preset-chip')].find((x) => { const c = cols(x); return c.length === 4 && c[0] === la && c[1] === ca && c[2] === cb && c[3] === lb; });
+        if (twin) { twin.click(); return; }
+        document.querySelectorAll('.preset-chip.active').forEach((x) => x.classList.remove('active'));
+        if (typeof applyPreset === 'function') applyPreset(la, ca, lb, cb, null);
+    };
+    const lighten = (h) => '#' + [1, 3, 5].map((i) => Math.round(parseInt(h.slice(i, i + 2), 16) * 0.45 + 255 * 0.55).toString(16).padStart(2, '0')).join('');
+    const pickPal = (o) => { viewer3dDomainMode = '';
+        if (mcRow() || !isSolid()) { o.click(); return; }
+        const c = cols(o); if (c.length === 4) setTwo(c[1], c[1], c[2], c[2]); else o.click(); };
+    const setShade = (solid) => { const mc = mcRow();
+        if (mc) { const o = [...mc.querySelectorAll('.mode-chip')].find((x) => /solid/i.test(x.textContent) === solid); if (o) o.click(); return; }
+        const ca = val('color-clir-a'), cb = val('color-clir-b'); if (!ca || !cb) return;
+        if (solid) { setTwo(ca, ca, cb, cb); return; }
+        const grad = [...document.querySelectorAll('.presets-row .preset-chip')].find((x) => { const c = cols(x); return c.length === 4 && c[0] !== c[1] && c[1] === ca && c[2] === cb; });
+        if (grad) grad.click(); else setTwo(lighten(ca), ca, lighten(cb), cb); };
     function render() {
         const cur = current(), P = visPal();
         let h = `<div class="v3d-row"><span class="v3d-lab">Color by</span><span class="v3d-seg" role="group" aria-label="Color by">${MODES.map(([m, l]) => `<button type="button" data-mode="${m}" class="${cur === m ? 'on' : ''}" aria-pressed="${cur === m}">${l}</button>`).join('')}</span></div>`;
-        if (cur === 'interface' && P) h += `<div class="v3d-row"><span class="v3d-lab">Palette</span>${[...P.querySelectorAll('.preset-chip')].slice(0, 6).map((o, i) => { const s = o.querySelector('.preset-strip'), t = (o.textContent || '').trim();
-            return `<button type="button" class="v3d-chip${o.classList.contains('active') ? ' active' : ''}" data-pal="${i}" title="${esc(t)}">${s ? s.outerHTML : ''}<span>${esc(t)}</span></button>`; }).join('')}<button type="button" class="v3d-more" data-more="1" title="every palette and the custom colors, in Visualization Scripts">more ↓</button></div>`;
+        if (cur === 'interface' && P) { const solid = isSolid(), multi = !!mcRow();
+            h += `<div class="v3d-row"><span class="v3d-lab">Palette</span><span class="v3d-seg" role="group" aria-label="Shade">${[[false, 'Gradient', 'LIR light, cLIR dark'], [true, 'Solid', 'one color per chain']].map(([v, l, t]) => `<button type="button" data-shade="${v ? 1 : 0}" class="${solid === v ? 'on' : ''}" aria-pressed="${solid === v}" title="${t}">${l}</button>`).join('')}</span><span class="v3d-sep" aria-hidden="true"></span>`
+              + pals().map((o, i) => { const s = o.querySelector('.preset-strip'), t = (o.textContent || '').trim(), c = cols(o);
+                const on = multi || !solid ? o.classList.contains('active') : sameDark(o);
+                const strip = !multi && solid && c.length === 4 ? `<div class="preset-strip"><span style="background:${c[1]}"></span><span style="background:${c[2]}"></span></div>` : s ? s.outerHTML : '';
+                return `<button type="button" class="v3d-chip${on ? ' active' : ''}" data-pal="${i}" title="${esc(t)}">${strip}<span>${esc(t)}</span></button>`; }).join('')
+              + `<button type="button" class="v3d-more" data-more="1" title="every palette and the custom colors, in Visualization Scripts">more ↓</button></div>`; }
         else if (cur === 'domains') h += `<div class="v3d-row"><span class="v3d-lab">Domains from</span><span class="v3d-seg" role="group" aria-label="Domains from">${['uniprot', 'ted'].map((m) => `<button type="button" data-dom="${m}" class="${viewer3dDomainMode === m ? 'on' : ''}" aria-pressed="${viewer3dDomainMode === m}">${m === 'ted' ? 'TED' : 'UniProt/Pfam'}</button>`).join('')}</span><span class="v3d-note">each domain its own color, the rest white · 3D view only</span></div>`;
         else if (cur === 'plddt') h += `<div class="v3d-row"><span class="v3d-lab">Scale</span><span class="v3d-note">AlphaFold confidence per residue: <b style="color:#0053D6">&gt;90</b> · <b style="color:#3BA6D9">70–90</b> · <b style="color:#C9A800">50–70</b> · <b style="color:#E8642E">≤50</b></span></div>`;
         else h += `<div class="v3d-row"><span class="v3d-lab">Colors</span><span class="v3d-note">one per ${cur === 'bychain' ? 'chain' : 'polymer'}</span></div>`;
@@ -740,7 +774,8 @@ function mountViewer3dColorBar() {
             else { const o = modeChip(m); if (o) o.click(); }
             render(); if (was && m !== 'interface' && !modeChip(m)) redraw(); });
         bar.querySelectorAll('[data-dom]').forEach((b) => b.onclick = () => { viewer3dDomainMode = b.dataset.dom; render(); redraw(); });
-        bar.querySelectorAll('[data-pal]').forEach((b) => b.onclick = () => { const o = [...P.querySelectorAll('.preset-chip')][+b.dataset.pal]; viewer3dDomainMode = ''; if (o) o.click(); render(); });
+        bar.querySelectorAll('[data-pal]').forEach((b) => b.onclick = () => { const o = pals()[+b.dataset.pal]; if (o) pickPal(o); render(); });
+        bar.querySelectorAll('[data-shade]').forEach((b) => b.onclick = () => { setShade(b.dataset.shade === '1'); render(); });
         const more = bar.querySelector('[data-more]'); if (more) more.onclick = () => { (P || modeRow).scrollIntoView({ block: 'center' }); };   // a jump, never a smooth scroll
         const ap = bar.querySelector('[data-apply]');
         if (ap) { const go = () => { const g = bar.querySelector('[data-proxy="gap"]'), s2 = bar.querySelector('[data-proxy="seg"]'); if (g && gap) gap.value = g.value; if (s2 && seg) seg.value = s2.value; if (typeof updateGapFill === 'function') updateGapFill(); };
