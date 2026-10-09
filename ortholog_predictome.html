@@ -515,7 +515,7 @@
 <script src="js/livia-core.js?v=20261008b"></script>
 <script src="js/livia-reported.js?v=20261004a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20261008a"></script>
+<script src="js/livia-viewer.js?v=20261009a"></script>
 <script src="js/livia-colors.js?v=20261008a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20261004a"></script>
@@ -3349,7 +3349,7 @@ function updateViewer3d(row, colors, pdbText) {
     if (!pdbText || !frame) { if (card) card.style.display = 'none'; return; }
 
     card.style.display = '';
-    const colorComponents = buildColorComponents(row, colors, pdbText);
+    const colorComponents = applyViewer3dDomains(buildColorComponents(row, colors, pdbText), pdbText, 'pdb', ['A', 'B'].map((c, k) => ({ chain: c, label: (row && row[`Symbol ${k + 1}`]) || c, uniprot: flyDomains[c], ted: flyTedDomains[c] })));   // domain coloring (the 3D color bar), else the page's colors
 
     // Fast path: same structure → only colors changed → postMessage (no iframe reload)
     if (frame.src && viewer3dStructText === pdbText) {

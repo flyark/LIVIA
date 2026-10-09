@@ -656,3 +656,136 @@ if (typeof window !== 'undefined' && !window.__livia_molstar_retry_listener) {
         parent.replaceChild(newFrame, frame);
     });
 }
+
+// ── 3D color bar: color and display controls beside the structure, plus a domain coloring for the 3D view ──
+// Row 1 picks what to color by (Interface, pLDDT, Chain, Polymer, Domains); row 2 shows only that choice's options (the
+// palettes, the domain source, the pLDDT scale); row 3 repeats the LIR display (fill gaps, min segment, complete structure,
+// gray non-LIR). Every control drives its twin in the Visualization Scripts card (a click there and here run the same handler),
+// so both places agree and the scripts follow. Domains color the 3D view only: each domain its own color (the community colors:
+// Tableau 10, then Tableau 20's pale pairs), every other residue white, with a key under the viewer.
+// Pages pass their components through applyViewer3dDomains(); the bar mounts itself on pages with the presets.
+let viewer3dDomainMode = '';   // '' | 'uniprot' | 'ted'
+const DOM3D_COLORS = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#bcbd22', '#17becf',
+    '#aec7e8', '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5', '#c49c94', '#f7b6d2', '#dbdb8d', '#9edae5'];
+const DOM3D_NAMES = { uniprot: 'UniProt/Pfam domains', ted: 'TED domains' };
+
+function mountViewer3dColorBar() {
+    const frame = document.getElementById('viewer3d-frame');
+    if (!frame || document.getElementById('viewer3d-colorbar')) return;
+    const rows = [...document.querySelectorAll('.presets-row')];
+    const palRow = rows.find(r => r.querySelector('[onclick^="applyPreset"]'));
+    const modeRow = rows.find(r => r.querySelector('[onclick^="applyCxcPreset"]'));
+    if (!palRow && !modeRow) return;
+    if (!document.getElementById('v3d-colorbar-css')) {
+        const st = document.createElement('style'); st.id = 'v3d-colorbar-css';
+        st.textContent = `.v3d-bar { display:flex; flex-direction:column; gap:0.4rem; margin:0 0 0.55rem; font-size:0.82rem; color:#555; }
+.v3d-row { display:flex; flex-wrap:wrap; align-items:center; gap:0.35rem 0.4rem; min-height:28px; }
+.v3d-lab { font-size:0.7rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:#7A8899; min-width:5.6rem; }
+.v3d-seg { display:inline-flex; flex-wrap:wrap; border:1px solid #DCE3EB; border-radius:7px; overflow:hidden; }
+.v3d-seg button { border:0; border-right:1px solid #DCE3EB; background:#fff; color:#4A596F; font-family:inherit; font-size:0.8rem; font-weight:600; padding:0.3rem 0.7rem; cursor:pointer; }
+.v3d-seg button:last-child { border-right:0; }
+.v3d-seg button.on { background:#1A5276; color:#fff; }
+.v3d-chip { display:inline-flex; align-items:center; gap:0.35rem; padding:0.24rem 0.5rem; border:1px solid #DCE3EB; border-radius:6px; background:#fff; cursor:pointer; font:inherit; font-size:0.78rem; color:#17263A; }
+.v3d-chip:hover, .v3d-seg button:not(.on):hover { border-color:#2471A3; color:#2471A3; }
+.v3d-chip.active { border-color:#1A5276; box-shadow:0 0 0 1px #1A5276; background:#EEF4FA; }
+.v3d-bar button:focus-visible, .v3d-bar input:focus-visible { outline:2px solid #2471A3; outline-offset:1px; }
+.v3d-chip .preset-strip { width:34px; height:10px; }
+.v3d-more { background:none; border:0; padding:0.2rem 0.3rem; color:#2471A3; cursor:pointer; font:inherit; font-size:0.78rem; text-decoration:underline; }
+.v3d-note { color:#7A8899; font-size:0.78rem; }
+.v3d-num { width:3.4rem; padding:0.2rem 0.3rem; border:1px solid #DCE3EB; border-radius:5px; font:inherit; font-size:0.8rem; text-align:center; }
+.v3d-apply { border:1px solid #2C6E9F; background:#2C6E9F; color:#fff; border-radius:5px; padding:0.2rem 0.6rem; font-family:inherit; font-size:0.78rem; font-weight:600; cursor:pointer; }
+.v3d-cb { display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer; user-select:none; }
+.v3d-pipe { color:#ccc; }
+.v3d-key { display:flex; flex-wrap:wrap; gap:0.25rem 0.9rem; align-items:center; margin-top:0.45rem; font-size:0.8rem; color:#444; }
+.v3d-key i { display:inline-block; width:11px; height:11px; border-radius:2px; margin-right:0.3rem; vertical-align:-1px; border:1px solid rgba(0,0,0,0.25); }
+.v3d-key .muted { color:#888; }
+@media (max-width:600px) { .v3d-lab { min-width:0; width:100%; } }`;
+        document.head.appendChild(st);
+    }
+    const bar = document.createElement('div'); bar.id = 'viewer3d-colorbar'; bar.className = 'v3d-bar';
+    frame.parentElement.insertBefore(bar, frame);
+    const key = document.createElement('div'); key.id = 'viewer3d-domkey'; key.className = 'v3d-key'; key.hidden = true;
+    frame.insertAdjacentElement('afterend', key);
+    const redraw = () => { if (typeof onColorChange === 'function') onColorChange(); };
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    // the palette row the page shows now (universal swaps in its multi-chain row for 3+ chains) and the mode chips by name
+    const visPal = () => { const mc = document.getElementById('multichain-presets'); return mc && mc.style.display !== 'none' && mc.querySelector('.preset-chip') ? mc : palRow; };
+    const modeChip = (m) => modeRow && modeRow.querySelector(`[onclick*="'${m}'"]`);
+    const current = () => { if (viewer3dDomainMode) return 'domains';
+        for (const m of ['plddt', 'bychain', 'bypolymer']) { const c = modeChip(m); if (c && c.classList.contains('active')) return m; }
+        return 'interface'; };
+    const MODES = [['interface', 'Interface'], ['plddt', 'pLDDT'], ['bychain', 'Chain'], ['bypolymer', 'Polymer'], ['domains', 'Domains']].filter(([m]) => m === 'interface' || m === 'domains' || modeChip(m));
+    const gap = document.getElementById('gap-fill-input'), seg = document.getElementById('min-segment-input');
+    function render() {
+        const cur = current(), P = visPal();
+        let h = `<div class="v3d-row"><span class="v3d-lab">Color by</span><span class="v3d-seg" role="group" aria-label="Color by">${MODES.map(([m, l]) => `<button type="button" data-mode="${m}" class="${cur === m ? 'on' : ''}" aria-pressed="${cur === m}">${l}</button>`).join('')}</span></div>`;
+        if (cur === 'interface' && P) h += `<div class="v3d-row"><span class="v3d-lab">Palette</span>${[...P.querySelectorAll('.preset-chip')].slice(0, 6).map((o, i) => { const s = o.querySelector('.preset-strip'), t = (o.textContent || '').trim();
+            return `<button type="button" class="v3d-chip${o.classList.contains('active') ? ' active' : ''}" data-pal="${i}" title="${esc(t)}">${s ? s.outerHTML : ''}<span>${esc(t)}</span></button>`; }).join('')}<button type="button" class="v3d-more" data-more="1" title="every palette and the custom colors, in Visualization Scripts">more ↓</button></div>`;
+        else if (cur === 'domains') h += `<div class="v3d-row"><span class="v3d-lab">Domains from</span><span class="v3d-seg" role="group" aria-label="Domains from">${['uniprot', 'ted'].map((m) => `<button type="button" data-dom="${m}" class="${viewer3dDomainMode === m ? 'on' : ''}" aria-pressed="${viewer3dDomainMode === m}">${m === 'ted' ? 'TED' : 'UniProt/Pfam'}</button>`).join('')}</span><span class="v3d-note">each domain its own color, the rest white · 3D view only</span></div>`;
+        else if (cur === 'plddt') h += `<div class="v3d-row"><span class="v3d-lab">Scale</span><span class="v3d-note">AlphaFold confidence per residue: <b style="color:#0053D6">&gt;90</b> · <b style="color:#3BA6D9">70–90</b> · <b style="color:#C9A800">50–70</b> · <b style="color:#E8642E">≤50</b></span></div>`;
+        else h += `<div class="v3d-row"><span class="v3d-lab">Colors</span><span class="v3d-note">one per ${cur === 'bychain' ? 'chain' : 'polymer'}</span></div>`;
+        if (gap || seg || document.querySelector('.show-complete-cb')) {
+            h += `<div class="v3d-row"><span class="v3d-lab">LIR display</span>`
+              + (gap ? `<label class="v3d-cb" title="bridge breaks of up to this many residues, for a continuous cartoon">Fill gaps ≤ <input type="number" class="v3d-num" data-proxy="gap" min="0" max="200" value="${esc(gap.value)}" aria-label="Fill gaps up to this many residues"></label>` : '')
+              + (seg ? `<span class="v3d-pipe">|</span><label class="v3d-cb" title="drop isolated LIR fragments shorter than this">Min segment ≥ <input type="number" class="v3d-num" data-proxy="seg" min="1" max="50" value="${esc(seg.value)}" aria-label="Minimum LIR segment length"></label>` : '')
+              + (gap || seg ? `<button type="button" class="v3d-apply" data-apply="1">Apply</button><span class="v3d-pipe">|</span>` : '')
+              + `<label class="v3d-cb" title="display all residues instead of LIR only"><input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"${typeof showComplete !== 'undefined' && showComplete ? ' checked' : ''}> Complete structure</label>`
+              + `<label class="v3d-cb" title="color non-interacting residues gray"><input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"${typeof grayNonLir !== 'undefined' && grayNonLir ? ' checked' : ''}> Gray non-LIR</label></div>`;
+        }
+        bar.innerHTML = h;
+        bar.querySelectorAll('[data-mode]').forEach((b) => b.onclick = () => { const m = b.dataset.mode, was = viewer3dDomainMode;
+            if (m === 'domains') { if (!viewer3dDomainMode) { viewer3dDomainMode = 'uniprot'; render(); redraw(); } return; }
+            viewer3dDomainMode = '';
+            if (m === 'interface') { const ps = P ? [...P.querySelectorAll('.preset-chip')] : []; const o = ps.find((x) => x.classList.contains('active')) || ps[0]; if (o) o.click(); else redraw(); }
+            else { const o = modeChip(m); if (o) o.click(); }
+            render(); if (was && m !== 'interface' && !modeChip(m)) redraw(); });
+        bar.querySelectorAll('[data-dom]').forEach((b) => b.onclick = () => { viewer3dDomainMode = b.dataset.dom; render(); redraw(); });
+        bar.querySelectorAll('[data-pal]').forEach((b) => b.onclick = () => { const o = [...P.querySelectorAll('.preset-chip')][+b.dataset.pal]; viewer3dDomainMode = ''; if (o) o.click(); render(); });
+        const more = bar.querySelector('[data-more]'); if (more) more.onclick = () => { (P || modeRow).scrollIntoView({ block: 'center' }); };   // a jump, never a smooth scroll
+        const ap = bar.querySelector('[data-apply]');
+        if (ap) { const go = () => { const g = bar.querySelector('[data-proxy="gap"]'), s2 = bar.querySelector('[data-proxy="seg"]'); if (g && gap) gap.value = g.value; if (s2 && seg) seg.value = s2.value; if (typeof updateGapFill === 'function') updateGapFill(); };
+            ap.onclick = go; bar.querySelectorAll('[data-proxy]').forEach((x) => x.onkeydown = (e) => { if (e.key === 'Enter') go(); }); }
+    }
+    render();
+    // the Scripts card's chips and boxes changed (a click there, a page reset): show the same state here
+    const watch = [...(palRow ? palRow.querySelectorAll('.preset-chip') : []), ...(modeRow ? modeRow.querySelectorAll('.preset-chip') : [])];
+    let pend = 0; const later = () => { if (!pend) pend = requestAnimationFrame(() => { pend = 0; if (!bar.contains(document.activeElement) || document.activeElement.type !== 'number') render(); }); };
+    for (const o of watch) new MutationObserver(later).observe(o, { attributes: true, attributeFilter: ['class'] });
+    const mc = document.getElementById('multichain-presets'); if (mc) new MutationObserver(later).observe(mc, { attributes: true, childList: true, subtree: true, attributeFilter: ['class', 'style'] });
+    for (const x of [gap, seg]) if (x) x.addEventListener('change', later);
+}
+
+// base: the page's color components; chains: [{ chain, label, uniprot: [...], ted: [...] }], domains as the contact maps use
+// them ({ name, start, end, segments? } in the chain's residue numbers). Chains hidden by the chain toggles stay hidden.
+function applyViewer3dDomains(base, structText, fmt, chains) {
+    const key = document.getElementById('viewer3d-domkey');
+    if (!viewer3dDomainMode || !structText) { if (key) key.hidden = true; return base; }
+    const res = parseBfactorsPerResidue(structText, fmt === 'mmcif' || fmt === 'cif' ? 'cif' : 'pdb'), per = new Map();
+    for (const k of res.keys()) { const i = k.lastIndexOf(':'), ch = k.slice(0, i), rn = +k.slice(i + 1); if (!per.has(ch)) per.set(ch, new Set()); per.get(ch).add(rn); }
+    let shown = [...new Set(base.filter(c => !c.isIon && !c.stick).map(c => c.chain))];
+    if (!shown.length) shown = (chains || []).map(c => c.chain);   // a page that drew nothing yet (a monomer without regions): every chain it names
+    const out = base.filter(c => c.isIon || c.stick), items = [];
+    const runs = (list) => { const r = []; for (const n of list) { const last = r[r.length - 1]; if (last && n === last.end + 1) last.end = n; else r.push({ start: n, end: n }); } return r; };
+    let n = 0;
+    for (const ch of shown) {
+        const spec = (chains || []).find(c => c.chain === ch) || { chain: ch, label: ch };
+        const doms = [...((viewer3dDomainMode === 'ted' ? spec.ted : spec.uniprot) || [])].filter(d => d && Number.isFinite(+d.start)).sort((a, b) => a.start - b.start);
+        const owner = new Map();
+        doms.forEach((d, di) => { const col = DOM3D_COLORS[(n + di) % DOM3D_COLORS.length];
+            items.push({ col, chain: spec.label || ch, name: d.cath && !String(d.name || '').includes(d.cath) ? `${d.name || 'TED'} (${d.cath})` : d.name, start: d.start, end: d.end });
+            for (const sg of (d.segments && d.segments.length ? d.segments : [{ start: d.start, end: d.end }])) for (let r = +sg.start; r <= +sg.end; r++) if (!owner.has(r)) owner.set(r, col); });
+        n += doms.length;
+        const resid = [...(per.get(ch) || [])].sort((a, b) => a - b), byCol = new Map();
+        for (const r of resid) { const c = owner.get(r) || '#FFFFFF'; if (!byCol.has(c)) byCol.set(c, []); byCol.get(c).push(r); }
+        for (const [c, list] of byCol) out.push({ chain: ch, ranges: runs(list), color: c });
+    }
+    if (key) {
+        key.hidden = false;
+        key.innerHTML = `<b>${DOM3D_NAMES[viewer3dDomainMode]}</b>` + (items.length ? items.map(d => `<span><i style="background:${d.col}"></i>${d.chain} · ${d.name} (${d.start}–${d.end})</span>`).join('')
+            : `<span class="muted">none for the chains shown</span>`) + `<span><i style="background:#fff"></i>not in a domain</span><span class="muted">3D view only; the scripts keep their colors</span>`;
+    }
+    return out;
+}
+if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountViewer3dColorBar); else mountViewer3dColorBar();
+}

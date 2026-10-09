@@ -473,7 +473,7 @@
 
 <script src="js/livia-core.js?v=20261008b"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20261008a"></script>
+<script src="js/livia-viewer.js?v=20261009a"></script>
 <script src="js/livia-colors.js?v=20261008a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20261004a"></script>
@@ -2804,6 +2804,7 @@ function updateViewer3d(validRegions) {
     } else if (validRegions && validRegions.length >= 2 && monPairResults && monPairResults.length > 0) {
         colorComponents = buildMonomerColorComponents(validRegions);
     }
+    colorComponents = applyViewer3dDomains(colorComponents, monPdbText, 'pdb', [{ chain: 'A', label: monUniprotId || 'A', uniprot: monDomains, ted: monTedDomains }]);   // domain coloring (the 3D color bar), else the page's colors
 
     // If no color components from interaction analysis, fall back based on showComplete
     if (colorComponents.length === 0) {
