@@ -3330,7 +3330,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
     { const _cc = document.getElementById('contact-count-text'); if (_cc) _cc.textContent = `${contacts.length} cLIR contact pairs (C\u03B2 \u2264 ${contactDist} \u00C5)`; }
 
     // Domain annotations
-    const domPalette = ['rgba(183,192,202,0.45)', 'rgba(148,159,172,0.45)'];
+    const domPalette = ['rgba(143,169,196,0.45)', 'rgba(117,147,179,0.45)'];
     const domBorderPalette = ['rgba(75,85,99,0.8)', 'rgba(75,85,99,0.8)'];
     if (hasDomains) {
         const domBlockH = 14, domGap = 2;
@@ -3368,7 +3368,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
 
     // Draw TED domain annotations
     if (hasTed) {
-        const TED_PALETTE = ['#6B7684', '#4E5866'];
+        const TED_PALETTE = ['#A898C8', '#8E7DB8'];
         const tedBlockH = 14, tedGap = 2;
 
         // Chain A TED domains — above UniProt domains (further above chain A bar)
@@ -3432,7 +3432,7 @@ function buildConnectionDiagram(row, sym1, sym2, colors, pdbText) {
         legendEl.innerHTML = '';
         legendEl.style.flexDirection = 'column';
         legendEl.style.gap = '0.3rem';
-        const TED_PALETTE_LEG = ['#6B7684', '#4E5866'];
+        const TED_PALETTE_LEG = ['#A898C8', '#8E7DB8'];
         const chainLabels = [
             { key: 'A', label: `${sym1} (${swap ? 'B' : 'A'})`, domains: _dmA, tedDomains: _tdA, info: _diA },
             { key: 'B', label: `${sym2} (${swap ? 'A' : 'B'})`, domains: _dmB, tedDomains: _tdB, info: _diB },
@@ -3506,8 +3506,8 @@ let flyShowChordRadial = false;   // Circular Contact Map: arc labels along the 
 let flyShowChordDom = true;   // Circular Contact Map: UniProt/Pfam domain ring (outside the arc)
 let flyShowChordTed = true;   // Circular Contact Map: TED domain ring
 let flyShowChordPlddt = true;   // Circular Contact Map: per-residue pLDDT ring (between the arc and the domain rings)
-const CHORD_DOM_FILL = ['#B7C0CA', '#949FAC'];   // UniProt/Pfam
-const CHORD_TED_FILL = ['#6B7684', '#4E5866'];   // TED
+const CHORD_DOM_FILL = ['#8FA9C4', '#7593B3'];   // UniProt/Pfam
+const CHORD_TED_FILL = ['#A898C8', '#8E7DB8'];   // TED
 let flyShowChordLabels = true;   // Circular Contact Map: show the gene name
 let flyShowChordLength = true;   // Circular Contact Map: show the residue-count number   // Circular Contact Map: include the chain-ID suffix "(A)" in arc labels (toggle in the header)
 const flyChordLabel = (sym, id) => { const g = flyShowChordLabels ? sym : ''; if (g && flyShowChordIDs) return `${g} (${id})`; if (g) return g; if (flyShowChordIDs) return id; return flyShowChordLabels ? id : ''; };

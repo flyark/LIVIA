@@ -1357,7 +1357,7 @@ function buildDimerContactMap() {
     { const _cc = document.getElementById('contact-count-text'); if (_cc) _cc.textContent = `${contacts.length} cLIR contact pairs (C\u03B2 \u2264 ${contactDist} \u00C5)`; }
 
     // Domain palettes (used for both canvas drawing and legend)
-    const domPalette = ['rgba(183,192,202,0.45)', 'rgba(148,159,172,0.45)'];
+    const domPalette = ['rgba(143,169,196,0.45)', 'rgba(117,147,179,0.45)'];
     const domBorderPalette = ['rgba(75,85,99,0.8)', 'rgba(75,85,99,0.8)'];
 
     // Draw UniProt domain annotations
@@ -1429,7 +1429,7 @@ function buildDimerContactMap() {
 
     // Draw TED domain annotations
     if (hasTed) {
-        const TED_PALETTE = ['#6B7684', '#4E5866'];
+        const TED_PALETTE = ['#A898C8', '#8E7DB8'];
         const TED_PALETTE_LIGHT = TED_PALETTE.map(c => c + '40'); // ~25% opacity hex
         const tedBlockH = 14, tedGap = 2;
         const tedOffsetA = domainRowH; // TED row sits above UniProt row (further from chain bar)
@@ -1508,7 +1508,7 @@ function buildDimerContactMap() {
         const geneB = genes[1] || genes[0] || v.cj; // homodimer: same gene
         const accA = accessions[0] || '';
         const accB = accessions[1] || accessions[0] || '';
-        const TED_PALETTE_LEG = ['#6B7684', '#4E5866'];
+        const TED_PALETTE_LEG = ['#A898C8', '#8E7DB8'];
         const chainLabels = [
             { label: `${swap ? geneB : geneA} (${ciTop})`, domains: _dmA, tedDomains: _tdA, acc: swap ? accB : accA },
             { label: `${swap ? geneA : geneB} (${cjBot})`, domains: _dmB, tedDomains: _tdB, acc: swap ? accA : accB },
@@ -1563,8 +1563,8 @@ let dimerShowChordLength = true;   // Circular Contact Map: show the residue-cou
 let dimerShowChordDom = true;   // Circular Contact Map: UniProt/Pfam domain ring (outside the arc)
 let dimerShowChordTed = true;   // Circular Contact Map: TED domain ring
 let dimerShowChordPlddt = true;   // Circular Contact Map: per-residue pLDDT ring (between the arc and the domain rings)
-const CHORD_DOM_FILL = ['#B7C0CA', '#949FAC'];   // UniProt/Pfam
-const CHORD_TED_FILL = ['#6B7684', '#4E5866'];   // TED
+const CHORD_DOM_FILL = ['#8FA9C4', '#7593B3'];   // UniProt/Pfam
+const CHORD_TED_FILL = ['#A898C8', '#8E7DB8'];   // TED
 // Combine gene name + chain ID per the "labels"/"chain IDs" toggles (mirrors universal's chordArcLabel).
 function dimerChordLabel(gene, id) {
     const g = dimerShowChordLabels ? gene : '';
@@ -3139,7 +3139,7 @@ function drawFullMapCanvas(canvas, pae, nTotal, chainSizes, chainNames, colorFn,
     // UniProt/Pfam domain track (as on universal): one lane on each axis that carries names. ci/cj take
     // chainDomains.A/B — the same pairing the gene labels and the linear/circular contact maps use.
     const domsOf = (k) => (k === 0 ? chainDomains.A : k === 1 ? chainDomains.B : null) || [];
-    const DOM_FILL_MAP = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3'];   // Set2, for the opt-in by-domain color mode (the contact maps draw domains in neutral grays)
+    const DOM_FILL_MAP = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3'];   // Set2, for the opt-in by-domain color mode (the contact maps draw domains in soft slate and lavender tints)
     const showDomTrack = uniShowMapDom && chainSizes.some((_, k) => domsOf(k).length);
     const domLaneH = Math.max(8, Math.min(14, chainFontBase * 0.8));   // pre-HIRES; loosely follows the label font
     const domGap = 3;

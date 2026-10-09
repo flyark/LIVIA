@@ -224,8 +224,12 @@ let NET_HL = null;                 // node id currently highlighted by the searc
 let EGO_ROOT = null, PHYS = false, DRAWN = '';   // neighbors-only view root; whether the force layout is running; the drawn node/edge set
 
 // ---------- helpers ----------
-// community colors: Tableau 10 without its gray (the Atlas uses the same nine), then golden-angle hues kept mid-tone (no pale fills)
-const COMM_TAB = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#bcbd22','#17becf'];
+// community colors, the Atlas's list: Tableau 10 without its gray (up to nine communities), then Tableau 20's pale pairs (up to 18),
+// Tableau 20b and 20c (grays dropped, up to 54), then golden-angle hues kept mid-tone. One list, so a community keeps its color whatever the count
+const COMM_TAB = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#bcbd22','#17becf',
+  '#aec7e8','#ffbb78','#98df8a','#ff9896','#c5b0d5','#c49c94','#f7b6d2','#dbdb8d','#9edae5',
+  '#393b79','#5254a3','#6b6ecf','#9c9ede','#637939','#8ca252','#b5cf6b','#cedb9c','#8c6d31','#bd9e39','#e7ba52','#e7cb94','#843c39','#ad494a','#d6616b','#e7969c','#7b4173','#a55194','#ce6dbd','#de9ed6',
+  '#3182bd','#6baed6','#9ecae1','#c6dbef','#e6550d','#fd8d3c','#fdae6b','#fdd0a2','#31a354','#74c476','#a1d99b','#c7e9c0','#756bb1','#9e9ac8','#bcbddc','#dadaeb'];
 function commColor(i){
   if (i >= 0 && i < COMM_TAB.length) return COMM_TAB[i];
   const h=(i*137.508)%360, s=(62+(i%2)*14)/100, l=(42+(i%3)*8)/100, a=s*Math.min(l,1-l);
