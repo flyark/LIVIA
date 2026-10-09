@@ -701,7 +701,7 @@ function mountViewer3dColorBar() {
 .v3d-key { display:flex; flex-wrap:wrap; gap:0.25rem 0.9rem; align-items:center; margin-top:0.45rem; font-size:0.8rem; color:#444; }
 .v3d-key i { display:inline-block; width:11px; height:11px; border-radius:2px; margin-right:0.3rem; vertical-align:-1px; border:1px solid rgba(0,0,0,0.25); }
 .v3d-key .muted { color:#888; }
-@media (max-width:600px) { .v3d-lab { min-width:0; width:100%; } }`;
+@media (max-width:600px) { .v3d-lab { min-width:0; width:100%; } .v3d-pipe, .v3d-sep { display:none; } }`;
         document.head.appendChild(st);
     }
     const bar = document.createElement('div'); bar.id = 'viewer3d-colorbar'; bar.className = 'v3d-bar';

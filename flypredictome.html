@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <title>LIVIA — FlyPredictome Analysis</title>
-    <link rel="stylesheet" href="css/livia.css?v=20261009b">
+    <link rel="stylesheet" href="css/livia.css?v=20261009c">
     <style>
         /* ── Page-specific styles for FlyPredictome ── */
         .step-link { color: #2471A3; text-decoration: none; }
@@ -362,22 +362,22 @@
             <div style="margin-bottom:1rem;">
 
                 <label>Local interaction residue (LIR) display</label>
-                <div style="display:flex; align-items:baseline; gap:0.6rem; margin-bottom:0.5rem; font-size:0.85rem; color:#555; flex-wrap:wrap;">
-                    <span>Fill gaps &le;</span>
+                <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem; font-size:0.85rem; color:#555; flex-wrap:wrap;">
+                    <span class="lir-field"><span>Fill gaps &le;</span>
                     <input type="number" id="gap-fill-input" value="10" min="0" max="200" style="width:55px; padding:0.3rem 0.4rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.85rem; text-align:center;">
-                    <span>residues</span>
-                    <span style="color:#ccc;">|</span>
-                    <span>Min segment &ge;</span>
+                    <span>residues</span></span>
+                    <span class="lir-pipe" style="color:#ccc;">|</span>
+                    <span class="lir-field"><span>Min segment &ge;</span>
                     <input type="number" id="min-segment-input" value="3" min="1" max="50" style="width:55px; padding:0.3rem 0.4rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.85rem; text-align:center;">
-                    <span>residues</span>
-                    <button class="btn btn-primary" style="font-size:0.82rem; padding:0.3rem 0.8rem;" onclick="updateGapFill()">Apply</button>
+                    <span>residues</span></span>
+                    <button class="btn btn-primary" style="font-size:0.82rem; padding:0 0.8rem; height:30px; margin:0;" onclick="updateGapFill()">Apply</button>
                 </div>
                 <div style="font-size:0.78rem; color:#707070; margin-bottom:0.5rem;">Gap filling bridges short breaks for continuous cartoon. Min segment removes isolated LIR fragments shorter than the threshold.</div>
-                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:0.3rem;">
-                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> Show complete structure <span style="font-size:0.78rem; color:#707070;">(display all residues instead of LIR only)</span>
+                <label class="lir-cb" style="display:flex; align-items:flex-start; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:0.3rem;">
+                    <input type="checkbox" class="show-complete-cb" onchange="toggleShowComplete(this)"> <span>Show complete structure <span style="font-size:0.78rem; color:#707070;">(display all residues instead of LIR only)</span></span>
                 </label>
-                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:1rem; padding-left:1.2rem;">
-                    <input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"> Gray non-LIR <span style="font-size:0.78rem; color:#707070;">(color non-interacting residues gray)</span>
+                <label class="lir-cb" style="display:flex; align-items:flex-start; gap:0.3rem; font-size:0.85rem; color:#555; cursor:pointer; user-select:none; margin-bottom:1rem; padding-left:1.2rem;">
+                    <input type="checkbox" class="gray-nonlir-cb" onchange="toggleGrayNonLir(this)"> <span>Gray non-LIR <span style="font-size:0.78rem; color:#707070;">(color non-interacting residues gray)</span></span>
                 </label>
 
                 <label>Color Scheme</label>
@@ -553,7 +553,7 @@
 <script src="js/livia-core.js?v=20261008b"></script>
 <script src="js/livia-reported.js?v=20261004a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20261009b"></script>
+<script src="js/livia-viewer.js?v=20261009c"></script>
 <script src="js/livia-colors.js?v=20261008a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20261004a"></script>

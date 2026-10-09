@@ -315,6 +315,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
 .preset-chip.active { border-color: #2471A3; box-shadow: 0 0 0 1px #2471A3; background: #eaf2f8; color: #1a5276; font-weight: 600; }
 .presets-row .preset-strip { width: 40px; height: 10px; }
 .card label:has(+ .presets-row) { font-size: 0.8rem; margin-bottom: 0.3rem; }
+/* LIR display in the Scripts card: a field (label, box, unit) never splits across lines */
+.lir-field { display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+.lir-cb input[type="checkbox"] { margin: 0.15rem 0 0; flex-shrink: 0; }
 
 /* ── Sequence viewer ── */
 /* Continuous reflowing sequence (LiviaMaps.seqFlow). The 10-residue gap is this
@@ -364,6 +367,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
     .color-section { gap: 0.8rem; }
     .color-group { min-width: 140px; }
     .preset-chip { font-size: 0.72rem; padding: 0.25rem 0.5rem; }
+    .lir-pipe { display: none; }
 }
 
 /* links inside running text are told apart by more than color (buttons and chips carry a class and keep their look) */
