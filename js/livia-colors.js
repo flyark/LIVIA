@@ -97,12 +97,15 @@ function initColorPickers() {
                     updateColorStrip();
                 }
             });
+            let fired = false;   // leaving the field fires change and then blur in one task: the page redraws once, not twice
             const commit = () => {
                 const norm = _normalizeHex(hexEl.value);
                 if (norm) {
                     hexEl.value = norm;
                     input.value = norm;
                     updateColorStrip();
+                    if (fired) return;
+                    fired = true; setTimeout(() => { fired = false; }, 0);
                     if (onColorChange) onColorChange();
                 } else {
                     // invalid input → revert to picker's current value

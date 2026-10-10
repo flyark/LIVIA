@@ -10,10 +10,20 @@
  */
 
 // ── Parse B-factors per residue (PDB or CIF, including HETATM for ions) ──
+// Memoized by text and format: a page re-reads the same structure on every redraw (per chain, per model), so the parse runs
+// once per structure and later calls get the same Map back. No caller writes to it. The cache holds the last few structures.
+const _BF_CACHE = new Map(), _BF_CACHE_MAX = 24;   // text -> { format -> Map }; keyed by the text itself, whose hash the engine keeps
 function parseBfactorsPerResidue(text, format) {
-    const m = new Map();
-    // Auto-detect format if not specified
     if (!format) format = text.includes('_atom_site.') ? 'cif' : 'pdb';
+    let by = _BF_CACHE.get(text);
+    if (by && by[format]) return by[format];
+    const m = _parseBfactorsPerResidue(text, format);
+    if (!by) { if (_BF_CACHE.size >= _BF_CACHE_MAX) _BF_CACHE.delete(_BF_CACHE.keys().next().value); by = {}; _BF_CACHE.set(text, by); }
+    by[format] = m;
+    return m;
+}
+function _parseBfactorsPerResidue(text, format) {
+    const m = new Map();
     if (format === 'pdb') {
         for (const line of text.split('\n')) {
             if (line.length < 66) continue;
@@ -31,26 +41,29 @@ function parseBfactorsPerResidue(text, format) {
         }
     } else {
         const lines = text.split('\n');
-        let inA = false; const cols = [];
+        let inA = false; const cols = []; let ix = null;
         for (const line of lines) {
-            if (line.startsWith('_atom_site.')) { inA = true; cols.push(line.trim().split('.')[1]); continue; }
-            if (inA && !line.startsWith('_atom_site.') && !line.startsWith('#') && line.trim()) {
-                if (line.startsWith('loop_') || line.startsWith('_')) { inA = false; continue; }
-                const p = line.trim().split(/\s+/);
-                if (p.length < cols.length) continue;
-                const g = (n) => { const i = cols.indexOf(n); return i >= 0 ? p[i] : ''; };
-                const group = g('group_PDB');
-                const atom = g('label_atom_id');
-                const ch = g('label_asym_id');
-                const bf = parseFloat(g('B_iso_or_equiv'));
-                if (isNaN(bf)) continue;
-                if (group === 'ATOM' && atom === 'CA') {
-                    const rn = parseInt(g('label_seq_id'));
-                    if (!isNaN(rn)) m.set(`${ch}:${rn}`, bf);
-                } else if (group === 'HETATM') {
-                    const rn = parseInt(g('label_seq_id'));
-                    m.set(`${ch}:${isNaN(rn) ? 1 : rn}`, bf);
-                }
+            if (line.startsWith('_atom_site.')) { inA = true; cols.push(line.trim().split('.')[1]); ix = null; continue; }
+            if (!inA || line.startsWith('#') || !line.trim()) continue;
+            if (line.startsWith('loop_') || line.startsWith('_')) { inA = false; continue; }
+            if (!ix) ix = { group: cols.indexOf('group_PDB'), atom: cols.indexOf('label_atom_id'), ch: cols.indexOf('label_asym_id'), bf: cols.indexOf('B_iso_or_equiv'), rn: cols.indexOf('label_seq_id') };
+            // only CA atoms and HETATM records are kept, so other atom lines skip the split
+            const het = line.trimStart().startsWith('HETATM');
+            if (!het && !/(^|\s)CA(\s|$)/.test(line)) continue;
+            const p = line.trim().split(/\s+/);
+            if (p.length < cols.length) continue;
+            const g = (i) => i >= 0 ? p[i] : '';
+            const group = g(ix.group);
+            const atom = g(ix.atom);
+            const ch = g(ix.ch);
+            const bf = parseFloat(g(ix.bf));
+            if (isNaN(bf)) continue;
+            if (group === 'ATOM' && atom === 'CA') {
+                const rn = parseInt(g(ix.rn));
+                if (!isNaN(rn)) m.set(`${ch}:${rn}`, bf);
+            } else if (group === 'HETATM') {
+                const rn = parseInt(g(ix.rn));
+                m.set(`${ch}:${isNaN(rn) ? 1 : rn}`, bf);
             }
         }
     }

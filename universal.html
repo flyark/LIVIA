@@ -685,8 +685,8 @@
 <script src="js/livia-core.js?v=20261008b"></script>
 <script src="js/livia-reported.js?v=20261004a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20261009c"></script>
-<script src="js/livia-colors.js?v=20261008a"></script>
+<script src="js/livia-viewer.js?v=20261010a"></script>
+<script src="js/livia-colors.js?v=20261010a"></script>
 <script src="js/livia-subnav.js?v=20261007a"></script>
 <script>
 // ── Callbacks for shared modules ──
@@ -704,7 +704,6 @@ document.addEventListener('DOMContentLoaded', () => attachChainColorUpload(docum
 let uniState = {
     platform: null,         // 'alphafold3', 'colabfold', 'boltz', 'chai', 'openfold', 'generic'
     loadedFiles: {},        // filename -> ArrayBuffer or string
-    loadedZip: null,        // JSZip instance if zip
     predictions: [],        // [{name, structureFile, structureText, pae, confidenceScores, format}]
     selectedIdx: 0,
     results: null,
@@ -997,7 +996,6 @@ async function handleInputFiles(fileList) {
     document.getElementById('btn-process').disabled = true;
     uniState.loadEpoch = (uniState.loadEpoch || 0) + 1;   // invalidate any in-flight identifyChains from the previous prediction (its async result must not clobber this load's labels)
     uniState.loadedFiles = {}; uniState._srcHintKey = null;   // a new load names its source afresh
-    uniState.loadedZip = null;
     uniState.predictions = [];
     uniState.platform = null;
     uniState.results = null;
@@ -1161,7 +1159,6 @@ async function selectJob(jobName) {
     document.getElementById('file-name').textContent = `${folderName}/${jobName}`;
 
     uniState.loadedFiles = {}; uniState._srcHintKey = null;   // a new load names its source afresh
-    uniState.loadedZip = null;
     uniState.results = null;
     uniState.modelData = [];
     uniState.modelPairs = [];
@@ -1202,7 +1199,6 @@ async function loadFilesIntoState(files, isFolder, folderName) {
         setStatus(`Reading ${zipFiles.length} zip file(s)...`, 'loading');
         for (const zipFile of zipFiles) {
             const zip = await JSZip.loadAsync(await zipFile.arrayBuffer());
-            if (!uniState.loadedZip) uniState.loadedZip = zip;
             for (const [path, entry] of Object.entries(zip.files)) {
                 if (entry.dir || path.startsWith('__MACOSX') || path.includes('/__MACOSX/')) continue;
                 const fname = path.split('/').pop();
@@ -2500,6 +2496,9 @@ function discoverGeneric(filenames) {
 // PAE EXTRACTION (platform-specific)
 // ============================================================================
 
+// Parsed JSON per PAE source, filled by extractPAE and read again for token_chain_ids, so the AF3 full_data file
+// (tens of MB on a large complex) is parsed once per run. Cleared when a run starts.
+const _paeJson = new Map();
 async function extractPAE(paeSource, platform) {
     if (!paeSource) return null;
     const content = uniState.loadedFiles[paeSource];
@@ -2560,6 +2559,7 @@ async function extractPAE(paeSource, platform) {
     if (typeof content !== 'string') return null;
     try {
         const json = JSON.parse(content);
+        _paeJson.set(paeSource, json);
 
         // AF3 full_data: {pae: [[...]]}
         if (json.pae && Array.isArray(json.pae) && Array.isArray(json.pae[0])) {
@@ -2820,8 +2820,16 @@ function parsePdbCoords(pdbText) {
     return [...residues.values()];
 }
 
+// Memoized by text and format: the linear maps and both chord diagrams parse the same structures on every redraw, and no
+// caller writes to the residue records. The cache holds the last few structures.
+const _COORDS_CACHE = new Map(), _COORDS_CACHE_MAX = 12;
 function parseStructureCoords(text, format) {
-    return format === 'pdb' ? parsePdbCoords(text) : parseCifCoords(text);
+    let by = _COORDS_CACHE.get(text);
+    if (by && by[format]) return by[format];
+    const r = format === 'pdb' ? parsePdbCoords(text) : parseCifCoords(text);
+    if (!by) { if (_COORDS_CACHE.size >= _COORDS_CACHE_MAX) _COORDS_CACHE.delete(_COORDS_CACHE.keys().next().value); by = {}; _COORDS_CACHE.set(text, by); }
+    by[format] = r;
+    return r;
 }
 
 // CA-only counterparts to parseStructureCoords, mirroring lis.py's parse_pdb_ca_coords /
@@ -3283,6 +3291,7 @@ function computeContactMap(coords, threshold) {
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function processFiles() {
+    _paeJson.clear();
     document.getElementById('btn-process').disabled = true;
     document.getElementById('results').classList.remove('active');
     document.getElementById('error-msg').classList.remove('active');
@@ -3396,10 +3405,11 @@ async function processFiles() {
             let chainIds = null;
             if (uniState.platform === 'alphafold3' && model.paeSource) {
                 try {
-                    const fd = JSON.parse(uniState.loadedFiles[model.paeSource]);
+                    const fd = _paeJson.get(model.paeSource) || JSON.parse(uniState.loadedFiles[model.paeSource]);
                     if (fd.token_chain_ids) chainIds = fd.token_chain_ids;
                 } catch(e) {}
             }
+            _paeJson.delete(model.paeSource);   // read twice, then released: a parsed file is tens of MB
 
             // Build chain boundaries
             let chainNames, sizes, nTotal, types;
@@ -7490,7 +7500,21 @@ const MOD_AA = new Set(['SEP','TPO','PTR','MSE','SEC','HYP','CSO','CSD','CME','C
 // group (phosphate) is element-highlighted (see buildColorComponents).
 const BACKBONE_ATOMS = new Set(['N', 'C', 'O', 'OXT']);
 
+// The sequence parsers are memoized by text: the sequence viewer, the chord and the per-residue charts read the same structure
+// on every redraw, and no caller writes to the result. The cache holds the last few structures.
+const _SEQ_CACHE = new Map(), _SEQ_CACHE_MAX = 12;
+function _memoSeq(text, format, parse) {
+    let by = _SEQ_CACHE.get(text);
+    if (by && by[format]) return by[format];
+    const r = parse(text);
+    if (!by) { if (_SEQ_CACHE.size >= _SEQ_CACHE_MAX) _SEQ_CACHE.delete(_SEQ_CACHE.keys().next().value); by = {}; _SEQ_CACHE.set(text, by); }
+    by[format] = r;
+    return r;
+}
 function parseCifSequence(cifText) {
+    return _memoSeq(cifText, 'cif', _parseCifSequence);
+}
+function _parseCifSequence(cifText) {
     const chains = new Map();
     const lines = cifText.split('\n');
     let inAtomSite = false;
@@ -7551,6 +7575,9 @@ function parseCifSequence(cifText) {
 }
 
 function parsePdbSequence(pdbText) {
+    return _memoSeq(pdbText, 'pdb', _parsePdbSequence);
+}
+function _parsePdbSequence(pdbText) {
     const chains = new Map();
     for (const line of pdbText.split('\n')) {
         const isAtom = line.startsWith('ATOM');
