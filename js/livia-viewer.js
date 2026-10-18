@@ -739,8 +739,16 @@ function mountViewer3dColorBar() {
     const cols = (o) => [...o.querySelectorAll('.preset-strip span')].map((x) => hexOf(x.style.background));
     const val = (id) => { const e = document.getElementById(id); return e ? String(e.value).toLowerCase() : ''; };
     const pals = () => { const mc = mcRow(); return mc ? [...mc.querySelectorAll('.palette-chip')] : palRow ? [...palRow.querySelectorAll('.preset-chip')].slice(0, 6) : []; };
-    const isSolid = () => { const mc = mcRow(); if (mc) { const a = mc.querySelector('.mode-chip.active'); return !!a && /solid/i.test(a.textContent); }
-        return !!val('color-clir-a') && val('color-lir-a') === val('color-clir-a') && val('color-lir-b') === val('color-clir-b'); };
+    // Four shades of a palette (2026-10-16, as the Atlas pair page): Gradient, Solid, Pale LIR (LIR = the cLIR color faded to 20%) and
+    // Contacts only (LIR white), so the contact residues stand out where LIR covers most of a chain. Two chains: read off the four color
+    // inputs; 3+ chains: the card's own shade chips (universal's multi-chain row, data-shade).
+    const fade = (h) => '#' + [1, 3, 5].map((i) => Math.round(255 - (255 - parseInt(h.slice(i, i + 2), 16)) * 0.2).toString(16).padStart(2, '0')).join('');
+    const SHADES = [['gradient', 'Gradient', 'LIR light, cLIR dark'], ['solid', 'Solid', 'one color per chain'], ['pale', 'Pale LIR', 'LIR faded close to white, cLIR in color'], ['clir', 'Contacts only', 'LIR white, only cLIR in color']];
+    const chipShade = (x) => x.dataset.shade || 'gradient';   // universal's shade chips carry their shade
+    const shadeNow = () => { const mc = mcRow(); if (mc) { const a = mc.querySelector('.mode-chip.active'); return a ? chipShade(a) : 'gradient'; }
+        const la = val('color-lir-a'), ca = val('color-clir-a'), lb = val('color-lir-b'), cb = val('color-clir-b'); if (!ca || !cb) return 'gradient';
+        if (la === ca && lb === cb) return 'solid'; if (la === '#ffffff' && lb === '#ffffff') return 'clir'; if (la === fade(ca) && lb === fade(cb)) return 'pale'; return 'gradient'; };
+    const shadeCols = (sh, ca, cb) => (sh === 'solid' ? [ca, ca, cb, cb] : sh === 'pale' ? [fade(ca), ca, fade(cb), cb] : sh === 'clir' ? ['#ffffff', ca, '#ffffff', cb] : null);   // LIR A, cLIR A, LIR B, cLIR B
     const sameDark = (o) => { const c = cols(o); return c.length === 4 && c[1] === val('color-clir-a') && c[2] === val('color-clir-b'); };
     const setTwo = (la, ca, lb, cb) => {
         const twin = [...document.querySelectorAll('.presets-row .preset-chip')].find((x) => { const c = cols(x); return c.length === 4 && c[0] === la && c[1] === ca && c[2] === cb && c[3] === lb; });
@@ -749,23 +757,38 @@ function mountViewer3dColorBar() {
         if (typeof applyPreset === 'function') applyPreset(la, ca, lb, cb, null);
     };
     const lighten = (h) => '#' + [1, 3, 5].map((i) => Math.round(parseInt(h.slice(i, i + 2), 16) * 0.45 + 255 * 0.55).toString(16).padStart(2, '0')).join('');
-    const pickPal = (o) => { viewer3dDomainMode = '';
-        if (mcRow() || !isSolid()) { o.click(); return; }
-        const c = cols(o); if (c.length === 4) setTwo(c[1], c[1], c[2], c[2]); else o.click(); };
-    const setShade = (solid) => { const mc = mcRow();
-        if (mc) { const o = [...mc.querySelectorAll('.mode-chip')].find((x) => /solid/i.test(x.textContent) === solid); if (o) o.click(); return; }
+    const pickPal = (o) => { viewer3dDomainMode = ''; const sh = shadeNow();
+        if (mcRow() || sh === 'gradient') { o.click(); return; }
+        const c = cols(o); if (c.length === 4) setTwo(...shadeCols(sh, c[1], c[2])); else o.click(); };
+    const setShade = (sh) => { const mc = mcRow();
+        if (mc) { const o = [...mc.querySelectorAll('.mode-chip')].find((x) => chipShade(x) === sh); if (o) o.click(); return; }
         const ca = val('color-clir-a'), cb = val('color-clir-b'); if (!ca || !cb) return;
-        if (solid) { setTwo(ca, ca, cb, cb); return; }
+        if (sh !== 'gradient') { setTwo(...shadeCols(sh, ca, cb)); return; }
         const grad = [...document.querySelectorAll('.presets-row .preset-chip')].find((x) => { const c = cols(x); return c.length === 4 && c[0] !== c[1] && c[1] === ca && c[2] === cb; });
         if (grad) grad.click(); else setTwo(lighten(ca), ca, lighten(cb), cb); };
+    if (palRow && !document.getElementById('presets-pale')) {   // the card carries the same shades: two preset rows under its solid presets, from its six gradient palettes
+        const solidLab = [...document.querySelectorAll('label')].find((l) => /Presets\s*\u2014\s*Solid/i.test(l.textContent)), solidRow = solidLab && solidLab.nextElementSibling;
+        if (solidRow && solidRow.classList.contains('presets-row')) {
+            const grads = [...palRow.querySelectorAll('.preset-chip')].slice(0, 6).map((o) => ({ c: cols(o), t: (o.textContent || '').trim() })).filter((x) => x.c.length === 4);
+            const span = (c) => `<span style="background:${c}${c === '#ffffff' ? ';box-shadow:inset 0 0 0 1px #C9D2DC' : ''}"></span>`;   // a white LIR outlined
+            let after = solidRow;
+            for (const [id, text, sh] of [['presets-pale', 'Presets \u2014 pale LIR (contacts stand out)', 'pale'], ['presets-contacts', 'Presets \u2014 contacts only (LIR white)', 'clir']]) {
+                const lab = solidLab.cloneNode(false), row = document.createElement('div'); lab.textContent = text; row.className = solidRow.className; row.id = id;
+                row.innerHTML = grads.map(({ c, t }) => { const [la, ca, lb, cb] = shadeCols(sh, c[1], c[2]);
+                    return `<div class="preset-chip" onclick="applyPreset('${la}','${ca}','${lb}','${cb}',this)"><div class="preset-strip">${span(la)}${span(ca)}${span(cb)}${span(lb)}</div>${esc(t)}</div>`; }).join('');
+                after.insertAdjacentElement('afterend', lab); lab.insertAdjacentElement('afterend', row); after = row;
+            }
+        }
+    }
     function render() {
         const cur = current(), P = visPal();
         let h = `<div class="v3d-row"><span class="v3d-lab">Color by</span><span class="v3d-seg" role="group" aria-label="Color by">${MODES.map(([m, l]) => `<button type="button" data-mode="${m}" class="${cur === m ? 'on' : ''}" aria-pressed="${cur === m}">${l}</button>`).join('')}</span></div>`;
-        if (cur === 'interface' && P) { const solid = isSolid(), multi = !!mcRow();
-            h += `<div class="v3d-row"><span class="v3d-lab">Palette</span><span class="v3d-seg" role="group" aria-label="Shade">${[[false, 'Gradient', 'LIR light, cLIR dark'], [true, 'Solid', 'one color per chain']].map(([v, l, t]) => `<button type="button" data-shade="${v ? 1 : 0}" class="${solid === v ? 'on' : ''}" aria-pressed="${solid === v}" title="${t}">${l}</button>`).join('')}</span><span class="v3d-sep" aria-hidden="true"></span>`
+        if (cur === 'interface' && P) { const sh = shadeNow(), multi = !!mcRow();
+            h += `<div class="v3d-row"><span class="v3d-lab">Palette</span><span class="v3d-seg" role="group" aria-label="Shade">${SHADES.map(([v, l, t]) => `<button type="button" data-shade="${v}" class="${sh === v ? 'on' : ''}" aria-pressed="${sh === v}" title="${t}">${l}</button>`).join('')}</span><span class="v3d-sep" aria-hidden="true"></span>`
               + pals().map((o, i) => { const s = o.querySelector('.preset-strip'), t = (o.textContent || '').trim(), c = cols(o);
-                const on = multi || !solid ? o.classList.contains('active') : sameDark(o);
-                const strip = !multi && solid && c.length === 4 ? `<div class="preset-strip"><span style="background:${c[1]}"></span><span style="background:${c[2]}"></span></div>` : s ? s.outerHTML : '';
+                const on = multi || sh === 'gradient' ? o.classList.contains('active') : sameDark(o);
+                const sc = !multi && sh !== 'gradient' && c.length === 4 ? shadeCols(sh, c[1], c[2]) : null, sp = (x) => `<span style="background:${x}${x === '#ffffff' ? ';box-shadow:inset 0 0 0 1px #C9D2DC' : ''}"></span>`;
+                const strip = sc ? `<div class="preset-strip">${(sh === 'solid' ? [sc[1], sc[3]] : [sc[0], sc[1], sc[3], sc[2]]).map(sp).join('')}</div>` : s ? s.outerHTML : '';
                 return `<button type="button" class="v3d-chip${on ? ' active' : ''}" data-pal="${i}" title="${esc(t)}">${strip}<span>${esc(t)}</span></button>`; }).join('')
               + `<button type="button" class="v3d-more" data-more="1" title="every palette and the custom colors, in Visualization Scripts">more ↓</button></div>`; }
         else if (cur === 'domains') h += `<div class="v3d-row"><span class="v3d-lab">Domains from</span><span class="v3d-seg" role="group" aria-label="Domains from">${['uniprot', 'ted'].map((m) => `<button type="button" data-dom="${m}" class="${viewer3dDomainMode === m ? 'on' : ''}" aria-pressed="${viewer3dDomainMode === m}">${m === 'ted' ? 'TED' : 'UniProt/Pfam'}</button>`).join('')}</span><span class="v3d-note">each domain its own color, the rest white · 3D view only</span></div>`;
@@ -788,7 +811,7 @@ function mountViewer3dColorBar() {
             render(); if (was && m !== 'interface' && !modeChip(m)) redraw(); });
         bar.querySelectorAll('[data-dom]').forEach((b) => b.onclick = () => { viewer3dDomainMode = b.dataset.dom; render(); redraw(); });
         bar.querySelectorAll('[data-pal]').forEach((b) => b.onclick = () => { const o = pals()[+b.dataset.pal]; if (o) pickPal(o); render(); });
-        bar.querySelectorAll('[data-shade]').forEach((b) => b.onclick = () => { setShade(b.dataset.shade === '1'); render(); });
+        bar.querySelectorAll('[data-shade]').forEach((b) => b.onclick = () => { setShade(b.dataset.shade); render(); });
         const more = bar.querySelector('[data-more]'); if (more) more.onclick = () => { (P || modeRow).scrollIntoView({ block: 'center' }); };   // a jump, never a smooth scroll
         const ap = bar.querySelector('[data-apply]');
         if (ap) { const go = () => { const g = bar.querySelector('[data-proxy="gap"]'), s2 = bar.querySelector('[data-proxy="seg"]'); if (g && gap) gap.value = g.value; if (s2 && seg) seg.value = s2.value; if (typeof updateGapFill === 'function') updateGapFill(); };
@@ -796,7 +819,7 @@ function mountViewer3dColorBar() {
     }
     render();
     // the Scripts card's chips and boxes changed (a click there, a page reset): show the same state here
-    const watch = [...(palRow ? palRow.querySelectorAll('.preset-chip') : []), ...(modeRow ? modeRow.querySelectorAll('.preset-chip') : [])];
+    const watch = [...(palRow ? palRow.querySelectorAll('.preset-chip') : []), ...(modeRow ? modeRow.querySelectorAll('.preset-chip') : []), ...document.querySelectorAll('#presets-pale .preset-chip, #presets-contacts .preset-chip')];
     let pend = 0; const later = () => { if (!pend) pend = requestAnimationFrame(() => { pend = 0; if (!bar.contains(document.activeElement) || document.activeElement.type !== 'number') render(); }); };
     for (const o of watch) new MutationObserver(later).observe(o, { attributes: true, attributeFilter: ['class'] });
     const mc = document.getElementById('multichain-presets'); if (mc) new MutationObserver(later).observe(mc, { attributes: true, childList: true, subtree: true, attributeFilter: ['class', 'style'] });
