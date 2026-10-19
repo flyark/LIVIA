@@ -248,6 +248,40 @@ async function handleAfdbArchive(reqUrl, allowOrigin) {
   return new Response(upstream.body, { status: 206, headers });
 }
 
+// The Human Predictome (Schmid et al. 2025, Walter lab), read by byte range (?predictome=data_split_NN.tar&range=<start>-<end>).
+// The lab's public S3 bucket answers ranges but sends no CORS headers, so a page cannot read it; the LIVIA Atlas asks here, one
+// pair's models and PAE files (about 0.5 MB) when someone opens the pair in LIVIA. The lab agreed (2026-10-19). Narrow on purpose:
+// one bucket, its 100 data_split tars, one range of at most 32 MB, nothing else.
+const PREDICTOME_BASE = 'https://predictomes-hsbps-dataset.s3.us-east-1.amazonaws.com/';
+const PREDICTOME_PATH = /^data_split_\d{2}\.tar$/;
+const PREDICTOME_MAX = 32 * 1024 * 1024;
+async function handlePredictome(reqUrl, allowOrigin) {
+  const text = (status, msg) => new Response(msg, { status, headers: { ...corsHeaders(allowOrigin), 'Content-Type': 'text/plain' } });
+  const path = reqUrl.searchParams.get('predictome') || '', m = /^(\d+)-(\d+)$/.exec(reqUrl.searchParams.get('range') || '');
+  if (!PREDICTOME_PATH.test(path)) return text(400, 'predictome expects data_split_NN.tar');
+  if (!m) return text(400, 'range expects <start>-<end> (bytes, inclusive)');
+  const a = Number(m[1]), b = Number(m[2]);
+  if (!(b >= a) || b - a + 1 > PREDICTOME_MAX) return text(400, 'range must be one span of at most 32 MB');
+  let upstream;
+  for (let t = 0; t < 3; t++) {   // no caching (a cacheable .tar subrequest can come back whole, 200); a 200 is cancelled and asked again
+    try {
+      upstream = await fetch(PREDICTOME_BASE + path, {
+        headers: { Range: `bytes=${a}-${b}`, 'User-Agent': 'Mozilla/5.0 (compatible; LIVIA-proxy/1.0; +https://flyark.github.io/LIVIA)' },
+        cache: 'no-store',
+      });
+    } catch (e) { return text(502, 'Predictome archive fetch failed: ' + (e && e.message || e)); }
+    if (upstream.status === 206) break;
+    try { upstream.body && upstream.body.cancel(); } catch (e) { /* nothing to cancel */ }
+  }
+  if (upstream.status !== 206) return text(502, 'Predictome archive answered ' + upstream.status + ' (expected 206 for a range)');
+  const headers = new Headers(corsHeaders(allowOrigin));
+  headers.set('Content-Type', 'application/octet-stream');
+  for (const k of ['Content-Range', 'Content-Length']) { const v = upstream.headers.get(k); if (v) headers.set(k, v); }
+  headers.set('Access-Control-Expose-Headers', 'Content-Range');
+  headers.set('Cache-Control', 'public, max-age=86400');
+  return new Response(upstream.body, { status: 206, headers });
+}
+
 function corsHeaders(allowOrigin) {
   return {
     'Access-Control-Allow-Origin': allowOrigin,
@@ -279,6 +313,7 @@ export default {
 
     // AFDB collaboration archives by byte range, over HTTP server-side (see handleAfdbArchive).
     if (reqUrl.searchParams.get('afdbArchive')) return handleAfdbArchive(reqUrl, allowOrigin);
+    if (reqUrl.searchParams.get('predictome')) return handlePredictome(reqUrl, allowOrigin);
 
     // BioGRID pairwise-interaction check by NCBI Gene ID — key attached server-side only; see handleBiogrid.
     if (reqUrl.searchParams.get('biogrid')) return handleBiogrid(reqUrl, allowOrigin, env, ctx);
