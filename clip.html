@@ -62,10 +62,18 @@
     #ptable { width:auto; min-width:640px; }          /* wide partner table overflows its wrapper (overflow:auto) → scrolls sideways */
     #ptable th, #ptable td { white-space:nowrap; }    /* keep numeric columns on one line instead of squishing */
   }
-#cluster-info a[data-p] { color: inherit; text-decoration: none; cursor: pointer; }
-#cluster-info a[data-p]:hover { color: #2471A3; }
-#cluster-info a.kb-p { font-weight: 700; }
-#cluster-info a.kb-g { text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 2.5px; }
+#cluster-info { display: grid; gap: 8px; font-size: 13.5px; line-height: 1.65; }
+#cluster-info .cl-row { display: grid; grid-template-columns: 14px 1fr; gap: 10px; padding: 8px 12px; border: 1px solid #E6ECF2; border-radius: 10px; background: #FBFCFD; }
+#cluster-info .cl-row > i { width: 13px; height: 13px; border-radius: 3px; margin-top: 5px; display: inline-block; }
+#cluster-info a[data-p] { color: #2471A3; text-decoration: underline; text-decoration-color: rgba(36, 113, 163, 0.35); text-underline-offset: 2px; cursor: pointer; }
+#cluster-info a[data-p]:hover { color: #1A5276; text-decoration-color: currentColor; }
+/* reported in BioGRID: LIVIA Atlas highlighter mark (physical light blue, genetic light orange, both light orchid) */
+#cluster-info a.kb-p, #cluster-info a.kb-g, .kb-mark { padding: 1px 5px; border-radius: 4px; text-decoration: none; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+#cluster-info a.kb-p, #cluster-info a.kb-g { padding: 0 3px; margin: 0 -1px; color: #1A5276; text-decoration: underline; text-decoration-color: rgba(26, 82, 118, 0.35); text-underline-offset: 2px; }
+.kb-mark { color: #33414E; font-weight: 500; }
+#cluster-info a.kb-p, .kb-mark.kb-p { background: #DCEBF7; }
+#cluster-info a.kb-g, .kb-mark.kb-g { background: #FCE3CF; }
+#cluster-info a.kb-p.kb-g, .kb-mark.kb-p.kb-g { background: #F2DCF5; }
 </style>
 </head>
 <body>
@@ -534,6 +542,7 @@ function applyClipOpts(ilis, topn){
       $('status').textContent = 'loading ' + (m.name || 'data') + '…';
       FILES.length = 0; FASTA_PARSE = null; FASTA_WARN = []; META = null; META_LABELCOL = null;
       LABEL_IDS = {}; LABEL_FRAG = {}; XLSX_IDS = {}; FORCE_ACC = ''; STRUCT_FILE = null; PARTNER_EXCLUDE = new Set();
+      if ($('mg-species')) $('mg-species').value = '';
       await routeFiles([new File([blob], fname, { type: blob.type || 'application/zip' })], 'csv');   // .zip → CSV+FASTA auto-sorted
       const sel = $('gene'); if (!sel || !sel.options.length){ $('status').textContent = 'no proteins found in the data'; return; }
       const o = pickHandoffQuery(sel, m.gene);
@@ -554,6 +563,7 @@ async function loadExample(file, gene) {
     // start clean so a second example doesn't stack on the first
     FILES.length = 0; FASTA_PARSE = null; FASTA_WARN = []; META = null; META_LABELCOL = null;
     LABEL_IDS = {}; LABEL_FRAG = {}; XLSX_IDS = {}; FORCE_ACC = ''; STRUCT_FILE = null; PARTNER_EXCLUDE = new Set();
+    if ($('mg-species')) $('mg-species').value = '';
     // a data-file may be a bundled name (examples/…) or a full hosted URL (FlyPredictome-clip-data)
     const src = /^https?:\/\//.test(file) ? file : 'examples/' + file;
     const blob = await (await fetch(src)).blob();
@@ -595,7 +605,8 @@ document.querySelectorAll('.load-ex').forEach(a => a.onclick = (e) => { e.preven
 })();
 { const _ml = $('meta-label'); if (_ml) _ml.onchange = () => { META_LABELCOL = _ml.value; applyMetadata(); $('status').textContent = 'display labels updated — pick a query and generate'; }; }
 { const _sk = $('skel-link'); if (_sk) _sk.onclick = (e) => { e.preventDefault(); downloadSkeleton(); }; }
-{ const _mc = $('mg-convert'); if (_mc) _mc.onclick = (e) => { e.preventDefault(); autoConvertClip(); }; }
+{ const _mc = $('mg-convert'); if (_mc) _mc.onclick = (e) => { e.preventDefault(); autoConvertClip(); };
+  const _ms = $('mg-species'); if (_ms) _ms.onchange = () => { if (LAST && !window.__CLIP_DATA__) loadReported(LAST); }; }
 { const _ug = $('uniprot-go'), _uf = $('uniprot-force');
   const applyForce = () => {
     const v = (_uf.value || '').trim().toUpperCase();
@@ -809,8 +820,11 @@ function maybeAutoConvertClip(){   // auto-run name→symbol conversion when loa
   const syms=new Set(); for (const f of FILES) for (const r of f.rows){ if(r.Symbol_1) syms.add(r.Symbol_1); if(r.Symbol_2) syms.add(r.Symbol_2); }
   const ids=[...syms], idLike=ids.filter(n=>/^FB(pp|gn|tr)\d+$/i.test(n)||/_(HUMAN|MOUSE|RAT|YEAST|DROME|CAEEL|DANRE|ARATH|SCHPO|BOVIN|CHICK|XENLA|PIG|HORSE|RABIT)(_\d+_\d+)?$/i.test(n)||/^[A-NR-Z][0-9][A-Z0-9]{3}[0-9]/.test(n)||/^\d+$/.test(n)).length;
   if (ids.length && idLike/ids.length >= 0.3){
-    const sp=$('mg-species');   // FlyBase IDs pin the organism; without it 'Pura' also matches E. coli purA
-    if (sp && !sp.value && ids.some(n=>/^FB(gn|pp|tr)\d+/i.test(n))) sp.value='7227';
+    const sp=$('mg-species');   // FlyBase IDs and UniProt mnemonic suffixes pin the organism
+    if (sp && !sp.value){
+      const INF = [['7227', n=>/^FB(gn|pp|tr)\d+/i.test(n)||/_DROME(_\d+_\d+)?$/i.test(n)], ['9606', n=>/_HUMAN(_\d+_\d+)?$/i.test(n)], ['10090', n=>/_MOUSE(_\d+_\d+)?$/i.test(n)], ['10116', n=>/_RAT(_\d+_\d+)?$/i.test(n)], ['6239', n=>/^WBGene\d+/i.test(n)||/_CAEEL(_\d+_\d+)?$/i.test(n)], ['7955', n=>/_DANRE(_\d+_\d+)?$/i.test(n)], ['559292', n=>/_YEAST(_\d+_\d+)?$/i.test(n)], ['3702', n=>/_ARATH(_\d+_\d+)?$/i.test(n)], ['83333', n=>/_ECOLI(_\d+_\d+)?$/i.test(n)]];
+      for (const [tx, fn] of INF){ if (ids.some(fn)){ sp.value = tx; break; } }
+    }
     return autoConvertClip();
   }
 }
@@ -1218,20 +1232,28 @@ function renderHeatmap(A){
 }
 
 // ── Reported in BioGRID: partners with an interaction reported with the query, marked as in the LIVIA Atlas cluster
-// list (physical bold, genetic underlined). Asked through LIVIA's proxy Worker (only NCBI Gene IDs and a taxon leave the
-// page; the BioGRID key stays server-side), 40 genes per request, so the query and 39 partners at a time. The answer is
-// kept on the analysis (A.bg), so an exported report shows it offline.
+// list (physical light blue, genetic light orange, both light orchid). Asked through LIVIA's proxy Worker (only NCBI Gene IDs
+// and a taxon leave the page; the BioGRID key stays server-side), 40 genes per request, so the query and 39 partners at a time.
+// The answer is kept on the analysis (A.bg), so an exported report shows it offline.
 const BG_PROXY = ((window.LIVIA_CONFIG && window.LIVIA_CONFIG.proxy) || 'https://livia-proxy.flyark.workers.dev') + '/?biogrid=1';
 const BG_TAXA = ['9606', '7227', '10090', '10116', '6239', '7955', '559292', '3702'];
-async function mgGeneIds(syms, tax){   // symbol -> { id, tax } from mygene.info (one taxon, or the model organisms)
-  const out = new Map();
-  for (let i = 0; i < syms.length; i += 900){
-    const body = new URLSearchParams(); body.set('q', syms.slice(i, i + 900).join(',')); body.set('scopes', 'symbol,alias');
+async function mgGeneIds(syms, tax){   // symbol -> { id, tax, byTax: Map(tax -> id) } from mygene.info (one taxon, or the model organisms)
+  const out = new Map(), baseOf = (s) => String(s).replace(/_\d+_\d+$/, '');
+  const bases = [...new Set(syms.map(baseOf))];
+  for (let i = 0; i < bases.length; i += 900){
+    const body = new URLSearchParams(); body.set('q', bases.slice(i, i + 900).join(',')); body.set('scopes', 'symbol,alias');
     body.set('fields', 'entrezgene,taxid'); body.set('species', tax || BG_TAXA.join(','));
     const r = await fetch('https://mygene.info/v3/query', { method: 'POST', body }); if (!r.ok) throw new Error('mygene ' + r.status);
-    for (const h of await r.json()) if (h && !h.notfound && h.entrezgene && !out.has(h.query)) out.set(h.query, { id: String(h.entrezgene), tax: String(h.taxid) });
+    for (const h of await r.json()){
+      if (!h || h.notfound || !h.entrezgene) continue;
+      const id = String(h.entrezgene), tx = String(h.taxid);
+      if (!out.has(h.query)) out.set(h.query, { id, tax: tx, byTax: new Map([[tx, id]]) });
+      else if (!out.get(h.query).byTax.has(tx)) out.get(h.query).byTax.set(tx, id);
+    }
   }
-  return out;
+  const res = new Map();
+  for (const s of syms){ const hit = out.get(baseOf(s)); if (hit) res.set(s, hit); }
+  return res;
 }
 async function loadReported(A){
   const q = A.gene, partners = [...new Set(A.pipe.rows.map(r => r.Symbol_2))].filter(p => p && p !== q);
@@ -1241,14 +1263,16 @@ async function loadReported(A){
   A.bg = { key, status: 'checking', map: {} }; renderClusterInfo(A);
   try {
     const ids = await mgGeneIds([q].concat(partners), tax), qi = ids.get(q);
-    if (!qi){ A.bg = { key, status: 'nogene', map: {} }; return renderClusterInfo(A); }
+    const qId = qi && (tax ? qi.byTax.get(tax) : qi.id);
+    if (!qi || !qId){ A.bg = { key, status: 'nogene', map: {} }; return renderClusterInfo(A); }
     tax = tax || qi.tax;
-    const byId = new Map(); for (const p of partners){ const g = ids.get(p); if (g && g.tax === tax && g.id !== qi.id) byId.set(g.id, p); }
+    const byId = new Map();
+    for (const p of partners){ const g = ids.get(p), pid = g && g.byTax.get(tax); if (pid && pid !== qId) byId.set(pid, p); }
     const pids = [...byId.keys()], map = {};
     for (let i = 0; i < pids.length; i += 39){
-      const r = await fetch(BG_PROXY + '&ids=' + encodeURIComponent([qi.id].concat(pids.slice(i, i + 39)).join(',')) + '&taxId=' + tax);
+      const r = await fetch(BG_PROXY + '&ids=' + encodeURIComponent([qId].concat(pids.slice(i, i + 39)).join(',')) + '&taxId=' + tax);
       const d = await r.json(); if (!r.ok || d.error) throw new Error(d.error || ('proxy ' + r.status));
-      for (const [k, v] of Object.entries(d.pairs || {})){ const [a, b] = k.split('|'), other = a === qi.id ? b : b === qi.id ? a : null;
+      for (const [k, v] of Object.entries(d.pairs || {})){ const [a, b] = k.split('|'), other = a === qId ? b : b === qId ? a : null;
         if (other && byId.has(other)) map[byId.get(other)] = { ph: v.physical || 0, ge: v.genetic || 0 }; }
     }
     A.bg = { key, status: 'ok', map, n: pids.length, tax };
@@ -1257,27 +1281,33 @@ async function loadReported(A){
 }
 
 function renderClusterInfo(A){
-  const { pipe, cl, order } = A, k = cl.optimalK;
+  const { pipe, cl } = A, k = cl.optimalK;
   const members = {};
   for (let i = 0; i < pipe.rows.length; i++){ const c = cl.labels[i]; (members[c] = members[c] || []).push(pipe.rows[i].Symbol_2); }
-  const seen = new Set(), ordered = [];              // cluster order = first appearance in dendrogram leaf order
+  const ordered = [];
   for (let c = 1; c <= k; c++) ordered.push(c);   // largest cluster first (labels are size-ranked)
   const bg = A.bg || { map: {} }, rep = (p) => bg.map[p];
-  const tip = (p, kb) => kb ? `${p}: reported in BioGRID with ${A.gene} (${[kb.ph ? `physical, ${kb.ph} record${kb.ph === 1 ? '' : 's'}` : '', kb.ge ? `genetic, ${kb.ge} record${kb.ge === 1 ? '' : 's'}` : ''].filter(Boolean).join('; ')}) · click: its residues` : `${p} · click: its residues`;
+  const isRep = (p) => { const kb = rep(p); return !!(kb && (kb.ph || kb.ge)); };
+  const anyRep = bg.status === 'ok' && Object.values(bg.map).some(x => x && (x.ph || x.ge));
+  const tip = (p, kb) => kb && (kb.ph || kb.ge) ? `${p}: reported in BioGRID with ${A.gene} (${[kb.ph ? `physical, ${kb.ph} record${kb.ph === 1 ? '' : 's'}` : '', kb.ge ? `genetic, ${kb.ge} record${kb.ge === 1 ? '' : 's'}` : ''].filter(Boolean).join('; ')}) · click: its residues` : `${p} · click: its residues`;
   const name = (p) => { const kb = rep(p); return `<a href="#" data-p="${_esc(p)}" class="${kb && kb.ph ? 'kb-p' : ''}${kb && kb.ge ? ' kb-g' : ''}" title="${_esc(tip(p, kb))}">${_esc(p)}</a>`; };
   let html = '';
   for (const c of ordered){
-    const all = members[c]; const mem = [...new Set(all)].sort((a, b) => String(a).toLowerCase().localeCompare(String(b).toLowerCase()));
-    html += `<div style="display:flex; align-items:flex-start; gap:.5rem; margin-bottom:.4rem">`
-      + `<span style="background:${clusterColor(c,k)}; width:13px; height:13px; border-radius:3px; flex-shrink:0; margin-top:3px"></span>`
-      + `<span><b>${_esc(clusterLabel(c))}</b> (${mem.length} / ${all.length}): ${mem.map(name).join(', ')}</span></div>`;
+    const all = members[c] || []; const mem = [...new Set(all)].sort((a, b) => String(a).toLowerCase().localeCompare(String(b).toLowerCase()));
+    const nRep = mem.filter(isRep).length;
+    html += `<div class="cl-row"><i style="background:${clusterColor(c,k)}"></i>`
+      + `<div><b>${_esc(clusterLabel(c))}</b> <span class="muted">(${mem.length} partner${mem.length === 1 ? '' : 's'}, ${all.length} prediction${all.length === 1 ? '' : 's'})${anyRep ? ` &middot; <span title="partners in this cluster with a physical or genetic interaction reported in BioGRID with ${_esc(A.gene)}">${nRep} of ${mem.length} reported</span>` : ''}</span>: ${mem.map(name).join(', ')}</div></div>`;
   }
-  const nP = Object.values(bg.map).filter(x => x.ph).length, nG = Object.values(bg.map).filter(x => x.ge).length;
-  html += `<div class="muted" style="font-size:.8rem; margin-top:.35rem">Click a partner to show its interaction residues below. `
-    + (bg.status === 'ok' ? `Reported in BioGRID with ${_esc(A.gene)}: <b>bold</b> = physical (${nP}), <u>underlined</u> = genetic (${nG}), of ${bg.n} partners with an NCBI Gene ID; reported, not validated.`
-      : bg.status === 'checking' ? 'Checking BioGRID for interactions reported with ' + _esc(A.gene) + '…'
-      : bg.status === 'nogene' ? 'BioGRID not checked: no NCBI Gene ID found for ' + _esc(A.gene) + ' (set the species above).'
-      : bg.status === 'error' ? 'BioGRID could not be reached (' + _esc(bg.msg || '') + ').' : '') + `</div>`;
+  const vals = Object.values(bg.map);
+  const nP = vals.filter(x => x.ph && !x.ge).length, nG = vals.filter(x => x.ge && !x.ph).length, nB = vals.filter(x => x.ph && x.ge).length;
+  html += `<div class="muted" style="font-size:.8rem; margin-top:.2rem">Click a partner to show its interaction residues below. `
+    + (bg.status === 'ok'
+        ? (anyRep
+            ? `Literature evidence: <span class="kb-mark kb-p">physical</span> ${nP} &nbsp;<span class="kb-mark kb-g">genetic</span> ${nG} &nbsp;<span class="kb-mark kb-p kb-g">both</span> ${nB} (reported in BioGRID with ${_esc(A.gene)}, of ${bg.n} partners with an NCBI Gene ID; reported, not validated).`
+            : `Literature evidence: none of these ${bg.n} partners is reported in BioGRID with ${_esc(A.gene)}.`)
+        : bg.status === 'checking' ? 'Checking BioGRID for interactions reported with ' + _esc(A.gene) + '…'
+        : bg.status === 'nogene' ? 'BioGRID not checked: no NCBI Gene ID found for ' + _esc(A.gene) + ' (set the species above).'
+        : bg.status === 'error' ? 'BioGRID could not be reached (' + _esc(bg.msg || '') + ').' : '') + `</div>`;
   $('cluster-info').innerHTML = html;
   $('cluster-info').querySelectorAll('a[data-p]').forEach(a => a.onclick = (e) => {   // the same hand-off as a fingerprint row
     e.preventDefault(); const sel = $('pair-partner'), p = a.dataset.p;
