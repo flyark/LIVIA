@@ -100,7 +100,7 @@ See [AFM-LIS](https://github.com/flyark/AFM-LIS) for full documentation and outp
 - **[FlyPredictome](https://www.flyrnai.org/tools/fly_predictome)** — Large-scale *Drosophila* PPI predictions (>1.5 million)
 - **[AlphaFold Protein Structure Database](https://alphafold.ebi.ac.uk)** — Predicted protein structures
 
-## LIVIA Atlas (beta, under development)
+## LIVIA Atlas
 
 [LIVIA Atlas](https://flyark.github.io/livia-atlas/) is a searchable atlas of AlphaFold-Multimer protein–protein interaction predictions, scored with LIVIA and resolved to residues. It draws on many published interactome datasets across species: for a protein, the partners predicted to bind it, how confident each prediction is, where each partner binds, and its orthologs side by side. Details, including the datasets and their sources, are on the [LIVIA Atlas site](https://flyark.github.io/livia-atlas/).
 
