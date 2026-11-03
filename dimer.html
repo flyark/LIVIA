@@ -224,7 +224,7 @@
             <div style="display:grid; grid-template-columns:max-content repeat(4, max-content max-content); gap:0.45rem 0.4rem; align-items:baseline; font-size:0.8rem; color:#555; margin-bottom:0.7rem;">
                 <span style="font-weight:600; color:#6B6B6B;">Names</span>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Axis labels: resolved gene name or chain ID (A/B). Custom labels below override either.">show</span>
-                <select id="map-label-mode" onchange="uniMapDetailedLabels=(this.value==='gene'); renderCustomLabelInputs(); redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="gene">gene name</option><option value="chain">chain ID</option></select>
+                <select id="map-label-mode" onchange="setMapLabelMode(this.value)" style="font-size:0.8rem; padding:1px 2px;"><option value="gene">gene name</option><option value="chain">chain ID</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Which edges carry the chain/gene name — for many-chain complexes, drop one axis to avoid overlap">on</span>
                 <select id="map-label-axis" onchange="uniLabelAxis=this.value; redrawMapLabels();" style="font-size:0.8rem; padding:1px 2px;"><option value="both">top + left</option><option value="y">left only</option><option value="x">top only</option><option value="none">none</option></select>
                 <span style="justify-self:start; margin-left:0.6rem;" title="Direction of the left-edge (row) names — horizontal, or rotated vertical to save width">left</span>
@@ -2895,6 +2895,38 @@ function parseCustomLabelText(text) {
     });
     return map;
 }
+// Custom labels rename the chain EVERYWHERE the name appears — refresh every figure that shows it.
+function refreshChainLabels() {
+    redrawMapLabels();                                                    // PAE/LIS/cLIS maps
+    if (typeof buildDimerContactMap === 'function') buildDimerContactMap();   // linear contact map bar labels
+    if (typeof buildChordDiagram === 'function') buildChordDiagram();         // circular contact map arc labels
+    if (typeof buildComparisonCharts === 'function') buildComparisonCharts(); // per-residue comparison chart headers
+    if (typeof buildDimerSequenceViewer === 'function') buildDimerSequenceViewer();   // sequence viewer chain header
+}
+// Default: every Label Settings control back to its value in the page's markup, custom names cleared.
+function resetLabelSettings() {
+    const card = document.getElementById('map-label-mode').closest('.card') || document.getElementById('custom-labels-cell').parentElement;
+    card.querySelectorAll('select, input').forEach(el => {
+        if (el.closest('#custom-labels-cell')) return;
+        if (el.tagName === 'SELECT') {
+            const o = [...el.options].find(x => x.defaultSelected) || el.options[0];
+            if (o && el.value !== o.value) { el.value = o.value; el.dispatchEvent(new Event('change')); }
+        } else if (el.type === 'checkbox') {
+            if (el.checked !== el.defaultChecked) { el.checked = el.defaultChecked; el.dispatchEvent(new Event('change')); }
+        } else if (el.value !== el.defaultValue) { el.value = el.defaultValue; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change')); }
+    });
+    uniCustomLabels = {};
+    renderCustomLabelInputs();
+    refreshChainLabels();
+}
+// The "show" dropdown: the chosen mode is what every chip shows, so it clears the custom names (they were
+// written against the other mode and would otherwise keep winning, e.g. a gene name left on a chain-ID map).
+function setMapLabelMode(v) {
+    uniMapDetailedLabels = (v === 'gene');
+    uniCustomLabels = {};
+    renderCustomLabelInputs();
+    refreshChainLabels();
+}
 // Custom-label editor (always available): a paste-able "chain,label" override textarea and an example
 // hint. Empty by default — only chains listed here are overridden; the rest use the "show" mode.
 function renderCustomLabelInputs() {
@@ -2921,17 +2953,20 @@ function renderCustomLabelInputs() {
         const parsed = parseCustomLabelText(ta.value), ov = {};
         for (const n in parsed) { if (parsed[n] && parsed[n] !== baseMapName(n)) ov[n] = parsed[n]; }
         uniCustomLabels = ov;
-        // Custom labels rename the chain EVERYWHERE the name appears — refresh every figure that shows it.
-        redrawMapLabels();                                                    // PAE/LIS/cLIS maps
-        if (typeof buildDimerContactMap === 'function') buildDimerContactMap();   // linear contact map bar labels
-        if (typeof buildChordDiagram === 'function') buildChordDiagram();         // circular contact map arc labels
-        if (typeof buildComparisonCharts === 'function') buildComparisonCharts(); // per-residue comparison chart headers
-        if (typeof buildDimerSequenceViewer === 'function') buildDimerSequenceViewer();   // sequence viewer chain header
+        refreshChainLabels();
     };
     ta.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') applyBtn.click(); });   // ⌘/Ctrl-Enter applies
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button'; resetBtn.textContent = 'Default';
+    resetBtn.title = 'every label setting back to its default, custom names cleared';
+    resetBtn.style.cssText = 'font-size:0.78rem; padding:2px 12px; cursor:pointer; border:1px solid #2471A3; background:#fff; color:#2471A3; border-radius:5px;';
+    resetBtn.onclick = resetLabelSettings;
+    const btns = document.createElement('div');
+    btns.style.cssText = 'display:flex; gap:0.5rem; align-self:flex-start;';
+    btns.appendChild(applyBtn); btns.appendChild(resetBtn);
     cell.appendChild(hint);
     cell.appendChild(ta);
-    cell.appendChild(applyBtn);
+    cell.appendChild(btns);
 }
 let uniLabelBlack = false;   // Maps: draw chain labels in black instead of the chain color
 let uniLabelAxis = 'both';   // Maps: which axis carries the chain/gene NAME — 'both' | 'y' | 'x'
