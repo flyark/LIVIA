@@ -19,8 +19,25 @@
   .dz:hover,.dz.drag{ border-color:var(--accent); background:#eef5fb; color:var(--accent); }
   .dz b{ color:var(--accent); }
   .hint a{ color:var(--accent); }   /* match clip.html tone — was inheriting the vivid browser-default link blue */
-  .zones3{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; align-items:start; }
-  .zones3 #loaded{ grid-column:1/-1; }
+  .zones3{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; align-items:start; margin-top:10px; }
+  .convrow{ margin-top:10px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+  .convrow select{ font-size:12px; padding:2px 5px; border:1px solid var(--line); border-radius:5px; }
+  .optfiles{ margin-top:12px; border-top:1px solid var(--line); padding-top:10px; }
+  .optfiles > summary, details.pop > summary{ cursor:pointer; font-weight:600; font-size:.88rem; color:var(--accent); }
+  .optfiles .opt{ font-weight:400; font-size:.78rem; color:#5E6C6C; margin-left:4px; }
+  .loadrow{ margin-top:12px; display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; }
+  #incard:not(.collapsed) #chgfiles{ display:none; }
+  #incard.collapsed .incoll{ display:none; }
+  #incard.collapsed .loadrow{ margin-top:0; }
+  #chgfiles{ color:var(--accent); font-weight:600; font-size:13px; }
+  details.pop{ position:relative; }
+  details.pop > summary{ list-style:none; background:#eef3f8; border-radius:7px; padding:8px 14px; font-size:14px; }
+  details.pop > summary::-webkit-details-marker{ display:none; }
+  details.pop .panel{ position:absolute; z-index:20; top:calc(100% + 6px); left:0; background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 6px 18px rgba(20,40,60,.14); padding:12px 14px; display:flex; flex-direction:column; gap:10px; min-width:220px; max-width:calc(100vw - 32px); }
+  details.pop .panel.menu{ gap:4px; }
+  details.pop .panel.menu button{ text-align:left; white-space:nowrap; }
+  #display .ctrlbar{ margin-bottom:.6rem; }
+  #display{ margin-bottom:.6rem; }
   .zonehdr{ font-weight:600; font-size:.85rem; color:#556; margin-bottom:6px; }
   .zonehdr .opt{ font-weight:400; font-size:.76rem; color:#5E6C6C; }
   .ctrlbar{ background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.08); padding:.8rem 1.2rem; margin-bottom:1rem; display:flex; flex-wrap:wrap; align-items:center; gap:16px; }
@@ -64,15 +81,14 @@
   .hint code{ background:#f0f0f0; padding:.1rem .3rem; border-radius:4px; }
   .hidden{ display:none!important; }
   @media(max-width:1000px){ .main{ grid-template-columns:1fr; } #modules{ max-height:none; } }
-  @media(max-width:1100px){ .zones3{ grid-template-columns:1fr 1fr; } }
-  @media(max-width:560px){ .zones3{ grid-template-columns:1fr; } }
+  @media(max-width:760px){ .zones3{ grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
 <div class="header">
   <div class="container" role="main">
-    <h1><span style="color:#2471A3;">LIVIA</span> &mdash; PPI Network Builder <sup style="color:#B35A12; font-weight:700; font-size:.42em; letter-spacing:.02em;">beta</sup></h1>
-    <p>Build an interaction network from lis.py output &mdash; Leiden communities run in your browser (Pyodide + python-igraph)</p>
+    <h1><span style="color:#2471A3;">LIVIA</span> &mdash; PPI Network Builder</h1>
+    <p>Build an interaction network from lis.py output</p>
     <div class="header-links">
       <a href="index.html">Home</a>
       <a href="universal.html">Prediction Analysis</a>
@@ -91,97 +107,109 @@
 </div>
 
 <div class="container">
-  <div class="card">
+  <div class="card" id="incard">
+    <div class="incoll">
       <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.8rem;">
     Need the input? Generate it with <code style="background:#d6e9f8; color:#33414E; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis.py</code> from <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a>.
       </div>
-    <div class="zones3">
-      <div class="zonecol">
-        <div class="zonehdr">① lis.py CSV output <b style="color:#c0392b">*</b></div>
-        <div class="dz" id="dz">
+      <div class="dz" id="dz">
           <div style="font-size:14.5px"><b>Drop CSV files</b> (or click)</div>
-          <div class="hint" style="margin-top:3px">iLIS read directly · CSV, .zip, .xlsx (+ FASTA for the cLIP hand-off) · all-by-all → rich network</div>
+          <div class="hint" style="margin-top:3px">CSV, .zip or .xlsx (+ FASTA for the cLIP hand-off)</div>
           <input id="in" type="file" accept=".csv,.zip,.xlsx,.fasta,.fa,.faa,.fas,.fna,.mfa,.pep,.seq" multiple class="hidden">
         </div>
-        <div class="hint" style="margin-top:6px">▶ <a id="load-ex" href="#" style="font-weight:600">Try example</a> — fly small interactome · 565 proteins in the file; those with no pair past the cutoff are left out of the network (from <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:var(--accent)">Kim et al. 2026</a>)</div>
-      </div>
-      <div class="zonecol">
-        <div class="zonehdr">② Identity map <span class="opt">optional</span></div>
-        <div class="dz" id="dzmeta">
+      <div class="hint" style="margin-top:6px">▶ <a id="load-ex" href="#" style="font-weight:600">Try example</a> — fly small interactome · 565 proteins in the file; those with no pair past the cutoff are left out of the network (from <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:var(--accent)">Kim et al. 2026</a>)</div>
+      <div class="hint convrow"><label><input type="checkbox" id="mg-auto" checked> Convert IDs to gene symbols on load</label> <select id="mg-species" aria-label="Species for name conversion"><option value="">all species</option><option value="7227">fly</option><option value="9606">human</option><option value="10090">mouse</option><option value="10116">rat</option><option value="6239">worm</option><option value="7955">zebrafish</option><option value="559292">yeast</option><option value="3702">arabidopsis</option><option value="83333">E. coli</option></select> · <a id="mg-convert" href="#">convert now</a> · <a href="https://github.com/flyark/LIVIA/issues" target="_blank">names not resolving?</a></div>
+      <details class="optfiles" id="optfiles">
+        <summary>Optional files <span class="opt">identity map · node subset · cluster map · saved settings</span></summary>
+        <div class="zones3">
+          <div class="zonecol">
+            <div class="zonehdr">Identity map</div>
+            <div class="dz" id="dzmeta">
           <div style="font-size:14.5px"><b>Relabel nodes</b> to your names</div>
           <div class="hint" style="margin-top:3px"><code>name,chain,&lt;id cols&gt;</code> · e.g. uniprot, gene</div>
           <input id="inmeta" type="file" accept=".csv" multiple class="hidden">
         </div>
-        <div id="tmpl-wrap" class="hint hidden" style="margin-top:6px"><a id="tmpl" href="#" style="font-weight:600">↓ template</a> pre-filled with your predictions — fill in the IDs, drop it here.</div>
-        <div class="hint" style="margin-top:6px"><b>Names showing as IDs</b> (UniProt accession, FlyBase, Entrez) instead of gene symbols? <a id="mg-convert" href="#" style="display:inline-block; padding:3px 10px; background:#2471A3; color:#fff; border-radius:5px; font-weight:600; text-decoration:none">✨ Auto-convert names → gene symbols</a> — via mygene.info + UniProt. <select id="mg-species" aria-label="Species for name conversion" style="font-size:11.5px; padding:2px 5px; border:1px solid var(--line); border-radius:5px"><option value="">all species</option><option value="7227">fly</option><option value="9606">human</option><option value="10090">mouse</option><option value="10116">rat</option><option value="6239">worm</option><option value="7955">zebrafish</option><option value="559292">yeast</option><option value="3702">arabidopsis</option><option value="83333">E. coli</option></select> <label style="margin-left:4px"><input type="checkbox" id="mg-auto" checked> on load</label></div>
-        <div style="background:#eaf2f8; border:1px solid #b8d4e8; border-left:4px solid #2471A3; border-radius:6px; padding:.5rem .7rem; margin-top:8px; font-size:12.5px; color:#1f4e6b; line-height:1.45;">
-          <strong>Names not resolving to gene symbols?</strong> Fill in the <strong>identity-map template</strong> above, or use auto-convert and pick the right species — FBpp / FBgn, UniProt accessions and Entrez IDs all resolve. Still stuck? <a href="https://github.com/flyark/LIVIA/issues" target="_blank" style="color:#2471A3; font-weight:600;">Open an issue on GitHub</a>.
-        </div>
-      </div>
-      <div class="zonecol">
-        <div class="zonehdr">③ Node subset <span class="opt">optional</span></div>
-        <div class="dz" id="dzsub">
+            <div id="tmpl-wrap" class="hint hidden" style="margin-top:6px"><a id="tmpl" href="#" style="font-weight:600">↓ template</a> pre-filled with your predictions — fill in the IDs, drop it here.</div>
+          </div>
+          <div class="zonecol">
+            <div class="zonehdr">Node subset</div>
+            <div class="dz" id="dzsub">
           <div style="font-size:14.5px"><b>Rebuild with only these</b></div>
           <div class="hint" style="margin-top:3px">one <code>node</code> per row · re-runs Leiden</div>
           <input id="insub" type="file" accept=".csv,.txt,.tsv" multiple class="hidden">
         </div>
-        <div class="hint" style="margin-top:6px"><a id="subtmpl" href="#" style="font-weight:600">↓ current nodes</a> template · <a id="subclear" href="#" class="hidden" style="color:#c0392b; font-weight:600">✕ clear</a></div>
-      </div>
-      <div class="zonecol">
-        <div class="zonehdr">④ Cluster map <span class="opt">optional</span></div>
-        <div class="dz" id="dzclust">
+            <div class="hint" style="margin-top:6px"><a id="subtmpl" href="#" style="font-weight:600">↓ current nodes</a> template · <a id="subclear" href="#" class="hidden" style="color:#c0392b; font-weight:600">✕ clear</a></div>
+          </div>
+          <div class="zonecol">
+            <div class="zonehdr">Cluster map</div>
+            <div class="dz" id="dzclust">
           <div style="font-size:14.5px"><b>Use your own clusters</b></div>
           <div class="hint" style="margin-top:3px"><code>node,cluster</code> per row · overrides Leiden · unlisted nodes dropped</div>
           <input id="inclust" type="file" accept=".csv,.txt,.tsv" multiple class="hidden">
         </div>
-        <div class="hint" style="margin-top:6px"><a id="clusttmpl" href="#" style="font-weight:600">↓ current nodes</a> template · <a id="clustclear" href="#" class="hidden" style="color:#c0392b; font-weight:600">✕ clear</a></div>
-      </div>
-    <div id="loaded" class="hint" style="margin-top:12px">No files loaded.</div>
+            <div class="hint" style="margin-top:6px"><a id="clusttmpl" href="#" style="font-weight:600">↓ current nodes</a> template · <a id="clustclear" href="#" class="hidden" style="color:#c0392b; font-weight:600">✕ clear</a></div>
+          </div>
+        </div>
+        <div class="hint" style="margin-top:8px"><a id="impset-btn" href="#" style="font-weight:600">↑ Load saved settings</a> (a settings JSON from Download)</div>
+        <input id="impset" type="file" accept=".json" class="hidden">
+      </details>
+    </div>
+    <div class="loadrow"><span id="loaded" class="hint">No files loaded.</span> <a id="chgfiles" href="#">Change files</a></div>
   </div>
 
-  <div class="ctrlbar">
+  <div class="ctrlbar" id="buildbar">
     <span><label class="lb">iLIS &ge;</label> <input id="cut" aria-label="iLIS cutoff" type="range" min="0" max="0.9" step="0.001" value="0.223"> <input id="cutv" aria-label="iLIS cutoff value" type="number" min="0" max="1" step="0.001" value="0.223" style="width:78px"></span>
-    <span><label class="lb">resolution</label> <input id="res" aria-label="Leiden resolution" type="range" min="0.1" max="5" step="0.05" value="1.0"> <input id="resv" aria-label="Leiden resolution value" type="number" min="0" max="50" step="0.05" value="1.0" style="width:62px"></span>
-    <span><label class="lb">objective</label> <select id="objfn" aria-label="Leiden objective" title="modularity: standard (resolution ~0.5–3). CPM: resolution-limit-free — finds small communities; use a lower resolution near the iLIS scale (~0.2–0.5)."><option value="modularity">modularity</option><option value="CPM">CPM</option></select></span>
     <span id="clustmode-wrap" class="hidden"><label class="lb">clustering</label> <select id="clustmode" title="user-defined: color + group by your uploaded cluster map (Leiden not run). Leiden: ignore the map and detect communities."><option value="user">user-defined</option><option value="leiden">Leiden (auto)</option></select></span>
-    <span><label class="lb" title="seeds both Leiden and the layout: the same data, settings and seed give the same picture">seed</label> <input id="seed" aria-label="Leiden seed" type="number" min="1" step="1" value="1" style="width:56px"></span>
     <span id="labelby-wrap" class="hidden"><label class="lb">Label by</label> <select id="labelby"></select></span>
+    <details class="pop" id="clustopts">
+      <summary>Clustering</summary>
+      <div class="panel">
+        <span><label class="lb">resolution</label> <input id="res" aria-label="Leiden resolution" type="range" min="0.1" max="5" step="0.05" value="1.0"> <input id="resv" aria-label="Leiden resolution value" type="number" min="0" max="50" step="0.05" value="1.0" style="width:62px"></span>
+        <span><label class="lb">objective</label> <select id="objfn" aria-label="Leiden objective" title="modularity: standard (resolution ~0.5–3). CPM: resolution-limit-free — finds small communities; use a lower resolution near the iLIS scale (~0.2–0.5)."><option value="modularity">modularity</option><option value="CPM">CPM</option></select></span>
+        <span><label class="lb" title="seeds both Leiden and the layout: the same data, settings and seed give the same picture">seed</label> <input id="seed" aria-label="Leiden seed" type="number" min="1" step="1" value="1" style="width:56px"></span>
+      </div>
+    </details>
     <button id="build" disabled>Build network</button>
-    <button id="expsvg" class="ghost hidden" title="download the region currently visible (respects zoom)">↓ SVG (view)</button>
-    <button id="expsvgall" class="ghost hidden" title="download the whole network">↓ SVG (all)</button>
-    <button id="expcsv" class="ghost hidden">↓ CSVs</button>
-    <button id="expcyto" class="ghost hidden" title="GraphML — open in Cytoscape (File → Import → Network)">↓ Cytoscape</button>
-    <button id="expset" class="ghost" title="download current settings as JSON (reproducibility)">↓ settings</button>
-    <button id="impset-btn" class="ghost" title="load a settings JSON">↑ settings</button>
-    <input id="impset" type="file" accept=".json" class="hidden">
+    <details class="pop" id="dlmenu">
+      <summary>↓ Download</summary>
+      <div class="panel menu">
+        <button id="expsvg" class="ghost hidden" title="download the region currently visible (respects zoom)">SVG (current view)</button>
+        <button id="expsvgall" class="ghost hidden" title="download the whole network">SVG (whole network)</button>
+        <button id="expcsv" class="ghost hidden">CSVs</button>
+        <button id="expcyto" class="ghost hidden" title="GraphML — open in Cytoscape (File → Import → Network)">Cytoscape (GraphML)</button>
+        <button id="expset" class="ghost" title="download current settings as JSON (reproducibility)">Settings (JSON)</button>
+      </div>
+    </details>
     <span id="status"></span>
   </div>
 
-  <div class="ctrlbar tight hidden" id="display">
-    <b>Display</b>
-    <span class="sep"></span>
-    <span><label class="lb">color by</label> <select id="colorby"><option value="community">community</option><option value="degree">degree</option><option value="strength">strength (Σ iLIS)</option><option value="uniform">uniform</option></select> <input id="unicolor" type="color" value="#2471A3" class="hidden"></span>
-    <span id="colorlegend" class="hint hidden"></span>
-    <span><label class="lb">layout</label> <select id="layout"><option value="force">force (live)</option><option value="fr">spring (FR)</option><option value="kk">Kamada-Kawai</option><option value="drl">DrL</option><option value="community">community</option><option value="circle">circle</option><option value="grid">grid</option></select></span>
-    <span><label class="lb">iterations</label> <input id="layiter" type="number" min="10" max="5000" step="50" value="500" style="width:64px"></span>
-    <button id="physbtn" class="ghost" type="button" title="the force layout stops once it has settled; resume it to let nodes move again">▶ physics</button>
-    <span class="sep"></span>
-    <span><label class="lb" title="keep only each protein's k strongest edges (by iLIS): a backbone of a dense network. Communities and partner counts are unchanged. 0 = every edge">top edges/node</label> <input id="topk" type="number" min="0" max="999" step="1" value="0" style="width:52px"></span>
-    <span><label class="lb" title="hide the edges between communities"><input type="checkbox" id="intraonly"> intra-community edges only</label></span>
-    <span class="sep"></span>
-    <span><label class="lb">node size</label> <input id="nsize" type="range" min="0.3" max="2.5" step="0.1" value="1"> <input id="nsizev" type="number" min="0.1" max="8" step="0.1" value="1" style="width:52px"></span>
-    <span><label class="lb">min edges/node</label> <input id="mindeg" type="range" min="1" max="20" step="1" value="1"> <input id="mindegv" type="number" min="1" max="9999" step="1" value="1" style="width:56px"></span>
-    <span><label class="lb">edge width (by iLIS)</label> <input id="emin" type="range" min="0.5" max="10" step="0.5" value="4"> <input id="eminv" type="number" min="0" max="50" step="0.5" value="4" style="width:52px"></span>
-    <span><label class="lb">labels ≥ deg</label> <input id="lbldeg" type="range" min="1" max="40" step="1" value="1"> <input id="lbldegv" type="number" min="1" max="9999" step="1" value="1" style="width:56px"></span>
-    <span><label class="lb" title="label only the N proteins with the most partners (0 = use labels ≥ deg)">label top N</label> <input id="lbltop" type="number" min="0" max="9999" step="1" value="0" style="width:52px"></span>
-    <span><label class="lb">label size</label> <input id="lblsize" type="range" min="6" max="30" step="1" value="12"> <input id="lblsizev" type="number" min="4" max="60" step="1" value="12" style="width:52px"></span>
-    <span><label class="lb"><input type="checkbox" id="lbloutline" checked> label outline</label> <input id="lblstroke" type="color" value="#ffffff" title="outline color"></span>
-    <span><label class="lb">label color</label> <input id="lblcolor" type="color" value="#000000"></span>
-    <span class="sep"></span>
-    <span><label class="lb"><input type="checkbox" id="nborder" checked> node border</label> <input id="bcolor" type="color" value="#000000"></span>
-    <span class="hint">· community colors: click a swatch in the module list →</span>
+  <div id="display" class="hidden">
+    <div class="ctrlbar tight">
+      <span><label class="lb">color by</label> <select id="colorby"><option value="community">community</option><option value="degree">degree</option><option value="strength">strength (Σ iLIS)</option><option value="uniform">uniform</option></select> <input id="unicolor" type="color" value="#2471A3" class="hidden"></span>
+      <span id="colorlegend" class="hint hidden"></span>
+      <span><label class="lb">layout</label> <select id="layout"><option value="force">force (live)</option><option value="fr">spring (FR)</option><option value="kk">Kamada-Kawai</option><option value="drl">DrL</option><option value="community">community</option><option value="circle">circle</option><option value="grid">grid</option></select></span>
+      <span><label class="lb">node size</label> <input id="nsize" type="range" min="0.3" max="2.5" step="0.1" value="1"> <input id="nsizev" type="number" min="0.1" max="8" step="0.1" value="1" style="width:52px"></span>
+      <span><label class="lb" title="label only the N proteins with the most partners (0 = use labels ≥ deg)">label top N</label> <input id="lbltop" type="number" min="0" max="9999" step="1" value="0" style="width:52px"></span>
+      <button id="moredisp" class="ghost" type="button" aria-expanded="false">More display ▸</button>
+    </div>
+    <div class="ctrlbar tight hidden" id="dispmore">
+      <span><label class="lb">iterations</label> <input id="layiter" type="number" min="10" max="5000" step="50" value="500" style="width:64px"></span>
+      <button id="physbtn" class="ghost" type="button" title="the force layout stops once it has settled; resume it to let nodes move again">▶ physics</button>
+      <span class="sep"></span>
+      <span><label class="lb" title="keep only each protein's k strongest edges (by iLIS): a backbone of a dense network. Communities and partner counts are unchanged. 0 = every edge">top edges/node</label> <input id="topk" type="number" min="0" max="999" step="1" value="0" style="width:52px"></span>
+      <span><label class="lb" title="hide the edges between communities"><input type="checkbox" id="intraonly"> intra-community edges only</label></span>
+      <span><label class="lb">min edges/node</label> <input id="mindeg" type="range" min="1" max="20" step="1" value="1"> <input id="mindegv" type="number" min="1" max="9999" step="1" value="1" style="width:56px"></span>
+      <span><label class="lb">edge width (by iLIS)</label> <input id="emin" type="range" min="0.5" max="10" step="0.5" value="4"> <input id="eminv" type="number" min="0" max="50" step="0.5" value="4" style="width:52px"></span>
+      <span class="sep"></span>
+      <span><label class="lb">labels ≥ deg</label> <input id="lbldeg" type="range" min="1" max="40" step="1" value="1"> <input id="lbldegv" type="number" min="1" max="9999" step="1" value="1" style="width:56px"></span>
+      <span><label class="lb">label size</label> <input id="lblsize" type="range" min="6" max="30" step="1" value="12"> <input id="lblsizev" type="number" min="4" max="60" step="1" value="12" style="width:52px"></span>
+      <span><label class="lb"><input type="checkbox" id="lbloutline" checked> label outline</label> <input id="lblstroke" type="color" value="#ffffff" title="outline color"></span>
+      <span><label class="lb">label color</label> <input id="lblcolor" type="color" value="#000000"></span>
+      <span><label class="lb"><input type="checkbox" id="nborder" checked> node border</label> <input id="bcolor" type="color" value="#000000"></span>
+      <div id="nodecolor-upload" style="flex-basis:100%"></div>
+      <span class="hint">Community colors: click a swatch in the module list.</span>
+    </div>
   </div>
-  <div id="nodecolor-upload" style="margin:0 2px 10px"></div>
 
   <div id="layerbar" class="hint hidden" style="margin:0 2px 10px; padding:7px 11px; background:#f0f6fb; border-radius:8px">Layer view from <b id="layer-root"></b> (Leiden colors kept) · layout <select id="layer-mode" style="font-size:12px; padding:1px 4px; border:1px solid var(--line); border-radius:5px"><option value="concentric">concentric shells</option><option value="tree">tree</option></select> · <a id="layer-reset" href="#" style="font-weight:600">⟳ back to force layout</a></div>
   <div id="egobar" class="hint hidden" style="margin:0 2px 10px; padding:7px 11px; background:#f0f6fb; border-radius:8px">Neighbors of <b id="ego-root"></b> and the edges among them · <a id="ego-reset" href="#" style="font-weight:600">⟳ show the whole network</a></div>
@@ -576,7 +604,7 @@ async function build(){
     const nComm = Math.max(...membership)+1;
     $('stats').innerHTML = [['proteins',nodes.length],['edges',edges.length],['communities',nComm],['iLIS &ge;',cut.toFixed(3)], useUser?['clusters','user-defined']:['Leiden',Math.round(performance.now()-t0)+' ms'], dup?['duplicate pairs',dup+' → max iLIS']:null, (useUser&&dropped)?['dropped',dropped+' unmapped']:null, SUBSET?['subset','on']:null]
       .filter(Boolean).map(([k,v])=>`<span class="s">${k}<br><b>${v}</b></span>`).join('');
-    $('display').classList.remove('hidden'); $('expsvg').classList.remove('hidden'); $('expsvgall').classList.remove('hidden'); $('expcsv').classList.remove('hidden'); $('expcyto').classList.remove('hidden');
+    $('display').classList.remove('hidden'); $('incard').classList.add('collapsed'); $('expsvg').classList.remove('hidden'); $('expsvgall').classList.remove('hidden'); $('expcsv').classList.remove('hidden'); $('expcyto').classList.remove('hidden');
     populateNetSearch();
     setStatus('');
   } catch(e){ setStatus('Error: '+(e.message||e)); }
@@ -983,7 +1011,11 @@ $('expsvgall').addEventListener('click', ()=>exportSVG('full'));
 $('expcsv').addEventListener('click', exportCSVs);
 $('expcyto').addEventListener('click', exportGraphML);
 $('expset').addEventListener('click', exportSettings);
-$('impset-btn').addEventListener('click', ()=>$('impset').click());
+$('impset-btn').addEventListener('click', e=>{ e.preventDefault(); $('impset').click(); });
+$('chgfiles').addEventListener('click', e=>{ e.preventDefault(); $('incard').classList.remove('collapsed'); });
+$('moredisp').addEventListener('click', ()=>{ const open=$('dispmore').classList.toggle('hidden')===false; $('moredisp').textContent='More display '+(open?'▾':'▸'); $('moredisp').setAttribute('aria-expanded', open); });
+// one popover open at a time; a click outside or on a menu item closes it
+document.addEventListener('click', e=>{ document.querySelectorAll('details.pop[open]').forEach(d=>{ if(!d.contains(e.target) || e.target.closest('.panel.menu button')) d.open=false; }); });
 $('impset').addEventListener('change', e=>{ if(e.target.files[0]) importSettings(e.target.files[0]); });
 $('ni-x').addEventListener('click', hideNodeInfo);
 // Custom node colors: upload/paste "node,#hex" (node = protein id). Overrides win over the 'color by' mode.
