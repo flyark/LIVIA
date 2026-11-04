@@ -2903,15 +2903,6 @@ function parseStructureCaCoords(text, format) {
     return format === 'pdb' ? parsePdbCaCoords(text) : parseCifCaCoords(text);
 }
 
-function getChainsFromCoords(coords) {
-    const chainMap = new Map();
-    for (const c of coords) {
-        if (!chainMap.has(c.chain)) chainMap.set(c.chain, 0);
-        chainMap.set(c.chain, chainMap.get(c.chain) + 1);
-    }
-    return chainMap;
-}
-
 function getChainsFromStructure(text, format) {
     if (format === 'pdb') {
         return getChainsFromPdb(text);
@@ -4380,24 +4371,6 @@ function symmetrizePairs(pairs) {
 // DISPLAY
 // ============================================================================
 
-function displayConfidenceScores(scores) {
-    const card = document.getElementById('confidence-card');
-    const grid = document.getElementById('confidence-metrics');
-    if (!scores || Object.keys(scores).length === 0) {
-        card.style.display = 'none';
-        return;
-    }
-    card.style.display = '';
-    let html = '';
-    if (scores.pLDDT !== undefined) html += `<div class="metric"><div class="value">${scores.pLDDT.toFixed(1)}</div><div class="label">pLDDT</div></div>`;
-    if (scores.pTM !== undefined) html += `<div class="metric"><div class="value">${scores.pTM.toFixed(3)}</div><div class="label">pTM</div></div>`;
-    if (scores.ipTM !== undefined) html += `<div class="metric"><div class="value">${scores.ipTM.toFixed(3)}</div><div class="label">ipTM</div></div>`;
-    if (scores.rankingScore !== undefined) html += `<div class="metric"><div class="value">${scores.rankingScore.toFixed(2)}</div><div class="label">Ranking Score</div></div>`;
-    if (scores.confidence !== undefined) html += `<div class="metric"><div class="value">${scores.confidence.toFixed(3)}</div><div class="label">Confidence</div></div>`;
-    if (scores.fractionDisordered !== undefined) html += `<div class="metric"><div class="value">${(scores.fractionDisordered * 100).toFixed(1)}%</div><div class="label">Disordered</div></div>`;
-    grid.innerHTML = html;
-}
-
 // Helper: render an ipTM table cell. When the active prediction format provides a
 // combined iPTM+pTM ranking score in place of pure iPTM (e.g. AF-Multimer scalar
 // from a .txt file), append an asterisk + title attribute to disclose this.
@@ -5234,12 +5207,6 @@ function allChainLirSets(results){
   }
   return byChain;
 }
-// Per-chain LIR contiguous span [min,max] for the current pair (trims floppy termini, keeps the interface domain intact).
-function confidentSpan(v){
-  const sp=s=>{ const a=[...(s||[])]; return a.length?[Math.min(...a),Math.max(...a)]:null; };
-  const m={}, si=sp(v.lirI), sj=sp(v.lirJ);
-  if(si) m[v.ci]=si; if(sj) m[v.cj]=sj; return m;
-}
 
 // Wire the two script buttons: full-structure script (opens the full file) and
 // partial-structure script (opens the _partial file). They differ only in the open/load line.
@@ -5652,19 +5619,11 @@ const applyExportOpts = (svg) => LiviaMaps.applyExportOpts(svg);                
 // ---- vector SVG export: re-run any canvas draw fn against a canvas2svg context ----
 const svgFromDraw = (drawClosure) => LiviaMaps.svgFromDraw(drawClosure);
 const svgFromFixedCanvas = (canvasId, redraw) => LiviaMaps.svgFromFixedCanvas(canvasId, redraw);
-function downloadContactMapSVG(){ if (!uniState.currentPairKey) return; try { downloadSVGFile('linear_contact_map.svg', svgFromFixedCanvas('contact-canvas', () => buildContactMap(uniState.currentPairKey))); } catch(e){ alert('SVG export failed: ' + e.message); } }
-function downloadContactMapPNG(){ const c = document.getElementById('contact-canvas'); if (!c) return; const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = 'linear_contact_map.png'; a.click(); }
 const downloadSVGFile = (name, svg) => LiviaMaps.downloadSVGFile(name, svg);
 function addPngBtn(container, name, canvas){
     const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = '\u2193 PNG';
     btn.style.cssText = 'display:block; margin:2px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;';
     btn.onclick = () => { const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = name.replace(/[^\w.-]+/g,'_') + '.png'; a.click(); };
-    container.appendChild(btn);
-}
-function addSvgBtn(container, name, drawClosure){
-    const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = '\u2193 SVG';
-    btn.style.cssText = 'display:block; margin:2px auto 0; font-size:0.72rem; color:#2471A3; background:none; border:none; cursor:pointer; font-weight:600;';
-    btn.onclick = () => { try { downloadSVGFile(name.replace(/[^\w.-]+/g,'_') + '.svg', svgFromDraw(drawClosure)); } catch(e){ alert('SVG export failed: ' + e.message); } };
     container.appendChild(btn);
 }
 
@@ -7048,11 +7007,6 @@ async function downloadLightweightBundle() {
     } finally {
         if (btn) { btn.disabled = false; btn.innerHTML = '&#8595; Lightweight bundle'; }
     }
-}
-
-function downloadAllChains() {
-    if (scriptMode === 'pymol') return downloadAllChainsPml();
-    return downloadAllChainsCxc();
 }
 
 function buildAllChainsCxc(overrideFilename, sel) {

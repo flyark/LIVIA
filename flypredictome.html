@@ -1691,12 +1691,6 @@ function trimPdb(pdbText, keepMap){
     return keepMap.hasOwnProperty(ch) && (kr===null || (kr instanceof Set ? kr.has(rn) : (rn>=kr[0]&&rn<=kr[1])));
   }).join('\n');
 }
-// Per-chain LIR contiguous span [min,max] for chains A/B (trims floppy termini, keeps interface domain intact).
-function confidentSpanAB(LIR_A, LIR_B){
-  const sp=s=>{ const a=[...(s||[])]; return a.length?[Math.min(...a),Math.max(...a)]:null; };
-  const m={}, sa=sp(LIR_A), sb=sp(LIR_B);
-  if(sa) m['A']=sa; if(sb) m['B']=sb; return m;
-}
 
 // Wire the 4 download buttons: full/partial scripts (each opens its matching structure) + full/partial PDB.
 function flyWireDownloads(target, colors) {

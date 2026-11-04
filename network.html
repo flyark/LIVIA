@@ -4,10 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LIVIA — PPI Network</title>
-<script src="js/livia-xlsx.js"></script>
+<script src="js/livia-xlsx.js?v=20261104a"></script>
 <script src="js/livia-maps.js?v=20261004a"></script>
 <script src="js/clip-pipeline.js?v=20261006a"></script>
-<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="css/livia.css?v=20261009c">
@@ -528,6 +527,13 @@ function updateLoaded(){
   $('tmpl-wrap').classList.toggle('hidden', !RAWPAIRS.size);
 }
 
+// ---------- vis-network: fetched on the first Build, not with the page ----------
+let VIS_P = null;
+function ensureVis(){
+  if (window.vis && window.vis.Network) return Promise.resolve(window.vis);
+  return VIS_P || (VIS_P = new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js'; s.onload=()=>res(window.vis); s.onerror=()=>{ VIS_P=null; rej(new Error('The network drawing library (vis-network) did not load.')); }; document.head.appendChild(s); }));
+}
+
 // ---------- Pyodide + Leiden ----------
 async function ensurePyodide(){
   if (PYODIDE) return PYODIDE;
@@ -580,6 +586,7 @@ async function build(){
   if (!RAWPAIRS.size) return;
   $('build').disabled = true;
   try {
+    const visP = ensureVis(); visP.catch(()=>{});   // alongside Leiden; awaited before the first draw
     const useUser = userClusterMode();
     const cut=+$('cutv').value, res=+$('resv').value, obj=$('objfn').value, seed=+$('seed').value||1;
     const { edges, dup, dropped } = buildEdges(cut);
@@ -598,6 +605,7 @@ async function build(){
       ({ membership, degree } = await leiden(nodes, edges, res, obj, seed));
     }
     const strengthMap=new Map(nodes.map(s=>[s,0])); edges.forEach(e=>{ strengthMap.set(e.a,strengthMap.get(e.a)+e.iLIS); strengthMap.set(e.b,strengthMap.get(e.b)+e.iLIS); });
+    await visP;
     LAST = { nodes, edges, membership, degree, strengthMap, commNames };
     render(getDisplay());
     renderModules(LAST); updateColorLegend();

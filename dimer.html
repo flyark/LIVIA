@@ -3052,35 +3052,6 @@ function drawColorbar(canvasId, colorFn, vmin, vmax) {
     }
 }
 
-function buildLisMap(pae, lenI, lenJ, offsetI, offsetJ, paeCutoff) {
-    const map = Array.from({length: lenI}, () => Array(lenJ).fill(0));
-    for (let i = 0; i < lenI; i++) {
-        for (let j = 0; j < lenJ; j++) {
-            const ri = offsetI + i, rj = offsetJ + j;
-            if (ri >= pae.length || rj >= pae.length || rj >= pae[ri].length || ri >= pae[rj].length) continue;
-            const v = pae[ri][rj];
-            map[i][j] = v <= paeCutoff ? 1 - v / paeCutoff : 0;
-        }
-    }
-    return map;
-}
-
-function buildClisMap(pae, contact, nUse, lenI, lenJ, offsetI, offsetJ, paeCutoff) {
-    const map = Array.from({length: lenI}, () => Array(lenJ).fill(0));
-    for (let i = 0; i < lenI; i++) {
-        for (let j = 0; j < lenJ; j++) {
-            const ri = offsetI + i;
-            const rj = offsetJ + j;
-            if (ri >= pae.length || rj >= pae.length || rj >= pae[ri].length || ri >= pae[rj].length) continue;
-            const v = pae[ri][rj];
-            const tv = v <= paeCutoff ? 1 - v / paeCutoff : 0;
-            const cv = (ri < nUse && rj < nUse) ? contact[ri * nUse + rj] : 0;
-            map[i][j] = (tv > 0 && cv) ? tv : 0;
-        }
-    }
-    return map;
-}
-
 function dilateMap(map2d, radius) {
     const rows = map2d.length;
     const cols = map2d[0].length;
@@ -3325,64 +3296,6 @@ function drawFullMapCanvas(canvas, pae, nTotal, chainSizes, chainNames, colorFn,
     ctx.restore();   // undo the top-margin translate
 }
 
-function drawOffDiagMapCanvas(canvas, map2d, lenI, lenJ, chainNames, colorFn, vmin, vmax, displaySize) {
-    const leftMargin = 20;
-    const bottomMargin = 36;
-    const plotW = displaySize * HIRES;
-    const plotH = Math.round(displaySize * lenI / lenJ) * HIRES;
-    const leftPx = leftMargin * HIRES;
-    const bottomPx = bottomMargin * HIRES;
-    const scaleX = plotW / lenJ;
-    const scaleY = plotH / lenI;
-
-    // Maintain aspect ratio
-    const actualH = Math.round(displaySize * (lenI / lenJ));
-    canvas.width = plotW + leftPx;
-    canvas.height = plotH + bottomPx;
-    canvas.style.width = (displaySize + leftMargin) + 'px';
-    canvas.style.height = (actualH + bottomMargin) + 'px';
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx.getSerializedSvg) { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height); }   // white bg for screen/PNG only — SVG export stays transparent
-
-    const imgData = ctx.createImageData(plotW, plotH);
-    const data = imgData.data;
-    for (let py = 0; py < plotH; py++) {
-        const i = Math.min(lenI - 1, Math.floor(py / scaleY));
-        for (let px = 0; px < plotW; px++) {
-            const j = Math.min(lenJ - 1, Math.floor(px / scaleX));
-            const [r, g, b] = colorFn(map2d[i][j], vmin, vmax);
-            const idx = (py * plotW + px) * 4;
-            data[idx] = r; data[idx + 1] = g; data[idx + 2] = b; data[idx + 3] = 255;
-        }
-    }
-    ctx.putImageData(imgData, leftPx, 0);
-
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 0.5 * HIRES;
-    ctx.strokeRect(leftPx, 0, plotW, plotH);
-
-    // Axis labels
-    const chainFont = 12 * HIRES;
-    const tickFont = 9 * HIRES;
-    ctx.font = `${chainFont}px sans-serif`;
-    ctx.fillStyle = '#333';
-
-    // Y-axis: chain A
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(chainNames[0], leftPx - 3 * HIRES, plotH / 2);
-
-    // X-axis: chain B
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(chainNames[1], leftPx + plotW / 2, plotH + 2 * HIRES);
-
-    ctx.font = `${tickFont}px sans-serif`;
-    ctx.fillStyle = '#888';
-    ctx.fillText(`1-${lenJ}`, leftPx + plotW / 2, plotH + chainFont + 3 * HIRES);
-}
-
 function createMapPanel(parentEl, label, mapCanvas, displaySize, colorFn, vmin, vmax, tickLabels) {
     const panel = document.createElement('div');
     panel.style.cssText = 'flex:0 0 auto; text-align:center;';
@@ -3554,15 +3467,17 @@ function drawAllMaps() {
     createMapPanel(container, 'PAE', paeCanvas, displaySize, paePal, 0, 30, ['30', '15', '0']);
 
     // LIS
-    const lisMap = buildFullLisMap(v.paeMatrix, v.nTotal, v.paeCutoff);
+    // the LIS and dilated cLIS maps depend only on the pair and its PAE cutoff: built once, then a label, size or
+    // palette change only repaints
+    const mc = (v._maps && v._maps.cut === v.paeCutoff) ? v._maps : (v._maps = { cut: v.paeCutoff });
+    const lisMap = mc.lis || (mc.lis = buildFullLisMap(v.paeMatrix, v.nTotal, v.paeCutoff));
     const lisCanvas = document.createElement('canvas');
     drawFullMapCanvas(lisCanvas, lisMap, v.nTotal, v.chainSizes, v.chainNames, lisPal, 0, 1, displaySize);
     createMapPanel(container, 'LIS', lisCanvas, displaySize, lisPal, 0, 1, ['1', '0.5', '0']);
 
     // cLIS (dilated)
-    const clisMap = buildFullClisMap(v.paeMatrix, v.contact, v.nUse, v.nTotal, v.paeCutoff);
     const clisDilateRadius = v.nTotal > 500 ? 2 : 1;
-    const dilated = dilateMap(clisMap, clisDilateRadius);
+    const dilated = mc.clisDil || (mc.clisDil = dilateMap(buildFullClisMap(v.paeMatrix, v.contact, v.nUse, v.nTotal, v.paeCutoff), clisDilateRadius));
     const clisCanvas = document.createElement('canvas');
     drawFullMapCanvas(clisCanvas, dilated, v.nTotal, v.chainSizes, v.chainNames, clisPal, 0, 1, displaySize);
     createMapPanel(container, 'cLIS', clisCanvas, displaySize, clisPal, 0, 1, ['1', '0.5', '0']);
@@ -3624,12 +3539,6 @@ function trimCif(cifText, keepMap){
     out.push(line); i++;
   }
   return out.join('\n');
-}
-// Per-chain LIR contiguous span [min,max] for the current pair (trims floppy termini, keeps the interface domain intact).
-function confidentSpan(v){
-  const sp=s=>{ const a=[...s]; return a.length?[Math.min(...a),Math.max(...a)]:null; };
-  const m={}, si=sp(v.lirI), sj=sp(v.lirJ);
-  if(si) m[v.ci]=si; if(sj) m[v.cj]=sj; return m;
 }
 
 // A download link's file, made in memory: the link's previous file is freed first, so a session of clicks does not keep a copy
