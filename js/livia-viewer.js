@@ -833,8 +833,15 @@ function applyViewer3dDomains(base, structText, fmt, chains) {
     if (!viewer3dDomainMode || !structText) { if (key) key.hidden = true; return base; }
     const res = parseBfactorsPerResidue(structText, fmt === 'mmcif' || fmt === 'cif' ? 'cif' : 'pdb'), per = new Map();
     for (const k of res.keys()) { const i = k.lastIndexOf(':'), ch = k.slice(0, i), rn = +k.slice(i + 1); if (!per.has(ch)) per.set(ch, new Set()); per.get(ch).add(rn); }
-    let shown = [...new Set(base.filter(c => !c.isIon && !c.stick).map(c => c.chain))];
+    const drawn = base.filter(c => !c.isIon && !c.stick);
+    let shown = [...new Set(drawn.map(c => c.chain))];
     if (!shown.length) shown = (chains || []).map(c => c.chain);   // a page that drew nothing yet (a monomer without regions): every chain it names
+    // the residues the page draws on each chain (LIR only unless Complete structure is on): the domains recolor those, never more
+    const inView = new Map();
+    for (const c of drawn) { if (!inView.has(c.chain)) inView.set(c.chain, new Set());
+        const s = inView.get(c.chain); if (s.all) continue;
+        if (!c.ranges) { s.all = true; continue; }
+        for (const g of c.ranges) for (let r = +g.start; r <= +g.end; r++) s.add(r); }
     const out = base.filter(c => c.isIon || c.stick), items = [];
     const runs = (list) => { const r = []; for (const n of list) { const last = r[r.length - 1]; if (last && n === last.end + 1) last.end = n; else r.push({ start: n, end: n }); } return r; };
     let n = 0;
@@ -846,7 +853,7 @@ function applyViewer3dDomains(base, structText, fmt, chains) {
             items.push({ col, chain: spec.label || ch, name: d.cath && !String(d.name || '').includes(d.cath) ? `${d.name || 'TED'} (${d.cath})` : d.name, start: d.start, end: d.end });
             for (const sg of (d.segments && d.segments.length ? d.segments : [{ start: d.start, end: d.end }])) for (let r = +sg.start; r <= +sg.end; r++) if (!owner.has(r)) owner.set(r, col); });
         n += doms.length;
-        const resid = [...(per.get(ch) || [])].sort((a, b) => a - b), byCol = new Map();
+        const vis = inView.get(ch), resid = [...(per.get(ch) || [])].filter(r => !vis || vis.all || vis.has(r)).sort((a, b) => a - b), byCol = new Map();
         for (const r of resid) { const c = owner.get(r) || '#FFFFFF'; if (!byCol.has(c)) byCol.set(c, []); byCol.get(c).push(r); }
         for (const [c, list] of byCol) out.push({ chain: ch, ranges: runs(list), color: c });
     }
