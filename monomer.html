@@ -474,7 +474,7 @@
 <script src="js/livia-core.js?v=20261008b"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20261104a"></script>
-<script src="js/livia-util.js?v=20261104a"></script>
+<script src="js/livia-util.js?v=20261105a"></script>
 <script src="js/livia-colors.js?v=20261010a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20261004a"></script>
@@ -534,7 +534,6 @@ const TED_PALETTE = ['#A898C8', '#8E7DB8'];
 const TAB10 = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
 const TAB20 = ['#1f77b4','#aec7e8','#ff7f0e','#ffbb78','#2ca02c','#98df8a','#d62728','#ff9896','#9467bd','#c5b0d5','#8c564b','#c49c94','#e377c2','#f7b6d2','#7f7f7f','#c7c7c7','#bcbd22','#dbdb8d','#17becf','#9edae5'];
 const REGION_COLORS = TAB10;
-
 
 // ============================================================================
 // AUTOCOMPLETE (UniProt search)
@@ -983,43 +982,6 @@ async function fetchDomains(uniprotId) {
 }
 
 // ============================================================================
-// TED DOMAIN ANNOTATIONS (from AlphaFold DB)
-// ============================================================================
-async function fetchTedDomains(uniprotId) {
-    if (!uniprotId) return [];
-    if (tedCache.has(uniprotId)) return tedCache.get(uniprotId);
-    let domains = [];
-    try {
-        const resp = await fetch(`https://alphafold.ebi.ac.uk/api/domains/${uniprotId}`);
-        if (resp.ok) {
-            const data = await resp.json();
-            for (const ann of (data.annotations || [])) {
-                const segments = (ann.segments || []).map(s => ({ start: s.af_start, end: s.af_end }));
-                if (segments.length === 0) continue;
-                const start = Math.min(...segments.map(s => s.start));
-                const end = Math.max(...segments.map(s => s.end));
-                const cath = ann.cath_label || '';
-                const cathLevel = ann.cath_assignment_level || '';
-                const name = cath ? `TED ${ann.ted_domain_no} (${cath})` : `TED ${ann.ted_domain_no}`;
-                domains.push({
-                    name, start, end, segments,
-                    cath, cathLevel,
-                    plddt: ann.plddt || 0,
-                    qscore: ann.qscore || 0,
-                    nres: ann.nres_domain || 0,
-                    tedNo: ann.ted_domain_no
-                });
-            }
-            domains.sort((a, b) => a.start - b.start);
-        }
-    } catch (e) {
-        console.warn(`Failed to fetch TED domains for ${uniprotId}:`, e);
-    }
-    tedCache.set(uniprotId, domains);
-    return domains;
-}
-
-// ============================================================================
 // REGION MANAGEMENT
 // ============================================================================
 
@@ -1269,7 +1231,6 @@ function detectRegions() {
     drawPaeMap();
     setStatus(`Detected ${finalSegs.length} regions (pLDDT < ${plddtCutoff}, min length: ${minLen}, merge LIS: ${mergeLis})`, 'success');
 }
-
 
 // ============================================================================
 // COLOR SCHEME
@@ -2246,18 +2207,6 @@ function drawMonoChart(container, arr, n, yLabel, title, autoScale) {
     ctx.fillStyle = '#666'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
     ctx.fillText(yLabel, 0, 0);
     ctx.restore();
-}
-
-// ── Partial-structure trimming (PDB) for ChimeraX / PyMOL post-processing ──
-// keepMap[chain] = null (whole chain) | [minResnum,maxResnum]; residue numbers preserved.
-function trimPdb(pdbText, keepMap){
-  return pdbText.split('\n').filter(l=>{
-    const rec=l.substr(0,6);
-    if(!(rec.startsWith('ATOM')||rec.startsWith('HETATM')||rec.startsWith('ANISOU')||rec.startsWith('TER'))) return true;
-    const ch=l[21], rn=parseInt(l.substr(22,4),10), kr=keepMap[ch];
-    if(rec.startsWith('TER')) return keepMap.hasOwnProperty(ch);
-    return keepMap.hasOwnProperty(ch) && (kr===null || (kr instanceof Set ? kr.has(rn) : (rn>=kr[0]&&rn<=kr[1])));
-  }).join('\n');
 }
 
 function generateAndShowScript(validRegions) {
@@ -3603,41 +3552,6 @@ function drawScoreMatrix(validRegions) {
     let yy = gridPx + (bottomMargin + 8) * HIRES;
     yy += LiviaMaps.drawColorbar(ctx, { x: bx, y: yy, w: bw, h: 10 * HIRES, cmap: cmL, lo: 0, hi: 1, fmt: (v) => v.toFixed(2), label: 'iLIS', font: f }) + 6 * HIRES;
     LiviaMaps.drawColorbar(ctx, { x: bx, y: yy, w: bw, h: 10 * HIRES, cmap: cmU, lo: 0, hi: maxIlisa, fmt: (v) => v.toFixed(0), label: 'iLISA', font: f });
-}
-
-function makeSortable(table) {
-    if (!table) return;
-    const headers = table.querySelectorAll('thead th');
-    headers.forEach((th, colIdx) => {
-        th.classList.add('sortable');
-        th.addEventListener('click', () => {
-            const tbody = table.querySelector('tbody');
-            if (!tbody) return;
-            const rows = Array.from(tbody.querySelectorAll('tr'));
-            // Separate pinned rows (Average, selected) from sortable rows
-            const sortableRows = rows.filter(r => !r.dataset.pinned && r.textContent.trim() !== '');
-            const pinnedRows = rows.filter(r => r.dataset.pinned);
-
-            const isAsc = th.classList.contains('sort-asc');
-            headers.forEach(h => { h.classList.remove('sort-asc', 'sort-desc'); });
-            th.classList.add(isAsc ? 'sort-desc' : 'sort-asc');
-
-            sortableRows.sort((a, b) => {
-                const aVal = a.cells[colIdx]?.textContent.trim() || '';
-                const bVal = b.cells[colIdx]?.textContent.trim() || '';
-                const aNum = parseFloat(aVal);
-                const bNum = parseFloat(bVal);
-                if (!isNaN(aNum) && !isNaN(bNum)) {
-                    return isAsc ? bNum - aNum : aNum - bNum;
-                }
-                return isAsc ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
-            });
-
-            // Re-append: sortable rows first, then pinned rows at bottom
-            sortableRows.forEach(r => tbody.appendChild(r));
-            pinnedRows.forEach(r => tbody.appendChild(r));
-        });
-    });
 }
 
 </script>

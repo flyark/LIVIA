@@ -88,3 +88,88 @@ function applyChainToggleStyle(btn, visible) {
 // Fill and text color for a filled name chip: white text on a fill dark enough for it (at least 4.5:1),
 // the fill darkened just enough when it is not (js/livia-maps.js chipFill).
 function contrastText(hex) { return LiviaMaps.chipFill(hex).ink; }
+
+// ============================================================================
+// TED DOMAIN ANNOTATIONS (from AlphaFold DB)
+// ============================================================================
+// The page keeps the results in its own tedCache.
+async function fetchTedDomains(uniprotId) {
+    if (!uniprotId) return [];
+    if (tedCache.has(uniprotId)) return tedCache.get(uniprotId);
+    let domains = [];
+    try {
+        const resp = await fetch(`https://alphafold.ebi.ac.uk/api/domains/${uniprotId}`);
+        if (resp.ok) {
+            const data = await resp.json();
+            for (const ann of (data.annotations || [])) {
+                const segments = (ann.segments || []).map(s => ({ start: s.af_start, end: s.af_end }));
+                if (segments.length === 0) continue;
+                const start = Math.min(...segments.map(s => s.start));
+                const end = Math.max(...segments.map(s => s.end));
+                const cath = ann.cath_label || '';
+                const cathLevel = ann.cath_assignment_level || '';
+                const name = cath ? `TED ${ann.ted_domain_no} (${cath})` : `TED ${ann.ted_domain_no}`;
+                domains.push({
+                    name, start, end, segments,
+                    cath, cathLevel,
+                    plddt: ann.plddt || 0,
+                    qscore: ann.qscore || 0,
+                    nres: ann.nres_domain || 0,
+                    tedNo: ann.ted_domain_no
+                });
+            }
+            domains.sort((a, b) => a.start - b.start);
+        }
+    } catch (e) {
+        console.warn(`Failed to fetch TED domains for ${uniprotId}:`, e);
+    }
+    tedCache.set(uniprotId, domains);
+    return domains;
+}
+
+// ── Confident-region structure trimming (PDB) for ChimeraX / PyMOL post-processing ──
+// keepMap[chain] = null (whole chain) | [minResnum,maxResnum]; chains absent are dropped. Residue numbers preserved.
+function trimPdb(pdbText, keepMap){
+  return pdbText.split('\n').filter(l=>{
+    const rec=l.substr(0,6);
+    if(!(rec.startsWith('ATOM')||rec.startsWith('HETATM')||rec.startsWith('ANISOU')||rec.startsWith('TER'))) return true;
+    const ch=l[21], rn=parseInt(l.substr(22,4),10), kr=keepMap[ch];
+    if(rec.startsWith('TER')) return keepMap.hasOwnProperty(ch);
+    return keepMap.hasOwnProperty(ch) && (kr===null || (kr instanceof Set ? kr.has(rn) : (rn>=kr[0]&&rn<=kr[1])));
+  }).join('\n');
+}
+
+function makeSortable(table) {
+    if (!table) return;
+    const headers = table.querySelectorAll('thead th');
+    headers.forEach((th, colIdx) => {
+        th.classList.add('sortable');
+        th.addEventListener('click', () => {
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            // Separate pinned rows (Average, selected) from sortable rows
+            const sortableRows = rows.filter(r => !r.dataset.pinned && r.textContent.trim() !== '');
+            const pinnedRows = rows.filter(r => r.dataset.pinned);
+
+            const isAsc = th.classList.contains('sort-asc');
+            headers.forEach(h => { h.classList.remove('sort-asc', 'sort-desc'); });
+            th.classList.add(isAsc ? 'sort-desc' : 'sort-asc');
+
+            sortableRows.sort((a, b) => {
+                const aVal = a.cells[colIdx]?.textContent.trim() || '';
+                const bVal = b.cells[colIdx]?.textContent.trim() || '';
+                const aNum = parseFloat(aVal);
+                const bNum = parseFloat(bVal);
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return isAsc ? bNum - aNum : aNum - bNum;
+                }
+                return isAsc ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+            });
+
+            // Re-append: sortable rows first, then pinned rows at bottom
+            sortableRows.forEach(r => tbody.appendChild(r));
+            pinnedRows.forEach(r => tbody.appendChild(r));
+        });
+    });
+}
