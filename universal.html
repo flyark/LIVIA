@@ -7,7 +7,7 @@
     <title>LIVIA — Prediction Analysis</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <!-- Mol* loaded inside iframe, not here -->
-    <link rel="stylesheet" href="css/livia.css?v=20261009c">
+    <link rel="stylesheet" href="css/livia.css?v=20261105a">
     <style>
         /* ── Page-specific styles for Universal ── */
         .step-link { color: #2471A3; text-decoration: none; }
@@ -3875,12 +3875,13 @@ function pairFromCsvRow(r, swap) {
     // LIpDockQ: prefer the native column when present; otherwise it's still derivable from columns
     // every lightweight bundle has always shipped (cLIpLDDT_i/j, cLIA), even bundles built before
     // lis.py had a pDockQ family at all -- no numeric PAE needed. cLIA in the CSV is already the
-    // file's own symmetrized total (see lis.py's symmetrization comment), not per-direction.
+    // file's own symmetrized total (see lis.py's symmetrization comment), not per-direction, so half
+    // of it estimates the count of contact pairs.
     const lipdockqNative = nullNum(r.LIpDockQ);
     const lipdockq = lipdockqNative != null ? lipdockqNative : calcPdockq(
         wmeanNum(nanNum(r['cLIpLDDT_' + A]), nanNum(r['cLIpLDDT_' + B]),
                  parseIndexRanges(r['cLIR_indices_' + A]).size, parseIndexRanges(r['cLIR_indices_' + B]).size),
-        num(r.cLIA));
+        num(r.cLIA) / 2);
     return {
         ci: swap ? r.chain_j : r.chain_i,
         cj: swap ? r.chain_i : r.chain_j,

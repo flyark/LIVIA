@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <title>LIVIA — Ortholog Interactome</title>
-    <link rel="stylesheet" href="css/livia.css?v=20261009c">
+    <link rel="stylesheet" href="css/livia.css?v=20261105a">
     <style>
         /* ── Page-specific styles for Ortholog Predictome ── */
         .step-link { color: #2471A3; text-decoration: none; }
@@ -116,13 +116,14 @@
 
         <div class="input-tabs">
             <button class="input-tab active" data-tab="search" onclick="switchTab('search')">Search by Gene</button>
+            <button class="input-tab" data-tab="pair" onclick="switchTab('pair')">Gene Pair</button>
             <button class="input-tab" data-tab="url" onclick="switchTab('url')">Paste URL</button>
         </div>
 
         <!-- Search by Gene panel -->
         <div id="search-panel" style="display:none;">
             <div class="url-row" style="position:relative;">
-                <select id="species-select" aria-label="Species" style="padding:0.5rem 0.4rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.85rem; background:white;">
+                <select id="species-select" aria-label="Species" onchange="document.getElementById('pair-species-select').value=this.value" style="padding:0.5rem 0.4rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.85rem; background:white;">
                     <option value="9606" selected>Human</option>
                     <option value="10090">Mouse</option>
                     <option value="7955">Zebrafish</option>
@@ -150,6 +151,45 @@
             </div>
             <div id="search-status" style="font-size:0.85rem; color:#666; min-height:1.2rem; margin-top:0.5rem; margin-bottom:0.5rem;"></div>
             <div id="search-results" style="display:none;"></div>
+        </div>
+
+        <!-- Gene Pair panel -->
+        <div id="pair-panel" style="display:none;">
+            <div class="url-row" style="position:relative;">
+                <select id="pair-species-select" aria-label="Species" onchange="document.getElementById('species-select').value=this.value" style="padding:0.5rem 0.4rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.85rem; background:white;">
+                    <option value="9606" selected>Human</option>
+                    <option value="10090">Mouse</option>
+                    <option value="7955">Zebrafish</option>
+                    <option value="6239">Worm</option>
+                    <option value="4932">Yeast</option>
+                </select>
+                <div style="position:relative; flex:1;">
+                    <input type="text" id="pair-gene-a"
+                           placeholder="Gene A (e.g., TP53)"
+                           autocomplete="off"
+                           oninput="pairAcIdx=-1;searchPairAc(this,'pair-ac-a')"
+                           onkeydown="handlePairAcKey(event,'pair-gene-a','pair-ac-a')">
+                    <div id="pair-ac-a" class="ac-list" style="display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #ddd; border-radius:0 0 8px 8px; max-height:250px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
+                <div style="position:relative; flex:1;">
+                    <input type="text" id="pair-gene-b"
+                           placeholder="Gene B (e.g., MDM2)"
+                           autocomplete="off"
+                           oninput="pairAcIdx=-1;searchPairAc(this,'pair-ac-b')"
+                           onkeydown="handlePairAcKey(event,'pair-gene-b','pair-ac-b')">
+                    <div id="pair-ac-b" class="ac-list" style="display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #ddd; border-radius:0 0 8px 8px; max-height:250px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
+                <button class="btn btn-primary" onclick="searchGenePair()">Search Pair</button>
+            </div>
+            <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.5rem; align-items:center;">
+                <span style="font-size:0.8rem; color:#6B6B6B;">Examples:</span>
+                <button class="example-btn" onclick="setPairAndSearch('CDK2','CCNA2')">CDK2 &amp; CCNA2</button>
+                <button class="example-btn" onclick="setPairAndSearch('TP53','MDM2')">TP53 &amp; MDM2</button>
+                <button class="example-btn" onclick="setPairAndSearch('MAPK14','MKNK1')">MAPK14 &amp; MKNK1</button>
+                <button class="example-btn" onclick="setPairAndSearch('ABL1','CRK')">ABL1 &amp; CRK</button>
+            </div>
+            <div id="pair-status" style="font-size:0.85rem; color:#666; min-height:1.2rem; margin-top:0.5rem; margin-bottom:0.5rem;"></div>
+            <div id="pair-results" style="display:none;"></div>
         </div>
 
         <!-- Paste URL panel -->
@@ -516,7 +556,7 @@
 <script src="js/livia-reported.js?v=20261004a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20261104a"></script>
-<script src="js/livia-predictome.js?v=20261105a"></script>
+<script src="js/livia-predictome.js?v=20261105b"></script>
 <script src="js/livia-util.js?v=20261105a"></script>
 <script src="js/livia-colors.js?v=20261010a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
@@ -538,6 +578,14 @@ document.addEventListener('DOMContentLoaded', () => {
         switchTab('search');
         document.getElementById('gene-search-input').value = params.get('gene');
         setTimeout(() => searchGene(), 500);
+    } else if (params.get('pair')) {
+        const parts = params.get('pair').split(',');
+        if (parts.length === 2) {
+            switchTab('pair');
+            document.getElementById('pair-gene-a').value = parts[0].trim();
+            document.getElementById('pair-gene-b').value = parts[1].trim();
+            setTimeout(() => searchGenePair(), 500);
+        }
     } else if (params.get('url')) {
         switchTab('url');
         document.getElementById('url-input').value = params.get('url');
@@ -550,6 +598,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── Tab switching ──
 function switchTab(tab) {
     document.getElementById('search-panel').style.display = tab === 'search' ? '' : 'none';
+    document.getElementById('pair-panel').style.display = tab === 'pair' ? '' : 'none';
     document.getElementById('url-panel').style.display = tab === 'url' ? '' : 'none';
     document.querySelectorAll('.input-tab').forEach(t => t.classList.remove('active'));
     document.querySelector('.input-tab[data-tab="' + tab + '"]').classList.add('active');
@@ -605,7 +654,93 @@ async function searchUniprotAc(query) {
 
 document.addEventListener('click', (e) => {
     if (!e.target.closest('#search-panel')) hideGeneAc();
+    if (!e.target.closest('#pair-panel')) hidePairAc();
 });
+
+// ── Gene Pair search ──
+function searchPairAc(inputEl, listId) {
+    clearTimeout(pairAcDebounce);
+    const list = document.getElementById(listId);
+    const query = inputEl.value.trim();
+    if (query.length < 2) { list.style.display = 'none'; return; }
+    pairAcDebounce = setTimeout(async () => {
+        try {
+            const url = `https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent('"' + query + '"')}+AND+organism_id:${getSpeciesId()}&fields=accession,gene_names,protein_name&size=8`;
+            const resp = await fetch(url);
+            if (!resp.ok) return;
+            const results = (await resp.json()).results || [];
+            list.innerHTML = '';
+            if (results.length === 0) { list.style.display = 'none'; return; }
+            for (const r of results) {
+                const gene = (r.genes || [{}])[0]?.geneName?.value || '';
+                const synonyms = (r.genes || [{}])[0]?.synonyms?.map(s => s.value).join(', ') || '';
+                const name = r.proteinDescription?.recommendedName?.fullName?.value
+                          || r.proteinDescription?.submissionNames?.[0]?.fullName?.value || '';
+                const item = document.createElement('div');
+                item.style.cssText = 'padding:0.5rem 0.8rem; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;';
+                item.innerHTML = '<strong style="color:#2471A3;">' + esc(gene) + '</strong>' +
+                    (synonyms ? ' <span style="color:#707070; font-size:0.75rem;">(' + esc(synonyms) + ')</span>' : '') +
+                    '<br><span style="color:#555; font-size:0.78rem;">' + esc(name.substring(0, 60)) + '</span>' +
+                    ' <span style="color:#707070; font-size:0.72rem;">' + esc(r.primaryAccession || '') + '</span>';
+                item.addEventListener('mouseenter', () => { item.style.background = '#eaf2f8'; });
+                item.addEventListener('mouseleave', () => { item.style.background = ''; });
+                item.addEventListener('click', ((g) => () => { inputEl.value = g; list.style.display = 'none'; })(gene));
+                list.appendChild(item);
+            }
+            list.style.display = '';
+        } catch (e) { /* silent */ }
+    }, 300);
+}
+
+// The primary symbol, entry name and accession of a name a reader typed (an alias such as p53), or the name itself.
+async function resolveOrthoGene(query, speciesId) {
+    try {
+        const url = `https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent('gene:' + query)}+AND+organism_id:${speciesId}+AND+reviewed:true&fields=id,accession,gene_primary&size=1`;
+        const hit = ((await (await fetch(url)).json()).results || [])[0];
+        const symbol = hit?.genes?.[0]?.geneName?.value;
+        if (symbol) return { symbol, entry: hit.uniProtkbId || '', acc: hit.primaryAccession || '' };
+    } catch (e) { /* the name as typed */ }
+    return { symbol: query, entry: '', acc: '' };
+}
+
+async function searchGenePair() {
+    const queryA = document.getElementById('pair-gene-a').value.trim();
+    const queryB = document.getElementById('pair-gene-b').value.trim();
+    if (!queryA || !queryB) return;
+
+    const speciesId = getSpeciesId();
+    const statusEl = document.getElementById('pair-status');
+    document.getElementById('pair-results').style.display = 'none';
+    statusEl.textContent = 'Searching FlyPredictome for ' + queryA + ' & ' + queryB + '...';
+    statusEl.style.color = '#2471A3';
+
+    try {
+        const [geneA, geneB] = await Promise.all([resolveOrthoGene(queryA, speciesId), resolveOrthoGene(queryB, speciesId)]);
+        const html = await fetchOrthoSummary(geneA.symbol, speciesId);
+        const partners = html ? parseOrthoSummary(html, geneA.symbol, [geneA.entry, geneA.acc]) : null;
+        if (partners === null) {
+            statusEl.innerHTML = 'Couldn\'t load the partner list. Try again in a moment, or open the <a href="javascript:void(0)" onclick="switchTab(\'url\')" style="color:#2471A3;">Paste URL</a> tab.';
+            statusEl.style.color = '#c0392b';
+            return;
+        }
+
+        const names = new Set([queryB, geneB.symbol, geneB.entry, geneB.acc].filter(Boolean).map(x => x.toLowerCase()));
+        const matches = partners
+            .filter(p => names.has(p.partnerSymbol.toLowerCase()) || names.has(p.partnerProt.toLowerCase()))
+            .map(p => ({ ...p, sym1: geneA.symbol, sym2: p.partnerSymbol, prot1: p.queryAcc, prot2: p.partnerProt, lenA: p.queryLen, lenB: p.partnerLen, isPartial1: p.isQueryPartial, isPartial2: p.isPartnerPartial }));
+        if (matches.length === 0) {
+            statusEl.textContent = 'No predicted interaction found between ' + geneA.symbol + ' and ' + geneB.symbol + '.';
+            statusEl.style.color = '#c0392b';
+            return;
+        }
+
+        await offerPairMatches(matches, geneA.symbol, geneB.symbol, statusEl);
+
+    } catch (e) {
+        statusEl.textContent = 'Error: ' + e.message;
+        statusEl.style.color = '#c0392b';
+    }
+}
 
 // ── Ortho search ──
 const ORTHO_BASE = 'https://www.flyrnai.org/tools/fly_predictome/web/famdb_ortho_search/';
@@ -632,32 +767,7 @@ async function searchGene() {
     resultsEl.style.display = 'none';
 
     try {
-        let resultHtml = null;
-
-        // Try Google Apps Script proxy first
-        if (ORTHO_PROXY_URL) {
-            try {
-                statusEl.textContent = 'Searching FlyPredictome for ' + query + '...';
-                const proxyUrl = ORTHO_PROXY_URL + '?gene=' + encodeURIComponent(query) + '&species=' + speciesId + '&type=Gene+Symbol';
-                const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(60000) });   // Apps Script cold starts can exceed 30 s
-                if (resp.ok) {
-                    const text = await resp.text();
-                    if (text.includes('famdb_summary_results') || text.includes('fam_summary_table')) {
-                        resultHtml = text;
-                    } else {
-                        // Check if it's a JSON error
-                        try {
-                            const err = JSON.parse(text);
-                            if (err.error) throw new Error(err.error);
-                        } catch (e) {
-                            if (e.message && !e.message.includes('JSON')) throw e;
-                        }
-                    }
-                }
-            } catch (e) {
-                console.warn('Proxy search failed:', e);
-            }
-        }
+        const resultHtml = await fetchOrthoSummary(query, speciesId);
 
         if (!resultHtml) {
             const orthoUrl = ORTHO_BASE + speciesId;
@@ -719,7 +829,8 @@ async function searchGene() {
         }
 
         // Step 3: Parse the results
-        const partners = parseOrthoSummary(resultHtml, query);
+        const gene = await resolveOrthoGene(query, speciesId);
+        const partners = parseOrthoSummary(resultHtml, query, [gene.entry, gene.acc]);
 
         if (partners === null) {
             statusEl.innerHTML = 'Gene-name search is temporarily unavailable while FlyPredictome updates its data format. Open the <a href="javascript:void(0)" onclick="switchTab(\'url\')" style="color:#2471A3; font-weight:600;">Paste URL</a> tab to analyze a pair from a prediction details-page URL (ready examples are there).';
@@ -744,7 +855,22 @@ async function searchGene() {
     }
 }
 
-function parseOrthoSummary(html, querySymbol) {
+// A gene's partner list through the Apps Script proxy, or null when it cannot be read.
+async function fetchOrthoSummary(query, speciesId) {
+    if (!ORTHO_PROXY_URL) return null;
+    try {
+        const proxyUrl = ORTHO_PROXY_URL + '?gene=' + encodeURIComponent(query) + '&species=' + speciesId + '&type=Gene+Symbol';
+        const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(60000) });   // Apps Script cold starts can exceed 30 s
+        if (!resp.ok) return null;
+        const text = await resp.text();
+        return text.includes('famdb_summary_results') || text.includes('fam_summary_table') ? text : null;
+    } catch (e) {
+        console.warn('Proxy search failed:', e);
+        return null;
+    }
+}
+
+function parseOrthoSummary(html, querySymbol, queryIds) {
     // FlyPredictome redesign: the ortholog partner list is now #famdb_summary_results, a compact ~17-column
     // DataTable (fewer columns than the fly summary — no separate fbgn/taxon/SET data cells). Everything
     // needed to open a pair lives in the FIRST cell's detail link:
@@ -795,8 +921,15 @@ function parseOrthoSummary(html, querySymbol) {
     let queryAcc = '', best = -1;
     for (const k in freq) if (freq[k] > best) { best = freq[k]; queryAcc = k; }
 
+    // A few rows name the query by accession where the rest use its entry name (P04637 for P53_HUMAN), so the
+    // searched gene's own ids count too. A row matching neither goes with the id such rows share most.
+    const ids = new Set([queryAcc, ...(queryIds || [])].filter(Boolean)), votes = {};
+    for (const r of raw) if (!ids.has(r.prot1) && !ids.has(r.prot2)) { votes[r.prot1] = (votes[r.prot1] || 0) + 1; votes[r.prot2] = (votes[r.prot2] || 0) + 1; }
+    const queryIsFirst = (r) => ids.has(r.prot1) || (!ids.has(r.prot2) && (votes[r.prot1] || 0) >= (votes[r.prot2] || 0));
+
     const partners = raw.map((r) => {
-        const partnerProt = r.prot1 === queryAcc ? r.prot2 : r.prot1;
+        const isQuery1 = queryIsFirst(r);
+        const partnerProt = isQuery1 ? r.prot2 : r.prot1;
         const lm = r.lenTxt.split('/');   // Length_ij = len(prot1)/len(prot2)
         return {
             sym1: querySymbol, sym2: r.partnerSymbol || partnerProt,
@@ -805,10 +938,20 @@ function parseOrthoSummary(html, querySymbol) {
             ilisAvg: r.ilisAvg, ilisBest: r.ilisBest, iptmAvg: r.iptmAvg, iptmBest: r.iptmBest,
             lisAvg: 0, clisAvg: 0, lirAvg: 0, clirAvg: 0, liaAvg: 0,
             lenA: int(lm[0]), lenB: int(lm[1]),
+            queryAcc: isQuery1 ? r.prot1 : r.prot2, queryLen: int(lm[isQuery1 ? 0 : 1]), partnerLen: int(lm[isQuery1 ? 1 : 0]),
             mistPPI: r.mistPPI, mistGI: r.mistGI, mistInterologPPI: r.mistInterologPPI, mistInterologGI: r.mistInterologGI,
             dirName: r.dirName, detailUrl: r.detailUrl,
         };
     });
+
+    // A fragment: well short of the longest prediction of that protein across this gene's rows. Partner fragments are named by
+    // accession, and an entry name can be its own protein under a shared symbol (PDPK2_HUMAN under PDPK1), so only accessions compare.
+    const queryMax = Math.max(0, ...partners.map((p) => p.queryLen)), partnerMax = {};
+    for (const p of partners) partnerMax[p.partnerSymbol] = Math.max(partnerMax[p.partnerSymbol] || 0, p.partnerLen);
+    for (const p of partners) {
+        p.isQueryPartial = p.queryLen < queryMax * 0.9;
+        p.isPartnerPartial = !p.partnerProt.includes('_') && p.partnerLen < partnerMax[p.partnerSymbol] * 0.9;
+    }
 
     partners.sort((a, b) => b.ilisBest - a.ilisBest);
     return partners;
@@ -818,6 +961,16 @@ function displayPartnerTable(partners, querySymbol) {
     const container = document.getElementById('search-results');
     container.innerHTML = '';
     container.style.display = '';
+
+    // Search input
+    const searchDiv = document.createElement('div');
+    searchDiv.style.cssText = 'margin-bottom:0.5rem;';
+    searchDiv.innerHTML =
+        '<input type="text" id="filter-partner-search" placeholder="Search partner gene name..." ' +
+            'oninput="filterPartnerTable()" ' +
+            'style="padding:0.45rem 0.8rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.85rem; width:100%; max-width:300px; transition:border-color 0.2s;" ' +
+            'onfocus="this.style.borderColor=\'#2471A3\'" onblur="this.style.borderColor=\'#e0e0e0\'">';
+    container.appendChild(searchDiv);
 
     // Filter controls
     const filterDiv = document.createElement('div');
@@ -830,6 +983,14 @@ function displayPartnerTable(partners, querySymbol) {
         '<label style="font-size:0.82rem; color:#555;">' +
             '<input type="checkbox" id="filter-threshold" onchange="filterPartnerTable()"> ' +
             'best iLIS &ge; 0.223' +
+        '</label>' +
+        '<label style="font-size:0.82rem; color:#555;">' +
+            '<input type="checkbox" id="filter-mist" onchange="filterPartnerTable()"> ' +
+            'Has experimental evidence (MIST)' +
+        '</label>' +
+        '<label style="font-size:0.82rem; color:#555;">' +
+            '<input type="checkbox" id="filter-fulllength" onchange="filterPartnerTable()"> ' +
+            'Full-length only' +
         '</label>' +
         '<span style="font-size:0.78rem; color:#707070;" id="filter-count"></span>';
     container.appendChild(filterDiv);
@@ -873,6 +1034,10 @@ function displayPartnerTable(partners, querySymbol) {
                 '<th>ipTM (best)</th>' +
                 '<th>ipTM (avg)</th>' +
                 '<th>Len A/B</th>' +
+                '<th>PPI</th>' +
+                '<th>GI</th>' +
+                '<th>Interolog PPI</th>' +
+                '<th>Interolog GI</th>' +
             '</tr>' +
         '</thead>' +
         '<tbody id="partner-tbody"></tbody>';
@@ -894,26 +1059,37 @@ function filterPartnerTable() {
 
     const positiveOnly = document.getElementById('filter-positive')?.checked;
     const thresholdOnly = document.getElementById('filter-threshold')?.checked;
+    const mistOnly = document.getElementById('filter-mist')?.checked;
+    const fullLengthOnly = document.getElementById('filter-fulllength')?.checked;
+    const searchQuery = (document.getElementById('filter-partner-search')?.value || '').trim().toLowerCase();
 
     tbody.innerHTML = '';
     let count = 0;
 
     for (const p of partners) {
+        if (searchQuery && !p.partnerSymbol.toLowerCase().includes(searchQuery) && !p.partnerProt.toLowerCase().includes(searchQuery)) continue;
         if (positiveOnly && p.ilisBest <= 0) continue;
         if (thresholdOnly && p.ilisBest < 0.223) continue;
+        if (fullLengthOnly && (p.isPartnerPartial || p.isQueryPartial)) continue;
+        if (mistOnly && p.mistPPI === 0 && p.mistGI === 0 && p.mistInterologPPI === 0 && p.mistInterologGI === 0) continue;
 
         count++;
         const tr = document.createElement('tr');
         tr.className = 'clickable';
         tr.style.cursor = 'pointer';
 
+        const partialTag = p.isPartnerPartial ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Partial)</span>' : '';
         tr.innerHTML =
-            '<td><strong>' + esc(p.partnerSymbol) + '</strong> <span style="color:#707070; font-size:0.72rem;">' + esc(p.partnerProt) + '</span></td>' +
+            '<td><strong>' + esc(p.partnerSymbol) + '</strong> <span style="color:#707070; font-size:0.72rem;">' + esc(p.partnerProt) + '</span>' + partialTag + '</td>' +
             '<td>' + ilisColor(p.ilisBest) + '</td>' +
             '<td>' + ilisColor(p.ilisAvg, true) + '</td>' +
             '<td>' + p.iptmBest.toFixed(2) + '</td>' +
             '<td>' + p.iptmAvg.toFixed(2) + '</td>' +
-            '<td>' + p.lenA + ' / ' + p.lenB + '</td>';
+            '<td>' + p.lenA + ' / ' + p.lenB + '</td>' +
+            '<td>' + (p.mistPPI || '\u2014') + '</td>' +
+            '<td>' + (p.mistGI || '\u2014') + '</td>' +
+            '<td>' + (p.mistInterologPPI || '\u2014') + '</td>' +
+            '<td>' + (p.mistInterologGI || '\u2014') + '</td>';
 
         if (p.detailUrl) {
             tr.addEventListener('click', ((url) => (e) => {
@@ -1166,6 +1342,11 @@ function generateCxc(row, pdbFilename, colors) {
     lines.push(`# LIR cartoons  (${colors.lir_b}) = ${sym2} LIR (chain B)`);
     lines.push(`# cLIR cartoons (${colors.clir_b}) = ${sym2} cLIR (chain B)`);
     lines.push(grayNonLir && showComplete ? `# Non-LIR regions are GRAY (#B0B0B0)` : showComplete ? `# Non-LIR regions are SHOWN (same as LIR color)` : `# Non-LIR regions are HIDDEN`);
+    lines.push(`#`);
+    if (LIR_A.size > 0) { const s = [...LIR_A].sort((a,b)=>a-b); lines.push(`# LIR_A: ${sym1} ${s[0]}-${s[s.length-1]} (${LIR_A.size} residues)`); }
+    if (LIR_B.size > 0) { const s = [...LIR_B].sort((a,b)=>a-b); lines.push(`# LIR_B: ${sym2} ${s[0]}-${s[s.length-1]} (${LIR_B.size} residues)`); }
+    if (cLIR_A.size > 0) lines.push(`# cLIR_A: ${sym1} ${cLIR_A.size} residues`);
+    if (cLIR_B.size > 0) lines.push(`# cLIR_B: ${sym2} ${cLIR_B.size} residues`);
 
     return lines.join('\n');
 }
@@ -1727,9 +1908,11 @@ function downloadCSV() {
 }
 
 // ── Gather the searched gene's interactome (each partner's cLIR indices) and hand off to cLIP ──
-function partnerPassesFilters(p) {   // mirror the partner-table checkbox filters (ortholog: positive + threshold)
+function partnerPassesFilters(p) {   // mirror the partner-table checkbox filters
     if (document.getElementById('filter-positive')?.checked && p.ilisBest <= 0) return false;
     if (document.getElementById('filter-threshold')?.checked && p.ilisBest < 0.223) return false;
+    if (document.getElementById('filter-fulllength')?.checked && (p.isPartnerPartial || p.isQueryPartial)) return false;
+    if (document.getElementById('filter-mist')?.checked && p.mistPPI === 0 && p.mistGI === 0 && p.mistInterologPPI === 0 && p.mistInterologGI === 0) return false;
     return true;
 }
 

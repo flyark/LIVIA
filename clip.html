@@ -14,7 +14,7 @@
 <script src="js/livia-viewer.js?v=20261104a"></script>
 <script src="js/livia-subnav.js?v=20261007a"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="stylesheet" href="css/livia.css?v=20261009c">
+<link rel="stylesheet" href="css/livia.css?v=20261105a">
 <style>
   /* cLIP-specific — livia.css provides the shell (body, .header, .container, .card, .btn) */
   .card h2 { margin:0 0 .5rem; font-size:1.05rem; color:#1a5276; font-weight:600; }
@@ -1781,7 +1781,7 @@ function redraw(A){ renderHeatmap(A); renderFreq(A); renderScatter(A); renderTab
 
 
 // pDockQ (Bryant, Pozzati & Elofsson 2022, author-corrected constants), fed this file's own cLIR
-// interface (cLIpLDDT + cLIA) to give an estimated LIpDockQ: lis.py counts confident contacting residue pairs, cLIA differs. Only a
+// interface (cLIpLDDT + half of cLIA, which counts both PAE directions) to give an estimated LIpDockQ: lis.py counts confident contacting residue pairs. Only a
 // fallback for a CSV that predates lis.py's own pDockQ family (no LIpDockQ column at all): a CSV
 // that already carries the column hits the literal parseFloat(o[key]) path above and never reaches
 // this. pDockQ (needs a structure-derived geometric interface) and pDockQ2/LIpDockQ2 (need raw PAE)
@@ -1801,7 +1801,7 @@ function scVal(o, key){
   if (key === 'LIpDockQ') {
     // Weighted by cLIR residue counts (the interface, not the whole chain) -- matches lis.py's
     // _wmean_plddt(cLIpLDDT_i, cLIpLDDT_j, len(clirI), len(clirJ)).
-    const a = parseFloat(o.cLIpLDDT_A), b = parseFloat(o.cLIpLDDT_B), wa = parseFloat(o.cLIR_A)||0, wb = parseFloat(o.cLIR_B)||0, n = parseFloat(o.cLIA);
+    const a = parseFloat(o.cLIpLDDT_A), b = parseFloat(o.cLIpLDDT_B), wa = parseFloat(o.cLIR_A)||0, wb = parseFloat(o.cLIR_B)||0, n = parseFloat(o.cLIA) / 2;
     const plddt = (!isNaN(a) && !isNaN(b) && (wa+wb)>0) ? (a*wa+b*wb)/(wa+wb) : (!isNaN(a) ? a : (!isNaN(b) ? b : NaN));
     const r = calcPdockqCLIP(plddt, n);
     return isNaN(r) ? 0 : r;
@@ -1830,7 +1830,7 @@ const RANK_METRIC = '_rank';   // synthetic axis: pure global rank (1..N) by iLI
 function populateAxes(A){
   const metrics = availableMetrics(A.pipe.rows).concat(RANK_METRIC);
   const first = A.pipe.rows[0] || {}, litLiq = first.LIpDockQ != null && first.LIpDockQ !== '' && !isNaN(parseFloat(first.LIpDockQ));
-  const LABEL = { [RANK_METRIC]: 'rank (global)', actifpTM: 'actifpTM*', ...(litLiq ? {} : { LIpDockQ: 'LIpDockQ (est.)' }) };   // without the column, an estimate from cLIA
+  const LABEL = { [RANK_METRIC]: 'rank (global)', actifpTM: 'actifpTM*', ...(litLiq ? {} : { LIpDockQ: 'LIpDockQ (est.)' }) };   // without the column, an estimate from half of cLIA
   const fill = (id, def) => { const s=$(id); if(!s) return; const cur=s.value;
     s.innerHTML=''; for (const m of metrics){ const o=document.createElement('option'); o.value=m; o.textContent=LABEL[m]||m; s.appendChild(o); }
     s.value = metrics.includes(cur) ? cur : def; };

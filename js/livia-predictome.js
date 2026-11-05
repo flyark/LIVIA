@@ -73,7 +73,9 @@ function pDockqForRank(pdbText, cbCutoff) {
 // off by 0-6 cells out of 40-250, LIpDockQ off by <0.04, usually <0.003) -- still an approximation (a
 // residue's *specific* qualifying partner isn't recoverable without PAE), but much closer than cLIA.
 function LIpDockqForRank(r, pdbText) {
-    if (!pdbText || !r._cLIR_A || !r._cLIR_B || r._cLIR_A.size === 0 || r._cLIR_B.size === 0) return null;
+    if (!pdbText || r['cLIR Indice A'] == null || r['cLIR Indice B'] == null) return null;
+    // A rank with no cLIR has no interface, as in lis.py: 0, a value the Avg row counts.
+    if (r._cLIR_A.size === 0 || r._cLIR_B.size === 0) return 0;
     const bfs = parseBfactorsPerResidue(pdbText, 'pdb');
     const plddt = combinePlddt(weightedPlddt(bfs, r._cLIR_A, 'A'), weightedPlddt(bfs, r._cLIR_B, 'B'), r._cLIR_A.size, r._cLIR_B.size);
     const coords = parsePdbCbCoordsAB(pdbText);
@@ -216,7 +218,7 @@ function calcPdockq(avgIfPlddt, nIfContacts) {
     // Matches the reference implementation's own explicit special case (contacts.shape[0]<1 ->
     // pdockq=0) -- a literal 0, not the sigmoid evaluated at x=0.
     if (nIfContacts === 0) return 0;
-    if (avgIfPlddt == null || isNaN(avgIfPlddt) || avgIfPlddt === 0) return null;
+    if (avgIfPlddt == null || isNaN(avgIfPlddt)) return null;
     const x = avgIfPlddt * Math.log10(nIfContacts);
     return 0.724 / (1 + Math.exp(-0.052 * (x - 152.611))) + 0.018;
 }
@@ -1670,4 +1672,149 @@ function generatePml(row, pdbFilename, colors) {
     lines.push(`# save ${sym1}_${sym2}_session.pse`);
 
     return lines.join('\n');
+}
+
+// ── Gene Pair search: the parts both predictome pages share ──
+let pairAcDebounce = null;
+let pairAcIdx = -1;
+
+function hidePairAc() {
+    document.getElementById('pair-ac-a').style.display = 'none';
+    document.getElementById('pair-ac-b').style.display = 'none';
+    pairAcIdx = -1;
+}
+
+function handlePairAcKey(e, inputId, listId) {
+    const list = document.getElementById(listId);
+    const items = list.querySelectorAll('div');
+    if (list.style.display !== 'none' && items.length > 0) {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            pairAcIdx = Math.min(pairAcIdx + 1, items.length - 1);
+            items.forEach((it, i) => { it.style.background = i === pairAcIdx ? '#eaf2f8' : ''; });
+            items[pairAcIdx].scrollIntoView({ block: 'nearest' });
+            return;
+        }
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            pairAcIdx = Math.max(pairAcIdx - 1, 0);
+            items.forEach((it, i) => { it.style.background = i === pairAcIdx ? '#eaf2f8' : ''; });
+            items[pairAcIdx].scrollIntoView({ block: 'nearest' });
+            return;
+        }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (pairAcIdx >= 0 && pairAcIdx < items.length) {
+                items[pairAcIdx].click();
+            } else {
+                list.style.display = 'none';
+            }
+            return;
+        }
+        if (e.key === 'Escape') { list.style.display = 'none'; pairAcIdx = -1; return; }
+    } else if (e.key === 'Enter') {
+        searchGenePair();
+    }
+}
+
+function setPairAndSearch(a, b) {
+    const inputA = document.getElementById('pair-gene-a');
+    const inputB = document.getElementById('pair-gene-b');
+    inputA.value = a; inputA.dataset.fbgn = '';
+    inputB.value = b; inputB.dataset.fbgn = '';
+    searchGenePair();
+}
+
+async function offerPairMatches(matches, labelA, labelB, statusEl) {
+    // FlyPredictome's own pair index carries stale entries — a listed SET can return "Not found"
+    // on their server even though the summary page still references it. Check each candidate's
+    // detail page actually exists before offering it, so a click never dead-ends on a broken link.
+    statusEl.textContent = labelA + ' vs ' + labelB + ': checking ' + matches.length +
+        (matches.length === 1 ? ' prediction set' : ' prediction sets') + ' against FlyPredictome...';
+    const liveFlags = await Promise.all(matches.map(p => p.detailUrl ? fetchViaProxy(p.detailUrl).then(Boolean) : false));
+    const liveMatches = matches.filter((p, i) => liveFlags[i]);
+    const deadCount = matches.length - liveMatches.length;
+    const deadNote = deadCount ? (' (' + deadCount + ' other listed set' + (deadCount === 1 ? '' : 's') + ' skipped — broken on FlyPredictome)') : '';
+
+    if (liveMatches.length === 0) {
+        statusEl.textContent = labelA + ' vs ' + labelB + ': FlyPredictome lists ' + matches.length +
+            (matches.length === 1 ? ' prediction set' : ' prediction sets') +
+            ' for this pair, but every linked page currently returns nothing on their end (stale index entries) — nothing to analyze right now.';
+        statusEl.style.color = '#c0392b';
+        return;
+    }
+
+    // Single match → load directly
+    if (liveMatches.length === 1 && liveMatches[0].detailUrl) {
+        statusEl.textContent = labelA + ' vs ' + labelB + ': loading analysis...' + deadNote;
+        statusEl.style.color = '#27ae60';
+        document.getElementById('url-input').value = liveMatches[0].detailUrl;
+        switchTab('url');
+        generate();
+        return;
+    }
+
+    // Multiple matches → show selection table
+    statusEl.textContent = labelA + ' vs ' + labelB + ': ' + liveMatches.length + ' prediction sets found' + deadNote + '. Click a row to analyze.';
+    statusEl.style.color = '#27ae60';
+    displayPairResults(liveMatches);
+}
+
+function displayPairResults(matches) {
+    const container = document.getElementById('pair-results');
+    container.innerHTML = '';
+    container.style.display = '';
+
+    const tableWrap = document.createElement('div');
+    tableWrap.style.cssText = 'overflow-x:auto; max-height:300px; overflow-y:auto; border:1px solid #e0e0e0; border-radius:8px;';
+
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    table.style.fontSize = '0.8rem';
+    table.innerHTML =
+        '<thead style="position:sticky; top:0; z-index:1;">' +
+            '<tr>' +
+                '<th>Protein A</th>' +
+                '<th>Protein B</th>' +
+                '<th>iLIS (best)</th>' +
+                '<th>ipTM (best)</th>' +
+                '<th>Len A</th>' +
+                '<th>Len B</th>' +
+                '<th>MIST</th>' +
+            '</tr>' +
+        '</thead>' +
+        '<tbody></tbody>';
+
+    const tbody = table.querySelector('tbody');
+    for (const p of matches) {
+        const tr = document.createElement('tr');
+        tr.className = 'clickable';
+        tr.style.cursor = 'pointer';
+        const mistStr = [p.mistPPI ? 'PPI' : '', p.mistGI ? 'GI' : ''].filter(Boolean).join(', ') || '\u2014';
+        const partial1 = p.isPartial1 ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Partial)</span>' : '';
+        const partial2 = p.isPartial2 ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Partial)</span>' : '';
+        tr.innerHTML =
+            '<td><strong>' + esc(p.sym1) + '</strong> <span style="color:#707070; font-size:0.72rem;">' + esc(p.fbgn1 || p.prot1) + '</span>' + partial1 + '</td>' +
+            '<td><strong>' + esc(p.sym2) + '</strong> <span style="color:#707070; font-size:0.72rem;">' + esc(p.fbgn2 || p.prot2) + '</span>' + partial2 + '</td>' +
+            '<td>' + ilisColor(p.ilisBest) + '</td>' +
+            '<td>' + p.iptmBest.toFixed(2) + '</td>' +
+            '<td>' + p.lenA + '</td>' +
+            '<td>' + p.lenB + '</td>' +
+            '<td>' + mistStr + '</td>';
+        if (p.detailUrl) {
+            tr.addEventListener('click', ((url) => (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    window.open(window.location.pathname + '?url=' + encodeURIComponent(url), '_blank');
+                } else {
+                    document.getElementById('url-input').value = url;
+                    switchTab('url');
+                    generate();
+                }
+            })(p.detailUrl));
+        }
+        tbody.appendChild(tr);
+    }
+
+    tableWrap.appendChild(table);
+    container.appendChild(tableWrap);
 }
