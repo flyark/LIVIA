@@ -1830,7 +1830,7 @@ const RANK_METRIC = '_rank';   // synthetic axis: pure global rank (1..N) by iLI
 function populateAxes(A){
   const metrics = availableMetrics(A.pipe.rows).concat(RANK_METRIC);
   const first = A.pipe.rows[0] || {}, litLiq = first.LIpDockQ != null && first.LIpDockQ !== '' && !isNaN(parseFloat(first.LIpDockQ));
-  const LABEL = { [RANK_METRIC]: 'rank (global)', actifpTM: 'actifpTM*', ...(litLiq ? {} : { LIpDockQ: 'LIpDockQ (est.)' }) };   // without the column, an estimate from half of cLIA
+  const LABEL = { [RANK_METRIC]: 'rank (global)', actifpTM: 'actifpTM*', ...(litLiq ? {} : { LIpDockQ: 'LIpDockQ est.' }) };   // without the column, an estimate from half of cLIA
   const fill = (id, def) => { const s=$(id); if(!s) return; const cur=s.value;
     s.innerHTML=''; for (const m of metrics){ const o=document.createElement('option'); o.value=m; o.textContent=LABEL[m]||m; s.appendChild(o); }
     s.value = metrics.includes(cur) ? cur : def; };

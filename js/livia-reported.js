@@ -184,7 +184,7 @@ function pairHtml(byType, sources){
     return '<div style="margin-top:6px; font-size:0.78rem; color:#555; background:#f6f9fc; border-left:3px solid #2471A3; padding:6px 10px; border-radius:0 5px 5px 0;">'
         + '<b style="color:#1a5276;">Reported in ' + (sources || 'MIST').split(' + ').map(s => s === 'BioGRID'
             ? '<a href="https://thebiogrid.org/" target="_blank" style="color:#1a5276;">BioGRID</a>'
-            : '<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#1a5276;">MIST</a>').join(' + ') + '</b>: '
+            : '<a href="https://www.flyrnai.org/MIST/" target="_blank" style="color:#1a5276;">MIST</a>').join(' + ') + '</b>: '
         + parts.join(' &middot; ')
         + ' &nbsp;<a href="javascript:void(0)" onclick="var c=document.getElementById(\'mist-card\'); if(c){ c.style.display=\'\'; c.scrollIntoView({behavior:\'auto\', block:\'center\'}); }" style="color:#2471A3; font-size:0.74rem; white-space:nowrap;">full PMIDs &uarr;</a></div>';
 }

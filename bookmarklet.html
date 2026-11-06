@@ -42,6 +42,7 @@
         .targets td:first-child { color: #1a5276; font-weight: 600; white-space: nowrap; }
         .targets td:nth-child(2) { color: #6B6B6B; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.78rem; word-break: break-all; }
         .targets td:nth-child(3) { color: #2471A3; font-weight: 600; font-size: 0.85rem; }
+        @media (max-width: 600px) { .targets td:first-child { white-space: normal; } .targets td { overflow-wrap: anywhere; } }
 
         .code { background: #f4f6f8; border: 1px solid #e0e6ec; border-radius: 8px; padding: 0.7rem 0.9rem; margin-top: 0.5rem; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.78rem; color: #555; line-height: 1.45; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
 

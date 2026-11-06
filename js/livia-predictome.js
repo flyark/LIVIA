@@ -454,7 +454,7 @@ async function fetchAllRankPdbs() {
         const mean = (xs) => (xs.length ? xs.reduce((x, y) => x + y, 0) / xs.length : null);
         const pc = document.getElementById('pdq-rank-avg'), lc = document.getElementById('cpdq-rank-avg');
         if (pc) { pc.textContent = pd.length ? pdqFmt(mean(pd)) : '—'; pc.title = `mean over ${pd.length} rank${pd.length === 1 ? '' : 's'}`; }
-        if (lc) { lc.textContent = lp.length ? pdqFmt(mean(lp)) : '—'; lc.title = `mean over the ${lp.length} rank${lp.length === 1 ? '' : 's'} with a value`; }
+        if (lc) { lc.textContent = lp.length ? pdqFmt(mean(lp)) : '—'; lc.title = `mean over the ${lp.length} rank${lp.length === 1 ? '' : 's'} with a value; a rank with no cLIR counts as 0`; }
     }
     // Rebuild pLDDT charts now that all rank PDBs are available
     if (flyCurrentRank) {
@@ -1734,12 +1734,12 @@ async function offerPairMatches(matches, labelA, labelB, statusEl) {
     const liveFlags = await Promise.all(matches.map(p => p.detailUrl ? fetchViaProxy(p.detailUrl).then(Boolean) : false));
     const liveMatches = matches.filter((p, i) => liveFlags[i]);
     const deadCount = matches.length - liveMatches.length;
-    const deadNote = deadCount ? (' (' + deadCount + ' other listed set' + (deadCount === 1 ? '' : 's') + ' skipped — broken on FlyPredictome)') : '';
+    const deadNote = deadCount ? (' (' + deadCount + ' other listed set' + (deadCount === 1 ? '' : 's') + ' skipped: their pages did not load)') : '';
 
     if (liveMatches.length === 0) {
         statusEl.textContent = labelA + ' vs ' + labelB + ': FlyPredictome lists ' + matches.length +
             (matches.length === 1 ? ' prediction set' : ' prediction sets') +
-            ' for this pair, but every linked page currently returns nothing on their end (stale index entries) — nothing to analyze right now.';
+            ' for this pair, but none of their pages loaded. Try again in a moment.';
         statusEl.style.color = '#c0392b';
         return;
     }
@@ -1791,8 +1791,8 @@ function displayPairResults(matches) {
         tr.className = 'clickable';
         tr.style.cursor = 'pointer';
         const mistStr = [p.mistPPI ? 'PPI' : '', p.mistGI ? 'GI' : ''].filter(Boolean).join(', ') || '\u2014';
-        const partial1 = p.isPartial1 ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Partial)</span>' : '';
-        const partial2 = p.isPartial2 ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Partial)</span>' : '';
+        const partial1 = p.isPartial1 ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Fragment)</span>' : '';
+        const partial2 = p.isPartial2 ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Fragment)</span>' : '';
         tr.innerHTML =
             '<td><strong>' + esc(p.sym1) + '</strong> <span style="color:#707070; font-size:0.72rem;">' + esc(p.fbgn1 || p.prot1) + '</span>' + partial1 + '</td>' +
             '<td><strong>' + esc(p.sym2) + '</strong> <span style="color:#707070; font-size:0.72rem;">' + esc(p.fbgn2 || p.prot2) + '</span>' + partial2 + '</td>' +

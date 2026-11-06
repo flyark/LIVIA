@@ -82,7 +82,7 @@
 <div class="header">
     <div class="container" role="main">
         <h1><span style="color:#2471A3;">LIVIA</span> &mdash; Ortholog Interactome</h1>
-        <p>Analyze protein interactions in other species from <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3;">FlyPredictome</a>'s ortholog predictions (human, zebrafish, worm and yeast screens, including the human kinase&ndash;TF screen of <a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank" style="color:#2471A3;">Kim et al., 2025</a>)</p>
+        <p>Analyze protein interactions in other species from <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3;">FlyPredictome</a>'s ortholog predictions (human, mouse, zebrafish, worm and yeast screens, including the human kinase&ndash;TF screen of <a href="https://www.biorxiv.org/content/10.1101/2025.10.10.681672" target="_blank" style="color:#2471A3;">Kim et al., 2025</a>)</p>
         <div class="header-links">
             <a href="index.html">Home</a>
             <a href="universal.html">Prediction Analysis</a>
@@ -112,7 +112,7 @@
     <!-- Input -->
     <div class="card">
         <div class="step-header"><a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" class="step-link">FlyPredictome</a>&nbsp; Ortholog Interaction Lookup</div>
-        <div style="font-size:0.8rem; color:#6B6B6B; margin-bottom:0.6rem;">Precomputed PPI predictions for human (and other species) from <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3;">FlyPredictome</a> ortholog search. Search by gene name or paste a prediction page URL.</div>
+        <div style="font-size:0.8rem; color:#6B6B6B; margin-bottom:0.6rem;">Precomputed PPI predictions for human (and other species) from <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3;">FlyPredictome</a> ortholog search. Search by gene or gene pair, or paste a prediction page URL.</div>
 
         <div class="input-tabs">
             <button class="input-tab active" data-tab="search" onclick="switchTab('search')">Search by Gene</button>
@@ -258,7 +258,7 @@
 
         <!-- Reported Interactions (MIST + BioGRID, js/livia-reported.js) -->
         <div class="card result-card" id="mist-card" style="display:none;">
-            <h2 data-nav="Reported">Reported Interactions <span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>, <a href="https://thebiogrid.org/" target="_blank" style="color:#2471A3;">BioGRID</a>)</span></h2>
+            <h2 data-nav="Reported">Reported Interactions <span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(<a href="https://www.flyrnai.org/MIST/" target="_blank" style="color:#2471A3;">MIST</a>, <a href="https://thebiogrid.org/" target="_blank" style="color:#2471A3;">BioGRID</a>)</span></h2>
             <div id="mist-content"></div>
             <div id="mist-link" style="margin-top:0.5rem; font-size:0.82rem;"></div>
         </div>
@@ -508,9 +508,8 @@
             <div class="help-col">
                 <h4>Quick Start</h4>
                 <ol>
-                    <li>Go to <a href="https://www.flyrnai.org/tools/fly_predictome/web/famdb_ortho_search/9606" target="_blank">FlyPredictome Ortholog Search</a> and search for a gene</li>
-                    <li>Click a predicted interaction pair to open the detail page</li>
-                    <li>Copy the detail page URL and paste it above</li>
+                    <li>Search above by gene (<strong>Search by Gene</strong>) or pair (<strong>Gene Pair</strong>), or paste a <a href="https://www.flyrnai.org/tools/fly_predictome/web/famdb_ortho_search/9606" target="_blank">FlyPredictome</a> prediction page URL (<strong>Paste URL</strong>)</li>
+                    <li>Click a row of the results to open that pair</li>
                     <li>Download the script (.cxc or .pml) and structure file, place both in the same folder</li>
                     <li>Open the script in ChimeraX (<code>.cxc</code>) or PyMOL (<code>.pml</code>)</li>
                 </ol>
@@ -553,10 +552,10 @@
 </div>
 
 <script src="js/livia-core.js?v=20261008b"></script>
-<script src="js/livia-reported.js?v=20261004a"></script>
+<script src="js/livia-reported.js?v=20261106a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20261104a"></script>
-<script src="js/livia-predictome.js?v=20261105b"></script>
+<script src="js/livia-predictome.js?v=20261106a"></script>
 <script src="js/livia-util.js?v=20261105a"></script>
 <script src="js/livia-colors.js?v=20261010a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
@@ -716,8 +715,12 @@ async function searchGenePair() {
 
     try {
         const [geneA, geneB] = await Promise.all([resolveOrthoGene(queryA, speciesId), resolveOrthoGene(queryB, speciesId)]);
-        const html = await fetchOrthoSummary(geneA.symbol, speciesId);
-        const partners = html ? parseOrthoSummary(html, geneA.symbol, [geneA.entry, geneA.acc]) : null;
+        let html = await fetchOrthoSummary(geneA.symbol, speciesId);
+        let partners = html ? parseOrthoSummary(html, geneA.symbol, [geneA.entry, geneA.acc]) : null;
+        if (partners && !partners.length && geneA.symbol !== queryA) {   // FlyPredictome may use the name typed rather than UniProt's
+            html = await fetchOrthoSummary(queryA, speciesId);
+            partners = html ? parseOrthoSummary(html, queryA, [geneA.entry, geneA.acc]) : null;
+        }
         if (partners === null) {
             statusEl.innerHTML = 'Couldn\'t load the partner list. Try again in a moment, or open the <a href="javascript:void(0)" onclick="switchTab(\'url\')" style="color:#2471A3;">Paste URL</a> tab.';
             statusEl.style.color = '#c0392b';
@@ -729,7 +732,7 @@ async function searchGenePair() {
             .filter(p => names.has(p.partnerSymbol.toLowerCase()) || names.has(p.partnerProt.toLowerCase()))
             .map(p => ({ ...p, sym1: geneA.symbol, sym2: p.partnerSymbol, prot1: p.queryAcc, prot2: p.partnerProt, lenA: p.queryLen, lenB: p.partnerLen, isPartial1: p.isQueryPartial, isPartial2: p.isPartnerPartial }));
         if (matches.length === 0) {
-            statusEl.textContent = 'No predicted interaction found between ' + geneA.symbol + ' and ' + geneB.symbol + '.';
+            statusEl.textContent = 'FlyPredictome lists no prediction for ' + geneA.symbol + ' and ' + geneB.symbol + '.';
             statusEl.style.color = '#c0392b';
             return;
         }
@@ -833,17 +836,17 @@ async function searchGene() {
         const partners = parseOrthoSummary(resultHtml, query, [gene.entry, gene.acc]);
 
         if (partners === null) {
-            statusEl.innerHTML = 'Gene-name search is temporarily unavailable while FlyPredictome updates its data format. Open the <a href="javascript:void(0)" onclick="switchTab(\'url\')" style="color:#2471A3; font-weight:600;">Paste URL</a> tab to analyze a pair from a prediction details-page URL (ready examples are there).';
+            statusEl.innerHTML = 'Couldn\'t read the partner list. Try again in a moment, or open the <a href="javascript:void(0)" onclick="switchTab(\'url\')" style="color:#2471A3; font-weight:600;">Paste URL</a> tab to analyze a pair from a prediction details-page URL (ready examples are there).';
             statusEl.style.color = '#c0392b';
             return;
         }
         if (partners.length === 0) {
-            statusEl.textContent = 'No interaction partners found for ' + query + '.';
+            statusEl.textContent = 'FlyPredictome lists no interaction partners for ' + query + '.';
             statusEl.style.color = '#c0392b';
             return;
         }
 
-        statusEl.textContent = query + ': ' + partners.length + ' predicted interaction partners. Click a row to analyze.';
+        statusEl.textContent = query + ': ' + partners.length + ' predicted interaction partner' + (partners.length === 1 ? '' : 's') + '. Click a row to analyze.';
         statusEl.style.color = '#27ae60';
 
         // Display partner table
@@ -863,7 +866,7 @@ async function fetchOrthoSummary(query, speciesId) {
         const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(60000) });   // Apps Script cold starts can exceed 30 s
         if (!resp.ok) return null;
         const text = await resp.text();
-        return text.includes('famdb_summary_results') || text.includes('fam_summary_table') ? text : null;
+        return text.includes('famdb_summary_results') || text.includes('fam_summary_table') || /No Results Found|Nothing Found/i.test(text) ? text : null;
     } catch (e) {
         console.warn('Proxy search failed:', e);
         return null;
@@ -881,7 +884,7 @@ function parseOrthoSummary(html, querySymbol, queryIds) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const table = doc.getElementById('famdb_summary_results') || doc.getElementById('fam_summary_table');
     // If the table is gone entirely, signal that (null) rather than a misleading "no partners" ([]).
-    if (!table) return null;
+    if (!table) return /No Results Found|Nothing Found/i.test(html) ? [] : null;
 
     const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
     const int = (v) => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
@@ -986,9 +989,9 @@ function displayPartnerTable(partners, querySymbol) {
         '</label>' +
         '<label style="font-size:0.82rem; color:#555;">' +
             '<input type="checkbox" id="filter-mist" onchange="filterPartnerTable()"> ' +
-            'Has experimental evidence (MIST)' +
+            'Reported in MIST (PPI, GI or interolog)' +
         '</label>' +
-        '<label style="font-size:0.82rem; color:#555;">' +
+        '<label style="font-size:0.82rem; color:#555;" title="Hides predictions with a protein under 90% of its longest listed prediction">' +
             '<input type="checkbox" id="filter-fulllength" onchange="filterPartnerTable()"> ' +
             'Full-length only' +
         '</label>' +
@@ -1078,7 +1081,7 @@ function filterPartnerTable() {
         tr.className = 'clickable';
         tr.style.cursor = 'pointer';
 
-        const partialTag = p.isPartnerPartial ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Partial)</span>' : '';
+        const partialTag = p.isPartnerPartial ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Fragment)</span>' : '';
         tr.innerHTML =
             '<td><strong>' + esc(p.partnerSymbol) + '</strong> <span style="color:#707070; font-size:0.72rem;">' + esc(p.partnerProt) + '</span>' + partialTag + '</td>' +
             '<td>' + ilisColor(p.ilisBest) + '</td>' +
@@ -1529,7 +1532,7 @@ async function generate() {
         avgTr.innerHTML = `<td>Avg</td><td>${rows[0]['Symbol 1']||''}</td><td>${rows[0]['Symbol 2']||''}</td>` +
             `<td>${ilisColor(parseFloat(avgILIS), true)}</td><td>${iliaStr}</td><td>${ilisaStr}</td><td>${avgIpTM}</td>` +
             (flyAtlas ? atlasCells('avg') : `<td id="pdq-rank-avg" title="the mean over ranks, filled in once every rank's structure has loaded">…</td>` +
-            `<td id="cpdq-rank-avg" title="the mean over ranks with a value, filled in once every rank's structure has loaded">…</td>`) +
+            `<td id="cpdq-rank-avg" title="the mean over ranks with a value, filled in once every rank's structure has loaded; a rank with no cLIR counts as 0">…</td>`) +
             `<td>${avgLirA} / ${avgLirB}</td>` +
             `<td>${avgClirA} / ${avgClirB}</td>` +
             `<td>${rows[0]['Len A']||'?'} / ${rows[0]['Len B']||'?'}</td>`;

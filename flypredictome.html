@@ -116,7 +116,7 @@
     <!-- Input -->
     <div class="card">
         <div class="step-header"><a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" class="step-link">FlyPredictome</a>&nbsp; Interaction Lookup</div>
-        <div style="font-size:0.8rem; color:#6B6B6B; margin-bottom:0.6rem;">Precomputed PPI predictions for <em>Drosophila</em> from <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3;">FlyPredictome</a>. Search by gene name or paste a prediction page URL.</div>
+        <div style="font-size:0.8rem; color:#6B6B6B; margin-bottom:0.6rem;">Precomputed PPI predictions for <em>Drosophila</em> from <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3;">FlyPredictome</a>. Search by gene or gene pair, or paste a prediction page URL.</div>
 
         <div class="input-tabs">
             <button class="input-tab active" data-tab="search" onclick="switchTab('search')">Search by Gene</button>
@@ -256,7 +256,7 @@
 
         <!-- Reported Interactions (MIST + BioGRID, js/livia-reported.js) -->
         <div class="card result-card" id="mist-card" style="display:none;">
-            <h2 data-nav="Reported">Reported Interactions <span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(<a href="https://fgrtools.hms.harvard.edu/MIST/" target="_blank" style="color:#2471A3;">MIST</a>, <a href="https://thebiogrid.org/" target="_blank" style="color:#2471A3;">BioGRID</a>)</span></h2>
+            <h2 data-nav="Reported">Reported Interactions <span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(<a href="https://www.flyrnai.org/MIST/" target="_blank" style="color:#2471A3;">MIST</a>, <a href="https://thebiogrid.org/" target="_blank" style="color:#2471A3;">BioGRID</a>)</span></h2>
             <div id="mist-content"></div>
             <div id="mist-link" style="margin-top:0.5rem; font-size:0.82rem;"></div>
         </div>
@@ -506,9 +506,8 @@
             <div class="help-col">
                 <h4>Quick Start</h4>
                 <ol>
-                    <li>Go to <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank">FlyPredictome</a> and search for a protein pair</li>
-                    <li>Copy the FlyPredictome result page URL</li>
-                    <li>Paste the URL above and click <strong>Generate</strong></li>
+                    <li>Search above by gene (<strong>Search by Gene</strong>) or pair (<strong>Gene Pair</strong>), or paste a <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank">FlyPredictome</a> prediction page URL (<strong>Paste URL</strong>)</li>
+                    <li>Click a row of the results to open that pair</li>
                     <li>Download the script (.cxc or .pml) and structure file, place both in the same folder</li>
                     <li>Open the script in ChimeraX (<code>.cxc</code>) or PyMOL (<code>.pml</code>)</li>
                 </ol>
@@ -551,10 +550,10 @@
 </div>
 
 <script src="js/livia-core.js?v=20261008b"></script>
-<script src="js/livia-reported.js?v=20261004a"></script>
+<script src="js/livia-reported.js?v=20261106a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20261104a"></script>
-<script src="js/livia-predictome.js?v=20261105b"></script>
+<script src="js/livia-predictome.js?v=20261106a"></script>
 <script src="js/livia-util.js?v=20261105a"></script>
 <script src="js/livia-colors.js?v=20261010a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
@@ -742,7 +741,7 @@ async function searchGene(presetFbgn) {
             return;
         }
         if (partners.length === 0) {
-            statusEl.textContent = 'No interaction partners found for ' + geneSymbol + '.';
+            statusEl.textContent = 'FlyPredictome lists no interaction partners for ' + geneSymbol + '.';
             statusEl.style.color = '#c0392b';
             return;
         }
@@ -770,7 +769,7 @@ async function searchGene(presetFbgn) {
             p.isPartnerPartial = p.partnerLen < maxLen * 0.9;
         }
 
-        statusEl.textContent = geneSymbol + ' (' + fbgnId + '): ' + partners.length + ' predicted interaction partners. Click a row to analyze.';
+        statusEl.textContent = geneSymbol + ' (' + fbgnId + '): ' + partners.length + ' predicted interaction partner' + (partners.length === 1 ? '' : 's') + '. Click a row to analyze.';
         statusEl.style.color = '#27ae60';
 
         // Step 6: Display partner table
@@ -906,7 +905,7 @@ async function searchGenePair() {
         }
 
         if (matches.length === 0) {
-            statusEl.textContent = 'No predicted interaction found between ' + geneA.symbol + ' and ' + geneB.symbol + '.';
+            statusEl.textContent = 'FlyPredictome lists no prediction for ' + geneA.symbol + ' and ' + geneB.symbol + '.';
             statusEl.style.color = '#c0392b';
             return;
         }
@@ -959,7 +958,7 @@ async function fetchFpSummary(fbgn) {
             .replace(/>\s+</g, '><');
         const doc = new DOMParser().parseFromString(cleaned, 'text/html');
         const table = doc.getElementById('famdb_summary_results');
-        if (!table) return null;
+        if (!table) return /No Results Found/i.test(cleaned) ? { fbgn, cols: FP_SUMMARY_COLS, colsMatched: true, rowWidth: 0, theadCols: [], rows: [], count: 0 } : null;
         const norm = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim();
         const theadCols = Array.from(table.querySelectorAll('thead th')).map(norm);
         const rows = [];
@@ -1145,9 +1144,9 @@ function displayPartnerTable(partners, querySymbol) {
         '</label>' +
         '<label style="font-size:0.82rem; color:#555;">' +
             '<input type="checkbox" id="filter-mist" onchange="filterPartnerTable()"> ' +
-            'Has experimental evidence (MIST)' +
+            'Reported in MIST (PPI, GI or interolog)' +
         '</label>' +
-        '<label style="font-size:0.82rem; color:#555;">' +
+        '<label style="font-size:0.82rem; color:#555;" title="Hides predictions with the searched protein under 90% of its full length, or a partner under 90% of its longest listed prediction">' +
             '<input type="checkbox" id="filter-fulllength" onchange="filterPartnerTable()"> ' +
             'Full-length only' +
         '</label>' +
@@ -1239,7 +1238,7 @@ function filterPartnerTable() {
         tr.className = 'clickable';
         tr.style.cursor = 'pointer';
 
-        const partialTag = p.isPartnerPartial ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Partial)</span>' : '';
+        const partialTag = p.isPartnerPartial ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Fragment)</span>' : '';
         tr.innerHTML =
             '<td><strong>' + esc(p.partnerSymbol) + '</strong> <span style="color:#707070; font-size:0.72rem;">' + esc(p.partnerFbgn) + '</span>' + partialTag + '</td>' +
             '<td>' + ilisColor(p.ilisBest) + '</td>' +
@@ -1737,7 +1736,7 @@ async function generate() {
         avgTr.innerHTML = `<td>Avg</td><td>${rows[0]['Symbol 1']||''}</td><td>${rows[0]['Symbol 2']||''}</td>` +
             `<td>${ilisColor(parseFloat(avgILIS), true)}</td><td>${iliaStr}</td><td>${ilisaStr}</td><td>${avgIpTM}</td>` +
             (flyAtlas ? atlasCells('avg') : `<td id="pdq-rank-avg" title="the mean over ranks, filled in once every rank's structure has loaded">…</td>` +
-            `<td id="cpdq-rank-avg" title="the mean over ranks with a value, filled in once every rank's structure has loaded">…</td>`) +
+            `<td id="cpdq-rank-avg" title="the mean over ranks with a value, filled in once every rank's structure has loaded; a rank with no cLIR counts as 0">…</td>`) +
             `<td>${avgLirA} / ${avgLirB}</td>` +
             `<td>${avgClirA} / ${avgClirB}</td>` +
             `<td>${rows[0]['Len A']||'?'} / ${rows[0]['Len B']||'?'}</td>`;
