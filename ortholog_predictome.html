@@ -112,7 +112,7 @@
     <!-- Input -->
     <div class="card">
         <div class="step-header"><a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" class="step-link">FlyPredictome</a>&nbsp; Ortholog Interaction Lookup</div>
-        <div style="font-size:0.8rem; color:#6B6B6B; margin-bottom:0.6rem;">Precomputed PPI predictions for human (and other species) from <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3;">FlyPredictome</a> ortholog search. Search by gene or gene pair, or paste a prediction page URL.</div>
+        <div style="font-size:0.8rem; color:#6B6B6B; margin-bottom:0.6rem;">Precomputed PPI predictions for human (and other species) from <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3;">FlyPredictome</a> ortholog search. Search a gene or a gene pair in the LIVIA Atlas, or paste a prediction page URL.</div>
 
         <div class="input-tabs">
             <button class="input-tab active" data-tab="search" onclick="switchTab('search')">Search by Gene</button>
@@ -150,7 +150,6 @@
                 <button class="example-btn" onclick="document.getElementById('gene-search-input').value='CDK7';searchGene()">CDK7</button>
             </div>
             <div id="search-status" style="font-size:0.85rem; color:#666; min-height:1.2rem; margin-top:0.5rem; margin-bottom:0.5rem;"></div>
-            <div id="search-results" style="display:none;"></div>
         </div>
 
         <!-- Gene Pair panel -->
@@ -189,7 +188,6 @@
                 <button class="example-btn" onclick="setPairAndSearch('ABL1','CRK')">ABL1 &amp; CRK</button>
             </div>
             <div id="pair-status" style="font-size:0.85rem; color:#666; min-height:1.2rem; margin-top:0.5rem; margin-bottom:0.5rem;"></div>
-            <div id="pair-results" style="display:none;"></div>
         </div>
 
         <!-- Paste URL panel -->
@@ -508,8 +506,7 @@
             <div class="help-col">
                 <h4>Quick Start</h4>
                 <ol>
-                    <li>Search above by gene (<strong>Search by Gene</strong>) or pair (<strong>Gene Pair</strong>), or paste a <a href="https://www.flyrnai.org/tools/fly_predictome/web/famdb_ortho_search/9606" target="_blank">FlyPredictome</a> prediction page URL (<strong>Paste URL</strong>)</li>
-                    <li>Click a row of the results to open that pair</li>
+                    <li>Search above by gene (<strong>Search by Gene</strong>) or pair (<strong>Gene Pair</strong>), which opens it in the LIVIA Atlas, or paste a <a href="https://www.flyrnai.org/tools/fly_predictome/web/famdb_ortho_search/9606" target="_blank">FlyPredictome</a> prediction page URL (<strong>Paste URL</strong>)</li>
                     <li>Download the script (.cxc or .pml) and structure file, place both in the same folder</li>
                     <li>Open the script in ChimeraX (<code>.cxc</code>) or PyMOL (<code>.pml</code>)</li>
                 </ol>
@@ -576,14 +573,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (params.get('gene')) {
         switchTab('search');
         document.getElementById('gene-search-input').value = params.get('gene');
-        setTimeout(() => searchGene(), 500);
+        setTimeout(() => searchGene(true), 500);
     } else if (params.get('pair')) {
         const parts = params.get('pair').split(',');
         if (parts.length === 2) {
             switchTab('pair');
             document.getElementById('pair-gene-a').value = parts[0].trim();
             document.getElementById('pair-gene-b').value = parts[1].trim();
-            setTimeout(() => searchGenePair(), 500);
+            setTimeout(() => searchGenePair(true), 500);
         }
     } else if (params.get('url')) {
         switchTab('url');
@@ -691,427 +688,25 @@ function searchPairAc(inputEl, listId) {
     }, 300);
 }
 
-// The primary symbol, entry name and accession of a name a reader typed (an alias such as p53), or the name itself.
-async function resolveOrthoGene(query, speciesId) {
-    try {
-        const url = `https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent('gene:' + query)}+AND+organism_id:${speciesId}+AND+reviewed:true&fields=id,accession,gene_primary&size=1`;
-        const hit = ((await (await fetch(url)).json()).results || [])[0];
-        const symbol = hit?.genes?.[0]?.geneName?.value;
-        if (symbol) return { symbol, entry: hit.uniProtkbId || '', acc: hit.primaryAccession || '' };
-    } catch (e) { /* the name as typed */ }
-    return { symbol: query, entry: '', acc: '' };
+// ── Search: the LIVIA Atlas holds these screens and finds a gene at once, aliases too, so a search opens it there ──
+const ATLAS_HOME = 'https://flyark.github.io/livia-atlas/';
+const ATLAS_SPECIES = { 9606: 'human', 10090: 'mus-musculus', 7955: 'zebrafish', 6239: 'worm', 4932: 'yeast' };
+function openInAtlas(route, label, statusId, open) {   // open is false for a search made from the address, which a browser would block as a popup
+    const url = ATLAS_HOME + '#/' + route;
+    document.getElementById(statusId).innerHTML = (open ? 'Opened ' : 'Open ') + esc(label) + ' in the <a href="' + url + '" target="_blank" rel="noopener" style="color:#2471A3; font-weight:600;">LIVIA Atlas</a>' + (open ? '.' : ' &rarr;');
+    if (open) window.open(url, '_blank', 'noopener');
 }
 
-async function searchGenePair() {
-    const queryA = document.getElementById('pair-gene-a').value.trim();
-    const queryB = document.getElementById('pair-gene-b').value.trim();
-    if (!queryA || !queryB) return;
-
-    const speciesId = getSpeciesId();
-    const statusEl = document.getElementById('pair-status');
-    document.getElementById('pair-results').style.display = 'none';
-    statusEl.textContent = 'Searching FlyPredictome for ' + queryA + ' & ' + queryB + '...';
-    statusEl.style.color = '#2471A3';
-
-    try {
-        const [geneA, geneB] = await Promise.all([resolveOrthoGene(queryA, speciesId), resolveOrthoGene(queryB, speciesId)]);
-        let html = await fetchOrthoSummary(geneA.symbol, speciesId);
-        let partners = html ? parseOrthoSummary(html, geneA.symbol, [geneA.entry, geneA.acc]) : null;
-        if (partners && !partners.length && geneA.symbol !== queryA) {   // FlyPredictome may use the name typed rather than UniProt's
-            html = await fetchOrthoSummary(queryA, speciesId);
-            partners = html ? parseOrthoSummary(html, queryA, [geneA.entry, geneA.acc]) : null;
-        }
-        if (partners === null) {
-            statusEl.innerHTML = 'Couldn\'t load the partner list. Try again in a moment, or open the <a href="javascript:void(0)" onclick="switchTab(\'url\')" style="color:#2471A3;">Paste URL</a> tab.';
-            statusEl.style.color = '#c0392b';
-            return;
-        }
-
-        const names = new Set([queryB, geneB.symbol, geneB.entry, geneB.acc].filter(Boolean).map(x => x.toLowerCase()));
-        const matches = partners
-            .filter(p => names.has(p.partnerSymbol.toLowerCase()) || names.has(p.partnerProt.toLowerCase()))
-            .map(p => ({ ...p, sym1: geneA.symbol, sym2: p.partnerSymbol, prot1: p.queryAcc, prot2: p.partnerProt, lenA: p.queryLen, lenB: p.partnerLen, isPartial1: p.isQueryPartial, isPartial2: p.isPartnerPartial }));
-        if (matches.length === 0) {
-            statusEl.textContent = 'FlyPredictome lists no prediction for ' + geneA.symbol + ' and ' + geneB.symbol + '.';
-            statusEl.style.color = '#c0392b';
-            return;
-        }
-
-        await offerPairMatches(matches, geneA.symbol, geneB.symbol, statusEl);
-
-    } catch (e) {
-        statusEl.textContent = 'Error: ' + e.message;
-        statusEl.style.color = '#c0392b';
-    }
-}
-
-// ── Ortho search ──
-const ORTHO_BASE = 'https://www.flyrnai.org/tools/fly_predictome/web/famdb_ortho_search/';
-
-// Google Apps Script proxy — handles CSRF + session cookies server-side
-let ORTHO_PROXY_URL = 'https://script.google.com/macros/s/AKfycbwPxNUJq8elIPLAmSdBLEe4oWQyUMiGXmcnyWmOqGmMaDUR--d2q50oNzcRIEZ3MRaGuQ/exec';
-
-function setProxyUrl(url) {
-    url = (url || '').trim();
-    ORTHO_PROXY_URL = url;
-    if (url) localStorage.setItem('ortho_proxy_url', url);
-    else localStorage.removeItem('ortho_proxy_url');
-}
-
-async function searchGene() {
+function searchGene(fromAddress) {
     const query = document.getElementById('gene-search-input').value.trim();
     if (!query) return;
-
-    const speciesId = getSpeciesId();
-    const statusEl = document.getElementById('search-status');
-    const resultsEl = document.getElementById('search-results');
-    statusEl.textContent = 'Searching for ' + query + '...';
-    statusEl.style.color = '#2471A3';
-    resultsEl.style.display = 'none';
-
-    try {
-        const resultHtml = await fetchOrthoSummary(query, speciesId);
-
-        if (!resultHtml) {
-            const orthoUrl = ORTHO_BASE + speciesId;
-            const hasProxy = !!ORTHO_PROXY_URL;
-            statusEl.innerHTML = '';
-            resultsEl.style.display = '';
-
-            resultsEl.innerHTML =
-                '<div style="background:white; border:1px solid #e0e0e0; border-radius:12px; padding:1.2rem 1.5rem; font-size:0.88rem; color:#333;">' +
-
-                // Step 1
-                '<div style="display:flex; gap:0.8rem; margin-bottom:1rem; align-items:flex-start;">' +
-                '<span style="display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background:#2471A3; color:white; font-weight:700; font-size:0.82rem; flex-shrink:0;">1</span>' +
-                '<div>' +
-                '<div style="font-weight:600; color:#1a5276; margin-bottom:0.2rem;">Search on FlyPredictome</div>' +
-                '<div style="font-size:0.82rem; color:#666;">Select <strong>Gene name</strong> identifier, type <code style="background:#f0f0f0; padding:0.1rem 0.3rem; border-radius:3px;">' + esc(query.toLowerCase()) + '</code>, and click <strong>Submit</strong>.</div>' +
-                '<a href="' + orthoUrl + '" target="_blank" class="btn btn-primary" style="text-decoration:none; font-size:0.82rem; padding:0.35rem 0.8rem; display:inline-block; margin-top:0.4rem;">Open FlyPredictome Ortholog Search</a>' +
-                '</div></div>' +
-
-                // Step 2
-                '<div style="display:flex; gap:0.8rem; margin-bottom:1rem; align-items:flex-start;">' +
-                '<span style="display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background:#2471A3; color:white; font-weight:700; font-size:0.82rem; flex-shrink:0;">2</span>' +
-                '<div>' +
-                '<div style="font-weight:600; color:#1a5276; margin-bottom:0.2rem;">Copy the detail URL</div>' +
-                '<div style="font-size:0.82rem; color:#666;">In the results table, right-click <strong>See Details</strong> on any pair &rarr; <strong>Copy Link Address</strong>.</div>' +
-                '</div></div>' +
-
-                // Step 3
-                '<div style="display:flex; gap:0.8rem; align-items:flex-start;">' +
-                '<span style="display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background:#2471A3; color:white; font-weight:700; font-size:0.82rem; flex-shrink:0;">3</span>' +
-                '<div style="flex:1;">' +
-                '<div style="font-weight:600; color:#1a5276; margin-bottom:0.3rem;">Paste URL here</div>' +
-                '<div class="url-row" style="margin:0;">' +
-                '<input type="text" id="inline-url-input" placeholder="https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/.../9606/9606/" style="flex:1; padding:0.6rem 0.8rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.85rem;" onkeydown="if(event.key===\'Enter\'){var u=this.value.trim();if(u){document.getElementById(\'url-input\').value=u;switchTab(\'url\');generate();}}">' +
-                '<button class="btn btn-primary" style="font-size:0.85rem;" onclick="var u=document.getElementById(\'inline-url-input\').value.trim();if(u){document.getElementById(\'url-input\').value=u;switchTab(\'url\');generate();}">Analyze</button>' +
-                '</div>' +
-                '</div></div>' +
-
-                // Proxy setup (collapsible)
-                '<details style="margin-top:1rem; border-top:1px solid #eee; padding-top:0.8rem;">' +
-                '<summary style="font-size:0.82rem; color:#2471A3; cursor:pointer; font-weight:600;">Enable automatic search (optional, one-time setup)</summary>' +
-                '<div style="font-size:0.8rem; color:#666; line-height:1.7; margin-top:0.5rem;">' +
-                'Deploy a small proxy to search FlyPredictome directly from this page:' +
-                '<ol style="padding-left:1.2rem; margin:0.3rem 0;">' +
-                '<li>Go to <a href="https://script.google.com" target="_blank" style="color:#2471A3;">script.google.com</a> &rarr; New Project</li>' +
-                '<li>Paste the code from <a href="proxy/ortho_search_proxy.gs" target="_blank" style="color:#2471A3;">ortho_search_proxy.gs</a></li>' +
-                '<li>Deploy &rarr; New Deployment &rarr; Web App (Execute as: Me, Access: Anyone)</li>' +
-                '<li>Paste the URL below:</li>' +
-                '</ol>' +
-                '<div class="url-row" style="margin:0.3rem 0 0;">' +
-                '<input type="text" id="proxy-url-input" value="' + esc(ORTHO_PROXY_URL) + '" placeholder="https://script.google.com/macros/s/.../exec" style="flex:1; padding:0.4rem 0.6rem; border:2px solid #e0e0e0; border-radius:6px; font-size:0.8rem;">' +
-                '<button class="btn btn-primary" style="font-size:0.8rem; padding:0.4rem 0.8rem;" onclick="setProxyUrl(document.getElementById(\'proxy-url-input\').value);searchGene();">Save &amp; Search</button>' +
-                '</div>' +
-                '</div>' +
-                '</details>' +
-
-                '</div>';
-            return;
-        }
-
-        // Step 3: Parse the results
-        const gene = await resolveOrthoGene(query, speciesId);
-        const partners = parseOrthoSummary(resultHtml, query, [gene.entry, gene.acc]);
-
-        if (partners === null) {
-            statusEl.innerHTML = 'Couldn\'t read the partner list. Try again in a moment, or open the <a href="javascript:void(0)" onclick="switchTab(\'url\')" style="color:#2471A3; font-weight:600;">Paste URL</a> tab to analyze a pair from a prediction details-page URL (ready examples are there).';
-            statusEl.style.color = '#c0392b';
-            return;
-        }
-        if (partners.length === 0) {
-            statusEl.textContent = 'FlyPredictome lists no interaction partners for ' + query + '.';
-            statusEl.style.color = '#c0392b';
-            return;
-        }
-
-        statusEl.textContent = query + ': ' + partners.length + ' predicted interaction partner' + (partners.length === 1 ? '' : 's') + '. Click a row to analyze.';
-        statusEl.style.color = '#27ae60';
-
-        // Display partner table
-        displayPartnerTable(partners, query);
-
-    } catch (e) {
-        statusEl.textContent = 'Error: ' + e.message;
-        statusEl.style.color = '#c0392b';
-    }
+    openInAtlas(ATLAS_SPECIES[getSpeciesId()] + '/' + encodeURIComponent(query), query, 'search-status', !fromAddress);
 }
 
-// A gene's partner list through the Apps Script proxy, or null when it cannot be read.
-async function fetchOrthoSummary(query, speciesId) {
-    if (!ORTHO_PROXY_URL) return null;
-    try {
-        const proxyUrl = ORTHO_PROXY_URL + '?gene=' + encodeURIComponent(query) + '&species=' + speciesId + '&type=Gene+Symbol';
-        const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(60000) });   // Apps Script cold starts can exceed 30 s
-        if (!resp.ok) return null;
-        const text = await resp.text();
-        return text.includes('famdb_summary_results') || text.includes('fam_summary_table') || /No Results Found|Nothing Found/i.test(text) ? text : null;
-    } catch (e) {
-        console.warn('Proxy search failed:', e);
-        return null;
-    }
-}
-
-function parseOrthoSummary(html, querySymbol, queryIds) {
-    // FlyPredictome redesign: the ortholog partner list is now #famdb_summary_results, a compact ~17-column
-    // DataTable (fewer columns than the fly summary — no separate fbgn/taxon/SET data cells). Everything
-    // needed to open a pair lives in the FIRST cell's detail link:
-    //   /tools/fly_predictome/web/famdb_details_all/<prot1>/<prot2>/SET_n/<taxon>/<taxon>/
-    // Visible metric columns: 0 partner(link), 1 rank/count, 2 iLIS_best, 3 iLIS_avg, 4 iLISA_best,
-    //   5 iLISA_avg, 6 ipSAE_best, 7 ipSAE_avg, 8 actifpTM_best, 9 actifpTM_avg, 10 ipTM_best, 11 ipTM_avg,
-    //   12 Length_ij ("lenQuery/lenPartner"), 13 fPPI, 14 fGI, 15 iPPI, 16 iGI (MIST).
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    const table = doc.getElementById('famdb_summary_results') || doc.getElementById('fam_summary_table');
-    // If the table is gone entirely, signal that (null) rather than a misleading "no partners" ([]).
-    if (!table) return /No Results Found|Nothing Found/i.test(html) ? [] : null;
-
-    const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
-    const int = (v) => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
-    const raw = [];
-    const seen = new Set();
-
-    for (const row of table.querySelectorAll('tbody tr')) {
-        const cells = row.querySelectorAll('td');
-        if (cells.length < 13) continue;
-        const link = cells[0].querySelector('a[href*="famdb_details"]');
-        if (!link) continue;
-        let detailUrl = link.getAttribute('href') || '';
-        if (!detailUrl) continue;
-        if (!detailUrl.startsWith('http')) detailUrl = 'https://www.flyrnai.org' + detailUrl;
-        // Pull accessions + SET out of the link (taxon suffix already in the URL, so it resolves as-is).
-        const m = detailUrl.match(/famdb_details(?:_all)?(?:_ortho)?\/([^/]+)\/([^/]+)\/([^/]+)\//);
-        if (!m) continue;
-        const prot1 = m[1], prot2 = m[2], dirName = m[3];
-        const dkey = prot1 + '|' + prot2 + '|' + dirName;
-        if (seen.has(dkey)) continue;   // FlyPredictome collapses repeated (pair, SET) rows; match that
-        seen.add(dkey);
-        raw.push({
-            prot1, prot2, dirName, detailUrl,
-            partnerSymbol: (link.textContent || '').trim(),
-            ilisBest: num(cells[2]?.textContent), ilisAvg: num(cells[3]?.textContent),
-            iptmBest: num(cells[10]?.textContent), iptmAvg: num(cells[11]?.textContent),
-            lenTxt: (cells[12]?.textContent || '').trim(),
-            mistPPI: int(cells[13]?.textContent), mistGI: int(cells[14]?.textContent),
-            mistInterologPPI: int(cells[15]?.textContent), mistInterologGI: int(cells[16]?.textContent),
-        });
-    }
-
-    // The two accessions in each detail URL are (query, partner) in an inconsistent order. The query
-    // protein pairs with every partner, so it is the accession common to (nearly) all rows — the mode.
-    const freq = {};
-    for (const r of raw) { freq[r.prot1] = (freq[r.prot1] || 0) + 1; freq[r.prot2] = (freq[r.prot2] || 0) + 1; }
-    let queryAcc = '', best = -1;
-    for (const k in freq) if (freq[k] > best) { best = freq[k]; queryAcc = k; }
-
-    // A few rows name the query by accession where the rest use its entry name (P04637 for P53_HUMAN), so the
-    // searched gene's own ids count too. A row matching neither goes with the id such rows share most.
-    const ids = new Set([queryAcc, ...(queryIds || [])].filter(Boolean)), votes = {};
-    for (const r of raw) if (!ids.has(r.prot1) && !ids.has(r.prot2)) { votes[r.prot1] = (votes[r.prot1] || 0) + 1; votes[r.prot2] = (votes[r.prot2] || 0) + 1; }
-    const queryIsFirst = (r) => ids.has(r.prot1) || (!ids.has(r.prot2) && (votes[r.prot1] || 0) >= (votes[r.prot2] || 0));
-
-    const partners = raw.map((r) => {
-        const isQuery1 = queryIsFirst(r);
-        const partnerProt = isQuery1 ? r.prot2 : r.prot1;
-        const lm = r.lenTxt.split('/');   // Length_ij = len(prot1)/len(prot2)
-        return {
-            sym1: querySymbol, sym2: r.partnerSymbol || partnerProt,
-            prot1: r.prot1, prot2: r.prot2,
-            partnerSymbol: r.partnerSymbol || partnerProt, partnerProt,
-            ilisAvg: r.ilisAvg, ilisBest: r.ilisBest, iptmAvg: r.iptmAvg, iptmBest: r.iptmBest,
-            lisAvg: 0, clisAvg: 0, lirAvg: 0, clirAvg: 0, liaAvg: 0,
-            lenA: int(lm[0]), lenB: int(lm[1]),
-            queryAcc: isQuery1 ? r.prot1 : r.prot2, queryLen: int(lm[isQuery1 ? 0 : 1]), partnerLen: int(lm[isQuery1 ? 1 : 0]),
-            mistPPI: r.mistPPI, mistGI: r.mistGI, mistInterologPPI: r.mistInterologPPI, mistInterologGI: r.mistInterologGI,
-            dirName: r.dirName, detailUrl: r.detailUrl,
-        };
-    });
-
-    // A fragment: well short of the longest prediction of that protein across this gene's rows. Partner fragments are named by
-    // accession, and an entry name can be its own protein under a shared symbol (PDPK2_HUMAN under PDPK1), so only accessions compare.
-    const queryMax = Math.max(0, ...partners.map((p) => p.queryLen)), partnerMax = {};
-    for (const p of partners) partnerMax[p.partnerSymbol] = Math.max(partnerMax[p.partnerSymbol] || 0, p.partnerLen);
-    for (const p of partners) {
-        p.isQueryPartial = p.queryLen < queryMax * 0.9;
-        p.isPartnerPartial = !p.partnerProt.includes('_') && p.partnerLen < partnerMax[p.partnerSymbol] * 0.9;
-    }
-
-    partners.sort((a, b) => b.ilisBest - a.ilisBest);
-    return partners;
-}
-
-function displayPartnerTable(partners, querySymbol) {
-    const container = document.getElementById('search-results');
-    container.innerHTML = '';
-    container.style.display = '';
-
-    // Search input
-    const searchDiv = document.createElement('div');
-    searchDiv.style.cssText = 'margin-bottom:0.5rem;';
-    searchDiv.innerHTML =
-        '<input type="text" id="filter-partner-search" placeholder="Search partner gene name..." ' +
-            'oninput="filterPartnerTable()" ' +
-            'style="padding:0.45rem 0.8rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.85rem; width:100%; max-width:300px; transition:border-color 0.2s;" ' +
-            'onfocus="this.style.borderColor=\'#2471A3\'" onblur="this.style.borderColor=\'#e0e0e0\'">';
-    container.appendChild(searchDiv);
-
-    // Filter controls
-    const filterDiv = document.createElement('div');
-    filterDiv.style.cssText = 'display:flex; gap:1rem; align-items:center; margin-bottom:0.5rem; flex-wrap:wrap;';
-    filterDiv.innerHTML =
-        '<label style="font-size:0.82rem; color:#555;">' +
-            '<input type="checkbox" id="filter-positive" checked onchange="filterPartnerTable()"> ' +
-            'iLIS &gt; 0 only' +
-        '</label>' +
-        '<label style="font-size:0.82rem; color:#555;">' +
-            '<input type="checkbox" id="filter-threshold" onchange="filterPartnerTable()"> ' +
-            'best iLIS &ge; 0.223' +
-        '</label>' +
-        '<label style="font-size:0.82rem; color:#555;">' +
-            '<input type="checkbox" id="filter-mist" onchange="filterPartnerTable()"> ' +
-            'Reported in MIST (PPI, GI or interolog)' +
-        '</label>' +
-        '<label style="font-size:0.82rem; color:#555;" title="Hides predictions with a protein under 90% of its longest listed prediction">' +
-            '<input type="checkbox" id="filter-fulllength" onchange="filterPartnerTable()"> ' +
-            'Full-length only' +
-        '</label>' +
-        '<span style="font-size:0.78rem; color:#707070;" id="filter-count"></span>';
-    container.appendChild(filterDiv);
-
-    // → cLIP handoff: gather this gene's interactome and cluster by shared contact residues
-    const clipDiv = document.createElement('div');
-    clipDiv.style.cssText = 'display:flex; gap:0.5rem; align-items:center; margin-bottom:0.6rem; flex-wrap:wrap;';
-    const clipBtn = document.createElement('button');
-    clipBtn.textContent = '🧬 Analyze interactome in cLIP →';
-    clipBtn.style.cssText = 'padding:0.45rem 0.9rem; border:none; border-radius:8px; background:#2471A3; color:#fff; cursor:pointer; font-size:0.85rem; font-weight:600;';
-    const capSel = document.createElement('select');
-    capSel.style.cssText = 'padding:0.4rem; border:1px solid #ccc; border-radius:6px; font-size:0.82rem;';
-    capSel.innerHTML = '<option value="100">Top 100 by iLIS</option><option value="200">Top 200</option><option value="300">Top 300</option><option value="99999">All</option>';
-    clipBtn.onclick = () => handoffToClip(parseInt(capSel.value, 10));
-    clipDiv.appendChild(clipBtn);
-    clipDiv.appendChild(capSel);
-    const uniqLabel = document.createElement('label');
-    uniqLabel.style.cssText = 'font-size:0.8rem; color:#555; display:flex; align-items:center; gap:3px; cursor:pointer;';
-    uniqLabel.innerHTML = '<input type="checkbox" id="clip-unique" checked style="accent-color:#1a5276"> unique partners';
-    clipDiv.appendChild(uniqLabel);
-    const clipHint = document.createElement('span');
-    clipHint.style.cssText = 'font-size:0.76rem; color:#707070;';
-    clipHint.textContent = 'clusters partners by shared contact residues (cLIR)';
-    clipDiv.appendChild(clipHint);
-    container.appendChild(clipDiv);
-
-    // Table
-    const tableWrap = document.createElement('div');
-    tableWrap.style.cssText = 'overflow-x:auto; max-height:400px; overflow-y:auto; border:1px solid #e0e0e0; border-radius:8px;';
-
-    const table = document.createElement('table');
-    table.className = 'data-table';
-    table.id = 'partner-list-table';
-    table.style.fontSize = '0.8rem';
-    table.innerHTML =
-        '<thead style="position:sticky; top:0; z-index:1;">' +
-            '<tr>' +
-                '<th>Partner</th>' +
-                '<th>iLIS (best)</th>' +
-                '<th>iLIS (avg)</th>' +
-                '<th>ipTM (best)</th>' +
-                '<th>ipTM (avg)</th>' +
-                '<th>Len A/B</th>' +
-                '<th>PPI</th>' +
-                '<th>GI</th>' +
-                '<th>Interolog PPI</th>' +
-                '<th>Interolog GI</th>' +
-            '</tr>' +
-        '</thead>' +
-        '<tbody id="partner-tbody"></tbody>';
-    tableWrap.appendChild(table);
-    container.appendChild(tableWrap);
-
-    // Store partners for filtering
-    window._searchPartners = partners;
-    window._searchQuery = querySymbol;
-
-    filterPartnerTable();
-    makeSortable(table);
-}
-
-function filterPartnerTable() {
-    const partners = window._searchPartners || [];
-    const tbody = document.getElementById('partner-tbody');
-    if (!tbody) return;
-
-    const positiveOnly = document.getElementById('filter-positive')?.checked;
-    const thresholdOnly = document.getElementById('filter-threshold')?.checked;
-    const mistOnly = document.getElementById('filter-mist')?.checked;
-    const fullLengthOnly = document.getElementById('filter-fulllength')?.checked;
-    const searchQuery = (document.getElementById('filter-partner-search')?.value || '').trim().toLowerCase();
-
-    tbody.innerHTML = '';
-    let count = 0;
-
-    for (const p of partners) {
-        if (searchQuery && !p.partnerSymbol.toLowerCase().includes(searchQuery) && !p.partnerProt.toLowerCase().includes(searchQuery)) continue;
-        if (positiveOnly && p.ilisBest <= 0) continue;
-        if (thresholdOnly && p.ilisBest < 0.223) continue;
-        if (fullLengthOnly && (p.isPartnerPartial || p.isQueryPartial)) continue;
-        if (mistOnly && p.mistPPI === 0 && p.mistGI === 0 && p.mistInterologPPI === 0 && p.mistInterologGI === 0) continue;
-
-        count++;
-        const tr = document.createElement('tr');
-        tr.className = 'clickable';
-        tr.style.cursor = 'pointer';
-
-        const partialTag = p.isPartnerPartial ? ' <span style="color:#c0392b; font-size:0.7rem; font-weight:600;">(Fragment)</span>' : '';
-        tr.innerHTML =
-            '<td><strong>' + esc(p.partnerSymbol) + '</strong> <span style="color:#707070; font-size:0.72rem;">' + esc(p.partnerProt) + '</span>' + partialTag + '</td>' +
-            '<td>' + ilisColor(p.ilisBest) + '</td>' +
-            '<td>' + ilisColor(p.ilisAvg, true) + '</td>' +
-            '<td>' + p.iptmBest.toFixed(2) + '</td>' +
-            '<td>' + p.iptmAvg.toFixed(2) + '</td>' +
-            '<td>' + p.lenA + ' / ' + p.lenB + '</td>' +
-            '<td>' + (p.mistPPI || '\u2014') + '</td>' +
-            '<td>' + (p.mistGI || '\u2014') + '</td>' +
-            '<td>' + (p.mistInterologPPI || '\u2014') + '</td>' +
-            '<td>' + (p.mistInterologGI || '\u2014') + '</td>';
-
-        if (p.detailUrl) {
-            tr.addEventListener('click', ((url) => (e) => {
-                if (e.ctrlKey || e.metaKey) {
-                    const pageUrl = window.location.pathname + '?url=' + encodeURIComponent(url);
-                    window.open(pageUrl, '_blank');
-                } else {
-                    document.getElementById('url-input').value = url;
-                    switchTab('url');
-                    generate();
-                }
-            })(p.detailUrl));
-        }
-
-        tbody.appendChild(tr);
-    }
-
-    const countEl = document.getElementById('filter-count');
-    if (countEl) countEl.textContent = 'Showing ' + count + ' of ' + partners.length;
+function searchGenePair(fromAddress) {
+    const a = document.getElementById('pair-gene-a').value.trim(), b = document.getElementById('pair-gene-b').value.trim();
+    if (!a || !b) return;
+    openInAtlas('pairs/' + ATLAS_SPECIES[getSpeciesId()] + '?q=' + encodeURIComponent(a + ' ' + b), a + ' & ' + b, 'pair-status', !fromAddress);
 }
 
 function updateScriptPreview() {
@@ -1908,15 +1503,6 @@ function downloadCSV() {
     const sym2 = flyParsed.rows[0]?.['Symbol 2'] || 'protein2';
     a.download = `${sym1}_${sym2}_all_ranks.csv`;
     a.click();
-}
-
-// ── Gather the searched gene's interactome (each partner's cLIR indices) and hand off to cLIP ──
-function partnerPassesFilters(p) {   // mirror the partner-table checkbox filters
-    if (document.getElementById('filter-positive')?.checked && p.ilisBest <= 0) return false;
-    if (document.getElementById('filter-threshold')?.checked && p.ilisBest < 0.223) return false;
-    if (document.getElementById('filter-fulllength')?.checked && (p.isPartnerPartial || p.isQueryPartial)) return false;
-    if (document.getElementById('filter-mist')?.checked && p.mistPPI === 0 && p.mistGI === 0 && p.mistInterologPPI === 0 && p.mistInterologGI === 0) return false;
-    return true;
 }
 
 document.getElementById('url-input').addEventListener('keydown', e => {
