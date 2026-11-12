@@ -251,9 +251,9 @@
 
     <div class="card">
       <h2 data-nav="Frequency" style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap">Contact residue frequency
-        <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem">SVG&nbsp; w<input id="svg-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="svg-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="svg-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"> &middot; x-ticks<input id="clip-xticks" type="number" value="15" min="2" max="40" step="1" title="residue x-tick count (frequency + fingerprint)" style="width:44px" onchange="if(LAST){renderFreq(LAST);renderHeatmap(LAST);}"> <button class="ghost" id="svg-freq">&#8595; SVG</button></span>
+        <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem">style<select class="clip-style" title="by cluster: each cluster in its own color, labeled at the right; classic: one color for every contact" onchange="setClipStyle(this.value)"><option value="cluster">by cluster</option><option value="classic">classic</option></select> &middot; SVG&nbsp; w<input id="svg-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="svg-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="svg-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"> &middot; x-ticks<input id="clip-xticks" type="number" value="15" min="2" max="40" step="1" title="residue x-tick count (frequency + fingerprint)" style="width:44px" onchange="if(LAST){renderFreq(LAST);renderHeatmap(LAST);}"> <button class="ghost" id="svg-freq">&#8595; SVG</button></span>
       </h2>
-      <div class="muted">How often each query residue is a contact residue (cLIR) across predictions (each model of each partner; one per partner when that box is ticked), colored by the dominant cluster · click clusters to filter.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.<br>Tracks below the bars: AlphaFold <b>pLDDT</b> (0&ndash;100) &mdash; <span style="white-space:nowrap"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#FF7D45"></span> &le;50 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#FFDB13"></span> 50&ndash;70 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#65CBF3"></span> 70&ndash;90 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#0053D6"></span> &gt;90</span><span class="am-only hidden"><br><b style="color:#a33">AM path.</b> = AlphaMissense mean pathogenicity per residue (averaged over all ~19 substitutions at that position; blue = benign &rarr; red = pathogenic; human only, from AlphaFold DB).</span></div>
+      <div class="muted">How often each query residue is a contact residue (cLIR) across predictions (each model of each partner; one per partner when that box is ticked), <span id="freq-style-note">one line per cluster over the total (gray)</span> · click clusters to filter.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.<br>Tracks below the bars: AlphaFold <b>pLDDT</b> (0&ndash;100) &mdash; <span style="white-space:nowrap"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#FF7D45"></span> &le;50 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#FFDB13"></span> 50&ndash;70 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#65CBF3"></span> 70&ndash;90 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#0053D6"></span> &gt;90</span><span class="am-only hidden"><br><b style="color:#a33">AM path.</b> = AlphaMissense mean pathogenicity per residue (averaged over all ~19 substitutions at that position; blue = benign &rarr; red = pathogenic; human only, from AlphaFold DB).</span></div>
       <div id="freq-chips" class="chips" style="margin:.4rem 0"></div>
       <canvas id="freq"></canvas>
       <div id="freq-domains" style="font-size:.8rem; color:#556; margin-top:.35rem; line-height:1.55"></div>
@@ -263,9 +263,9 @@
 
     <div class="card">
       <h2 data-nav="Fingerprint" style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap">Clustered interaction fingerprint
-        <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem">SVG w<input id="hm-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="hm-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="hm-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"> <button class="ghost" id="svg-heatmap">&#8595; SVG</button></span>
+        <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem">style<select class="clip-style" title="by cluster: each cluster in its own color, labeled at the right; classic: one color for every contact" onchange="setClipStyle(this.value)"><option value="cluster">by cluster</option><option value="classic">classic</option></select> &middot; SVG w<input id="hm-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="hm-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="hm-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"> <button class="ghost" id="svg-heatmap">&#8595; SVG</button></span>
       </h2>
-      <div class="muted">Rows = partners (dendrogram order), columns = query residues. <span style="color:#08306b;font-weight:600">Dark blue</span> = cLIR contact, very light = none; left: dendrogram + cluster strip.</div>
+      <div class="muted" id="fp-note">Rows = partners (dendrogram order), columns = query residues. cLIR contacts in their cluster's color, very light = none; left: dendrogram + cluster strip; right: each cluster, its predictions and the partners with the most predictions.</div>
       <div id="fp-chips" class="chips" style="margin:.4rem 0"></div>
       <canvas id="heatmap"></canvas>
     </div>
@@ -422,6 +422,26 @@ const FPR_ILIS = [['10% FPR', 0.223], ['5% FPR', 0.339], ['1% FPR', 0.551]];
 // Shared residue x-axis layout so the frequency plot and the fingerprint heatmap align column-for-column.
 // AX_L holds the heatmap's dendrogram + cluster strip (and the frequency plot's y-axis) → shared = aligned.
 const PLOT_W = 900, AX_L = 58, AX_R = 46;
+let CLIP_STYLE = 'cluster';   // frequency + fingerprint: 'cluster' (each cluster in its color, labeled at the right) or 'classic' (bars in the dominant cluster's color, contacts in dark blue)
+const clipAXR = (svg) => (CLIP_STYLE === 'cluster' && (svg || window.innerWidth >= 640) ? 150 : AX_R);   // room for the cluster labels (not on a phone, where the scaled canvas makes them unreadable; the SVG keeps them); both plots use it so their residue axes stay aligned
+function setClipStyle(v){
+  CLIP_STYLE = v; document.querySelectorAll('.clip-style').forEach((x) => { x.value = v; });
+  { const fn = document.getElementById('freq-style-note'); if (fn) fn.textContent = v === 'cluster' ? 'one line per cluster over the total (gray)' : 'colored by the dominant cluster'; }
+  const nt = document.getElementById('fp-note'); if (nt) nt.innerHTML = v === 'cluster' ? 'Rows = partners (dendrogram order), columns = query residues. cLIR contacts in their cluster\'s color, very light = none; left: dendrogram + cluster strip; right: each cluster, its predictions and the partners with the most predictions.'
+    : 'Rows = partners (dendrogram order), columns = query residues. <span style="color:#08306b;font-weight:600">Dark blue</span> = cLIR contact, very light = none; left: dendrogram + cluster strip.';
+  if (LAST){ renderFreq(LAST); renderHeatmap(LAST); }
+}
+function clusterBlocks(A, order){   // runs of rows in one cluster, each with its label: 'C1: 21 (MDM2, TADA2A, …)', predictions and the partners with the most predictions
+  const { pipe, cl } = A, out = [];
+  order.forEach((idx, row) => { const c = cl.labels[idx], b = out[out.length - 1]; if (b && b.c === c) b.end = row; else out.push({ c, start: row, end: row }); });
+  for (const b of out){ const per = new Map(); let n = 0;
+    for (let i = 0; i < cl.labels.length; i++) if (cl.labels[i] === b.c){ n++; const p = pipe.rows[i].Symbol_2 || ''; per.set(p, (per.get(p) || 0) + 1); }
+    const nm = [...per].sort((a, z) => z[1] - a[1]).slice(0, 2).map(([p]) => p);
+    b.label = `C${b.c}: ${n}${nm.length ? ` (${nm.join(', ')}${per.size > 2 ? ', \u2026' : ''})` : ''}`; }
+  return out;
+}
+function fitLabel(t, room, width){ while (t.length > 4 && width(t) > room) t = t.slice(0, -2) + '\u2026'; return t; }
+
 
 let FILES = [];      // {name, rows} — parsed+converted once on drop, reused for gene list + every generate
 let LAST = null;     // last analysis result (for export)
@@ -1167,20 +1187,21 @@ function renderHeatmap(A){
   cv.style.width = '100%'; cv.style.height = 'auto';
   const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, BW, BH);
   const Z = cl.Z || [];
-  const step = (W - AX_L - AX_R) / plen;
+  const R = clipAXR(), byCl = CLIP_STYLE === 'cluster';
+  const step = (W - AX_L - R) / plen;
   const edge = (r) => Math.round((AX_L + (r - 1) * step) * S);
   const rowTop = (row) => Math.round(row * rowsHb / n);
   const rowMid = (row) => (rowTop(row) + rowTop(row + 1)) / 2;
   const dendroX0 = 2 * S, dendroX1 = 28 * S;                      // dendrogram area (left)
   const stripX0 = 31 * S, stripX1 = Math.round((AX_L - 8) * S);   // cluster row_colors strip
   const BG = '#f7fbff', CONTACT = '#08306b';                      // Blues colormap min / max
-  const resX0 = Math.round(AX_L * S), resX1 = Math.round((W - AX_R) * S);
+  const resX0 = Math.round(AX_L * S), resX1 = Math.round((W - R) * S);
   for (let row = 0; row < n; row++){
     const idx = order[row], y0 = rowTop(row), hh = Math.max(1, rowTop(row + 1) - y0);
     ctx.fillStyle = clusterColor(cl.labels[idx], k);
     ctx.fillRect(stripX0, y0, stripX1 - stripX0, hh);            // left strip = cluster
     ctx.fillStyle = BG; ctx.fillRect(resX0, y0, resX1 - resX0, hh);   // Blues-min background (non-cLIR)
-    ctx.fillStyle = CONTACT;
+    ctx.fillStyle = byCl ? clusterColor(cl.labels[idx], k) : CONTACT;
     for (const [s, e] of mergeRuns(pipe.fingerprints[idx])){       // merged runs → no residue gaps
       const x0 = edge(s), x1 = Math.max(x0 + 1, edge(e + 1));
       ctx.fillRect(x0, y0, x1 - x0, hh);                          // cLIR contact (Blues-max)
@@ -1199,6 +1220,12 @@ function renderHeatmap(A){
       ctx.moveTo(xm, yv[a]); ctx.lineTo(xm, yv[b]);
     }
     ctx.stroke();
+  }
+  if (byCl && R > AX_R){   // each cluster's block of rows, labeled at the right
+    ctx.font = `600 ${9 * S}px sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    for (const b of clusterBlocks(A, order)){ const y0 = rowTop(b.start), y1 = rowTop(b.end + 1); if (y1 - y0 < 8 * S) continue;
+      ctx.fillStyle = clusterColor(b.c, k); ctx.fillRect(resX1 + 2 * S, (y0 + y1) / 2 - S / 2, 4 * S, S);
+      ctx.fillText(fitLabel(b.label, (R - 12) * S, (t) => ctx.measureText(t).width), resX1 + 8 * S, (y0 + y1) / 2); }
   }
   // residue-number x-axis ticks (~15 evenly spaced; centered on the cell, aligned with frequency)
   ctx.fillStyle = '#333'; ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
@@ -1585,13 +1612,27 @@ function residueLabel(A, r){
 }
 const clusterName = (c) => 'Cluster ' + c;
 
+function freqSeries(tot, byC, plen, k, xc, yOf, base){   // 'by cluster' frequency: [gray area of all, its black edge, one line per cluster, largest first], drawn where the cluster has contacts
+  const all = []; for (let r=1;r<=plen;r++) all.push([xc(r), yOf(tot[r])]);
+  const out = [{ area:true, pts:[...all, [xc(plen), base], [xc(1), base]], breaks:new Set() }, { color:'#1b2430', w:1.2, pts:all, breaks:new Set() }];
+  const size = {}; for (let r=1;r<=plen;r++) for (const c in (byC[r]||{})) size[c] = (size[c]||0) + byC[r][c];
+  for (const c of Object.keys(size).sort((a,z)=>size[z]-size[a])){ const v=(r)=>(r>=1&&r<=plen&&byC[r]&&byC[r][c])||0, pts=[], breaks=new Set(); let on=false;
+    for (let r=1;r<=plen;r++){ if(!v(r)&&!v(r-1)&&!v(r+1)){ on=false; continue; } if(!on) breaks.add(pts.length); pts.push([xc(r), yOf(v(r))]); on=true; }
+    out.push({ color:clusterColor(+c,k), w:1.5, pts, breaks }); }
+  return out;
+}
+function freqKey(byC, plen, k, fit){   // the 'by cluster' lines' key for the right gutter: all predictions, then clusters by size
+  const size = {}; for (let r=1;r<=plen;r++) for (const c in (byC[r]||{})) size[c] = (size[c]||0) + byC[r][c];
+  const list = [['all predictions', '#1b2430'], ...Object.keys(size).sort((a,z)=>size[z]-size[a]).map((c)=>[`C${c}`, clusterColor(+c,k)])];
+  return list.slice(0, fit).map(([t,col],j)=>[j === fit - 1 && list.length > fit ? `+ ${list.length - fit + 1} more` : t, col]);
+}
 function renderFreq(A){
   const { pipe, cl } = A, n = pipe.fingerprints.length, plen = pipe.proteinLen, k = cl.optimalK;
   const tot = new Float64Array(plen+1), byC = {};
   for (let i=0;i<n;i++){ const lab=cl.labels[i]; if(ACTIVE && !ACTIVE.has(lab)) continue; for (const res of pipe.fingerprints[i]){ if(res<1||res>plen)continue; tot[res]++; (byC[res]=byC[res]||{})[lab]=((byC[res]||{})[lab]||0)+1; } }
   let maxF=1; for (let r=1;r<=plen;r++) if(tot[r]>maxF)maxF=tot[r];
   const hasP = !!(A._plddt && A._plddt.size);
-  const S=2, W=PLOT_W, padL=AX_L, padR=AX_R;
+  const S=2, W=PLOT_W, padL=AX_L, padR=clipAXR();
   const bw=(W-padL-padR)/plen, xOf=(r)=>padL+(r-1)*bw;
   // domain boxes with lane-stacking (overlapping domains stack into rows)
   let inv=null; if(A.residueMap){ inv={}; for(let i=0;i<A.residueMap.length;i++){ const sr=A.residueMap[i]; if(sr!=null && inv[sr]==null) inv[sr]=i+1; } }
@@ -1620,7 +1661,14 @@ function renderFreq(A){
   ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(padL,padT); ctx.lineTo(padL,freqBase); ctx.lineTo(W-padR,freqBase); ctx.stroke();
   ctx.fillStyle='#333'; ctx.font='9px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
   for (const t of [...new Set([0, Math.round(maxF/2), maxF])]) ctx.fillText(String(t), padL-4, freqBase-(t/maxF)*freqH);
-  for (let r=1;r<=plen;r++){ if(!tot[r])continue; let dom=1,best=-1; const cc=byC[r]||{}; for(const c in cc) if(cc[c]>best){best=cc[c];dom=+c;}
+  if (CLIP_STYLE === 'cluster'){   // all predictions as a gray area edged in black, each cluster's own count as a line in its color
+    for (const sg of freqSeries(tot, byC, plen, k, (r)=>xOf(r)+bw/2, (v)=>freqBase-(v/maxF)*freqH, freqBase)){
+      ctx.beginPath(); sg.pts.forEach(([x,y],i)=> i && !sg.breaks.has(i) ? ctx.lineTo(x,y) : ctx.moveTo(x,y));
+      if (sg.area){ ctx.closePath(); ctx.fillStyle='#e3e8ee'; ctx.fill(); continue; }
+      ctx.strokeStyle=sg.color; ctx.lineWidth=sg.w; ctx.stroke(); }
+    if (padR > AX_R){ ctx.font='9px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle'; }   // the lines' key, in the gutter the fingerprint labels use
+    if (padR > AX_R) freqKey(byC, plen, k, Math.floor(freqH/12)).forEach(([t,col],j)=>{ const x=W-padR+8, y=padT+6+j*12; ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+14,y); ctx.stroke(); ctx.fillStyle='#333'; ctx.fillText(t, x+19, y); });
+  } else for (let r=1;r<=plen;r++){ if(!tot[r])continue; let dom=1,best=-1; const cc=byC[r]||{}; for(const c in cc) if(cc[c]>best){best=cc[c];dom=+c;}
     const h=(tot[r]/maxF)*freqH; ctx.fillStyle=clusterColor(dom,k); ctx.fillRect(xOf(r), freqBase-h, Math.max(1,bw), h); }
   ctx.save(); ctx.translate(11,(padT+freqBase)/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillStyle='#333'; ctx.fillText('# predictions',0,0); ctx.restore();
   // pLDDT panel (separate, below; AFDB confidence)
@@ -1692,9 +1740,10 @@ function svgHeatmap(A, opts){
   const AXB = fs + 14;
   const rowH = opts.rowH || (opts.height ? Math.max(0.5, (opts.height - AXB) / n) : Math.max(3, Math.min(10, 238 / n)));
   const rowsH = n * rowH, H = rowsH + AXB;
-  const step = (W - AX_L - AX_R) / plen, edge = (r) => AX_L + (r - 1) * step;
+  const R = clipAXR(true), byCl = CLIP_STYLE === 'cluster';
+  const step = (W - AX_L - R) / plen, edge = (r) => AX_L + (r - 1) * step;
   const rowTop = (row) => row * rowH, rowMid = (row) => rowTop(row) + rowH / 2;
-  const dendroX0 = 2, dendroX1 = 28, stripX0 = 31, stripX1 = AX_L - 8, resX0 = AX_L, resX1 = W - AX_R;
+  const dendroX0 = 2, dendroX1 = 28, stripX0 = 31, stripX1 = AX_L - 8, resX0 = AX_L, resX1 = W - R;
   const BG = '#f7fbff', CONTACT = '#08306b';
   let s = '';
   for (let row = 0; row < n; row++){
@@ -1702,7 +1751,7 @@ function svgHeatmap(A, opts){
     s += `<rect x="${stripX0}" y="${_f(y0)}" width="${_f(stripX1 - stripX0)}" height="${_f(rowH)}" fill="${clusterColor(cl.labels[idx], k)}"/>`;
     s += `<rect x="${resX0}" y="${_f(y0)}" width="${_f(resX1 - resX0)}" height="${_f(rowH)}" fill="${BG}"/>`;
     for (const [st, e] of mergeRuns(pipe.fingerprints[idx])){ const x0 = edge(st), x1 = Math.max(x0 + 0.5, edge(e + 1));
-      s += `<rect x="${_f(x0)}" y="${_f(y0)}" width="${_f(x1 - x0)}" height="${_f(rowH)}" fill="${CONTACT}"/>`; }
+      s += `<rect x="${_f(x0)}" y="${_f(y0)}" width="${_f(x1 - x0)}" height="${_f(rowH)}" fill="${byCl ? clusterColor(cl.labels[idx], k) : CONTACT}"/>`; }
   }
   const Z = cl.Z || [];
   if (Z.length === n - 1 && n >= 2){
@@ -1715,6 +1764,8 @@ function svgHeatmap(A, opts){
       d += `M${_f(xv[a])} ${_f(yv[a])}L${_f(xm)} ${_f(yv[a])}M${_f(xv[b])} ${_f(yv[b])}L${_f(xm)} ${_f(yv[b])}M${_f(xm)} ${_f(yv[a])}L${_f(xm)} ${_f(yv[b])}`; }
     s += `<path d="${d}" stroke="#555" stroke-width="0.8" fill="none"/>`;
   }
+  if (byCl) for (const b of clusterBlocks(A, order)){ const ym = (rowTop(b.start) + rowTop(b.end + 1)) / 2; if (rowTop(b.end + 1) - rowTop(b.start) < fs) continue;
+    s += `<rect x="${_f(resX1 + 2)}" y="${_f(ym - 0.5)}" width="4" height="1" fill="${clusterColor(b.c, k)}"/><text x="${_f(resX1 + 8)}" y="${_f(ym)}" font-size="${fs}" font-weight="600" fill="${clusterColor(b.c, k)}" dominant-baseline="central">${_esc(fitLabel(b.label, R - 12, (t) => t.length * fs * 0.55))}</text>`; }
   const nT = clipXTicks(), ticks = [];
   for (let i = 0; i < nT; i++){ const r = Math.round(1 + i * (plen - 1) / (nT - 1)); if (!ticks.includes(r)) ticks.push(r); }
   for (const r of ticks){ const x = edge(r) + step / 2;
@@ -1726,7 +1777,7 @@ function svgHeatmap(A, opts){
 function svgFreq(A, opts){
   opts = opts || {};
   const { pipe, cl } = A, n = pipe.fingerprints.length, plen = pipe.proteinLen, k = cl.optimalK;
-  const W = opts.width || PLOT_W, fs = opts.fontSize || 9, padL = AX_L, padR = AX_R;
+  const W = opts.width || PLOT_W, fs = opts.fontSize || 9, padL = AX_L, padR = clipAXR(true);
   const bw = (W-padL-padR)/plen, xOf=(r)=>padL+(r-1)*bw;
   const tot = new Float64Array(plen+1), byC = {};
   for (let i=0;i<n;i++){ const lab=cl.labels[i]; if(ACTIVE&&!ACTIVE.has(lab))continue; for(const res of pipe.fingerprints[i]){ if(res<1||res>plen)continue; tot[res]++; (byC[res]=byC[res]||{})[lab]=((byC[res]||{})[lab]||0)+1; } }
@@ -1748,7 +1799,12 @@ function svgFreq(A, opts){
   let s='';
   s += `<path d="M${padL} ${_f(padT)}L${padL} ${_f(freqBase)}L${_f(W-padR)} ${_f(freqBase)}" stroke="#ccc" stroke-width="1" fill="none"/>`;
   for(const t of [...new Set([0,Math.round(maxF/2),maxF])]) s += `<text x="${padL-4}" y="${_f(freqBase-(t/maxF)*freqH)}" font-size="${fs}" fill="#333" text-anchor="end" dominant-baseline="central">${t}</text>`;
-  for(let r=1;r<=plen;r++){ if(!tot[r])continue; let dom=1,best=-1; const cc=byC[r]||{}; for(const c in cc)if(cc[c]>best){best=cc[c];dom=+c;} const h=(tot[r]/maxF)*freqH; s += `<rect x="${_f(xOf(r))}" y="${_f(freqBase-h)}" width="${_f(Math.max(0.5,bw))}" height="${_f(h)}" fill="${clusterColor(dom,k)}"/>`; }
+  if (CLIP_STYLE === 'cluster') for (const sg of freqSeries(tot, byC, plen, k, (r)=>xOf(r)+bw/2, (v)=>freqBase-(v/maxF)*freqH, freqBase)){
+    const d = sg.pts.map(([x,y],i)=>`${i && !sg.breaks.has(i) ? 'L' : 'M'}${_f(x)} ${_f(y)}`).join('');
+    s += sg.area ? `<path d="${d}Z" fill="#e3e8ee"/>` : `<path d="${d}" stroke="${sg.color}" stroke-width="${sg.w}" fill="none" stroke-linejoin="round"/>`; }
+  if (CLIP_STYLE === 'cluster') freqKey(byC, plen, k, Math.floor(freqH/(fs+3))).forEach(([t,col],j)=>{ const x=W-padR+8, y=padT+6+j*(fs+3);
+    s += `<line x1="${_f(x)}" y1="${_f(y)}" x2="${_f(x+14)}" y2="${_f(y)}" stroke="${col}" stroke-width="2"/><text x="${_f(x+19)}" y="${_f(y)}" font-size="${fs}" fill="#333" dominant-baseline="central">${_esc(t)}</text>`; });
+  else for(let r=1;r<=plen;r++){ if(!tot[r])continue; let dom=1,best=-1; const cc=byC[r]||{}; for(const c in cc)if(cc[c]>best){best=cc[c];dom=+c;} const h=(tot[r]/maxF)*freqH; s += `<rect x="${_f(xOf(r))}" y="${_f(freqBase-h)}" width="${_f(Math.max(0.5,bw))}" height="${_f(h)}" fill="${clusterColor(dom,k)}"/>`; }
   const ycl1=_f((padT+freqBase)/2); s += `<text x="11" y="${ycl1}" font-size="${fs}" fill="#333" text-anchor="middle" transform="rotate(-90 11 ${ycl1})"># predictions</text>`;
   const xtickBase = amBase;
   if(hasP){ const map=A.residueMap, yOf=(pl)=>plddtBase-(pl/100)*plddtH, xc=(r)=>padL+(r-1)*bw+bw/2, qc=A._queryChain||'A';
