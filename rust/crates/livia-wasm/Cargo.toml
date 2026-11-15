@@ -1,0 +1,11 @@
+[package]
+name = "livia-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "Zero-dependency WebAssembly C-ABI bindings over livia-core for LIVIA and LIVIA Atlas"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+livia-core = { path = "../livia-core" }

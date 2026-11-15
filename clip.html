@@ -8,7 +8,7 @@
 <script src="js/canvas2svg.js?v=20260720"></script>
 <script src="js/livia-maps.js?v=20261004a"></script>
 <script src="js/livia-xlsx.js?v=20261104a"></script>
-<script src="js/clip-clustering.js?v=20261104a"></script>
+<script src="js/clip-clustering.js?v=20261115a"></script>
 <script src="js/clip-pipeline.js?v=20261006a"></script>
 <script src="js/clip-resolver.js?v=20260928a"></script>
 <script src="js/livia-viewer.js?v=20261104a"></script>
@@ -1071,6 +1071,21 @@ function updateLoaded(){
   { const tr = FILES.reduce((n,f)=>n+f.rows.length,0); if (tr > 500000) $('status').textContent += ` ⚠ ${Math.round(tr/1000)}K predictions (~${Math.round(tr*1030/1e6)} MB in memory) — very large loads can hit the browser memory limit; split by query if a tab crashes.`; }
 }
 
+let WASM_P = null;
+function ensureWasm(){
+  if (window.LiviaWasm) return window.LiviaWasm.ready();
+  if (!WASM_P){
+    WASM_P = new Promise((res)=>{
+      const s = document.createElement('script');
+      s.src = 'js/livia-wasm.js?v=20261115a';
+      s.onload = () => { if (!window.LiviaWasm) WASM_P = null; (window.LiviaWasm ? window.LiviaWasm.ready() : Promise.resolve(false)).then(res); };
+      s.onerror = () => { s.remove(); WASM_P = null; res(false); };
+      document.head.appendChild(s);
+    });
+  }
+  return WASM_P;
+}
+
 $('run').onclick = () => {
   PAIR_DOMAINS = {}; PAIR_SEQ = {};
   if (LAST) LAST._resolved = false;
@@ -1080,7 +1095,8 @@ $('run').onclick = () => {
   const opts = { ilisCutoff: Number.isFinite(_cut) ? _cut : 0.223, topN: tn==='' ? Infinity : (parseInt(tn)||Infinity), sortBy:'iLIS', onePerPartner: !!($('one-per-partner') && $('one-per-partner').checked),
     fastaParse: FASTA_PARSE, alignMap: (window.CLIPResolver && CLIPResolver.alignMap) };   // normalize mixed full/partial constructs onto one frame
   $('status').textContent = 'clustering…';
-  setTimeout(() => {
+  setTimeout(async () => {
+    await ensureWasm();
     const t0 = performance.now();
     const allRows = FILES.flatMap(f=>f.rows);
     const rows = PARTNER_EXCLUDE.size ? allRows.filter(r => { const pt = r.Symbol_1===gene ? r.Symbol_2 : (r.Symbol_2===gene ? r.Symbol_1 : null); return !(pt && PARTNER_EXCLUDE.has(pt)); }) : allRows;
@@ -2065,10 +2081,8 @@ $('export').onclick = async () => {
     const navBase = location.origin + location.pathname.replace(/[^/]*$/, '');   // downloaded nav points back at the live site
     out = out.replace(/href="(?!https?:|#|mailto:)([^"]+\.html[^"]*)"/g, 'href="' + navBase + '$1"');
     const locals = ['js/canvas2svg.js', 'js/livia-maps.js', 'js/livia-xlsx.js', 'js/clip-clustering.js', 'js/clip-pipeline.js', 'js/clip-resolver.js', 'js/livia-viewer.js', 'js/livia-subnav.js', 'js/livia-count.js', 'js/livia-version.js'];
-    // Match the tag with a pattern, not a literal: these <script src> carry ?v= cache-busts,
-    // and a literal target stops matching the moment a module is bumped — which silently
-    // dropped that module from the downloaded report with no error.
     const tagRe = (f) => new RegExp('<script src="' + f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:\\?v=[^"]*)?"><\\/script>');
+    try { const wjs = await (await fetch('js/livia-wasm.js')).text(); out = out.replace(tagRe('js/clip-clustering.js'), '<script src="data:text/javascript;base64,' + b64(wjs) + '"></scr' + 'ipt>\n$&'); } catch(e){}
     for (const f of locals){ const js = await (await fetch(f)).text(); out = out.replace(tagRe(f), '<script src="data:text/javascript;base64,' + b64(js) + '"></scr' + 'ipt>'); }
     try { const ff = await (await fetch('https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js')).text(); out = out.replace('<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"><\/script>', '<script src="data:text/javascript;base64,' + b64(ff) + '"></scr' + 'ipt>'); } catch(e){}
     try { const css = await (await fetch('css/livia.css')).text(); out = out.replace(/<link rel="stylesheet" href="css\/livia\.css(?:\?v=[^"]*)?">/, '<style>\n' + css + '\n</style>'); } catch(e){}

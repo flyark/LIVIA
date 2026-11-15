@@ -1,0 +1,8 @@
+[package]
+name = "livia-core"
+version = "1.0.0"
+edition = "2021"
+description = "Unified pure-Rust core engine for LIVIA and LIVIA Atlas (metrics, structure parsing, cLIP clustering, Leiden/Steiner/force layouts)"
+license = "MIT"
+
+[dependencies]

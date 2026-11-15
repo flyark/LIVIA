@@ -1,0 +1,20 @@
+[package]
+name = "lis-rs"
+version = "0.1.0"
+edition = "2021"
+description = "High-throughput native multi-threaded CLI replacement for python/lis.py powered by livia-core"
+
+[[bin]]
+name = "lis-rs"
+path = "src/main.rs"
+
+[dependencies]
+livia-core = { path = "../livia-core" }
+rayon = "1.10"
+serde_json = "1.0"
+flate2 = { version = "1.0", default-features = false, features = ["rust_backend"] }
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+lzma-rs = "0.3"
+ruzstd = "0.7"
+tar = "0.4"
+regex = "1.11"

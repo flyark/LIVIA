@@ -27,7 +27,7 @@ Browser-based tools for analyzing protein-protein interactions from structure pr
 - **TED domain annotations** — domain boundaries from [AlphaFold DB](https://alphafold.ebi.ac.uk) displayed alongside detected regions
 - **CSV download** — full metrics with LIR/cLIR residue indices, LIpLDDT/cLIpLDDT per chain
 - **Interactome clustering (cLIP)** — cluster a bait's partners by shared contact residues; per-partner interface maps, searchable sequence viewer, and AlphaFold DB structure resolution
-- **Network building (PPI Network)** — Leiden communities from `lis.py` output, computed in-browser (Pyodide + python-igraph)
+- **Network building (PPI Network)** — Leiden communities from `lis.py` output, computed in-browser (WebAssembly)
 
 ## Pages
 
@@ -39,7 +39,7 @@ Browser-based tools for analyzing protein-protein interactions from structure pr
 | **[AFDB Dimer](https://flyark.github.io/LIVIA/dimer.html)** | Dimer analysis from [AlphaFold DB](https://alphafold.ebi.ac.uk) |
 | **[Monomer Subdomain](https://flyark.github.io/LIVIA/monomer.html)** | Intramolecular domain interaction analysis from [AlphaFold DB](https://alphafold.ebi.ac.uk) |
 | **[cLIP](https://flyark.github.io/LIVIA/clip.html)** | Cluster a protein's interactome by shared contact residues (cLIR) from `lis.py` output |
-| **[PPI Network](https://flyark.github.io/LIVIA/network.html)** | Build an interaction network with Leiden communities, computed in-browser (Pyodide + python-igraph) |
+| **[PPI Network](https://flyark.github.io/LIVIA/network.html)** | Build an interaction network with Leiden communities, computed in-browser (WebAssembly) |
 | **[Tutorials](https://flyark.github.io/LIVIA/tutorials.html)** | Step-by-step visual walkthroughs with auto-advancing screenshots |
 | **[About](https://flyark.github.io/LIVIA/about.html)** | Metric definitions, color schemes, and references |
 
@@ -75,6 +75,18 @@ python lis.py /path/to/predictions/ -v        # verbose error details
 ```
 
 Features: `.gz`/`.xz` decompression, incremental CSV output (safe to interrupt and resume), progress bar with ETA, sorted output by name and rank.
+
+**Optional native Rust CLI (`lis-rs`) & WebAssembly core (`rust/`):**
+
+For zero-Python-environment, multi-core batch scoring (10–30× faster on large multi-model screens) or rebuilding `js/livia-wasm.js` from source:
+
+```bash
+cd rust
+cargo build --release -p lis-rs
+./target/release/lis-rs /path/to/predictions/ -w 8
+```
+
+`rust/` contains `livia-core` (shared scoring, cLIP cosine clustering, Leiden community detection, Steiner subnetworks, and graph layouts), `lis-rs` (native CLI), `livia-wasm` (compiled to `js/livia-wasm.js` with automatic pure-JS fallback), and `livia-atlas-cli` (streaming `.tar.xz` merger and `LVTP2` `tested.bin` indexer).
 
 **Generate batch ChimeraX visualizations with `lis_to_cxc.py`** (reads the lis.py CSV, writes one `.cxc` per fold × rank):
 

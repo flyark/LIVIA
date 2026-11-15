@@ -18,6 +18,21 @@
   //   cos_dist = 1 - cos_sim
   function cosineDistMatrix(fingerprints) {
     const n = fingerprints.length;
+    if (typeof LiviaWasm === 'object' && LiviaWasm && LiviaWasm.isReady() && n >= 2) {
+      const upper = LiviaWasm.clipCosineDistUpper(fingerprints);
+      if (upper) {
+        const D = Array.from({ length: n }, () => new Float64Array(n));
+        let p = 0;
+        for (let i = 0; i < n; i++) {
+          for (let j = i + 1; j < n; j++) {
+            const d = upper[p++];
+            D[i][j] = d;
+            D[j][i] = d;
+          }
+        }
+        return D;
+      }
+    }
     const sets = fingerprints.map((f) => new Set(f));
     const norm = fingerprints.map((f) => Math.sqrt(f.length));
     const D = Array.from({ length: n }, () => new Float64Array(n));
@@ -174,9 +189,27 @@
     opts = opts || {};
     const n = fingerprints.length;
     if (n < 2) return { optimalK: n, labels: n ? [1] : [], Z: [], D: [] };
+    const maxK = opts.maxK || 30;
+    const dropT = opts.dropThreshold == null ? 0.05 : opts.dropThreshold;
+    if (typeof LiviaWasm === 'object' && LiviaWasm && LiviaWasm.isReady()) {
+      const wRes = LiviaWasm.clipFromFingerprints(fingerprints, maxK, dropT);
+      if (wRes) {
+        const out = { optimalK: wRes.optimalK, labels: wRes.rawLabels, Z: wRes.linkage };
+        let cachedD = null;
+        Object.defineProperty(out, 'D', {
+          enumerable: false,
+          configurable: true,
+          get: function () {
+            if (!cachedD) cachedD = cosineDistMatrix(fingerprints);
+            return cachedD;
+          },
+        });
+        return out;
+      }
+    }
     const D = cosineDistMatrix(fingerprints);
     const Z = averageLinkage(D, n);
-    const optimalK = findOptimalK(Z, D, n, opts.maxK || 30, opts.dropThreshold == null ? 0.05 : opts.dropThreshold);
+    const optimalK = findOptimalK(Z, D, n, maxK, dropT);
     const labels = fcluster(Z, n, optimalK);
     return { optimalK, labels, Z, D };
   }

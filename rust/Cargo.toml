@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/livia-core",
+    "crates/livia-wasm",
+    "crates/lis-rs",
+    "crates/livia-atlas-cli",
+]
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"

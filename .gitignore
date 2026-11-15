@@ -9,3 +9,9 @@ tools/cloudflare-worker/.dev.vars
 
 # stray downloads at the root; examples/*.zip stay tracked
 /*.zip
+
+# Rust build artifacts and local test outputs
+rust/target/
+rust/dist/
+rust/test_out/
+rust/node_modules/

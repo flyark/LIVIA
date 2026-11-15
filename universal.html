@@ -127,6 +127,7 @@
 <script src="js/livia-maps.js?v=20261004a"></script>
 <script src="js/clip-resolver.js?v=20260928a"></script>
 <script src="js/remotezip.js?v=20260918"></script>
+<script src="js/livia-wasm.js?v=20261115a"></script>
 </head>
 <body>
 
@@ -3398,253 +3399,243 @@ async function processFiles() {
             for (const s of sizes) { acc += s; cumSum.push(acc); }
             const starts = [0, ...cumSum.slice(0, -1)];
 
-            // Build transformed LIS map (asymmetric, per-direction).
-            // Each (i,j) and (j,i) entry is computed independently; the symmetrize step
-            // below averages them to give the final per-pair LIS.
-            // `within` marks the confident cells (PAE <= cutoff). A cell exactly at the cutoff scores 0
-            // but still counts, so LIS/LIR read this mask rather than transformed > 0.
-            const transformed = new Float32Array(nTotal * nTotal);
-            const within = new Uint8Array(nTotal * nTotal);
-            for (let i = 0; i < nTotal; i++) {
-                for (let j = 0; j < nTotal; j++) {
-                    if (i >= pae.length || j >= pae[i].length) continue;
-                    const v = pae[i][j];
-                    if (v <= paeCutoff) {
-                        transformed[i * nTotal + j] = 1 - v / paeCutoff;
-                        within[i * nTotal + j] = 1;
-                    }
-                }
-            }
+            if (window.LiviaWasm) await window.LiviaWasm.ready();
+            const useWasm = !!(window.LiviaWasm && window.LiviaWasm.isReady());
 
-            // Contact map
+            // Coordinates and per-residue B-factors (pLDDT)
             const coords = parseStructureCoords(structText, model.format);
-            const { contact, n: nCoords } = computeContactMap(coords, cbCutoff);
-            const nUse = Math.min(nTotal, nCoords);
-
-            // pDockQ2's own interface: CA-CA, hardcoded 8A regardless of --cb-cutoff -- its fitted
-            // logistic constants are only valid for the exact interface definition they were
-            // calibrated against. Matches lis.py exactly (not ColabFold 1.6.3's own pDockQ2, which
-            // reuses the Cb contact map as a simplification).
             const caCoords = parseStructureCaCoords(structText, model.format);
-            const { contact: caContact, n: nCa } = computeContactMap(caCoords, 8);
-            const nUseCa = Math.min(nTotal, nCa);
-
-            // B-factors (pLDDT per residue) -- needed per-cell inside the pair loop below for
-            // pDockQ2/LIpDockQ2, so parsed once here rather than per-pair.
             const bfsAll = structText ? parseBfactorsPerResidue(structText, model.format) : new Map();
 
             // ipTM: per-chain-pair matrix (AF3) or global value (ColabFold/Boltz/etc)
             let iptmMatrix = scores.chainPairIptm || null;
             const globalIptm = scores.ipTM || 0;
 
-            // PAE-based per-chain-pair iPTM fallback when the platform ships only
-            // a global scalar (Boltz2 hosted/export, AlphaPulldown 3+ chain, Generic).
-            // 3+ chain: always worth it, since a global scalar alone can't tell you
-            // per-pair. 2-chain: per-pair == global, so skip ONLY when a real global
-            // was actually reported (use it, it IS the correct per-pair value); if
-            // nothing was reported at all (scores.ipTM undefined — e.g. a platform
-            // whose confidence file carries no ptm/iptm field), globalIptm's `|| 0`
-            // would otherwise read as a genuine zero rather than "not reported", so
-            // fall back to the estimate here too.
-            // Per-pair d0 = 1.24·(max(N_a+N_b,19)−15)^(1/3) − 1.8. Bias ~0.01–0.07
-            // vs AF3 ground truth (Jensen's gap on the saved PAE-bin distribution);
-            // ranking-preserving.
             if (!iptmMatrix && (chainNames.length >= 3 || scores.ipTM === undefined)) {
-                iptmMatrix = computePaeChainPairIptm(pae, starts, cumSum, chainNames.length, nTotal);
+                if (useWasm) {
+                    const ends = cumSum.map(c => Math.min(c, nTotal));
+                    iptmMatrix = window.LiviaWasm.paeChainPairIptm(pae, starts, ends, chainNames.length)
+                        || computePaeChainPairIptm(pae, starts, cumSum, chainNames.length, nTotal);
+                } else {
+                    iptmMatrix = computePaeChainPairIptm(pae, starts, cumSum, chainNames.length, nTotal);
+                }
                 uniState.ipTMIsEstimate = true;
             }
 
-            // Per chain pair metrics
-            const pairs = {};
+            let pairs = {};
+            let lisMap = [];
+            let clisMap = [];
             const nc = chainNames.length;
-            for (let i = 0; i < nc; i++) {
-                for (let j = 0; j < nc; j++) {
-                    if (i === j) continue;
-                    const si = starts[i], ei = Math.min(cumSum[i], nTotal);
-                    const sj = starts[j], ej = Math.min(cumSum[j], nTotal);
 
-                    let lisSum = 0, lisCountAvg = 0;
-                    let clisSum = 0, clisCountAvg = 0;
-                    // LIA/cLIA: count both PAE directions inside this entry (i→j and j→i).
-                    // The symmetrize step below keeps a single combined value (no extra sum)
-                    // since each entry already covers both directions.
-                    let lisCountAB = 0, lisCountBA = 0;
-                    let clisCountAB = 0, clisCountBA = 0;
-                    // LIR/cLIR are cell-based union: if either PAE direction (i→j or j→i)
-                    // is confident on a cell, both residues of that cell are added — this
-                    // guarantees every LIR_A residue has a paired LIR_B residue.
-                    const lirI = new Set(), lirJ = new Set();
-                    const clirI = new Set(), clirJ = new Set();
-                    // Faithful original pDockQ (Bryant et al. 2022): pure geometric interface
-                    // (Cb<=cbCutoff, NO PAE at all) -- independent of the PAE-gated LIR/cLIR above.
-                    const geomIfI = new Set(), geomIfJ = new Set();
-                    // pDockQ's own N: count of contact PAIRS (cells), matching contacts.shape[0] in
-                    // the reference implementation -- NOT geomIfI.size+geomIfJ.size (residue count).
-                    let geomNContacts = 0;
-                    // LIpDockQ's own N: count of cLIR-qualifying pairs (cells), counted once each --
-                    // NOT cliaCount (sums both PAE directions, double-counting a cell confident in
-                    // both), which would put LIpDockQ on a different scale than pDockQ's own N.
-                    let LIpDockQN = 0;
-                    // pDockQ2 (CA-based) and LIpDockQ2 (cLIR-gated) running sums -- see
-                    // pdockq2FromSums() above for why decay/pLDDT are summed separately.
-                    let pdq2iDecaySum = 0, pdq2iPlddtSum = 0, pdq2iN = 0;
-                    let pdq2jDecaySum = 0, pdq2jPlddtSum = 0, pdq2jN = 0;
-                    let cpdq2iDecaySum = 0, cpdq2iPlddtSum = 0, cpdq2iN = 0;
-                    let cpdq2jDecaySum = 0, cpdq2jPlddtSum = 0, cpdq2jN = 0;
+            if (useWasm) {
+                const wRes = window.LiviaWasm.computeModelPairs({
+                    pae, nTotal, chainNames, starts, sizes,
+                    coords, caCoords, structText, bfsAll,
+                    iptmMatrix, globalIptm, paeCutoff, cbCutoff,
+                });
+                if (wRes) {
+                    lisMap = wRes.lisMap;
+                    clisMap = wRes.clisMap;
+                    for (const k of Object.keys(wRes.pairs)) {
+                        const p = wRes.pairs[k];
+                        const geomPair = wmeanNum(p.geom_plddt_i, p.geom_plddt_j, p.geomIfISize, p.geomIfJSize);
+                        const clirPair = wmeanNum(p.cLIpLDDT_i, p.cLIpLDDT_j, p.clirI.size, p.clirJ.size);
+                        pairs[k] = {
+                            ci: p.ci, cj: p.cj,
+                            LIS: p.LIS, cLIS: p.cLIS, iLIS: p.iLIS,
+                            iLIA: p.iLIA, iLISA: p.iLISA, ipTM: p.ipTM,
+                            ipSAE: p.ipSAE, actifpTM: p.actifpTM,
+                            LIA: p.LIA, cLIA: p.cLIA,
+                            LIpLDDT_i: p.LIpLDDT_i, LIpLDDT_j: p.LIpLDDT_j,
+                            cLIpLDDT_i: p.cLIpLDDT_i, cLIpLDDT_j: p.cLIpLDDT_j,
+                            pDockQ: calcPdockq(geomPair, p.geomNContacts),
+                            LIpDockQ: calcPdockq(clirPair, p.LIpDockQN),
+                            pDockQ2_i: p.pDockQ2_i ?? 0,
+                            pDockQ2_j: p.pDockQ2_j ?? 0,
+                            LIpDockQ2_i: p.LIpDockQ2_i ?? 0,
+                            LIpDockQ2_j: p.LIpDockQ2_j ?? 0,
+                            lirI: p.lirI, lirJ: p.lirJ,
+                            clirI: p.clirI, clirJ: p.clirJ,
+                            lenI: p.lenI, lenJ: p.lenJ,
+                        };
+                    }
+                }
+            }
 
-                    for (let ri = si; ri < ei; ri++) {
-                        for (let rj = sj; rj < ej; rj++) {
-                            const tv = transformed[ri * nTotal + rj];
-                            if (within[ri * nTotal + rj]) {
-                                lisSum += tv;
-                                lisCountAvg++;
+            if (!lisMap.length) {
+                // Pure-JavaScript fallback when WebAssembly is unavailable or blocked.
+                const transformed = new Float32Array(nTotal * nTotal);
+                const within = new Uint8Array(nTotal * nTotal);
+                for (let i = 0; i < nTotal; i++) {
+                    for (let j = 0; j < nTotal; j++) {
+                        if (i >= pae.length || j >= pae[i].length) continue;
+                        const v = pae[i][j];
+                        if (v <= paeCutoff) {
+                            transformed[i * nTotal + j] = 1 - v / paeCutoff;
+                            within[i * nTotal + j] = 1;
+                        }
+                    }
+                }
+
+                const { contact, n: nCoords } = computeContactMap(coords, cbCutoff);
+                const nUse = Math.min(nTotal, nCoords);
+                const { contact: caContact, n: nCa } = computeContactMap(caCoords, 8);
+                const nUseCa = Math.min(nTotal, nCa);
+
+                for (let i = 0; i < nc; i++) {
+                    for (let j = 0; j < nc; j++) {
+                        if (i === j) continue;
+                        const si = starts[i], ei = Math.min(cumSum[i], nTotal);
+                        const sj = starts[j], ej = Math.min(cumSum[j], nTotal);
+
+                        let lisSum = 0, lisCountAvg = 0;
+                        let clisSum = 0, clisCountAvg = 0;
+                        let lisCountAB = 0, lisCountBA = 0;
+                        let clisCountAB = 0, clisCountBA = 0;
+                        const lirI = new Set(), lirJ = new Set();
+                        const clirI = new Set(), clirJ = new Set();
+                        const geomIfI = new Set(), geomIfJ = new Set();
+                        let geomNContacts = 0;
+                        let LIpDockQN = 0;
+                        let pdq2iDecaySum = 0, pdq2iPlddtSum = 0, pdq2iN = 0;
+                        let pdq2jDecaySum = 0, pdq2jPlddtSum = 0, pdq2jN = 0;
+                        let cpdq2iDecaySum = 0, cpdq2iPlddtSum = 0, cpdq2iN = 0;
+                        let cpdq2jDecaySum = 0, cpdq2jPlddtSum = 0, cpdq2jN = 0;
+
+                        for (let ri = si; ri < ei; ri++) {
+                            for (let rj = sj; rj < ej; rj++) {
+                                const tv = transformed[ri * nTotal + rj];
+                                if (within[ri * nTotal + rj]) {
+                                    lisSum += tv;
+                                    lisCountAvg++;
+                                    if (ri < nUse && rj < nUse && contact[ri * nCoords + rj]) {
+                                        clisSum += tv;
+                                        clisCountAvg++;
+                                    }
+                                }
                                 if (ri < nUse && rj < nUse && contact[ri * nCoords + rj]) {
-                                    clisSum += tv;
-                                    clisCountAvg++;
+                                    geomIfI.add(ri - si + 1);
+                                    geomIfJ.add(rj - sj + 1);
+                                    geomNContacts++;
                                 }
-                            }
-                            if (ri < nUse && rj < nUse && contact[ri * nCoords + rj]) {
-                                geomIfI.add(ri - si + 1);
-                                geomIfJ.add(rj - sj + 1);
-                                geomNContacts++;
-                            }
-                            if (ri < pae.length && rj < pae.length) {
-                                const paeAB = pae[ri][rj];
-                                const paeBA = pae[rj][ri];
-                                const inContact = ri < nUse && rj < nUse && contact[ri * nCoords + rj];
+                                if (ri < pae.length && rj < pae.length) {
+                                    const paeAB = pae[ri][rj];
+                                    const paeBA = pae[rj][ri];
+                                    const inContact = ri < nUse && rj < nUse && contact[ri * nCoords + rj];
 
-                                // LIA / cLIA: each direction counted independently
-                                if (paeAB <= paeCutoff) lisCountAB++;
-                                if (paeBA <= paeCutoff) lisCountBA++;
-                                if (inContact) {
-                                    if (paeAB <= paeCutoff) clisCountAB++;
-                                    if (paeBA <= paeCutoff) clisCountBA++;
-                                }
-
-                                // LIR / cLIR: cell-based union — paired residues
-                                if (paeAB <= paeCutoff || paeBA <= paeCutoff) {
-                                    lirI.add(ri - si + 1);
-                                    lirJ.add(rj - sj + 1);
+                                    if (paeAB <= paeCutoff) lisCountAB++;
+                                    if (paeBA <= paeCutoff) lisCountBA++;
                                     if (inContact) {
-                                        clirI.add(ri - si + 1);
-                                        clirJ.add(rj - sj + 1);
-                                        LIpDockQN++;
-                                        // LIpDockQ2: same cell-based mask as cLIR (PAE-cutoff AND
-                                        // physical-contact), PAE-decay-weighted instead of hard cutoff.
+                                        if (paeAB <= paeCutoff) clisCountAB++;
+                                        if (paeBA <= paeCutoff) clisCountBA++;
+                                    }
+
+                                    if (paeAB <= paeCutoff || paeBA <= paeCutoff) {
+                                        lirI.add(ri - si + 1);
+                                        lirJ.add(rj - sj + 1);
+                                        if (inContact) {
+                                            clirI.add(ri - si + 1);
+                                            clirJ.add(rj - sj + 1);
+                                            LIpDockQN++;
+                                            const pI = bfsAll.get(`${chainNames[i]}:${ri - si + 1}`);
+                                            const pJ = bfsAll.get(`${chainNames[j]}:${rj - sj + 1}`);
+                                            if (pI != null && !isNaN(pI)) {
+                                                cpdq2iDecaySum += 1 / (1 + (paeAB / 10) ** 2);
+                                                cpdq2iPlddtSum += pI; cpdq2iN++;
+                                            }
+                                            if (pJ != null && !isNaN(pJ)) {
+                                                cpdq2jDecaySum += 1 / (1 + (paeBA / 10) ** 2);
+                                                cpdq2jPlddtSum += pJ; cpdq2jN++;
+                                            }
+                                        }
+                                    }
+
+                                    if (ri < nUseCa && rj < nUseCa && caContact[ri * nCa + rj]) {
                                         const pI = bfsAll.get(`${chainNames[i]}:${ri - si + 1}`);
                                         const pJ = bfsAll.get(`${chainNames[j]}:${rj - sj + 1}`);
                                         if (pI != null && !isNaN(pI)) {
-                                            cpdq2iDecaySum += 1 / (1 + (paeAB / 10) ** 2);
-                                            cpdq2iPlddtSum += pI; cpdq2iN++;
+                                            pdq2iDecaySum += 1 / (1 + (paeAB / 10) ** 2);
+                                            pdq2iPlddtSum += pI; pdq2iN++;
                                         }
                                         if (pJ != null && !isNaN(pJ)) {
-                                            cpdq2jDecaySum += 1 / (1 + (paeBA / 10) ** 2);
-                                            cpdq2jPlddtSum += pJ; cpdq2jN++;
+                                            pdq2jDecaySum += 1 / (1 + (paeBA / 10) ** 2);
+                                            pdq2jPlddtSum += pJ; pdq2jN++;
                                         }
-                                    }
-                                }
-
-                                // pDockQ2: own CA-based interface (see caContact above), decoupled
-                                // from the Cb-based cLIS/cLIR block -- cbCutoff must never change
-                                // which contacts feed pDockQ2's fitted constants.
-                                if (ri < nUseCa && rj < nUseCa && caContact[ri * nCa + rj]) {
-                                    const pI = bfsAll.get(`${chainNames[i]}:${ri - si + 1}`);
-                                    const pJ = bfsAll.get(`${chainNames[j]}:${rj - sj + 1}`);
-                                    if (pI != null && !isNaN(pI)) {
-                                        pdq2iDecaySum += 1 / (1 + (paeAB / 10) ** 2);
-                                        pdq2iPlddtSum += pI; pdq2iN++;
-                                    }
-                                    if (pJ != null && !isNaN(pJ)) {
-                                        pdq2jDecaySum += 1 / (1 + (paeBA / 10) ** 2);
-                                        pdq2jPlddtSum += pJ; pdq2jN++;
                                     }
                                 }
                             }
                         }
+
+                        const pdockq2_i = pdockq2FromSums(pdq2iDecaySum, pdq2iPlddtSum, pdq2iN);
+                        const pdockq2_j = pdockq2FromSums(pdq2jDecaySum, pdq2jPlddtSum, pdq2jN);
+                        const lipdockq2_i = pdockq2FromSums(cpdq2iDecaySum, cpdq2iPlddtSum, cpdq2iN);
+                        const lipdockq2_j = pdockq2FromSums(cpdq2jDecaySum, cpdq2jPlddtSum, cpdq2jN);
+
+                        const lis = lisCountAvg > 0 ? lisSum / lisCountAvg : 0;
+                        const clis = clisCountAvg > 0 ? clisSum / clisCountAvg : 0;
+                        const ilis = Math.sqrt(lis * clis);
+                        const iptm = (iptmMatrix && iptmMatrix[i] && iptmMatrix[i][j] != null) ? iptmMatrix[i][j] : globalIptm;
+
+                        let ipsae = 0;
+                        try { ipsae = calcIpSAE(pae, si, Math.min(ei, pae.length), sj, Math.min(ej, pae.length), 10); } catch(e) { }
+
+                        let actifptm = 0;
+                        try { actifptm = calcActifpTM(pae, contact, nCoords, si, Math.min(ei, nTotal), sj, Math.min(ej, nTotal), cbCutoff); } catch(e) { }
+
+                        const liaCount = lisCountAB + lisCountBA;
+                        const cliaCount = clisCountAB + clisCountBA;
+                        const ilia = Math.sqrt(liaCount * cliaCount);
+                        const ilisa = ilis * ilia;
+
+                        let liplddtI = NaN, liplddtJ = NaN, cliplddtI = NaN, cliplddtJ = NaN;
+                        let geomplddtI = NaN, geomplddtJ = NaN;
+                        if (structText) {
+                            const bfs = bfsAll;
+                            const avg = arr => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : NaN;
+                            const collect = (resSet, chain) => { const a = []; for (const r of resSet) { const v = bfs.get(`${chain}:${r}`); if (v != null) a.push(v); } return a; };
+                            liplddtI = avg(collect(lirI, chainNames[i]));
+                            liplddtJ = avg(collect(lirJ, chainNames[j]));
+                            cliplddtI = avg(collect(clirI, chainNames[i]));
+                            cliplddtJ = avg(collect(clirJ, chainNames[j]));
+                            geomplddtI = avg(collect(geomIfI, chainNames[i]));
+                            geomplddtJ = avg(collect(geomIfJ, chainNames[j]));
+                        }
+
+                        const geomplddtPair = wmeanNum(geomplddtI, geomplddtJ, geomIfI.size, geomIfJ.size);
+                        const pdockq = calcPdockq(geomplddtPair, geomNContacts);
+                        const cliplddtPair = wmeanNum(cliplddtI, cliplddtJ, clirI.size, clirJ.size);
+                        const lipdockq = calcPdockq(cliplddtPair, LIpDockQN);
+
+                        pairs[`${chainNames[i]},${chainNames[j]}`] = {
+                            ci: chainNames[i], cj: chainNames[j],
+                            LIS: lis, cLIS: clis, iLIS: ilis, iLIA: ilia, iLISA: ilisa, ipTM: iptm, ipSAE: ipsae, actifpTM: actifptm,
+                            LIA: liaCount, cLIA: cliaCount,
+                            LIpLDDT_i: liplddtI, LIpLDDT_j: liplddtJ,
+                            cLIpLDDT_i: cliplddtI, cLIpLDDT_j: cliplddtJ,
+                            pDockQ: pdockq, LIpDockQ: lipdockq,
+                            pDockQ2_i: pdockq2_i, pDockQ2_j: pdockq2_j,
+                            LIpDockQ2_i: lipdockq2_i, LIpDockQ2_j: lipdockq2_j,
+                            lirI, lirJ, clirI, clirJ,
+                            lenI: sizes[i], lenJ: sizes[j],
+                        };
                     }
+                }
 
-                    const pdockq2_i = pdockq2FromSums(pdq2iDecaySum, pdq2iPlddtSum, pdq2iN);
-                    const pdockq2_j = pdockq2FromSums(pdq2jDecaySum, pdq2jPlddtSum, pdq2jN);
-                    const lipdockq2_i = pdockq2FromSums(cpdq2iDecaySum, cpdq2iPlddtSum, cpdq2iN);
-                    const lipdockq2_j = pdockq2FromSums(cpdq2jDecaySum, cpdq2jPlddtSum, cpdq2jN);
+                for (let i = 0; i < nTotal; i++) {
+                    const row = new Float32Array(nTotal);
+                    for (let j = 0; j < nTotal; j++) row[j] = transformed[i * nTotal + j];
+                    lisMap.push(row);
+                }
 
-                    const lis = lisCountAvg > 0 ? lisSum / lisCountAvg : 0;
-                    const clis = clisCountAvg > 0 ? clisSum / clisCountAvg : 0;
-                    const ilis = Math.sqrt(lis * clis);
-                    const iptm = (iptmMatrix && iptmMatrix[i] && iptmMatrix[i][j] != null) ? iptmMatrix[i][j] : globalIptm;
-
-                    // ipSAE calculation (Dunbrack method)
-                    let ipsae = 0;
-                    try { ipsae = calcIpSAE(pae, si, Math.min(ei, pae.length), sj, Math.min(ej, pae.length), 10); } catch(e) { }
-
-                    // actifpTM approximation (Varga & Ovchinnikov 2025)
-                    // lis.py's approximation, always (the author's choice, 2026-10-03: the same value as lis.py and its benchmarked cutoffs, not the platform's own actifpTM)
-                    let actifptm = 0;
-                    try { actifptm = calcActifpTM(pae, contact, nCoords, si, Math.min(ei, nTotal), sj, Math.min(ej, nTotal), cbCutoff); } catch(e) { }
-
-                    // LIA/cLIA count BOTH PAE directions (i→j and j→i), matching lis.py
-                    // (lia_count = ab + ba) and the AFM-LIS reference. The per-entry comment
-                    // above states this intent; using only lisCountAB halved iLIA/iLISA.
-                    const liaCount = lisCountAB + lisCountBA;
-                    const cliaCount = clisCountAB + clisCountBA;
-                    const ilia = Math.sqrt(liaCount * cliaCount);
-                    const ilisa = ilis * ilia;
-
-                    // Compute per-chain LIpLDDT and cLIpLDDT from B-factors
-                    let liplddtI = NaN, liplddtJ = NaN, cliplddtI = NaN, cliplddtJ = NaN;
-                    let geomplddtI = NaN, geomplddtJ = NaN;
-                    if (structText) {
-                        const bfs = bfsAll;
-                        const avg = arr => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : NaN;
-                        const collect = (resSet, chain) => { const a = []; for (const r of resSet) { const v = bfs.get(`${chain}:${r}`); if (v != null) a.push(v); } return a; };
-                        liplddtI = avg(collect(lirI, chainNames[i]));
-                        liplddtJ = avg(collect(lirJ, chainNames[j]));
-                        cliplddtI = avg(collect(clirI, chainNames[i]));
-                        cliplddtJ = avg(collect(clirJ, chainNames[j]));
-                        geomplddtI = avg(collect(geomIfI, chainNames[i]));
-                        geomplddtJ = avg(collect(geomIfJ, chainNames[j]));
+                for (let i = 0; i < nTotal; i++) {
+                    const row = new Float32Array(nTotal);
+                    for (let j = 0; j < nTotal; j++) {
+                        const tv = transformed[i * nTotal + j];
+                        const cv = (i < nUse && j < nUse) ? contact[i * nCoords + j] : 0;
+                        row[j] = (tv > 0 && cv) ? tv : 0;
                     }
-
-                    // pDockQ: faithful original (Bryant et al. 2022) -- pure geometric interface.
-                    const geomplddtPair = wmeanNum(geomplddtI, geomplddtJ, geomIfI.size, geomIfJ.size);
-                    const pdockq = calcPdockq(geomplddtPair, geomNContacts);
-                    // LIpDockQ: pDockQ's formula fed this file's own cLIR interface (PAE-cutoff AND
-                    // contact-filtered) instead of pDockQ's own pure-distance one.
-                    const cliplddtPair = wmeanNum(cliplddtI, cliplddtJ, clirI.size, clirJ.size);
-                    const lipdockq = calcPdockq(cliplddtPair, LIpDockQN);
-
-                    pairs[`${chainNames[i]},${chainNames[j]}`] = {
-                        ci: chainNames[i], cj: chainNames[j],
-                        LIS: lis, cLIS: clis, iLIS: ilis, iLIA: ilia, iLISA: ilisa, ipTM: iptm, ipSAE: ipsae, actifpTM: actifptm,
-                        LIA: liaCount, cLIA: cliaCount,
-                        LIpLDDT_i: liplddtI, LIpLDDT_j: liplddtJ,
-                        cLIpLDDT_i: cliplddtI, cLIpLDDT_j: cliplddtJ,
-                        pDockQ: pdockq, LIpDockQ: lipdockq,
-                        pDockQ2_i: pdockq2_i, pDockQ2_j: pdockq2_j,
-                        LIpDockQ2_i: lipdockq2_i, LIpDockQ2_j: lipdockq2_j,
-                        lirI, lirJ, clirI, clirJ,
-                        lenI: sizes[i], lenJ: sizes[j],
-                    };
+                    clisMap.push(row);
                 }
-            }
-
-            // Build display maps
-            const lisMap = [];
-            for (let i = 0; i < nTotal; i++) {
-                const row = new Float32Array(nTotal);
-                for (let j = 0; j < nTotal; j++) row[j] = transformed[i * nTotal + j];
-                lisMap.push(row);
-            }
-
-            const clisMap = [];
-            for (let i = 0; i < nTotal; i++) {
-                const row = new Float32Array(nTotal);
-                for (let j = 0; j < nTotal; j++) {
-                    const tv = transformed[i * nTotal + j];
-                    const cv = (i < nUse && j < nUse) ? contact[i * nCoords + j] : 0;
-                    row[j] = (tv > 0 && cv) ? tv : 0;
-                }
-                clisMap.push(row);
             }
 
             // Build one grid per metric (Score Matrix can display any of them)

@@ -7,6 +7,7 @@
 <script src="js/livia-xlsx.js?v=20261104a"></script>
 <script src="js/livia-maps.js?v=20261004a"></script>
 <script src="js/clip-pipeline.js?v=20261006a"></script>
+<script src="js/livia-wasm.js?v=20261115a"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="css/livia.css?v=20261105a">
@@ -243,7 +244,7 @@ let ATLAS_SRC = null;
 const ATLAS_OK = /^(https:\/\/flyark\.github\.io\/livia-atlas\/|http:\/\/(\[::1\]|localhost|127\.0\.0\.1)(:\d+)?\/)/;   // the published Atlas, or a local copy
 let FASTA_RAW = '';                 // concatenated FASTA text (paired or per-symbol) for the cLIP hand-off
 let NAME_OF = {};                  // resolved node id -> Set(original prediction names)  (for the hand-off filter)
-let FILECOUNT = 0, PYODIDE = null, NETWORK = null, NODES = null, EDGES = null, LAST = null;
+let FILECOUNT = 0, NETWORK = null, NODES = null, EDGES = null, LAST = null;
 let META = null, META_COL = null, COMMCOLORS = {}, SUBSET = null, LAYER_ROOT = null;   // SUBSET: node ids to keep (tab 3); LAYER_ROOT: BFS-shell root or null
 let USERCLUST = null;              // user-supplied node id -> cluster label (Map); overrides Leiden, drops unlisted nodes
 let NODECOLORS = {};               // per-node custom color override (node id -> hex); wins over the 'color by' mode
@@ -534,34 +535,27 @@ function ensureVis(){
   return VIS_P || (VIS_P = new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js'; s.onload=()=>res(window.vis); s.onerror=()=>{ VIS_P=null; rej(new Error('The network drawing library (vis-network) did not load.')); }; document.head.appendChild(s); }));
 }
 
-// ---------- Pyodide + Leiden ----------
-async function ensurePyodide(){
-  if (PYODIDE) return PYODIDE;
-  setStatus('Loading Python runtime (first time only, ~3 s)…');
-  if (!window.loadPyodide) await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
-  PYODIDE = await loadPyodide({ indexURL:'https://cdn.jsdelivr.net/pyodide/v0.27.2/full/' });
-  await PYODIDE.loadPackage('micropip'); setStatus('Installing igraph…');
-  await PYODIDE.pyimport('micropip').install('igraph==0.11.4');   // pinned: Leiden's result depends on the implementation (Pyodide 0.27.2, igraph 0.11.4, Python 3.12)
-  return PYODIDE;
+// ---------- WebAssembly Leiden + layouts (with pure-JS fallback inside livia-wasm.js) ----------
+let WASM_P = null;
+function ensureWasm(){
+  if (window.LiviaWasm) return window.LiviaWasm.ready();
+  if (!WASM_P){
+    WASM_P = new Promise((res)=>{
+      const s = document.createElement('script');
+      s.src = 'js/livia-wasm.js?v=20261115a';
+      s.onload = () => { if (!window.LiviaWasm) WASM_P = null; (window.LiviaWasm ? window.LiviaWasm.ready() : Promise.resolve(false)).then(res); };
+      s.onerror = () => { s.remove(); WASM_P = null; res(false); };
+      document.head.appendChild(s);
+    });
+  }
+  return WASM_P;
 }
 async function leiden(nodes, edges, res, obj, seed){
+  await ensureWasm();
+  if (!window.LiviaWasm) throw new Error('The graph engine (js/livia-wasm.js) did not load; reload the page and try again.');
   const idx = new Map(nodes.map((s,i)=>[s,i]));
-  PYODIDE.globals.set('_net_json', JSON.stringify({ n:nodes.length, edges:edges.map(e=>[idx.get(e.a),idx.get(e.b)]), weights:edges.map(e=>e.iLIS), res, obj, seed }));
-  const out = PYODIDE.runPython(`
-import igraph as ig, json, random
-from collections import Counter
-d = json.loads(_net_json)
-random.seed(int(d.get('seed',1)))
-try: ig.set_random_number_generator(random)
-except Exception: pass
-g = ig.Graph(n=d['n'], edges=d['edges'], directed=False)
-g.es['weight'] = d['weights']
-part = g.community_leiden(objective_function=d['obj'], weights='weight', resolution=d['res'], n_iterations=10)
-order = [c for c,_ in Counter(part.membership).most_common()]
-remap = {c:i for i,c in enumerate(order)}
-json.dumps({'membership':[remap[m] for m in part.membership], 'degree':g.degree()})
-`);
-  return JSON.parse(out);
+  const idxEdges = edges.map(e=>[idx.get(e.a), idx.get(e.b), e.iLIS]);
+  return window.LiviaWasm.leidenNetwork(nodes.length, idxEdges, res, obj, 10, seed);
 }
 
 // ---------- build ----------
@@ -595,12 +589,12 @@ async function build(){
     const nodes=[...nodeSet];
     const t0=performance.now();
     let membership, degree, commNames=null;
-    if (useUser){                                        // user-defined clusters — no Pyodide/Leiden needed
+    if (useUser){                                        // user-defined clusters — no Leiden needed
       setStatus(`Applying your cluster map to ${nodes.length} nodes…`);
       ({ membership, commNames } = userMembership(nodes));
       degree = degreesOf(nodes, edges);
     } else {
-      await ensurePyodide();
+      await ensureWasm();
       setStatus(`Running Leiden on ${nodes.length} nodes / ${edges.length} edges…`);
       ({ membership, degree } = await leiden(nodes, edges, res, obj, seed));
     }
@@ -847,21 +841,13 @@ function computeLayout(mode, disp){   // fixed positions for the overall network
       arr.forEach((n,i)=>{ const a=2*Math.PI*i/arr.length; pos[n]={x:Math.round(cx+r*Math.cos(a)),y:Math.round(cy+r*Math.sin(a))}; }); }); }
   return pos;
 }
-async function igraphLayout(nodes, edges, method, niter){   // force-directed coordinates from igraph (FR / Kamada-Kawai)
-  const idx=new Map(nodes.map((s,i)=>[s,i]));
-  PYODIDE.globals.set('_lay', JSON.stringify({ n:nodes.length, edges:edges.map(e=>[idx.get(e.a),idx.get(e.b)]), weights:edges.map(e=>e.iLIS), m:method, niter:niter||500, seed:+$('seed').value||1 }));
-  const out = PYODIDE.runPython(`
-import igraph as ig, json, random
-d=json.loads(_lay); random.seed(int(d['seed']))
-try: ig.set_random_number_generator(random)
-except Exception: pass
-g=ig.Graph(n=d['n'], edges=d['edges'], directed=False); g.es['weight']=d['weights']; m=d['m']
-if m=='kk': lay=g.layout_kamada_kawai()
-elif m=='drl': lay=g.layout_drl(weights='weight')
-else: lay=g.layout_fruchterman_reingold(weights='weight', niter=int(d.get('niter',500)))
-json.dumps([[c[0],c[1]] for c in lay])
-`);
-  const c=JSON.parse(out), xs=c.map(p=>p[0]), ys=c.map(p=>p[1]);
+async function wasmLayout(nodes, edges, method, niter){
+  await ensureWasm();
+  if (!window.LiviaWasm) throw new Error('The graph engine (js/livia-wasm.js) did not load; reload the page and try again.');
+  const idx = new Map(nodes.map((s,i)=>[s,i]));
+  const idxEdges = edges.map(e=>[idx.get(e.a), idx.get(e.b), e.iLIS]);
+  const c = window.LiviaWasm.graphLayout(method, nodes.length, idxEdges, niter || 500, +$('seed').value || 1);
+  const xs=c.map(p=>p[0]), ys=c.map(p=>p[1]);
   const minX=Math.min(...xs), minY=Math.min(...ys), span=Math.max(Math.max(...xs)-minX, Math.max(...ys)-minY)||1;
   const S=Math.min(1500, 80+nodes.length*13)/span, pos={};
   nodes.forEach((s,i)=>{ pos[s]={ x:Math.round((c[i][0]-minX)*S), y:Math.round((c[i][1]-minY)*S) }; });
@@ -874,7 +860,7 @@ async function applyLayout(mode){
   if (!mode || mode==='force'){ render(getDisplay()); return; }               // vis-network physics (live)
   const disp=getDisplay(); let pos;
   if (drawnSig(disp) !== DRAWN) render(disp, true);   // other nodes or edges shown: draw them afresh
-  if (mode==='fr'||mode==='kk'||mode==='drl'){ if(_layBusy) return; _layBusy=true; setStatus('Computing '+mode.toUpperCase()+' layout…'); try{ pos=await igraphLayout(disp.nodes, disp.edges, mode, +$('layiter').value||500); }catch(e){ setStatus('Layout error: '+(e.message||e)); _layBusy=false; return; } _layBusy=false; setStatus(''); }
+  if (mode==='fr'||mode==='kk'||mode==='drl'){ if(_layBusy) return; _layBusy=true; setStatus('Computing '+mode.toUpperCase()+' layout…'); try{ pos=await wasmLayout(disp.nodes, disp.edges, mode, +$('layiter').value||500); }catch(e){ setStatus('Layout error: '+(e.message||e)); _layBusy=false; return; } _layBusy=false; setStatus(''); }
   else pos=computeLayout(mode, disp);
   NODES.update(disp.nodes.map(n=>({ id:n, x:pos[n].x, y:pos[n].y, fixed:{x:true,y:true} })));
   setPhysics(false); NETWORK.fit({ animation:{duration:500} });
@@ -956,7 +942,7 @@ function collectSettings(){
   const s={}; SETTING_IDS.forEach(id=>{ const el=$(id); if(el) s[id]=el.value; });
   s.nborder=$('nborder').checked; s.lbloutline=$('lbloutline').checked; s.intraonly=$('intraonly').checked; s.commColors={...COMMCOLORS}; s.nodeColors={...NODECOLORS}; if(SUBSET) s.subset=[...SUBSET];
   if (META && META_COL) s.labelby=META_COL;
-  s.method = { leiden_n_iterations: 10, edge_weight: 'iLIS', duplicate_pairs: 'the highest iLIS among all predictions of the same resolved pair (each prediction\'s best model)', pyodide: '0.27.2', igraph: '0.11.4', livia: window.LIVIA_BUILD || '', saved: new Date().toISOString(), page: location.href.split('#')[0] };   // what the settings do not show but a rerun needs
+  s.method = { leiden_n_iterations: 10, edge_weight: 'iLIS', duplicate_pairs: 'the highest iLIS among all predictions of the same resolved pair (each prediction\'s best model)', engine: 'livia-wasm/1.0', livia: window.LIVIA_BUILD || '', saved: new Date().toISOString(), page: location.href.split('#')[0] };   // what the settings do not show but a rerun needs
   if (USERCLUST && USERCLUST.size){ s.clusters=[...USERCLUST.entries()]; s.clustmode=$('clustmode')?$('clustmode').value:'user'; }
   return s;
 }
