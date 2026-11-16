@@ -233,12 +233,23 @@ _atom_site.auth_seq_id
 _atom_site.auth_asym_id
 ATOM 1 C CA . ALA A 1 1 ? 0.0 0.0 0.0 1.0 50.0 1 A
 `;
-const _molstarWarmState = new Map(); // frameId → { warmedUp, blobUrl }
-function warmupMolstarFrame(frameId, parentBaseUrl) {
+const _molstarWarmState = new Map();
+const _molstarIdleTimers = new Map();
+function _cancelMolstarIdle(frameId) {
+    const t = _molstarIdleTimers.get(frameId);
+    if (!t) return;
+    _molstarIdleTimers.delete(frameId);
+    if (t.idle && typeof cancelIdleCallback === 'function') cancelIdleCallback(t.id);
+    else clearTimeout(t.id);
+}
+function _runWarmupMolstarNow(frameId, parentBaseUrl) {
+    _molstarIdleTimers.delete(frameId);
     const frame = document.getElementById(frameId);
     if (!frame) return false;
     const prev = _molstarWarmState.get(frameId);
     if (prev && prev.warmedUp) return true;
+    const curSrc = frame.getAttribute('src') || '';
+    if (curSrc && curSrc !== 'about:blank') return false;
     try {
         const base = parentBaseUrl || (window.location.origin + window.location.pathname.replace(/[^/]*$/, ''));
         const page = buildMolstarPage(_MOLSTAR_WARMUP_CIF, 'mmcif', [], base);
@@ -260,9 +271,57 @@ function warmupMolstarFrame(frameId, parentBaseUrl) {
         return true;
     } catch (e) { console.warn('Mol* warm-up failed for', frameId, e); return false; }
 }
+function warmupMolstarFrame(frameId, parentBaseUrl) {
+    const prev = _molstarWarmState.get(frameId);
+    if (prev && prev.warmedUp) return true;
+    if (_molstarIdleTimers.has(frameId)) return true;
+    const schedule = () => {
+        if (typeof requestIdleCallback === 'function') {
+            const id = requestIdleCallback(() => _runWarmupMolstarNow(frameId, parentBaseUrl), { timeout: 1200 });
+            _molstarIdleTimers.set(frameId, { idle: true, id });
+        } else {
+            const id = setTimeout(() => _runWarmupMolstarNow(frameId, parentBaseUrl), 550);
+            _molstarIdleTimers.set(frameId, { idle: false, id });
+        }
+    };
+    if (typeof document !== 'undefined' && document.readyState !== 'complete') {
+        window.addEventListener('load', schedule, { once: true });
+    } else {
+        schedule();
+    }
+    return true;
+}
 function isMolstarFrameWarmedUp(frameId) {
     const s = _molstarWarmState.get(frameId);
     return !!(s && s.warmedUp);
+}
+let _hlRaf = 0, _hlNext = null, _hlLast = '';
+function highlightMolstarResidue(frameId, chain, seqId, endSeqId) {
+    const key = chain && seqId ? `${frameId}|${chain}|${seqId}|${endSeqId || seqId}` : `${frameId}|clear`;
+    if (key === _hlLast) return;
+    _hlNext = { frameId, chain: chain || '', seqId: seqId ? +seqId : 0, endSeqId: endSeqId ? +endSeqId : (seqId ? +seqId : 0), key };
+    if (_hlRaf) return;
+    _hlRaf = requestAnimationFrame(() => {
+        _hlRaf = 0;
+        const h = _hlNext; _hlNext = null;
+        if (!h || h.key === _hlLast) return;
+        const frame = document.getElementById(h.frameId);
+        if (!frame || !frame.contentWindow) return;
+        const rect = frame.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+        _hlLast = h.key;
+        try {
+            frame.contentWindow.postMessage({ type: 'highlightResidue', chain: h.chain, seqId: h.seqId, endSeqId: h.endSeqId }, '*');
+        } catch (_e) {}
+    });
+}
+function focusMolstarResidue(frameId, chain, seqId, endSeqId) {
+    if (!chain || !seqId) return;
+    const frame = document.getElementById(frameId);
+    if (!frame || !frame.contentWindow) return;
+    try {
+        frame.contentWindow.postMessage({ type: 'focusResidue', chain: String(chain), seqId: +seqId, endSeqId: +(endSeqId || seqId) }, '*');
+    } catch (_e) {}
 }
 
 // ── Build complete Mol* viewer HTML page with MVS coloring ──
@@ -272,6 +331,7 @@ function isMolstarFrameWarmedUp(frameId) {
 // parentBaseUrl: absolute URL of the parent LIVIA page (used for self-hosted Mol* fallback)
 const MOLSTAR_VERSION = '5.9.0';
 function buildMolstarPage(structData, fmt, colorComponents, parentBaseUrl) {
+    if (structData !== _MOLSTAR_WARMUP_CIF) _cancelMolstarIdle('viewer3d-frame');
     const mvsJson = buildMvsJson(colorComponents, fmt);
     const selfHostBase = parentBaseUrl || '';
 
@@ -457,6 +517,29 @@ function _injectCurrentCameraIntoMvs(mvsStr) {
 // Listen for parent postMessage: structure swap (warm-up pattern) + color update
 window.addEventListener('message', function(ev) {
     if (!ev.data) return;
+    if (ev.data.type === 'highlightResidue') {
+        if (!_ready || !_viewer || typeof _viewer.structureInteractivity !== 'function') return;
+        try {
+            _viewer.structureInteractivity({ action: 'highlight' });
+            if (ev.data.chain && ev.data.seqId > 0) {
+                _viewer.structureInteractivity({
+                    action: 'highlight',
+                    elements: { label_asym_id: String(ev.data.chain), beg_label_seq_id: +ev.data.seqId, end_label_seq_id: +(ev.data.endSeqId || ev.data.seqId) }
+                });
+            }
+        } catch (_eh) {}
+        return;
+    }
+    if (ev.data.type === 'focusResidue') {
+        if (!_ready || !_viewer || typeof _viewer.structureInteractivity !== 'function' || !ev.data.chain || !(ev.data.seqId > 0)) return;
+        try {
+            _viewer.structureInteractivity({
+                action: 'focus',
+                elements: { label_asym_id: String(ev.data.chain), beg_label_seq_id: +ev.data.seqId, end_label_seq_id: +(ev.data.endSeqId || ev.data.seqId) }
+            });
+        } catch (_ef) {}
+        return;
+    }
     if (ev.data.type === 'loadStructure' && ev.data.structData && ev.data.mvsStr) {
         if (!_ready || !_viewer) { _pendingStructure = ev.data; return; }
         _structLabel = ev.data.label || '';

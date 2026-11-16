@@ -391,7 +391,7 @@
     const acc = chosen.acc;
     // canonical UniProt sequence == the AFDB structure's sequence/numbering; used to align
     // the predicted (isoform/construct) sequence and remap cLIR residue coordinates.
-    let structSeq = null, structLen = null, geneName = chosen.gene || null, organism = chosen.organism || null;
+    let structSeq = null, structLen = null, geneName = chosen.gene || null, organism = chosen.organism || null, taxonId = chosen.tax || null;
     if (found.exact && !chosen.isoform && !chosen.viaUniParc && organism) {   // the chain IS this entry's canonical sequence: nothing to fetch
       structSeq = _cleanSeq(seq); structLen = structSeq.length;
     } else if (chosen.viaSibling && organism) {                                 // same canonical sequence as the verified parent
@@ -401,10 +401,11 @@
       if (sd && sd.sequence) { structSeq = sd.sequence.value; structLen = sd.sequence.length; }
       if (sd && sd.genes && sd.genes[0] && sd.genes[0].geneName) geneName = sd.genes[0].geneName.value;
       if (sd && sd.organism && sd.organism.scientificName) organism = sd.organism.scientificName;
+      if (sd && sd.organism && sd.organism.taxonId) taxonId = sd.organism.taxonId;
     } catch (e) {}
     return {
       accession: acc, cifUrl, matchedBy: found.by,
-      organism, gene: geneName,
+      organism, taxonId, gene: geneName,
       matchedLength: chosen.length, expectedLength: length,
       structureSequence: structSeq, structureLength: structLen,
       lengthOk: frag ? true : (structLen == null || length == null || structLen === length),

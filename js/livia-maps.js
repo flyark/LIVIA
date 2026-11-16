@@ -617,6 +617,7 @@
             el.className = 'seq-res' + (d.clir ? ' clir' : '');
             if (d.bg) el.style.background = d.bg;
             if (d.tip) el.dataset.t = d.tip;
+            if (res.resnum != null) el.dataset.r = res.resnum;
             el.textContent = res.aa;
             block.appendChild(el);
         });
@@ -645,17 +646,32 @@
         requestAnimationFrame(() => fitSeqHost(div.parentElement));
         if (!opts.noObserve && div.parentElement && typeof ResizeObserver !== 'undefined') observeSeqHost(div.parentElement);
 
+        const seqChain = opts.chain || '';
+        const frameId = opts.viewerFrameId || 'viewer3d-frame';
         let tip = document.querySelector('.seq-tooltip');
         if (!tip) { tip = document.createElement('div'); tip.className = 'seq-tooltip'; document.body.appendChild(tip); }
         div.addEventListener('mouseover', (e) => {
             const t = e.target.closest && e.target.closest('.seq-res');
-            if (!t || !t.dataset.t) { tip.style.display = 'none'; return; }
+            if (!t) { tip.style.display = 'none'; return; }
+            if (seqChain && t.dataset.r && typeof highlightMolstarResidue === 'function') {
+                highlightMolstarResidue(frameId, seqChain, +t.dataset.r);
+            }
+            if (!t.dataset.t) { tip.style.display = 'none'; return; }
             tip.textContent = t.dataset.t;
             tip.style.display = '';
             tip.style.left = (e.clientX + 8) + 'px';
             tip.style.top = (e.clientY - 20) + 'px';
         });
-        div.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+        div.addEventListener('mouseleave', () => {
+            tip.style.display = 'none';
+            if (seqChain && typeof highlightMolstarResidue === 'function') highlightMolstarResidue(frameId, null);
+        });
+        if (seqChain) {
+            div.addEventListener('click', (e) => {
+                const t = e.target.closest && e.target.closest('.seq-res');
+                if (t && t.dataset.r && typeof focusMolstarResidue === 'function') focusMolstarResidue(frameId, seqChain, +t.dataset.r);
+            });
+        }
         return div;
     }
 
@@ -727,6 +743,69 @@
         return o.h + font * 1.6;
     }
 
+    const ATLAS_BASE = 'https://flyark.github.io/livia-atlas/';
+    const ATLAS_BY_TAXON = {
+        '9606': 'human', '7227': 'fly', '7955': 'zebrafish', '559292': 'yeast', '4932': 'yeast', '6239': 'worm',
+        '100816': 'madurella-mycetomatis', '10090': 'mus-musculus', '10116': 'rattus-norvegicus',
+        '1125630': 'klebsiella-pneumoniae-subsp-pneumoniae', '1133849': 'nocardia-brasiliensis',
+        '1391915': 'sporothrix-schenckii', '1442368': 'fonsecaea-pedrosoi-cbs-271-37',
+        '171101': 'streptococcus-pneumoniae', '185431': 'trypanosoma-brucei-brucei-185431',
+        '192222': 'campylobacter-jejuni-subsp-jejuni-serotype-o-2', '208964': 'pseudomonas-aeruginosa',
+        '237561': 'candida-albicans-237561', '242231': 'neisseria-gonorrhoeae',
+        '243232': 'methanocaldococcus-jannaschii', '272631': 'mycobacterium-leprae',
+        '284812': 'schizosaccharomyces-pombe', '300267': 'shigella-dysenteriae-serotype-1',
+        '318479': 'dracunculus-medinensis', '353153': 'trypanosoma-cruzi', '36087': 'trichuris-trichiura',
+        '36329': 'plasmodium-falciparum-36329', '3702': 'arabidopsis-thaliana', '3847': 'glycine-max',
+        '39947': 'oryza-sativa-subsp-japonica', '44689': 'dictyostelium-discoideum',
+        '447093': 'ajellomyces-capsulatus', '4577': 'zea-mays', '502779': 'paracoccidioides-lutzii',
+        '5671': 'leishmania-infantum', '6183': 'schistosoma-mansoni', '623': 'shigella-flexneri',
+        '6248': 'strongyloides-stercoralis', '6279': 'brugia-malayi', '6282': 'onchocerca-volvulus',
+        '6293': 'wuchereria-bancrofti', '71421': 'haemophilus-influenzae', '83332': 'mycobacterium-tuberculosis',
+        '83333': 'escherichia-coli-83333', '9598': 'pan-troglodytes', '8355': 'xenopus-laevis',
+        '85962': 'helicobacter-pylori', '86049': 'cladophialophora-carrionii',
+        '93061': 'staphylococcus-aureus-93061', '99287': 'salmonella-typhimurium',
+    };
+    const ATLAS_BY_NAME = [
+        [/^homo sapiens\b/i, 'human'], [/^drosophila melanogaster\b/i, 'fly'], [/^danio rerio\b/i, 'zebrafish'],
+        [/^saccharomyces cerevisiae\b/i, 'yeast'], [/^caenorhabditis elegans\b/i, 'worm'],
+        [/^mus musculus\b/i, 'mus-musculus'], [/^rattus norvegicus\b/i, 'rattus-norvegicus'],
+        [/^arabidopsis thaliana\b/i, 'arabidopsis-thaliana'], [/^glycine max\b/i, 'glycine-max'],
+        [/^oryza sativa\b/i, 'oryza-sativa-subsp-japonica'], [/^zea mays\b/i, 'zea-mays'],
+        [/^dictyostelium discoideum\b/i, 'dictyostelium-discoideum'], [/^schizosaccharomyces pombe\b/i, 'schizosaccharomyces-pombe'],
+        [/^escherichia coli\b/i, 'escherichia-coli-83333'], [/^pan troglodytes\b/i, 'pan-troglodytes'],
+        [/^xenopus laevis\b/i, 'xenopus-laevis'], [/^mycobacterium tuberculosis\b/i, 'mycobacterium-tuberculosis'],
+        [/^pseudomonas aeruginosa\b/i, 'pseudomonas-aeruginosa'], [/^helicobacter pylori\b/i, 'helicobacter-pylori'],
+        [/^staphylococcus aureus\b/i, 'staphylococcus-aureus-93061'], [/^salmonella typhimurium\b/i, 'salmonella-typhimurium'],
+        [/^streptococcus pneumoniae\b/i, 'streptococcus-pneumoniae'], [/^candida albicans\b/i, 'candida-albicans-237561'],
+        [/^plasmodium falciparum\b/i, 'plasmodium-falciparum-36329'], [/^trypanosoma cruzi\b/i, 'trypanosoma-cruzi'],
+        [/^trypanosoma brucei\b/i, 'trypanosoma-brucei-brucei-185431'], [/^leishmania infantum\b/i, 'leishmania-infantum'],
+        [/^schistosoma mansoni\b/i, 'schistosoma-mansoni'], [/^klebsiella pneumoniae\b/i, 'klebsiella-pneumoniae-subsp-pneumoniae'],
+        [/^neisseria gonorrhoeae\b/i, 'neisseria-gonorrhoeae'], [/^haemophilus influenzae\b/i, 'haemophilus-influenzae'],
+        [/^campylobacter jejuni\b/i, 'campylobacter-jejuni-subsp-jejuni-serotype-o-2'],
+        [/^methanocaldococcus jannaschii\b/i, 'methanocaldococcus-jannaschii'], [/^mycobacterium leprae\b/i, 'mycobacterium-leprae'],
+        [/^shigella dysenteriae\b/i, 'shigella-dysenteriae-serotype-1'], [/^shigella flexneri\b/i, 'shigella-flexneri'],
+        [/^madurella mycetomatis\b/i, 'madurella-mycetomatis'], [/^nocardia brasiliensis\b/i, 'nocardia-brasiliensis'],
+        [/^sporothrix schenckii\b/i, 'sporothrix-schenckii'], [/^fonsecaea pedrosoi\b/i, 'fonsecaea-pedrosoi-cbs-271-37'],
+        [/^ajellomyces capsulatus\b|^histoplasma capsulatum\b/i, 'ajellomyces-capsulatus'],
+        [/^paracoccidioides lutzii\b/i, 'paracoccidioides-lutzii'], [/^cladophialophora carrionii\b/i, 'cladophialophora-carrionii'],
+        [/^dracunculus medinensis\b/i, 'dracunculus-medinensis'], [/^trichuris trichiura\b/i, 'trichuris-trichiura'],
+        [/^strongyloides stercoralis\b/i, 'strongyloides-stercoralis'], [/^brugia malayi\b/i, 'brugia-malayi'],
+        [/^onchocerca volvulus\b/i, 'onchocerca-volvulus'], [/^wuchereria bancrofti\b/i, 'wuchereria-bancrofti'],
+        [/\bvirus\b|\bphage\b|\bviridae\b|\bcov-2\b|\binfluenza\b|\bherpesvirus\b/i, 'virus'],
+    ];
+    function atlasSpecies(taxonOrOrg, orgText, lineage) {
+        if (taxonOrOrg != null && ATLAS_BY_TAXON[String(taxonOrOrg)]) return ATLAS_BY_TAXON[String(taxonOrOrg)];
+        if (Array.isArray(lineage) && lineage.some((x) => /^viruses$/i.test(String(x)))) return 'virus';
+        const s = String(orgText || taxonOrOrg || '').trim();
+        if (!s) return '';
+        if (ATLAS_BY_TAXON[s]) return ATLAS_BY_TAXON[s];
+        for (const [re, id] of ATLAS_BY_NAME) if (re.test(s)) return id;
+        return '';
+    }
+    const atlasProteinUrl = (sp, id) => (sp && id ? `${ATLAS_BASE}#/${encodeURIComponent(sp)}/${encodeURIComponent(id)}` : '');
+    const atlasPairUrl = (sp, a, b) => (sp && a && b ? (a === b ? `${ATLAS_BASE}#/homodimers/${encodeURIComponent(sp)}?q=${encodeURIComponent(a)}` : `${ATLAS_BASE}#/${encodeURIComponent(sp)}/${encodeURIComponent(a)}/${encodeURIComponent(b)}`) : '');
+    const atlasNetworkUrl = (sp, ids) => (sp && ids && ids.length ? `${ATLAS_BASE}#/network/${encodeURIComponent(sp)}?ids=${encodeURIComponent(ids.join(','))}` : '');
+
     global.LiviaMaps = {
         SEQ_CMAPS, cmapRGB, inkOn, chipFill, BAND, drawColorbar,
         setExportOpts, applyExportOpts,
@@ -737,5 +816,6 @@
         parseColorCSV, attachColorUpload,
         seqFlow, fitSeqHost,
         strokeFadeQuad, strokeFadeCubic,
+        atlasSpecies, atlasProteinUrl, atlasPairUrl, atlasNetworkUrl,
     };
 })(window);

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <title>LIVIA — AlphaFold DB Dimer Analysis</title>
-    <link rel="stylesheet" href="css/livia.css?v=20261105a">
+    <link rel="stylesheet" href="css/livia.css?v=20261116a">
     <style>
         /* ── Page-specific styles for Dimer ── */
         .step-link { color: #2471A3; text-decoration: none; }
@@ -546,11 +546,11 @@
 <script src="js/livia-core.js?v=20261008b"></script>
 <script src="js/livia-reported.js?v=20261106a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20261104a"></script>
+<script src="js/livia-viewer.js?v=20261116a"></script>
 <script src="js/livia-util.js?v=20261105a"></script>
 <script src="js/livia-colors.js?v=20261010a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20261004a"></script>
+<script src="js/livia-maps.js?v=20261116a"></script>
 <script src="js/livia-subnav.js?v=20261007a"></script>
 <script>
 // ── Callbacks for shared modules ──
@@ -816,6 +816,7 @@ async function showProteinInfo(entry) {
         }));
 
         const parts = [];
+        const atlasHits = [];
         for (const data of infos) {
             if (!data) continue;
             const acc = data.primaryAccession;
@@ -823,6 +824,9 @@ async function showProteinInfo(entry) {
             const protName = data.proteinDescription?.recommendedName?.fullName?.value
                           || data.proteinDescription?.submissionNames?.[0]?.fullName?.value || '';
             const org = data.organism?.scientificName || '';
+            const spId = typeof LiviaMaps !== 'undefined' && LiviaMaps.atlasSpecies
+                ? LiviaMaps.atlasSpecies(data.organism?.taxonId, org, data.organism?.lineage) : null;
+            if (spId && acc) atlasHits.push({ spId, acc });
             const len = data.sequence?.length || '';
             const funcComment = (data.comments || []).find(c => c.commentType === 'FUNCTION');
             let funcText = funcComment?.texts?.[0]?.value || '';
@@ -830,13 +834,22 @@ async function showProteinInfo(entry) {
             funcText = funcText.replace(/\s*\(By similarity\)/gi, '').replace(/\s*\(PubMed:\d+\)/gi, '');
 
             const lines = [];
-            lines.push(`<strong>${esc(entryName)}</strong> · ${esc(protName)}`);
+            let head = `<strong>${esc(entryName)}</strong> · ${esc(protName)}`;
+            if (spId && acc) {
+                const aUrl = LiviaMaps.atlasProteinUrl(spId, acc);
+                if (aUrl) head += ` · <a href="${aUrl}" target="_blank" rel="noopener" style="color:#1B4F72;font-weight:600;text-decoration:none" title="Open ${esc(acc)} in LIVIA Atlas">LIVIA Atlas ↗</a>`;
+            }
+            lines.push(head);
             const meta = [];
             if (org) meta.push(`<strong>${esc(org)}</strong>`);
             if (len) meta.push(`${len} aa`);
             if (meta.length > 0) lines.push(`<span style="color:#666;">${meta.join(' · ')}</span>`);
             if (funcText) lines.push(`<span style="color:#555;">${esc(funcText)}</span>`);
             parts.push(lines.join('<br>'));
+        }
+        if (atlasHits.length === 2 && atlasHits[0].spId === atlasHits[1].spId && atlasHits[0].acc !== atlasHits[1].acc) {
+            const pUrl = LiviaMaps.atlasPairUrl(atlasHits[0].spId, atlasHits[0].acc, atlasHits[1].acc);
+            if (pUrl) parts.push(`<a href="${pUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:0.25rem;padding:0.15rem 0.55rem;border-radius:999px;background:#eef5fb;border:1px solid #bcd4ea;color:#1B4F72;font-size:0.76rem;font-weight:600;text-decoration:none">Pair in LIVIA Atlas (${esc(atlasHits[0].acc)} × ${esc(atlasHits[1].acc)}) ↗</a>`);
         }
 
         if (parts.length > 0) {
@@ -1751,7 +1764,7 @@ function buildDimerSequenceViewer() {
                 clir: isClir,
                 tip: `${res.aa}${res.resnum}` + (isClir ? ' (cLIR)' : isLir ? ' (LIR)' : ''),
             };
-        }));
+        }, { chain: cc.name }));
     }
 }
 

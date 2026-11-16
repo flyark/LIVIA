@@ -7,7 +7,7 @@
     <title>LIVIA — Prediction Analysis</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <!-- Mol* loaded inside iframe, not here -->
-    <link rel="stylesheet" href="css/livia.css?v=20261105a">
+    <link rel="stylesheet" href="css/livia.css?v=20261116a">
     <style>
         /* ── Page-specific styles for Universal ── */
         .step-link { color: #2471A3; text-decoration: none; }
@@ -31,7 +31,21 @@
         .btn-primary { margin-top: 0.8rem; }
         .example-btn { background: white; color: #2471A3; border: 1px solid #ccc; border-radius: 6px; padding: 0.3rem 0.7rem; font-size: 0.82rem; cursor: pointer; transition: all 0.2s; }
         .example-btn:hover { background: #eaf2f8; border-color: #2471A3; }
-        .btn-row { display: flex; gap: 0.5rem; margin-top: 0.8rem; }
+        .btn-row { display: flex; align-items: flex-start; gap: 0.85rem; margin-top: 0.8rem; }
+        .btn-row > #btn-process { flex-shrink: 0; margin-top: 0; align-self: flex-start; min-width: 108px; }
+        .btn-row > .examples-col { flex: 1; min-width: 0; }
+        @media (max-width: 680px) { .btn-row { flex-direction: column; gap: 0.6rem; } .btn-row > #btn-process { width: 100%; } }
+        #upload-card.ext-collapsed { display: none; }
+        .ext-upload-toggle { display: none; align-items: center; justify-content: space-between; gap: 0.8rem; background: #fff; border: 1px solid #dce5ef; border-radius: 10px; padding: 0.55rem 1rem; margin-bottom: 1rem; font-size: 0.84rem; color: #33414E; }
+        .ext-upload-toggle.active { display: flex; }
+        .ext-upload-toggle button { background: #f0f6fb; color: #1a5276; border: 1px solid #c5d9eb; border-radius: 6px; padding: 0.28rem 0.75rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+        .ext-upload-toggle button:hover { background: #2471A3; color: #fff; border-color: #2471A3; }
+        .post-load-bar { height: 3px; background: #dce8f3; border-radius: 2px; overflow: hidden; margin-top: 0.45rem; position: relative; }
+        .post-load-bar::after { content: ''; position: absolute; top: 0; bottom: 0; width: 32%; background: #2471A3; border-radius: 2px; animation: postSlide 1.15s ease-in-out infinite; }
+        @keyframes postSlide { 0% { left: -32%; } 100% { left: 100%; } }
+        .atlas-links-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem 0.85rem; margin-top: 0.55rem; padding: 0.42rem 0.7rem; background: #f4f8fc; border: 1px solid #d8e6f3; border-radius: 7px; font-size: 0.82rem; color: #33414E; }
+        .atlas-links-bar a { color: #1a5276; font-weight: 600; text-decoration: none; }
+        .atlas-links-bar a:hover { text-decoration: underline; color: #2471A3; }
         .btn-download.cif { background: white; color: #B35A12; border-color: #E67E22; }   /* text at least 4.5:1 */
         .btn-download.cif:hover { background: #fef5ec; }
 
@@ -124,8 +138,8 @@
         }
     </style>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20261004a"></script>
-<script src="js/clip-resolver.js?v=20260928a"></script>
+<script src="js/livia-maps.js?v=20261116a"></script>
+<script src="js/clip-resolver.js?v=20261116a"></script>
 <script src="js/remotezip.js?v=20260918"></script>
 <script src="js/livia-wasm.js?v=20261115a"></script>
 </head>
@@ -154,8 +168,15 @@
 
 <div class="container">
 
+    <!-- External load bar + collapsible Step 1 -->
+    <div id="ext-load-host"></div>
+    <div class="ext-upload-toggle" id="ext-upload-toggle">
+        <span id="ext-upload-summary">Loaded external prediction bundle.</span>
+        <button type="button" onclick="const c=document.getElementById('upload-card'), b=this; const open=c.classList.toggle('ext-collapsed'); b.textContent=open?'Load another prediction \u25be':'Hide file loader \u25b4';">Load another prediction &#9662;</button>
+    </div>
+
     <!-- Step 1: Upload -->
-    <div class="card">
+    <div class="card" id="upload-card">
         <div class="step-header">Load Prediction Files &nbsp;<span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(read and analyzed in your browser, never uploaded &middot; <a href="about.html#data" style="color:#2471A3;">what LIVIA looks up online</a>)</span></div>
         <div class="drop-zone" id="drop-zone">
             <div class="drop-zone-icon">&#128230;</div>
@@ -175,7 +196,7 @@
         </div>
         <div class="btn-row">
             <button class="btn btn-primary" id="btn-process" onclick="processFiles()" disabled>Process</button>
-            <div style="margin-top:0.8rem;">
+            <div class="examples-col">
                 <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
                     <span style="color:#6B6B6B; font-size:0.82rem;">p53&ndash;MDM2 examples:</span>
                     <button onclick="loadExample('colabfold')" class="example-btn">ColabFold (8 MB)</button>
@@ -686,7 +707,7 @@
 <script src="js/livia-core.js?v=20261008b"></script>
 <script src="js/livia-reported.js?v=20261106a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20261104a"></script>
+<script src="js/livia-viewer.js?v=20261116a"></script>
 <script src="js/livia-util.js?v=20261105a"></script>
 <script src="js/livia-colors.js?v=20261010a"></script>
 <script src="js/livia-subnav.js?v=20261007a"></script>
@@ -998,6 +1019,7 @@ async function handleInputFiles(fileList) {
     document.getElementById('btn-process').disabled = true;
     uniState.loadEpoch = (uniState.loadEpoch || 0) + 1;   // invalidate any in-flight identifyChains from the previous prediction (its async result must not clobber this load's labels)
     uniState.loadedFiles = {}; uniState._srcHintKey = null;   // a new load names its source afresh
+    _preparsedPAE.clear();
     uniState.predictions = [];
     uniState.platform = null;
     uniState.results = null;
@@ -1161,6 +1183,7 @@ async function selectJob(jobName) {
     document.getElementById('file-name').textContent = `${folderName}/${jobName}`;
 
     uniState.loadedFiles = {}; uniState._srcHintKey = null;   // a new load names its source afresh
+    _preparsedPAE.clear();
     uniState.results = null;
     uniState.modelData = [];
     uniState.modelPairs = [];
@@ -1192,6 +1215,173 @@ async function selectJob(jobName) {
     processFiles();
 }
 
+const _preparsedPAE = new Map();
+let _zipWorker = null, _zipWorkerSeq = 0, _zipWorkerJobs = new Map(), _zipWorkerFailed = false;
+function _getZipPaeWorker() {
+    if (_zipWorkerFailed || typeof Worker === 'undefined' || typeof Blob === 'undefined') return null;
+    if (_zipWorker) return _zipWorker;
+    try {
+        const src = `
+let fflateLoaded = false;
+function ensureFflate() {
+    if (fflateLoaded && self.fflate) return true;
+    try {
+        importScripts('https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js');
+        fflateLoaded = !!self.fflate;
+    } catch (e) { fflateLoaded = false; }
+    return fflateLoaded;
+}
+function extractPaeFromJsonObj(json) {
+    if (!json || typeof json !== 'object') return null;
+    const toFlat = (mat) => {
+        if (!Array.isArray(mat) || !mat.length) return null;
+        if (Array.isArray(mat[0])) {
+            const dim = mat.length;
+            if (mat[0].length !== dim) return null;
+            const flat = new Float64Array(dim * dim);
+            for (let i = 0; i < dim; i++) {
+                const row = mat[i];
+                const base = i * dim;
+                for (let j = 0; j < dim; j++) flat[base + j] = row[j];
+            }
+            return { dim, flat };
+        }
+        const n = Math.round(Math.sqrt(mat.length));
+        if (n > 0 && n * n === mat.length) {
+            const flat = new Float64Array(mat.length);
+            for (let k = 0; k < mat.length; k++) flat[k] = mat[k];
+            return { dim: n, flat };
+        }
+        return null;
+    };
+    if (Array.isArray(json)) {
+        if (json[0] && json[0].predicted_aligned_error) return toFlat(json[0].predicted_aligned_error);
+        return null;
+    }
+    const cands = [json.pae, json.predicted_aligned_error, json.pae_matrix, json.predicted_aligned_error_matrix, json.pde, json.token_pair_pae];
+    for (let i = 0; i < cands.length; i++) {
+        if (cands[i]) {
+            const got = toFlat(cands[i]);
+            if (got) return got;
+        }
+    }
+    return null;
+}
+function slimJsonString(rawText) {
+    const json = JSON.parse(rawText);
+    const pae = extractPaeFromJsonObj(json);
+    if (!pae) return { text: rawText, pae: null };
+    if (Array.isArray(json)) return { text: '[]', pae: { dim: pae.dim, flat: pae.flat, tokenChainIds: null } };
+    const tokenChainIds = Array.isArray(json.token_chain_ids) ? json.token_chain_ids : null;
+    if (Array.isArray(json.atom_plddts) && json.atom_plddts.length > 0 && json.avg_plddt === undefined) {
+        let sum = 0;
+        for (let i = 0; i < json.atom_plddts.length; i++) sum += json.atom_plddts[i];
+        json.avg_plddt = sum / json.atom_plddts.length;
+    }
+    delete json.pae;
+    delete json.predicted_aligned_error;
+    delete json.pae_matrix;
+    delete json.predicted_aligned_error_matrix;
+    delete json.pde;
+    delete json.contact_probs;
+    delete json.token_pair_pae;
+    delete json.token_pair_pde;
+    delete json.token_chain_ids;
+    delete json.token_res_ids;
+    delete json.atom_plddts;
+    delete json.atom_chain_ids;
+    return { text: JSON.stringify(json), pae: { dim: pae.dim, flat: pae.flat, tokenChainIds } };
+}
+self.onmessage = function(ev) {
+    const m = ev.data;
+    const td = new TextDecoder();
+    const texts = {}, bins = {}, pngs = {}, paes = {}, xfer = [];
+    const handleEntry = (path, u8) => {
+        const fname = path.split('/').pop();
+        if (!fname) return;
+        const low = fname.toLowerCase();
+        if (low.endsWith('.gz')) {
+            if (!ensureFflate()) throw new Error('fflate unavailable');
+            const inner = self.fflate.gunzipSync(u8);
+            handleEntry(path.replace(/\\.gz$/i, ''), inner);
+            return;
+        }
+        if (low.endsWith('.json')) {
+            const s = td.decode(u8);
+            if (u8.byteLength > 160000) {
+                try {
+                    const r = slimJsonString(s);
+                    texts[path] = r.text;
+                    if (r.pae) { paes[path] = r.pae; xfer.push(r.pae.flat.buffer); }
+                    return;
+                } catch (_e) {}
+            }
+            texts[path] = s;
+        } else if (low.endsWith('.cif') || low.endsWith('.pdb') || low.endsWith('.csv') || low.endsWith('.txt')) {
+            texts[path] = td.decode(u8);
+        } else if (low.endsWith('.npz') || low.endsWith('.npy')) {
+            const ab = u8.buffer.byteOffset === 0 && u8.buffer.byteLength === u8.byteLength ? u8.buffer : u8.slice().buffer;
+            bins[path] = ab;
+            xfer.push(ab);
+        } else if (low.endsWith('.png')) {
+            const ab = u8.buffer.byteOffset === 0 && u8.buffer.byteLength === u8.byteLength ? u8.buffer : u8.slice().buffer;
+            pngs[path] = ab;
+            xfer.push(ab);
+        }
+    };
+    try {
+        if (m.cmd === 'zip') {
+            if (!ensureFflate()) throw new Error('fflate unavailable');
+            const out = self.fflate.unzipSync(new Uint8Array(m.buf));
+            for (const path of Object.keys(out)) {
+                if (path.endsWith('/') || path.startsWith('__MACOSX') || path.includes('/__MACOSX/') || path.includes('/msas/') || path.includes('/templates/')) continue;
+                handleEntry(path, out[path]);
+            }
+        } else if (m.cmd === 'json') {
+            handleEntry(m.path, new Uint8Array(m.buf));
+        }
+        self.postMessage({ id: m.id, ok: true, texts, bins, pngs, paes }, xfer);
+    } catch (err) {
+        self.postMessage({ id: m.id, ok: false, error: err && err.message ? err.message : String(err) });
+    }
+};`;
+        const url = URL.createObjectURL(new Blob([src], { type: 'application/javascript' }));
+        _zipWorker = new Worker(url);
+        _zipWorker.onmessage = (ev) => {
+            const j = _zipWorkerJobs.get(ev.data.id);
+            if (!j) return;
+            _zipWorkerJobs.delete(ev.data.id);
+            ev.data.ok ? j.resolve(ev.data) : j.reject(new Error(ev.data.error || 'worker error'));
+        };
+        _zipWorker.onerror = () => {
+            _zipWorkerFailed = true;
+            for (const j of _zipWorkerJobs.values()) j.reject(new Error('worker error'));
+            _zipWorkerJobs.clear();
+            try { _zipWorker.terminate(); } catch (_e) {}
+            _zipWorker = null;
+        };
+        return _zipWorker;
+    } catch (_e) {
+        _zipWorkerFailed = true;
+        return null;
+    }
+}
+function _runWorkerTask(payload, xfer) {
+    const w = _getZipPaeWorker();
+    if (!w) return Promise.reject(new Error('no worker'));
+    const id = ++_zipWorkerSeq;
+    return new Promise((resolve, reject) => {
+        _zipWorkerJobs.set(id, { resolve, reject });
+        w.postMessage(Object.assign({ id }, payload), xfer || []);
+    });
+}
+function _applyWorkerResult(res) {
+    for (const [p, t] of Object.entries(res.texts || {})) uniState.loadedFiles[p] = t;
+    for (const [p, b] of Object.entries(res.bins || {})) uniState.loadedFiles[p] = b;
+    for (const [p, b] of Object.entries(res.pngs || {})) uniState.loadedImages[p] = URL.createObjectURL(new Blob([b], { type: 'image/png' }));
+    for (const [p, pae] of Object.entries(res.paes || {})) _preparsedPAE.set(p, pae);
+}
+
 async function loadFilesIntoState(files, isFolder, folderName) {
     if (!uniState.loadedImages) uniState.loadedImages = {};
     // Check if all files are zips
@@ -1200,7 +1390,18 @@ async function loadFilesIntoState(files, isFolder, folderName) {
     if (zipFiles.length > 0 && nonZipFiles.length === 0) {
         setStatus(`Reading ${zipFiles.length} zip file(s)...`, 'loading');
         for (const zipFile of zipFiles) {
-            const zip = await JSZip.loadAsync(await zipFile.arrayBuffer());
+            const rawBuf = await zipFile.arrayBuffer();
+            let usedWorker = false;
+            if (!_zipWorkerFailed) {
+                try {
+                    const wBuf = rawBuf.slice(0);
+                    const res = await _runWorkerTask({ cmd: 'zip', buf: wBuf }, [wBuf]);
+                    _applyWorkerResult(res);
+                    usedWorker = true;
+                } catch (_we) { usedWorker = false; }
+            }
+            if (usedWorker) continue;
+            const zip = await JSZip.loadAsync(rawBuf);
             for (const [path, entry] of Object.entries(zip.files)) {
                 if (entry.dir || path.startsWith('__MACOSX') || path.includes('/__MACOSX/')) continue;
                 const fname = path.split('/').pop();
@@ -1238,6 +1439,14 @@ async function loadFilesIntoState(files, isFolder, folderName) {
         for (const file of files) {
             const path = file.webkitRelativePath || file.name;
             if (path.includes('__MACOSX') || path.includes('/msas/') || path.includes('/templates/')) continue;
+            if (file.name.endsWith('.json') && file.size > 200000 && !_zipWorkerFailed) {
+                try {
+                    const jb = await file.arrayBuffer();
+                    const res = await _runWorkerTask({ cmd: 'json', path, buf: jb }, [jb]);
+                    _applyWorkerResult(res);
+                    continue;
+                } catch (_je) {}
+            }
             if (file.name.endsWith('.cif') || file.name.endsWith('.pdb') || file.name.endsWith('.json') || file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
                 uniState.loadedFiles[path] = await file.text();
             } else if (file.name.endsWith('.npz') || file.name.endsWith('.npy')) {
@@ -1738,6 +1947,7 @@ function setupMultiChainColors() {
                 if (sel) sel.click();                                             // the pair redraws everything: chain bar, chord, score matrices, contact map, per-residue, ChimeraX title, 3D
                 else {
                     renderChainToggleBar();
+    if (typeof _renderAtlasComplexBar === 'function') _renderAtlasComplexBar();
                     if (typeof buildChordDiagram === 'function') buildChordDiagram();
                     if (typeof drawAllScoreMatrices === 'function') drawAllScoreMatrices();
                     if (uniState.currentPairKey) buildContactMap(uniState.currentPairKey);
@@ -2411,6 +2621,9 @@ function discoverGeneric(filenames) {
     const looksLikeScores = (f) => {
         const content = f && uniState.loadedFiles[f];
         if (typeof content !== 'string') return false;
+        const t0 = content.trimStart();
+        if (!t0 || t0[0] !== '{') return false;
+        if (content.length > 500000 && !/"(?:ptm|iptm|confidence_score|ptm_score|iptm_score|ranking_score|ranking_confidence|mean_plddt)"/.test(content.slice(0, 4096) + content.slice(-4096))) return false;
         try {
             const j = JSON.parse(content);
             if (Array.isArray(j) || !j || typeof j !== 'object') return false;
@@ -2487,6 +2700,12 @@ function discoverGeneric(filenames) {
 const _paeJson = new Map();
 async function extractPAE(paeSource, platform) {
     if (!paeSource) return null;
+    const prep = _preparsedPAE.get(paeSource);
+    if (prep && prep.flat && prep.dim > 0) {
+        const rows = new Array(prep.dim);
+        for (let i = 0; i < prep.dim; i++) rows[i] = prep.flat.subarray(i * prep.dim, (i + 1) * prep.dim);
+        return rows;
+    }
     const content = uniState.loadedFiles[paeSource];
     if (!content) return null;
 
@@ -3358,10 +3577,15 @@ async function processFiles() {
             // For AF3, we can get chain IDs from full_data JSON
             let chainIds = null;
             if (uniState.platform === 'alphafold3' && model.paeSource) {
-                try {
-                    const fd = _paeJson.get(model.paeSource) || JSON.parse(uniState.loadedFiles[model.paeSource]);
-                    if (fd.token_chain_ids) chainIds = fd.token_chain_ids;
-                } catch(e) {}
+                const prep = _preparsedPAE.get(model.paeSource);
+                if (prep && prep.tokenChainIds) {
+                    chainIds = prep.tokenChainIds;
+                } else {
+                    try {
+                        const fd = _paeJson.get(model.paeSource) || JSON.parse(uniState.loadedFiles[model.paeSource]);
+                        if (fd.token_chain_ids) chainIds = fd.token_chain_ids;
+                    } catch(e) {}
+                }
             }
             _paeJson.delete(model.paeSource);   // read twice, then released: a parsed file is tens of MB
 
@@ -4540,6 +4764,7 @@ function displayResults(results, jobName) {
     document.getElementById('results').classList.add('active');
     setupMultiChainColors();
     renderChainToggleBar();
+    if (typeof _renderAtlasComplexBar === 'function') _renderAtlasComplexBar();
     { const _cic = document.getElementById('chain-identity-card'); if (_cic){ if (uniState.chainNames && uniState.chainNames.length >= 2 && !uniState.noStructure){ const _sig = uniState.chainNames.join(','); if (_cic.dataset.sig !== _sig){ _cic.dataset.sig = _sig; uniState.chainDomains = {}; uniState.chainTedDomains = {}; uniState.chainDomainInfo = {}; const _o = document.getElementById('chain-identity-out'); if (_o) _o.innerHTML = ''; const _mc = document.getElementById('mist-card'); if (_mc){ _mc.style.display = 'none'; const _mo = document.getElementById('mist-content'); if (_mo) _mo.innerHTML = ''; } if (typeof identifyChains === 'function') setTimeout(identifyChains, 0); } _cic.style.display = ''; } else { _cic.style.display = 'none'; const _mc = document.getElementById('mist-card'); if (_mc) _mc.style.display = 'none'; } } }
     drawAllScoreMatrices();
     if (uniState.lightweight) {
@@ -4555,7 +4780,9 @@ function displayResults(results, jobName) {
     // The shared label-settings panel shows whenever either surface it controls is visible.
     { const _lc = document.getElementById('map-labels-card'); if (_lc) { const _sm = document.getElementById('score-matrix-card'), _pm = document.getElementById('pae-maps-card'); const vis = (_sm && _sm.style.display !== 'none') || (_pm && _pm.style.display !== 'none'); _lc.style.display = vis ? '' : 'none'; } }
     renderCustomLabelInputs();   // (re)build the always-visible custom-label editor for this chain set
-    document.getElementById('results').scrollIntoView({ behavior: 'auto' });
+    { const _uc = document.getElementById('upload-card');
+      if (_uc && _uc.classList.contains('ext-collapsed')) window.scrollTo(0, 0);
+      else document.getElementById('results').scrollIntoView({ behavior: 'auto' }); }
 
     // Trigger data load for auto-selected first pair
     if (pairKeys.length > 0) {
@@ -5038,6 +5265,7 @@ function selectPair(key) {
     // Refresh chain toggle button colors — preset chips / swap / Tab10 chip all funnel
     // through here via selectedRow.click(), and the picker hex may have just changed.
     renderChainToggleBar();
+    if (typeof _renderAtlasComplexBar === 'function') _renderAtlasComplexBar();
 
     const colors = getColorsForPair(v.ci, v.cj);
     const seedVal = document.getElementById('seed-select').value;
@@ -5624,20 +5852,75 @@ async function applyChainIdentity(chainName, query, source, rowEl){   // shared 
     uniState.chainDomains = uniState.chainDomains || {}; uniState.chainTedDomains = uniState.chainTedDomains || {}; uniState.chainDomainInfo = uniState.chainDomainInfo || {};
     if (dom.length) uniState.chainDomains[chainName] = dom; else delete uniState.chainDomains[chainName];
     if (ted.length) uniState.chainTedDomains[chainName] = ted; else delete uniState.chainTedDomains[chainName];
-    uniState.chainDomainInfo[chainName] = info;
+    uniState.chainDomainInfo[chainName] = Object.assign({}, info, { organism: r.organism || '', taxonId: r.taxonId || null });
     const pk = uniState.currentPairKey;              // re-render every figure with the new identity
     if (pk){ buildContactMap(pk); if (typeof buildPerResidueCharts === 'function') buildPerResidueCharts(pk); if (typeof buildSequenceViewer === 'function') buildSequenceViewer(pk); }
     if (typeof buildChordDiagram === 'function') buildChordDiagram();
     if (typeof renderCustomLabelInputs === 'function') renderCustomLabelInputs();   // refresh Custom editor prefill with resolved names
     if (typeof redrawMapLabels === 'function') redrawMapLabels();   // gene names now resolved → refresh PAE maps AND score matrix
     if (rowEl){ const td = rowEl.querySelectorAll('td');
-        if (td[2]) td[2].innerHTML = '<a href="https://www.uniprot.org/uniprotkb/' + r.accession + '" target="_blank" style="color:#2471A3;">' + r.accession + '</a> <span style="color:#707070; font-size:0.8em">(' + source + ')</span>';
+        if (td[2]) td[2].innerHTML = '<a href="https://www.uniprot.org/uniprotkb/' + r.accession + '" target="_blank" style="color:#2471A3;">' + r.accession + '</a>' + _atlasProteinBadge(r) + ' <span style="color:#707070; font-size:0.8em">(' + source + ')</span>';
         if (td[3]) td[3].textContent = r.gene || query;
         if (td[4]) td[4].innerHTML = r.organism ? '<i>' + r.organism + '</i>' : '';
         if (td[5]) td[5].innerHTML = dom.length ? dom.map(d => d.name + ' (' + d.start + '\u2013' + d.end + ')').join('<br>') : '<span style="color:#707070;">none</span>';
     }
+    _renderAtlasComplexBar();
 }
 // BLAST on request only: the chain's whole sequence goes to EBI (similarity search, about 20 s), then the best hit is
+function _atlasProteinBadge(r) {
+    if (!r || !r.accession || !window.LiviaMaps || !LiviaMaps.atlasSpecies) return '';
+    const sp = LiviaMaps.atlasSpecies(r.taxonId, r.organism);
+    const u = sp ? LiviaMaps.atlasProteinUrl(sp, r.accession) : '';
+    return u ? ` &middot; <a href="${u}" target="_blank" rel="noopener" style="color:#1a5276; font-weight:600;" title="Open this protein in LIVIA Atlas">Atlas &#8599;</a>` : '';
+}
+function _renderAtlasComplexBar() {
+    const out = document.getElementById('chain-identity-out');
+    if (!out || !window.LiviaMaps || !LiviaMaps.atlasSpecies) return;
+    const old = document.getElementById('chain-atlas-bar');
+    if (old) old.remove();
+    const infoMap = uniState.chainDomainInfo || {};
+    const bySp = new Map();
+    const chainResolved = new Map();
+    for (const ch of (uniState.chainNames || [])) {
+        const inf = infoMap[ch];
+        if (!inf || !inf.accession) continue;
+        const sp = LiviaMaps.atlasSpecies(inf.taxonId, inf.organism);
+        if (!sp) continue;
+        const g = (uniState.chainGenes && uniState.chainGenes[ch]) || inf.accession;
+        chainResolved.set(ch, { sp, acc: inf.accession, gene: g });
+        if (!bySp.has(sp)) bySp.set(sp, new Map());
+        if (!bySp.get(sp).has(inf.accession)) bySp.get(sp).set(inf.accession, g);
+    }
+    if (!bySp.size) return;
+    let topSp = '', topMap = null;
+    for (const [sp, m] of bySp) if (!topMap || m.size > topMap.size) { topSp = sp; topMap = m; }
+    const links = [];
+    const pk = uniState.currentPairKey || '';
+    const [pA, pB] = pk.includes('-') ? pk.split('-') : ['', ''];
+    const rA = chainResolved.get(pA), rB = chainResolved.get(pB);
+    if (rA && rB && rA.sp === rB.sp) {
+        const pu = LiviaMaps.atlasPairUrl(rA.sp, rA.acc, rB.acc);
+        if (pu) links.push(`<a href="${pu}" target="_blank" rel="noopener">${rA.acc === rB.acc ? `Homodimer (${rA.gene})` : `Pair (${rA.gene} &times; ${rB.gene})`} &#8599;</a>`);
+    } else if (topMap.size === 2) {
+        const entries = [...topMap.entries()];
+        const pu = LiviaMaps.atlasPairUrl(topSp, entries[0][0], entries[1][0]);
+        if (pu) links.push(`<a href="${pu}" target="_blank" rel="noopener">Pair (${entries[0][1]} &times; ${entries[1][1]}) &#8599;</a>`);
+    }
+    if (topMap.size >= 2) {
+        const nu = LiviaMaps.atlasNetworkUrl(topSp, [...topMap.keys()]);
+        if (nu) links.push(`<a href="${nu}" target="_blank" rel="noopener">Network of ${topMap.size} proteins &#8599;</a>`);
+    } else if (topMap.size === 1) {
+        const [acc, g] = [...topMap.entries()][0];
+        const pu = LiviaMaps.atlasProteinUrl(topSp, acc);
+        if (pu) links.push(`<a href="${pu}" target="_blank" rel="noopener">${g} page &#8599;</a>`);
+    }
+    if (!links.length) return;
+    const bar = document.createElement('div');
+    bar.id = 'chain-atlas-bar';
+    bar.className = 'atlas-links-bar';
+    bar.innerHTML = '<span>Explore in LIVIA Atlas:</span>' + links.join('<span>&middot;</span>');
+    out.appendChild(bar);
+}
 // applied like a manual identity. Never called on load.
 async function blastChain(chainName, btn){
     if (!uniState.modelData.length || typeof CLIPResolver === 'undefined') return;
@@ -5707,7 +5990,7 @@ async function identifyChains(){
         const s = seqOf(n);
         if (!s){ html += '<tr>' + td('<b>' + n + '</b>') + '<td colspan="5" style="color:#6B6B6B; padding:3px 0;">non-protein chain</td></tr>'; continue; }
         const e = resolved.get(s), r = e && e.r;
-        const acc = r ? '<a href="https://www.uniprot.org/uniprotkb/' + r.accession + '" target="_blank" style="color:#2471A3;">' + r.accession + '</a>' : '<span style="color:#6B6B6B;">not found</span> <input class="ovr-in" data-chain="' + n + '" placeholder="gene / accession" style="width:116px; font-size:0.78rem; padding:1px 3px"><button type="button" class="ovr-btn" data-chain="' + n + '" style="font-size:0.78rem; margin-left:2px; cursor:pointer">set</button>'
+        const acc = r ? '<a href="https://www.uniprot.org/uniprotkb/' + r.accession + '" target="_blank" style="color:#2471A3;">' + r.accession + '</a>' + _atlasProteinBadge(r) : '<span style="color:#6B6B6B;">not found</span> <input class="ovr-in" data-chain="' + n + '" placeholder="gene / accession" style="width:116px; font-size:0.78rem; padding:1px 3px"><button type="button" class="ovr-btn" data-chain="' + n + '" style="font-size:0.78rem; margin-left:2px; cursor:pointer">set</button>'
             + (s.length >= 25 ? '<br><button type="button" class="blast-btn" data-chain="' + n + '" style="font-size:0.78rem; margin-top:3px; cursor:pointer">Identify by BLAST</button> <span style="color:#777; font-size:0.75rem;">(sends this sequence to EBI)</span>' : '');
         const doms = r ? (e.dom.length ? e.dom.map(d => d.name + ' (' + d.start + '\u2013' + d.end + ')').join('<br>') : '<span style="color:#707070;">none</span>') : '';
         html += '<tr>' + td('<b>' + n + '</b>') + td(s.length) + td(acc) + td(r && r.gene ? r.gene : '') + td(r && r.organism ? '<i>' + r.organism + '</i>' : '') + td(doms) + '</tr>';
@@ -5715,7 +5998,8 @@ async function identifyChains(){
     out.innerHTML = html + '</tbody></table>';
     out.onclick = (e) => { const btn = e.target.closest('.ovr-btn'); if (btn) overrideChain(btn.dataset.chain); const bl = e.target.closest('.blast-btn'); if (bl) blastChain(bl.dataset.chain, bl); };
     uniState.chainDomains = {}; uniState.chainGenes = Object.assign({}, uniState.manifestChains || {}); uniState.chainTedDomains = {}; uniState.chainDomainInfo = {};   // feed identities to every figure (manifest genes as fallback)
-    for (const n of names){ const e = resolved.get(seqOf(n)); if (e && e.r){ if (e.r.gene) uniState.chainGenes[n] = e.r.gene; if (e.dom && e.dom.length) uniState.chainDomains[n] = e.dom; if (e.ted && e.ted.length) uniState.chainTedDomains[n] = e.ted; if (e.info) uniState.chainDomainInfo[n] = e.info; } }
+    for (const n of names){ const e = resolved.get(seqOf(n)); if (e && e.r){ if (e.r.gene) uniState.chainGenes[n] = e.r.gene; if (e.dom && e.dom.length) uniState.chainDomains[n] = e.dom; if (e.ted && e.ted.length) uniState.chainTedDomains[n] = e.ted; if (e.info) uniState.chainDomainInfo[n] = Object.assign({}, e.info, { organism: e.r.organism || '', taxonId: e.r.taxonId || null }); } }
+    _renderAtlasComplexBar();
     const _pk = uniState.currentPairKey;                          // re-render so chain labels + domains reflect the resolved identities
     if (_pk){ buildContactMap(_pk); if (typeof buildPerResidueCharts === 'function') buildPerResidueCharts(_pk); if (typeof buildSequenceViewer === 'function') buildSequenceViewer(_pk); }
     if (typeof buildChordDiagram === 'function') buildChordDiagram();
@@ -8081,7 +8365,13 @@ function buildSequenceViewer(pairKey) {
         const label = document.createElement('div');
         label.className = 'seq-chain-label';
         const unitLabel = seqType === 'dna' || seqType === 'rna' ? `${cc.seq.length} nt` : `${cc.seq.length} residues`;
-        label.textContent = `Chain ${cc.name} (${unitLabel})` + (isSelected ? ` \u2014 selected pair` : '');
+        const gName = typeof chainGeneName === 'function' ? chainGeneName(cc.name) : '';
+        const dInfo = uniState.chainDomainInfo && uniState.chainDomainInfo[cc.name];
+        let labelHtml = `Chain ${esc(cc.name)}${gName ? ': ' + esc(gName) : ''} (${unitLabel})` + (isSelected ? ` \u2014 selected pair` : '');
+        if (dInfo && dInfo.accession) {
+            labelHtml += ` <a href="https://www.uniprot.org/uniprotkb/${esc(dInfo.accession)}" target="_blank" rel="noopener" style="font-weight:400; font-size:0.78rem; color:#2471A3;">UniProt: ${esc(dInfo.accession)}</a>${_atlasProteinBadge(dInfo)}`;
+        }
+        label.innerHTML = labelHtml;
         container.appendChild(label);
 
         container.appendChild(LiviaMaps.seqFlow(cc.seq, (res) => {
@@ -8091,7 +8381,7 @@ function buildSequenceViewer(pairKey) {
                 clir: isClir,
                 tip: `${res.aa}${res.resnum}` + (isClir ? ' (cLIR)' : isLir ? ' (LIR)' : ''),
             };
-        }));
+        }, { chain: cc.name }));
     }
 }
 
@@ -8402,7 +8692,7 @@ function renderContactHtmlLegend(roles, domFills, tedFills, legendEl){
         const txt = ({ '#00897b': '#00776B', '#e64a19': '#C13E15' })[String(role.clirCol).toLowerCase()] || role.clirCol;   // the default chain colors as text, at least 4.5:1
         let line = `<b style="color:${txt}">${esc(chainLabel(role.name))}:</b> ` + (parts.length ? parts.join(' &middot; ') : '<span style="color:#707070;">no annotated domains</span>');
         if (role.info && role.info.isPartial && role.info.startInFull) line += ` <span style="color:#c0392b; font-style:italic;">(partial: aa ${role.info.startInFull}–${role.info.endInFull} of ${role.info.fullLength})</span>`;
-        if (role.info && role.info.accession) line += ` <a href="https://www.uniprot.org/uniprotkb/${role.info.accession}" target="_blank" style="color:#2471A3; font-weight:600;">UniProt: ${role.info.accession}</a>`;
+        if (role.info && role.info.accession) line += ` <a href="https://www.uniprot.org/uniprotkb/${role.info.accession}" target="_blank" style="color:#2471A3; font-weight:600;">UniProt: ${role.info.accession}</a>${_atlasProteinBadge(role.info)}`;
         rows.push(`<div>${line}</div>`);
     }
     el.innerHTML = rows.join(''); el.style.display = rows.length ? '' : 'none';
@@ -8870,13 +9160,39 @@ function buildChordDiagram() {
   const url = p.get('data'); if (!url) return;
   const entryName = p.get('entry');
   const go = async () => {
+    const upCard = document.getElementById('upload-card');
+    const extHost = document.getElementById('ext-load-host');
+    const extTog = document.getElementById('ext-upload-toggle');
+    const extSum = document.getElementById('ext-upload-summary');
+    const label = p.get('name') || entryName || (url.split('/').pop() || 'structure');
+    const showDataBanner = (text, kind) => {
+      let n = document.getElementById('post-status');
+      if (!n) { n = document.createElement('div'); n.id = 'post-status'; n.setAttribute('role', 'status'); n.setAttribute('aria-live', 'polite');
+        (extHost || document.querySelector('.container') || document.body).prepend(n); }
+      if (!text) { n.remove(); return; }
+      const err = kind === 'error';
+      if (upCard) upCard.classList.toggle('ext-collapsed', !err);
+      n.style.cssText = 'margin:0 0 1rem; padding:0.75rem 1rem; border-radius:10px; font-size:0.9rem; font-weight:600; '
+        + (err ? 'border:1px solid #e3b4ad; background:#fbefed; color:#8a2c1f;' : 'border:1px solid #c9dbe9; background:#eef5fb; color:#1f4e79;');
+      n.innerHTML = '';
+      const line = document.createElement('div'); line.textContent = text; n.appendChild(line);
+      if (!err) { const bar = document.createElement('div'); bar.className = 'post-load-bar'; n.appendChild(bar); }
+    };
+    const markLoaded = () => {
+      if (extSum) extSum.textContent = label + ' — loaded via URL link.';
+      if (extTog) extTog.classList.add('active');
+      if (upCard) upCard.classList.add('ext-collapsed');
+      showDataBanner('');
+    };
     try {
+      showDataBanner('Loading ' + label + '…');
       setStatus('Loading ' + (p.get('name') || 'structure') + '…', 'loading');
 
       if (entryName) {
         try {
           const extracted = await RemoteZip.remoteZipExtract(url, entryName);
           await handleInputFiles([new File([extracted], entryName, { type: 'application/zip' })]);
+          markLoaded();
           return;
         } catch (e) {
           console.warn('RemoteZip Range extraction failed, falling back to full download:', e.message);
@@ -8889,6 +9205,7 @@ function buildChordDiagram() {
         if (!zipEntry) throw new Error(`entry "${entryName}" not found in ${url}`);
         const blob = await zipEntry.async('blob');
         await handleInputFiles([new File([blob], entryName, { type: 'application/zip' })]);
+        markLoaded();
         return;
       }
 
@@ -8898,7 +9215,11 @@ function buildChordDiagram() {
       const blob = await resp.blob();
       const fname = p.get('name') ? p.get('name') + '.zip' : (url.split('/').pop() || 'data.zip');
       await handleInputFiles([new File([blob], fname, { type: 'application/zip' })]);
-    } catch (e) { setStatus('Could not load ?data= URL: ' + e.message, 'error'); }
+      markLoaded();
+    } catch (e) {
+      showDataBanner('Could not load ?data= URL: ' + e.message, 'error');
+      setStatus('Could not load ?data= URL: ' + e.message, 'error');
+    }
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
 })();
@@ -8913,27 +9234,32 @@ function buildChordDiagram() {
 (function(){
   if (!new URLSearchParams(location.search).has('post')) return;
   const ready = (src) => { try { src && src.postMessage({ source: 'livia', type: 'livia-ready' }, '*'); } catch (e) {} };
+  const upCard = document.getElementById('upload-card');
+  const extHost = document.getElementById('ext-load-host');
+  const extTog = document.getElementById('ext-upload-toggle');
+  const extSum = document.getElementById('ext-upload-summary');
   // Data another page sent are marked as such: a page opened by a third party cannot pass for the user's own files.
-  const showOrigin = (ev) => {
+  const showOrigin = (ev, label) => {
     let from = ev.origin || 'another page'; try { if (ev.source && ev.source.location) from = ev.source.location.href.split('#')[0]; } catch (e) {}   // the page itself when same-origin
-    let n = document.getElementById('post-origin');
-    if (!n) { n = document.createElement('div'); n.id = 'post-origin'; n.setAttribute('role', 'status');
-      n.style.cssText = 'max-width:1100px; margin:0.6rem auto 0; padding:0.45rem 0.8rem; border:1px solid #d6e2ee; border-radius:8px; background:#f5f9fc; color:#33414E; font-size:0.85rem;';
-      const main = document.querySelector('[role="main"]'); main ? main.prepend(n) : document.body.prepend(n); }
-    n.textContent = 'Loaded from ' + from + ': these data were sent by another page, not opened from your files.';
+    if (extSum) extSum.textContent = (label ? label + ' — l' : 'L') + 'oaded from ' + from + ' (sent by another page, not opened from your files).';
+    if (extTog) extTog.classList.add('active');
   };
-  // While the opener is still reading (the LIVIA Atlas reads a model from an archive first): a status line at the top of the page,
-  // fed by {type:'livia-status', text, error} from the opener only, so the tab is never a blank page with nothing happening.
+  // While the opener is still reading (the LIVIA Atlas reads a model from an archive first): one clean progress card inside the page container,
+  // fed by {type:'livia-status', text, error} from the opener only, without duplicating status lines above and below an empty upload box.
   const banner = (text, kind) => {
     let n = document.getElementById('post-status');
     if (!n) { n = document.createElement('div'); n.id = 'post-status'; n.setAttribute('role', 'status'); n.setAttribute('aria-live', 'polite');
-      const main = document.querySelector('[role="main"]'); main ? main.prepend(n) : document.body.prepend(n); }
+      (extHost || document.querySelector('.container') || document.body).prepend(n); }
     if (!text) { n.remove(); return; }
     const err = kind === 'error';
-    n.style.cssText = 'max-width:1100px; margin:0.6rem auto 0.8rem; padding:0.55rem 0.8rem; border-radius:8px; font-size:0.9rem; font-weight:600; '
+    if (upCard) upCard.classList.toggle('ext-collapsed', !err);
+    n.style.cssText = 'margin:0 0 1rem; padding:0.75rem 1rem; border-radius:10px; font-size:0.9rem; font-weight:600; '
       + (err ? 'border:1px solid #e3b4ad; background:#fbefed; color:#8a2c1f;' : 'border:1px solid #c9dbe9; background:#eef5fb; color:#1f4e79;');
-    n.textContent = text;
-    setStatus(text, err ? 'error' : 'loading');
+    n.innerHTML = '';
+    const line = document.createElement('div');
+    line.textContent = text;
+    n.appendChild(line);
+    if (!err) { const bar = document.createElement('div'); bar.className = 'post-load-bar'; n.appendChild(bar); }
   };
   if (window.opener) banner('Waiting for the data from the page that opened this tab…');   // opened by hand (no opener): nothing is coming, so no waiting line
   window.addEventListener('message', async (ev) => {
@@ -8943,13 +9269,13 @@ function buildChordDiagram() {
     if (m.type === 'livia-status') { if (ev.source && ev.source === window.opener && m.text) banner(String(m.text).slice(0, 400), m.error ? 'error' : ''); return; }
     if (m.type !== 'livia-load' || m.data == null) return;
     banner('Loading ' + (m.name || 'structure') + ' into LIVIA…');
-    showOrigin(ev);
+    showOrigin(ev, m.name || '');
     try {
       const blob = (m.data instanceof Blob) ? m.data : new Blob([m.data]);
       const nm = (m.name ? String(m.name) : 'structure').replace(/[^\w.\-]+/g, '_');
       const fname = /\.(zip|gz|xz|cif|pdb|json)$/i.test(nm) ? nm : nm + '.zip';
-      setStatus('Loading ' + (m.name || 'structure') + '…', 'loading');
       await handleInputFiles([new File([blob], fname, { type: 'application/zip' })]);
+      if (upCard) upCard.classList.add('ext-collapsed');
       banner('');
     } catch (e) { banner('Could not load pushed bundle: ' + e.message, 'error'); }
   });
