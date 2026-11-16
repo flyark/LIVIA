@@ -200,12 +200,12 @@
             </div>
             <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.5rem; align-items:center;">
                 <span style="font-size:0.8rem; color:#6B6B6B;">Examples:</span>
-                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/P24941/P20248/SET_183/9606/9606/';generate()">CDK2&ndash;CCNA2</button>
-                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/P53_HUMAN/MDM2_HUMAN/SET_393/9606/9606/';generate()">TP53&ndash;MDM2</button>
-                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/MK14_HUMAN/MKNK1_HUMAN/SET_259/9606/9606/';generate()">MAPK14&ndash;MKNK1</button>
-                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/P00519/P46108/SET_185/9606/9606/';generate()">ABL1&ndash;CRK</button>
-                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/P01106_HUMAN/DYR1A_HUMAN/SET_216/9606/9606/';generate()">DYRK1A&ndash;MYC</button>
-                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/AURKA_HUMAN/ATF5_HUMAN/SET_2272/9606/9606/';generate()">AURKA&ndash;ATF5</button>
+                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/P24941/P20248/SET_180/9606/9606/';generate()">CDK2&ndash;CCNA2</button>
+                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/P53_HUMAN/MDM2_HUMAN/SET_390/9606/9606/';generate()">TP53&ndash;MDM2</button>
+                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/MK14_HUMAN/MKNK1_HUMAN/SET_998/9606/9606/';generate()">MAPK14&ndash;MKNK1</button>
+                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/P00519/P46108/SET_182/9606/9606/';generate()">ABL1&ndash;CRK</button>
+                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/P01106_HUMAN/DYR1A_HUMAN/SET_213/9606/9606/';generate()">DYRK1A&ndash;MYC</button>
+                <button class="example-btn" onclick="document.getElementById('url-input').value='https://www.flyrnai.org/tools/fly_predictome/web/famdb_details_all/AURKA_HUMAN/ATF5_HUMAN/SET_3011/9606/9606/';generate()">AURKA&ndash;ATF5</button>
             </div>
             <div id="fetch-status" class="fetch-status"></div>
             <textarea id="html-input" style="display:none"></textarea>
@@ -552,7 +552,7 @@
 <script src="js/livia-reported.js?v=20261106a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
 <script src="js/livia-viewer.js?v=20261116a"></script>
-<script src="js/livia-predictome.js?v=20261106a"></script>
+<script src="js/livia-predictome.js?v=20261116b"></script>
 <script src="js/livia-util.js?v=20261105a"></script>
 <script src="js/livia-colors.js?v=20261010a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
@@ -951,7 +951,7 @@ function generateCxc(row, pdbFilename, colors) {
 
 // ── Main generate ──
 async function generate() {
-    const urlInput = document.getElementById('url-input').value.trim();
+    let urlInput = document.getElementById('url-input').value.trim();
     let html = document.getElementById('html-input').value.trim();
     const rank = 1;
     const status = document.getElementById('fetch-status');
@@ -972,15 +972,17 @@ async function generate() {
         status.className = 'fetch-status loading';
         document.getElementById('btn-generate').disabled = true;
 
-        const fetched = await fetchViaProxy(urlInput);
-        if (fetched) {
-            html = fetched;
+        const resolved = await fetchPredictomeDetailWithFallback(urlInput);
+        if (resolved && resolved.html) {
+            html = resolved.html;
+            urlInput = resolved.url;
+            document.getElementById('url-input').value = urlInput;
             status.textContent = 'Page fetched successfully.';
             status.className = 'fetch-status success';
             // Sync URL so this analysis is shareable / reloadable
             const u = new URL(window.location);
             u.searchParams.set('url', urlInput);
-            if (urlInput.trim() !== ATLAS_URL0) u.hash = '';   // the Atlas scores belong to the pair the link opened
+            if (!samePredictomePairUrl(urlInput, ATLAS_URL0)) u.hash = '';   // the Atlas scores belong to the pair the link opened
             u.searchParams.delete('gene');
             history.replaceState({}, '', u);
         } else {

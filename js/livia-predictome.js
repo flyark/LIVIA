@@ -357,6 +357,105 @@ async function fetchViaProxy(url) {
     });
 }
 
+function samePredictomePairUrl(u1, u2) {
+    const norm = (s) => String(s || '').trim()
+        .replace(/\/famdb_details_all\//, '/famdb_details/')
+        .replace(/\/SET_\d+\/(?:\d+\/\d+\/?)?$/, '/SET_/')
+        .replace(/\/SET_\d+\/?$/, '/SET_/')
+        .replace(/\/+$/, '');
+    return norm(u1) === norm(u2);
+}
+
+// Fetch a FlyPredictome detail page, automatically recovering if DRSC renumbered SET_* IDs on its server.
+async function fetchPredictomeDetailWithFallback(url) {
+    const direct = await fetchViaProxy(url);
+    if (direct) return { html: direct, url };
+
+    const m = /^(https?:\/\/(?:www\.)?flyrnai\.org\/tools\/fly_predictome\/web\/famdb_details(?:_all|_ortho)?\/([^/]+)\/([^/]+)\/)SET_(\d+)(\/.*)?$/.exec(String(url || '').trim());
+    if (!m) return null;
+    const prefix = m[1], rawA = decodeURIComponent(m[2]), rawB = decodeURIComponent(m[3]), n0 = parseInt(m[4], 10), tail = m[5] || '/';
+
+    // 1. Fast path: try known DRSC database re-index shifts (-3 for initial fly sets, +739 for appended sets)
+    const shifts = [n0 - 3, n0 + 739].filter((n) => n >= 1 && n !== n0);
+    const shifted = await Promise.all(shifts.map(async (n) => {
+        const cand = `${prefix}SET_${n}${tail}`;
+        const h = await fetchViaProxy(cand);
+        return h ? { html: h, url: cand } : null;
+    }));
+    const hitShift = shifted.find(Boolean);
+    if (hitShift) return hitShift;
+
+    // 2. General fallback: look up (rawA, rawB) in LIVIA Atlas setmap shards (ortholog screens) or FlyPredictome summary (fly)
+    const taxMatch = /\/(\d+)\/(\d+)\/?$/.exec(tail);
+    const tax = taxMatch ? taxMatch[1] : '7227';
+    const atlasBase = 'https://flyark.github.io/livia-atlas/data/screens/';
+    if (tax !== '7227') {
+        const screensByTax = {
+            '9606': [['human-kinase-tf', true], ['human-kinase-kinase', false]],
+            '7955': [['zebrafish-kinase-kinase', true]],
+            '6239': [['worm-kinase-kinase', false]],
+            '4932': [['yeast-kinase-kinase', false]],
+        }[tax] || [];
+        const shardKey = (nm) => {
+            const en = /^([A-Z0-9]+)_[A-Z0-9]+$/.exec(nm);
+            const core = en ? en[1] : nm;
+            return (core.length >= 2 ? core.slice(-2).toLowerCase() : '_').replace(/[^a-z0-9_-]/g, '_');
+        };
+        for (const [ds, sharded] of screensByTax) {
+            try {
+                if (sharded) {
+                    const resp = await fetch(`${atlasBase}${ds}/setmap/${shardKey(rawA)}.tsv`);
+                    if (!resp.ok) continue;
+                    const lines = (await resp.text()).trim().split('\n').slice(1);
+                    for (const l of lines) {
+                        const [a, b, set] = l.split('\t');
+                        if (a === rawA && b === rawB && set && set !== `SET_${n0}`) {
+                            const cand = `${prefix}${set.trim()}${tail}`;
+                            const h = await fetchViaProxy(cand);
+                            if (h) return { html: h, url: cand };
+                        }
+                    }
+                } else {
+                    const resp = await fetch(`${atlasBase}${ds}/setmap.tsv`);
+                    if (!resp.ok) continue;
+                    const lines = (await resp.text()).trim().split('\n').slice(1);
+                    for (const l of lines) {
+                        const [set, a, bs] = l.split('\t');
+                        if (a === rawA && bs && bs.split(',').includes(rawB) && set && set.trim() !== `SET_${n0}`) {
+                            const cand = `${prefix}${set.trim()}${tail}`;
+                            const h = await fetchViaProxy(cand);
+                            if (h) return { html: h, url: cand };
+                        }
+                    }
+                }
+            } catch {}
+        }
+    } else if (typeof fetchFpSummary === 'function') {
+        try {
+            let fbgn = /^FBgn\d+$/i.test(rawA) ? rawA : /^FBgn\d+$/i.test(rawB) ? rawB : '';
+            if (!fbgn && typeof ensureGeneMap === 'function') {
+                const gm = await ensureGeneMap();
+                if (gm) fbgn = gm.symToFbgn.get(rawA.toLowerCase()) || gm.symToFbgn.get(rawB.toLowerCase()) || '';
+            }
+            if (fbgn) {
+                const sum = await fetchFpSummary(fbgn);
+                const partners = sum && typeof partnersFromFpSummary === 'function' ? partnersFromFpSummary(sum, fbgn, '') : null;
+                if (partners) {
+                    const match = partners.find((p) =>
+                        (p.fbgn1 === rawA && p.fbgn2 === rawB) || (p.sym1 === rawA && p.sym2 === rawB) ||
+                        (p.fbgn1 === rawB && p.fbgn2 === rawA) || (p.sym1 === rawB && p.sym2 === rawA)
+                    );
+                    if (match && match.detailUrl) {
+                        const h = await fetchViaProxy(match.detailUrl);
+                        if (h) return { html: h, url: match.detailUrl };
+                    }
+                }
+            }
+        } catch {}
+    }
+    return null;
+}
+
 async function showPaeMap() {
     const card = document.getElementById('pae-card');
     const img = document.getElementById('pae-img');
@@ -398,7 +497,7 @@ async function showPaeMap() {
 function readAtlasScores() {
     flyAtlas = null; flyAtlasOpen = null;
     const m = /(?:^#|&)atlas=([^&]*)/.exec(location.hash); if (!m || !flyParsed || !flyParsed.rows) return;
-    const cur = ((document.getElementById('url-input') || {}).value || '').trim(); if (!ATLAS_URL0 || (cur && cur !== ATLAS_URL0)) return;   // another pair opened since
+    const cur = ((document.getElementById('url-input') || {}).value || '').trim(); if (!ATLAS_URL0 || (cur && !samePredictomePairUrl(cur, ATLAS_URL0))) return;   // another pair opened since
     let d; try { d = JSON.parse(decodeURIComponent(m[1])); } catch (e) { return; }
     if (!d || !Array.isArray(d.k) || !d.r || typeof d.r !== 'object') return;
     const by = new Map();
