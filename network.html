@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LIVIA — PPI Network</title>
 <script src="js/livia-xlsx.js?v=20261104a"></script>
-<script src="js/livia-maps.js?v=20261116a"></script>
+<script src="js/livia-maps.js?v=20261117a"></script>
 <script src="js/clip-pipeline.js?v=20261006a"></script>
 <script src="js/livia-wasm.js?v=20261115a"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
@@ -14,7 +14,8 @@
 <style>
   /* network-specific — livia.css provides the shell (body, .header, .container, .card, .btn, .input-tabs, .footer) */
   :root{ --accent:#2471A3; --ink:#1b2733; --mut:#566370; --line:#e2e8ee; }
-  body > .container{ max-width:1500px; }   /* wider content for the network view; header keeps livia's 1100px (.header > .container) */
+  .header{ padding-left:0; padding-right:0; }
+  .header > .container, body > .container{ max-width:1500px; }
   .dz{ border:2px dashed #b7c6d6; border-radius:10px; padding:14px; text-align:center; color:#557; cursor:pointer; transition:.15s; background:#fff; min-height:96px; display:flex; flex-direction:column; justify-content:center; }
   .dz:hover,.dz.drag{ border-color:var(--accent); background:#eef5fb; color:var(--accent); }
   .dz b{ color:var(--accent); }
@@ -1160,6 +1161,6 @@ function applyNetOpts(ilis, species){
 <script data-goatcounter="https://livia.goatcounter.com/count"
         async src="https://gc.zgo.at/count.js"></script>
 <script src="js/livia-count.js?v=20261105a"></script>
-<script src="js/livia-version.js?v=20261003a"></script>
+<script src="js/livia-version.js?v=20261117a"></script>
 </body>
 </html>

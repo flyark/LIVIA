@@ -138,7 +138,7 @@
         }
     </style>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20261116a"></script>
+<script src="js/livia-maps.js?v=20261117a"></script>
 <script src="js/clip-resolver.js?v=20261116a"></script>
 <script src="js/remotezip.js?v=20260918"></script>
 <script src="js/livia-wasm.js?v=20261115a"></script>
@@ -5908,7 +5908,9 @@ function _renderAtlasComplexBar() {
     }
     if (topMap.size >= 2) {
         const nu = LiviaMaps.atlasNetworkUrl(topSp, [...topMap.keys()]);
-        if (nu) links.push(`<a href="${nu}" target="_blank" rel="noopener">Network of ${topMap.size} proteins &#8599;</a>`);
+        const gs = [...topMap.values()];
+        const nlab = topMap.size === 2 ? `Partner network (${gs[0]} &times; ${gs[1]})` : `Partner network (${topMap.size} proteins)`;
+        if (nu) links.push(`<a href="${nu}" target="_blank" rel="noopener">${nlab} &#8599;</a>`);
     } else if (topMap.size === 1) {
         const [acc, g] = [...topMap.entries()][0];
         const pu = LiviaMaps.atlasProteinUrl(topSp, acc);
@@ -9286,6 +9288,6 @@ function buildChordDiagram() {
 <script data-goatcounter="https://livia.goatcounter.com/count"
         async src="https://gc.zgo.at/count.js"></script>
 <script src="js/livia-count.js?v=20261105a"></script>
-<script src="js/livia-version.js?v=20261003a"></script>
+<script src="js/livia-version.js?v=20261117a"></script>
 </body>
 </html>

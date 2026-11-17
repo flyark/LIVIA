@@ -151,7 +151,7 @@
     <div class="card">
         <div class="step-header">Fetch Dimer Prediction &nbsp;<span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(the prediction is fetched from AlphaFold DB; all analysis runs in your browser &middot; <a href="about.html#data" style="color:#2471A3;">what LIVIA looks up online</a>)</span></div>
         <label>UniProt ID, AlphaFold Model ID, or AlphaFold DB URL</label>
-        <div style="display:flex; gap:0.5rem; align-items:center; max-width:600px;">
+        <div style="display:flex; gap:0.5rem; align-items:center;">
             <div class="ac-wrap" style="flex:1;">
                 <input type="text" id="uniprot-input" placeholder="e.g. P69905, AF-0000000066214167, or protein name" autocomplete="off" style="width:100%; padding:0.5rem 0.8rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.9rem;">
                 <div class="ac-list" id="ac-list"></div>
@@ -550,7 +550,7 @@
 <script src="js/livia-util.js?v=20261105a"></script>
 <script src="js/livia-colors.js?v=20261010a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20261116a"></script>
+<script src="js/livia-maps.js?v=20261117a"></script>
 <script src="js/livia-subnav.js?v=20261007a"></script>
 <script>
 // ── Callbacks for shared modules ──
@@ -849,7 +849,12 @@ async function showProteinInfo(entry) {
         }
         if (atlasHits.length === 2 && atlasHits[0].spId === atlasHits[1].spId && atlasHits[0].acc !== atlasHits[1].acc) {
             const pUrl = LiviaMaps.atlasPairUrl(atlasHits[0].spId, atlasHits[0].acc, atlasHits[1].acc);
-            if (pUrl) parts.push(`<a href="${pUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:0.25rem;padding:0.15rem 0.55rem;border-radius:999px;background:#eef5fb;border:1px solid #bcd4ea;color:#1B4F72;font-size:0.76rem;font-weight:600;text-decoration:none">Pair in LIVIA Atlas (${esc(atlasHits[0].acc)} × ${esc(atlasHits[1].acc)}) ↗</a>`);
+            const nUrl = LiviaMaps.atlasNetworkUrl(atlasHits[0].spId, [atlasHits[0].acc, atlasHits[1].acc]);
+            const pillStyle = 'display:inline-flex;align-items:center;gap:0.25rem;padding:0.15rem 0.55rem;border-radius:999px;background:#eef5fb;border:1px solid #bcd4ea;color:#1B4F72;font-size:0.76rem;font-weight:600;text-decoration:none';
+            const pills = [];
+            if (pUrl) pills.push(`<a href="${pUrl}" target="_blank" rel="noopener" style="${pillStyle}">Pair in LIVIA Atlas (${esc(atlasHits[0].acc)} × ${esc(atlasHits[1].acc)}) ↗</a>`);
+            if (nUrl) pills.push(`<a href="${nUrl}" target="_blank" rel="noopener" style="${pillStyle}">Partner network ↗</a>`);
+            if (pills.length) parts.push(`<div style="display:flex;flex-wrap:wrap;gap:0.4rem">${pills.join('')}</div>`);
         }
 
         if (parts.length > 0) {
@@ -3855,7 +3860,7 @@ if (document.readyState === 'loading') {
 <script data-goatcounter="https://livia.goatcounter.com/count"
         async src="https://gc.zgo.at/count.js"></script>
 <script src="js/livia-count.js?v=20261105a"></script>
-<script src="js/livia-version.js?v=20261003a"></script>
+<script src="js/livia-version.js?v=20261117a"></script>
 <script>
 // the captions follow the cutoff inputs; a non-default cutoff says the FPR bands no longer apply
 (function () {

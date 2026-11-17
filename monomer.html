@@ -140,7 +140,7 @@
     <div class="card">
         <div class="step-header">Fetch AlphaFold Monomer Prediction &nbsp;<span style="font-weight:400; font-size:0.8rem; color:#6B6B6B;">(the prediction is fetched from AlphaFold DB; all analysis runs in your browser &middot; <a href="about.html#data" style="color:#2471A3;">what LIVIA looks up online</a>)</span></div>
         <label>UniProt ID or AlphaFold DB URL</label>
-        <div style="display:flex; gap:0.5rem; align-items:flex-start; max-width:600px;">
+        <div style="display:flex; gap:0.5rem; align-items:flex-start;">
             <div class="ac-wrap" style="flex:1;">
                 <input type="text" id="uniprot-input" value="Q8TF76" placeholder="e.g. Q8TF76, P31749, or protein name" autocomplete="off" style="width:100%; padding:0.5rem 0.8rem; border:2px solid #e0e0e0; border-radius:8px; font-size:0.9rem;">
                 <div class="ac-list" id="ac-list"></div>
@@ -477,7 +477,7 @@
 <script src="js/livia-util.js?v=20261105a"></script>
 <script src="js/livia-colors.js?v=20261010a"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20261116a"></script>
+<script src="js/livia-maps.js?v=20261117a"></script>
 <script src="js/livia-subnav.js?v=20261007a"></script>
 <script>
 // ── Callbacks for shared modules (monomer overrides most of these) ──
@@ -3559,7 +3559,7 @@ function drawScoreMatrix(validRegions) {
 <script data-goatcounter="https://livia.goatcounter.com/count"
         async src="https://gc.zgo.at/count.js"></script>
 <script src="js/livia-count.js?v=20261105a"></script>
-<script src="js/livia-version.js?v=20261003a"></script>
+<script src="js/livia-version.js?v=20261117a"></script>
 <script>
 // the captions follow the cutoff inputs; a non-default cutoff says the FPR bands no longer apply
 (function () {

@@ -6,7 +6,7 @@
 <title>LIVIA — cLIP</title>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20261116a"></script>
+<script src="js/livia-maps.js?v=20261117a"></script>
 <script src="js/livia-xlsx.js?v=20261104a"></script>
 <script src="js/clip-clustering.js?v=20261115a"></script>
 <script src="js/clip-pipeline.js?v=20261006a"></script>
@@ -40,6 +40,9 @@
   .row { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; }
   .row select, .row input[type=number] { font-size:0.9rem; padding:.4rem .6rem; border:1px solid #ccd6e0; border-radius:7px; background:#fff; }
   button.ghost { background:none; border:none; color:#2471A3; cursor:pointer; font-size:.85rem; font-weight:600; }
+  .clip-sz-btn { background:#eef3f8; border:1px solid #d4dfea; border-radius:5px; color:#2471A3; cursor:pointer; font-size:.74rem; font-weight:600; padding:1px 7px; }
+  .clip-sz-box { display:inline-flex; align-items:center; gap:.3rem; flex-wrap:wrap; }
+  .clip-sz-box[hidden] { display:none; }
   .stat { display:inline-flex; flex-direction:column; padding:.5rem .9rem; background:#f5f7fa; border-radius:8px; margin-right:.6rem; }
   .stat b { font-size:1.35rem; color:#1a5276; } .stat span { font-size:.72rem; color:#667; text-transform:uppercase; letter-spacing:.04em; }
   table { width:100%; border-collapse:collapse; font-size:0.85rem; }
@@ -251,7 +254,7 @@
 
     <div class="card">
       <h2 data-nav="Frequency" style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap">Contact residue frequency
-        <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem">style<select class="clip-style" title="by cluster: each cluster in its own color; classic: one color for every contact" onchange="setClipStyle(this.value)"><option value="cluster">by cluster</option><option value="classic">classic</option></select><label class="clip-rlab" style="display:inline-flex;align-items:center;gap:3px;cursor:pointer" title="show cluster names at the right"><input type="checkbox" class="clip-rlabels" checked onchange="setClipLabels(this.checked)">right labels</label> &middot; SVG&nbsp; w<input id="svg-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="svg-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="svg-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"> &middot; x-ticks<input id="clip-xticks" type="number" value="15" min="2" max="40" step="1" title="residue x-tick count (frequency + fingerprint)" style="width:44px" onchange="if(LAST){renderFreq(LAST);renderHeatmap(LAST);}"> <button class="ghost" id="svg-freq">&#8595; SVG</button></span>
+        <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem; flex-wrap:wrap">style<select class="clip-style" title="by cluster: each cluster in its own color; classic: one color for every contact" onchange="setClipStyle(this.value)"><option value="cluster">by cluster</option><option value="classic">classic</option></select><label class="clip-rlab" style="display:inline-flex;align-items:center;gap:3px;cursor:pointer" title="show cluster names at the right"><input type="checkbox" class="clip-rlabels" checked onchange="setClipLabels(this.checked)">right labels</label> &middot; x-ticks<input id="clip-xticks" type="number" value="15" min="2" max="40" step="1" title="residue x-tick count (frequency + fingerprint)" style="width:44px" onchange="if(LAST){renderFreq(LAST);renderHeatmap(LAST);}"> <button type="button" class="clip-sz-btn" onclick="const b=this.nextElementSibling;b.hidden=!b.hidden;this.textContent=b.hidden?'SVG size ▸':'SVG size ▾'">SVG size ▸</button><span class="clip-sz-box" hidden>w<input id="svg-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="svg-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="svg-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"></span> <button class="ghost" id="svg-freq">&#8595; SVG</button></span>
       </h2>
       <div class="muted">How often each query residue is a contact residue (cLIR) across predictions (each model of each partner; one per partner when that box is ticked), <span id="freq-style-note">one line per cluster over the total (gray)</span> · click clusters to filter.<br><b>C<i>n</i> (N)</b>: N = predictions (AlphaFold ranks) in that cluster.<br>Tracks below the bars: AlphaFold <b>pLDDT</b> (0&ndash;100) &mdash; <span style="white-space:nowrap"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#FF7D45"></span> &le;50 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#FFDB13"></span> 50&ndash;70 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#65CBF3"></span> 70&ndash;90 &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;background:#0053D6"></span> &gt;90</span><span class="am-only hidden"><br><b style="color:#a33">AM path.</b> = AlphaMissense mean pathogenicity per residue (averaged over all ~19 substitutions at that position; blue = benign &rarr; red = pathogenic; human only, from AlphaFold DB).</span></div>
       <div id="freq-chips" class="chips" style="margin:.4rem 0"></div>
@@ -263,7 +266,7 @@
 
     <div class="card">
       <h2 data-nav="Fingerprint" style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap">Clustered interaction fingerprint
-        <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem">style<select class="clip-style" title="by cluster: each cluster in its own color; classic: one color for every contact" onchange="setClipStyle(this.value)"><option value="cluster">by cluster</option><option value="classic">classic</option></select><label class="clip-rlab" style="display:inline-flex;align-items:center;gap:3px;cursor:pointer" title="show cluster names at the right"><input type="checkbox" class="clip-rlabels" checked onchange="setClipLabels(this.checked)">right labels</label> &middot; SVG w<input id="hm-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="hm-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="hm-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"> <button class="ghost" id="svg-heatmap">&#8595; SVG</button></span>
+        <span style="font-weight:400; font-size:.76rem; color:#667; display:inline-flex; align-items:center; gap:.4rem; flex-wrap:wrap">style<select class="clip-style" title="by cluster: each cluster in its own color; classic: one color for every contact" onchange="setClipStyle(this.value)"><option value="cluster">by cluster</option><option value="classic">classic</option></select><label class="clip-rlab" style="display:inline-flex;align-items:center;gap:3px;cursor:pointer" title="show cluster names at the right"><input type="checkbox" class="clip-rlabels" checked onchange="setClipLabels(this.checked)">right labels</label> <button type="button" class="clip-sz-btn" onclick="const b=this.nextElementSibling;b.hidden=!b.hidden;this.textContent=b.hidden?'SVG size ▸':'SVG size ▾'">SVG size ▸</button><span class="clip-sz-box" hidden>w<input id="hm-w" type="number" value="900" step="50" title="width (px)" style="width:62px"> &middot; h<input id="hm-h" type="number" placeholder="auto" step="20" title="height (px; blank = auto)" style="width:56px"> &middot; font<input id="hm-fs" type="number" value="9" step="1" title="font size (pt)" style="width:44px"></span> <button class="ghost" id="svg-heatmap">&#8595; SVG</button></span>
       </h2>
       <div class="muted" id="fp-note">Rows = partners (dendrogram order), columns = query residues. cLIR contacts in their cluster's color, very light = none; left: dendrogram + cluster strip; right: each cluster, its predictions and the partners with the most predictions.</div>
       <div id="fp-chips" class="chips" style="margin:.4rem 0"></div>
@@ -2296,6 +2299,6 @@ if (typeof window !== 'undefined' && window.__CLIP_DATA__) loadExportData(window
 <script data-goatcounter="https://livia.goatcounter.com/count"
         async src="https://gc.zgo.at/count.js"></script>
 <script src="js/livia-count.js?v=20261105a"></script>
-<script src="js/livia-version.js?v=20261003a"></script>
+<script src="js/livia-version.js?v=20261117a"></script>
 </body>
 </html>
