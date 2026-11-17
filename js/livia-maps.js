@@ -805,6 +805,7 @@
     const atlasProteinUrl = (sp, id) => (sp && id ? `${ATLAS_BASE}#/${encodeURIComponent(sp)}/${encodeURIComponent(id)}` : '');
     const atlasPairUrl = (sp, a, b) => (sp && a && b ? (a === b ? `${ATLAS_BASE}#/homodimers/${encodeURIComponent(sp)}?q=${encodeURIComponent(a)}` : `${ATLAS_BASE}#/${encodeURIComponent(sp)}/${encodeURIComponent(a)}/${encodeURIComponent(b)}`) : '');
     const atlasNetworkUrl = (sp, ids) => (sp && ids && ids.length ? `${ATLAS_BASE}#/network/${encodeURIComponent(sp)}?ids=${encodeURIComponent(ids.join(','))}${ids.length === 2 ? '&add=pair' : ''}` : '');
+    const atlasResChordUrl = (sp, ids) => (sp && ids && ids.length >= 2 ? `${ATLAS_BASE}#/network/${encodeURIComponent(sp)}?ids=${encodeURIComponent(ids.join(','))}${ids.length === 2 ? '&add=pair' : ''}&rc=${encodeURIComponent(ids.slice(0, 12).join(','))}&focus=rc` : '');
 
     global.LiviaMaps = {
         SEQ_CMAPS, cmapRGB, inkOn, chipFill, BAND, drawColorbar,
@@ -816,6 +817,6 @@
         parseColorCSV, attachColorUpload,
         seqFlow, fitSeqHost,
         strokeFadeQuad, strokeFadeCubic,
-        atlasSpecies, atlasProteinUrl, atlasPairUrl, atlasNetworkUrl,
+        atlasSpecies, atlasProteinUrl, atlasPairUrl, atlasNetworkUrl, atlasResChordUrl,
     };
 })(window);

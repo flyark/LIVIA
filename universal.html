@@ -133,7 +133,7 @@
         }
     </style>
 <script src="js/canvas2svg.js?v=20260720"></script>
-<script src="js/livia-maps.js?v=20261117a"></script>
+<script src="js/livia-maps.js?v=20261117b"></script>
 <script src="js/clip-resolver.js?v=20261116a"></script>
 <script src="js/remotezip.js?v=20260918"></script>
 <script src="js/livia-wasm.js?v=20261115a"></script>
@@ -5897,10 +5897,14 @@ function _renderAtlasComplexBar() {
         if (pu) links.push(`<a href="${pu}" target="_blank" rel="noopener">Pair (${entries[0][1]} &times; ${entries[1][1]}) &#8599;</a>`);
     }
     if (topMap.size >= 2) {
-        const nu = LiviaMaps.atlasNetworkUrl(topSp, [...topMap.keys()]);
+        const keys = [...topMap.keys()];
+        const nu = LiviaMaps.atlasNetworkUrl(topSp, keys);
         const gs = [...topMap.values()];
         const nlab = topMap.size === 2 ? `Partner network (${gs[0]} &times; ${gs[1]})` : `Partner network (${topMap.size} proteins)`;
         if (nu) links.push(`<a href="${nu}" target="_blank" rel="noopener">${nlab} &#8599;</a>`);
+        const rcu = LiviaMaps.atlasResChordUrl ? LiviaMaps.atlasResChordUrl(topSp, keys) : '';
+        const rclab = topMap.size >= 3 && topMap.size <= 4 ? `Residue chord (${gs.join(' &times; ')})` : `Residue chord${topMap.size > 4 ? ` (${Math.min(12, topMap.size)} proteins)` : ''}`;
+        if (rcu) links.push(`<a href="${rcu}" target="_blank" rel="noopener" title="Compare pairwise interaction residues and domains around one circle in LIVIA Atlas">${rclab} &#8599;</a>`);
     } else if (topMap.size === 1) {
         const [acc, g] = [...topMap.entries()][0];
         const pu = LiviaMaps.atlasProteinUrl(topSp, acc);
