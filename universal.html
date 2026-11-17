@@ -35,11 +35,6 @@
         .btn-row > #btn-process { flex-shrink: 0; margin-top: 0; align-self: flex-start; min-width: 108px; }
         .btn-row > .examples-col { flex: 1; min-width: 0; }
         @media (max-width: 680px) { .btn-row { flex-direction: column; gap: 0.6rem; } .btn-row > #btn-process { width: 100%; } }
-        #upload-card.ext-collapsed { display: none; }
-        .ext-upload-toggle { display: none; align-items: center; justify-content: space-between; gap: 0.8rem; background: #fff; border: 1px solid #dce5ef; border-radius: 10px; padding: 0.55rem 1rem; margin-bottom: 1rem; font-size: 0.84rem; color: #33414E; }
-        .ext-upload-toggle.active { display: flex; }
-        .ext-upload-toggle button { background: #f0f6fb; color: #1a5276; border: 1px solid #c5d9eb; border-radius: 6px; padding: 0.28rem 0.75rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
-        .ext-upload-toggle button:hover { background: #2471A3; color: #fff; border-color: #2471A3; }
         .post-load-bar { height: 3px; background: #dce8f3; border-radius: 2px; overflow: hidden; margin-top: 0.45rem; position: relative; }
         .post-load-bar::after { content: ''; position: absolute; top: 0; bottom: 0; width: 32%; background: #2471A3; border-radius: 2px; animation: postSlide 1.15s ease-in-out infinite; }
         @keyframes postSlide { 0% { left: -32%; } 100% { left: 100%; } }
@@ -168,12 +163,8 @@
 
 <div class="container">
 
-    <!-- External load bar + collapsible Step 1 -->
+    <!-- External load status / provenance host -->
     <div id="ext-load-host"></div>
-    <div class="ext-upload-toggle" id="ext-upload-toggle">
-        <span id="ext-upload-summary">Loaded external prediction bundle.</span>
-        <button type="button" onclick="const c=document.getElementById('upload-card'), b=this; const open=c.classList.toggle('ext-collapsed'); b.textContent=open?'Load another prediction \u25be':'Hide file loader \u25b4';">Load another prediction &#9662;</button>
-    </div>
 
     <!-- Step 1: Upload -->
     <div class="card" id="upload-card">
@@ -1013,6 +1004,7 @@ async function unwrapLiviaB64(files) {
 }
 
 async function handleInputFiles(fileList) {
+    { const _po = document.getElementById('post-origin'); if (_po) _po.remove(); }
     fileList = await unwrapLiviaB64(Array.from(fileList));   // accept offline `.zip.js` bundles as their underlying zip
     // Disable Process immediately — large zips take seconds to load, and a premature
     // click would run processFiles with platform=null (fallback: generic, wrong PAE source).
@@ -1112,7 +1104,7 @@ async function handleInputFiles(fileList) {
         showPlatformBadge('lightweight');
         document.getElementById('btn-process').disabled = false;
         setStatus('Detected precomputed LIVIA bundle. Rendering…');
-        processFiles();
+        await processFiles();
         return;
     }
 
@@ -1128,7 +1120,7 @@ async function handleInputFiles(fileList) {
     document.getElementById('btn-process').disabled = false;
     setStatus(`Detected: ${platformShown(platform)}. Analyzing…${pklWarning}`);
     // Auto-process so the user doesn't need a second click after drop/select.
-    processFiles();
+    await processFiles();
 }
 
 function showJobSelector(jobs) {
@@ -4780,9 +4772,7 @@ function displayResults(results, jobName) {
     // The shared label-settings panel shows whenever either surface it controls is visible.
     { const _lc = document.getElementById('map-labels-card'); if (_lc) { const _sm = document.getElementById('score-matrix-card'), _pm = document.getElementById('pae-maps-card'); const vis = (_sm && _sm.style.display !== 'none') || (_pm && _pm.style.display !== 'none'); _lc.style.display = vis ? '' : 'none'; } }
     renderCustomLabelInputs();   // (re)build the always-visible custom-label editor for this chain set
-    { const _uc = document.getElementById('upload-card');
-      if (_uc && _uc.classList.contains('ext-collapsed')) window.scrollTo(0, 0);
-      else document.getElementById('results').scrollIntoView({ behavior: 'auto' }); }
+    document.getElementById('results').scrollIntoView({ behavior: 'auto' });
 
     // Trigger data load for auto-selected first pair
     if (pairKeys.length > 0) {
@@ -9162,10 +9152,7 @@ function buildChordDiagram() {
   const url = p.get('data'); if (!url) return;
   const entryName = p.get('entry');
   const go = async () => {
-    const upCard = document.getElementById('upload-card');
     const extHost = document.getElementById('ext-load-host');
-    const extTog = document.getElementById('ext-upload-toggle');
-    const extSum = document.getElementById('ext-upload-summary');
     const label = p.get('name') || entryName || (url.split('/').pop() || 'structure');
     const showDataBanner = (text, kind) => {
       let n = document.getElementById('post-status');
@@ -9173,7 +9160,6 @@ function buildChordDiagram() {
         (extHost || document.querySelector('.container') || document.body).prepend(n); }
       if (!text) { n.remove(); return; }
       const err = kind === 'error';
-      if (upCard) upCard.classList.toggle('ext-collapsed', !err);
       n.style.cssText = 'margin:0 0 1rem; padding:0.75rem 1rem; border-radius:10px; font-size:0.9rem; font-weight:600; '
         + (err ? 'border:1px solid #e3b4ad; background:#fbefed; color:#8a2c1f;' : 'border:1px solid #c9dbe9; background:#eef5fb; color:#1f4e79;');
       n.innerHTML = '';
@@ -9181,9 +9167,6 @@ function buildChordDiagram() {
       if (!err) { const bar = document.createElement('div'); bar.className = 'post-load-bar'; n.appendChild(bar); }
     };
     const markLoaded = () => {
-      if (extSum) extSum.textContent = label + ' — loaded via URL link.';
-      if (extTog) extTog.classList.add('active');
-      if (upCard) upCard.classList.add('ext-collapsed');
       showDataBanner('');
     };
     try {
@@ -9236,25 +9219,24 @@ function buildChordDiagram() {
 (function(){
   if (!new URLSearchParams(location.search).has('post')) return;
   const ready = (src) => { try { src && src.postMessage({ source: 'livia', type: 'livia-ready' }, '*'); } catch (e) {} };
-  const upCard = document.getElementById('upload-card');
   const extHost = document.getElementById('ext-load-host');
-  const extTog = document.getElementById('ext-upload-toggle');
-  const extSum = document.getElementById('ext-upload-summary');
   // Data another page sent are marked as such: a page opened by a third party cannot pass for the user's own files.
   const showOrigin = (ev, label) => {
     let from = ev.origin || 'another page'; try { if (ev.source && ev.source.location) from = ev.source.location.href.split('#')[0]; } catch (e) {}   // the page itself when same-origin
-    if (extSum) extSum.textContent = (label ? label + ' — l' : 'L') + 'oaded from ' + from + ' (sent by another page, not opened from your files).';
-    if (extTog) extTog.classList.add('active');
+    let n = document.getElementById('post-origin');
+    if (!n) { n = document.createElement('div'); n.id = 'post-origin'; n.setAttribute('role', 'status');
+      n.style.cssText = 'margin:0 0 0.85rem; padding:0.45rem 0.85rem; border:1px solid #d6e2ee; border-radius:8px; background:#f5f9fc; color:#33414E; font-size:0.84rem;';
+      (extHost || document.querySelector('.container') || document.body).appendChild(n); }
+    n.textContent = (label ? label + ' — l' : 'L') + 'oaded from ' + from + ' (sent by another page, not opened from your files).';
   };
   // While the opener is still reading (the LIVIA Atlas reads a model from an archive first): one clean progress card inside the page container,
-  // fed by {type:'livia-status', text, error} from the opener only, without duplicating status lines above and below an empty upload box.
+  // fed by {type:'livia-status', text, error} from the opener only.
   const banner = (text, kind) => {
     let n = document.getElementById('post-status');
-    if (!n) { n = document.createElement('div'); n.id = 'post-status'; n.setAttribute('role', 'status'); n.setAttribute('aria-live', 'polite');
+    if (!n) { n = document.getElementById('post-status') || document.createElement('div'); n.id = 'post-status'; n.setAttribute('role', 'status'); n.setAttribute('aria-live', 'polite');
       (extHost || document.querySelector('.container') || document.body).prepend(n); }
     if (!text) { n.remove(); return; }
     const err = kind === 'error';
-    if (upCard) upCard.classList.toggle('ext-collapsed', !err);
     n.style.cssText = 'margin:0 0 1rem; padding:0.75rem 1rem; border-radius:10px; font-size:0.9rem; font-weight:600; '
       + (err ? 'border:1px solid #e3b4ad; background:#fbefed; color:#8a2c1f;' : 'border:1px solid #c9dbe9; background:#eef5fb; color:#1f4e79;');
     n.innerHTML = '';
@@ -9271,15 +9253,14 @@ function buildChordDiagram() {
     if (m.type === 'livia-status') { if (ev.source && ev.source === window.opener && m.text) banner(String(m.text).slice(0, 400), m.error ? 'error' : ''); return; }
     if (m.type !== 'livia-load' || m.data == null) return;
     banner('Loading ' + (m.name || 'structure') + ' into LIVIA…');
-    showOrigin(ev, m.name || '');
     try {
       const blob = (m.data instanceof Blob) ? m.data : new Blob([m.data]);
       const nm = (m.name ? String(m.name) : 'structure').replace(/[^\w.\-]+/g, '_');
       const fname = /\.(zip|gz|xz|cif|pdb|json)$/i.test(nm) ? nm : nm + '.zip';
       await handleInputFiles([new File([blob], fname, { type: 'application/zip' })]);
-      if (upCard) upCard.classList.add('ext-collapsed');
+      showOrigin(ev, m.name || '');
       banner('');
-    } catch (e) { banner('Could not load pushed bundle: ' + e.message, 'error'); }
+    } catch (e) { showOrigin(ev, m.name || ''); banner('Could not load pushed bundle: ' + e.message, 'error'); }
   });
   if (window.opener) ready(window.opener);   // announce readiness in case the opener is already waiting
 })();
