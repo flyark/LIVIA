@@ -342,9 +342,21 @@ function buildMolstarPage(structData, fmt, colorComponents, parentBaseUrl) {
 /* Mol*'s state-snapshot picker ("[1/1] <load time>" + play): every structure loads as one MVS snapshot, so the picker
    only ever offers that one entry, stamped with the load time. Trajectory controls in the same corner stay. */
 .msp-state-snapshot-viewport-controls { display: none !important; }
-@media (max-width: 768px) {
-  .msp-layout-right { display: none !important; }
-  .msp-viewport-controls { display: none !important; }
+.msp-viewport-controls { display: block !important; }
+.msp-plugin .msp-viewport-controls-panel { max-width: calc(100vw - 50px); }
+body:not(.livia-ctl) .msp-plugin .msp-layout-standard .msp-layout-right { display: none !important; }
+body:not(.livia-ctl) .msp-plugin .msp-layout-standard .msp-layout-main { inset: 0 !important; }
+@media (min-width: 821px) {
+  body.livia-ctl .msp-plugin .msp-layout-standard .msp-layout-main { inset: 0 300px 0 0 !important; }
+  body.livia-ctl .msp-plugin .msp-layout-standard .msp-layout-right { display: block !important; position: absolute !important; inset: 0 0 0 auto !important; width: 300px !important; height: auto !important; border-top: none !important; border-left: 1px solid #cec8ba !important; }
+}
+@media (min-width: 520px) and (max-width: 820px) {
+  body.livia-ctl .msp-plugin .msp-layout-standard .msp-layout-main { inset: 0 280px 0 0 !important; }
+  body.livia-ctl .msp-plugin .msp-layout-standard .msp-layout-right { display: block !important; position: absolute !important; inset: 0 0 0 auto !important; width: 280px !important; height: auto !important; border-top: none !important; border-left: 1px solid #cec8ba !important; }
+}
+@media (max-width: 519px) {
+  body.livia-ctl .msp-plugin .msp-layout-standard .msp-layout-main { inset: 0 0 50% 0 !important; }
+  body.livia-ctl .msp-plugin .msp-layout-standard .msp-layout-right { display: block !important; position: absolute !important; inset: 50% 0 0 0 !important; width: 100% !important; height: auto !important; border-left: none !important; border-top: 1px solid #cec8ba !important; }
 }
 #loading-overlay, #error-overlay {
   position: absolute; top: 0; left: 0; right: 0; bottom: 0;
@@ -393,7 +405,29 @@ var _pendingStructure = null;
 // download cell, its displayed label is replaced with the name the page sent (e.g. "HGTX × Akt, rank 1"). Only the shown label
 // changes (cell.obj.label): updating the transform's params instead would make Mol* rebuild the structure and every
 // representation under it, a second full load on each structure or color change.
-var _structLabel = '', _relabelT = 0, _lastWH = '';
+var _structLabel = '', _relabelT = 0, _lastWH = '', _ctlTouched = false;
+function _syncLayoutCtl() {
+    try {
+        var pl = _viewer && _viewer.plugin;
+        var on = !!(pl && pl.layout && pl.layout.state && pl.layout.state.showControls);
+        var prev = document.body.classList.contains('livia-ctl');
+        document.body.classList.toggle('livia-ctl', on);
+        if (on !== prev) {
+            requestAnimationFrame(function() {
+                try { if (pl && pl.canvas3d) pl.canvas3d.handleResize(); } catch(_er) {}
+            });
+        }
+    } catch(_el) {}
+}
+function _restoreCtl(keep) {
+    try {
+        var pl = _viewer && _viewer.plugin;
+        if (pl && pl.layout && pl.layout.state && !!pl.layout.state.showControls !== !!keep) {
+            pl.layout.setProps({ showControls: !!keep });
+        }
+    } catch(_ec) {}
+    _syncLayoutCtl();
+}
 function _relabelSoon() {   // debounced: the selection cells have no label yet when they are created
     clearTimeout(_relabelT);
     _relabelT = setTimeout(function() {
@@ -552,8 +586,10 @@ window.addEventListener('message', function(ev) {
             // canvas3d state from the previous load (e.g. the tight zoom around the
             // warm-up placeholder atom at the origin) and the new structure ends up
             // mostly off-screen.
+            var keepCtl = !!(_viewer.plugin && _viewer.plugin.layout && _viewer.plugin.layout.state && _viewer.plugin.layout.state.showControls);
             var p = _viewer.loadMvsData(newMvs, 'mvsj');
             var refit = function() {
+                _restoreCtl(keepCtl);
                 _applyIllustrativeStyle(_viewer);
                 var resetCamera = function() {
                     try {
@@ -605,8 +641,10 @@ window.addEventListener('message', function(ev) {
                 if (savedCamera && c3dr && c3dr.camera) c3dr.camera.setState(savedCamera, 0);
             } catch(_e2) {}
         };
+        var keepCtl = !!(_viewer.plugin && _viewer.plugin.layout && _viewer.plugin.layout.state && _viewer.plugin.layout.state.showControls);
         var p = _viewer.loadMvsData(newMvs, 'mvsj');
         var reapply = function() {
+            _restoreCtl(keepCtl);
             _applyIllustrativeStyle(_viewer);
             // Restore at multiple ticks to win against Mol*'s post-load auto-fit which
             // can run asynchronously after loadMvsData's promise resolves.
@@ -631,8 +669,10 @@ function _notifyReady() {
             var psBlob = new Blob([_pendingStructure.structData], { type: 'text/plain' });
             _structUrl = URL.createObjectURL(psBlob);
             var psMvs = _pendingStructure.mvsStr.replace('__STRUCT_BLOB_URL__', _structUrl);
+            var psKeepCtl = !!(_viewer.plugin && _viewer.plugin.layout && _viewer.plugin.layout.state && _viewer.plugin.layout.state.showControls);
             var psP = _viewer.loadMvsData(psMvs, 'mvsj');
             var psRefit = function() {
+                _restoreCtl(psKeepCtl);
                 _applyIllustrativeStyle(_viewer);
                 var resetCamera = function() {
                     try {
@@ -663,8 +703,9 @@ function _notifyReady() {
     if (_pendingColorMvs && _viewer && _structUrl) {
         try {
             var newMvs = _pendingColorMvs.replace('__STRUCT_BLOB_URL__', _structUrl);
+            var pcKeepCtl = !!(_viewer.plugin && _viewer.plugin.layout && _viewer.plugin.layout.state && _viewer.plugin.layout.state.showControls);
             var p = _viewer.loadMvsData(newMvs, 'mvsj');
-            var reapply = function() { _applyIllustrativeStyle(_viewer); };
+            var reapply = function() { _restoreCtl(pcKeepCtl); _applyIllustrativeStyle(_viewer); };
             if (p && typeof p.then === 'function') p.then(reapply, reapply);
             else setTimeout(reapply, 50);
         } catch (e) { console.warn('Pending color update failed:', e); }
@@ -673,21 +714,20 @@ function _notifyReady() {
 }
 
 async function init() {
-    // Mobile detection: the iframe boots inside a display:none parent during warm-up,
-    // which collapses window.innerWidth to 0. Fall back to the parent window's width
-    // (same-origin blob iframe → accessible) so the original desktop-vs-mobile choice
-    // is restored. CSS @media @max-width:768px also hides the panel visually as a
-    // belt-and-suspenders measure.
-    // When the page is opened via file:// the browser treats the parent as a null
-    // origin and blocks parent.innerWidth access; if iframe's own width is also 0
-    // (warm-up phase), default to desktop so the Structure Tools panel still shows.
+    // Narrow-frame detection: during warm-up the iframe boots inside display:none so
+    // window.innerWidth is 0; estimate the iframe's visible width from parent.innerWidth
+    // minus page/card padding (~96 px). Below 820 px the right-hand controls panel starts
+    // closed so the 3D structure fills the frame, while .msp-viewport-controls stays visible
+    // in the top-right corner so the user can open Controls or Viewport Settings at any time.
     var pw = 0;
     try { pw = (parent && parent !== window && parent.innerWidth) || 0; } catch(_e) {}
     var iw = window.innerWidth;
-    var isMobile = pw > 0 ? pw < 768 : (iw > 0 ? iw < 768 : false);
+    var effW = iw > 0 ? iw : (pw > 0 ? Math.max(0, pw - 96) : 1024);
+    var startOpen = effW > 820;
+    document.body.classList.toggle('livia-ctl', startOpen);
     var viewer = await molstar.Viewer.create('viewer1', {
         layoutIsExpanded: false,
-        layoutShowControls: !isMobile,
+        layoutShowControls: startOpen,
         layoutShowRemoteState: false,
         layoutShowSequence: false,
         layoutShowLog: false,
@@ -697,6 +737,27 @@ async function init() {
         viewportShowAnimation: false,
     });
     _viewer = viewer;
+    try {
+        document.addEventListener('click', function(ev) {
+            if (ev.target && ev.target.closest && ev.target.closest('.msp-viewport-controls')) _ctlTouched = true;
+        }, true);
+        viewer.plugin.layout.events.updated.subscribe(_syncLayoutCtl);
+        _syncLayoutCtl();
+    } catch (_e0) {}
+    var _revealedOnce = iw > 0;
+    window.addEventListener('resize', function() {
+        var w = window.innerWidth;
+        if (!_revealedOnce && w > 0) {
+            _revealedOnce = true;
+            if (!_ctlTouched && w <= 820 && viewer.plugin && viewer.plugin.layout && viewer.plugin.layout.state && viewer.plugin.layout.state.showControls) {
+                try { viewer.plugin.layout.setProps({ showControls: false }); } catch (_er2) {}
+            }
+        }
+        try {
+            var c3d = viewer.plugin && viewer.plugin.canvas3d;
+            if (c3d) c3d.handleResize();
+        } catch (_er3) {}
+    });
     try { viewer.plugin.state.data.events.cell.created.subscribe(_relabelSoon); } catch (_e) {}
 
     var structBlob = new Blob([structData], { type: 'text/plain' });
