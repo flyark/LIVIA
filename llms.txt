@@ -20,7 +20,16 @@
 - **AlphaFold DB Dimer & Monomer Viewers (`dimer.html`, `monomer.html`)**:
   - `https://flyark.github.io/LIVIA/dimer.html?id=<entry_id>`
   - `https://flyark.github.io/LIVIA/monomer.html?id=<uniprot_accession>` (subdomains via PAE Leiden clustering).
-- **LIVIA Atlas**: `https://flyark.github.io/livia-atlas/` (see `https://flyark.github.io/livia-atlas/llms.txt` for URL deep-links and `window.LIVIA_ATLAS` API).
+- **LIVIA Atlas**: `https://flyark.github.io/livia-atlas/` (see `https://flyark.github.io/livia-atlas/llms.txt` for URL deep-links, `window.LIVIA_ATLAS`, and `scripts/atlas_query.py`).
+
+## One-Click Markdown Export & Read-Only JavaScript API (`window.LIVIA`)
+
+Every interactive LIVIA page (`universal.html`, `clip.html`, `flypredictome.html`, `ortholog_predictome.html`, `dimer.html`, `monomer.html`, `network.html`) provides a **Copy Markdown** button (`#livia-copy-md`) next to its CSV/report export controls and exposes `window.LIVIA` for browser-capable AI agents:
+
+- `window.LIVIA.status()` — `{ page, ready, title, build }`.
+- `await window.LIVIA.waitReady(timeoutMs = 15000)` — Waits until predictions/clustering finish, then returns `window.LIVIA.inspect()`.
+- `window.LIVIA.inspect()` — Returns a JSON-serializable snapshot of chains, per-rank and average scores (`iLIS`, `iLISA`, `ipSAE`, `actifpTM`, `ipTM`, `pTM`, `LIS`, `cLIS`, `pDockQ2`), exact `cLIR` (`PAE ≤ 12 Å, Cβ ≤ 8 Å`) and `LIR` (`PAE ≤ 12 Å`) residue ranges, `cLIR` amino-acid sequence stretches, cLIP clusters/footprints, or network communities.
+- `window.LIVIA.toMarkdown()` — Formats `inspect()` as a concise Markdown report with tables and exact residue stretches for pasting into an LLM chat.
 
 ## Metric & Cutoff Reference
 
