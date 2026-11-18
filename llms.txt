@@ -1,0 +1,43 @@
+# LIVIA — Local Interaction Visualization and Analysis
+
+> LIVIA (https://flyark.github.io/LIVIA/) is a client-side web suite for scoring, clustering, and visualizing predicted biomolecular interactions from AlphaFold-Multimer, AlphaFold 3, ColabFold, Boltz-1/2, Chai-1, OpenFold3, Protenix-v2, and ESMFold2, paired with the proteome-scale LIVIA Atlas (https://flyark.github.io/livia-atlas/).
+
+## Web Applications
+
+- **Prediction Analysis (`universal.html`)**: `https://flyark.github.io/LIVIA/universal.html`
+  - Client-side evaluator for local or remote structure predictions (`.pdb`/`.cif` + PAE `.json`/`.npz`/`.pkl`, or `.zip`/`.tar.gz` archives).
+  - Computes `LIS`, `cLIS`, `iLIS`, `LIA`, `cLIA`, `iLIA`, `iLISA`, `ipSAE`, `actifpTM`, `pDockQ`, `LIpDockQ`, `pDockQ2`, `LIpDockQ2`, `ipTM`, `pTM`, per-chain `LIR` and `cLIR` residue indices, PAE/LIS/cLIS heatmaps, linear/circular interaction maps, and 3D Mol* views.
+  - Supports URL loading via `?url=<encoded_zip_or_json_url>` or postMessage handshakes (`?post=1`).
+- **cLIP (`clip.html`)**: `https://flyark.github.io/LIVIA/clip.html`
+  - Clustered Local Interaction Profiler for `lis.py` CSV outputs (`?data=<csv_or_zip_url>&gene=<query_name>`).
+  - Clusters passing models by cosine distance over query `cLIR` contact fingerprints to map binding sites along a query protein, overlaid with Pfam/UniProt domains, AlphaFold DB `pLDDT`, and AlphaMissense scores.
+- **PPI Network (`network.html`)**: `https://flyark.github.io/LIVIA/network.html`
+  - Interactive network builder and community detector (Leiden, Louvain, MCL) for `lis.py` screen tables.
+- **FlyPredictome Viewer (`flypredictome.html`)**: `https://flyark.github.io/LIVIA/flypredictome.html`
+  - Inspects *Drosophila* PPI runs from FlyPredictome (`?url=https://www.flyrnai.org/tools/fly_predictome/web/famdb_details/<geneA>/<geneB>/<SET>/`).
+- **Ortholog Interactome Viewer (`ortholog_predictome.html`)**: `https://flyark.github.io/LIVIA/ortholog_predictome.html`
+  - Inspects kinase-TF and kinase-kinase runs hosted on FlyPredictome across species.
+- **AlphaFold DB Dimer & Monomer Viewers (`dimer.html`, `monomer.html`)**:
+  - `https://flyark.github.io/LIVIA/dimer.html?id=<entry_id>`
+  - `https://flyark.github.io/LIVIA/monomer.html?id=<uniprot_accession>` (subdomains via PAE Leiden clustering).
+- **LIVIA Atlas**: `https://flyark.github.io/livia-atlas/` (see `https://flyark.github.io/livia-atlas/llms.txt` for URL deep-links and `window.LIVIA_ATLAS` API).
+
+## Metric & Cutoff Reference
+
+- **LIR (Local interaction residues)**: Residue pairs across chains with `PAE ≤ 12 Å`.
+- **cLIR (Contact residues)**: Residue pairs across chains with `PAE ≤ 12 Å` and `Cβ ≤ 8 Å` (`Cα` for Gly).
+- **LIS**: Mean of `(12 - PAE) / 12` over cross-chain pairs with `PAE ≤ 12 Å`.
+- **cLIS**: Mean of `(12 - PAE) / 12` over cross-chain pairs with `PAE ≤ 12 Å` and `Cβ ≤ 8 Å`.
+- **iLIS**: `sqrt(LIS * cLIS)`.
+- **Benchmarked `iLIS` FPR cutoffs** (calibrated on the top-ranked of five models per pair):
+  - `10% FPR`: `0.223`
+  - `5% FPR`: `0.339`
+  - `1% FPR`: `0.551`
+
+## Command-Line Scoring (`AFM-LIS` / `lis.py`)
+
+Source repository for batch scoring AlphaFold-Multimer, AlphaFold 3, ColabFold, and Boltz outputs: `https://github.com/flyark/AFM-LIS`.
+
+## Citation
+
+Kim A-R & Perrimon N (2026). LIVIA, bioRxiv. https://doi.org/10.64898/2026.05.01.721633
