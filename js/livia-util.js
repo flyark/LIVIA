@@ -142,13 +142,19 @@ function trimPdb(pdbText, keepMap){
 function makeSortable(table) {
     if (!table) return;
     const headers = table.querySelectorAll('thead th');
+    const parseCellNum = (txt) => {
+        if (!txt || /^[-–—]+$/.test(txt)) return null;
+        const m = txt.match(/^-?\d+(?:\.\d+)?/);
+        return m ? parseFloat(m[0]) : null;
+    };
     headers.forEach((th, colIdx) => {
         th.classList.add('sortable');
+        if (th.dataset.sortBound) return;
+        th.dataset.sortBound = '1';
         th.addEventListener('click', () => {
             const tbody = table.querySelector('tbody');
             if (!tbody) return;
             const rows = Array.from(tbody.querySelectorAll('tr'));
-            // Separate pinned rows (Average, selected) from sortable rows
             const sortableRows = rows.filter(r => !r.dataset.pinned && r.textContent.trim() !== '');
             const pinnedRows = rows.filter(r => r.dataset.pinned);
 
@@ -156,20 +162,23 @@ function makeSortable(table) {
             headers.forEach(h => { h.classList.remove('sort-asc', 'sort-desc'); });
             th.classList.add(isAsc ? 'sort-desc' : 'sort-asc');
 
-            sortableRows.sort((a, b) => {
+            const cmp = (a, b) => {
                 const aVal = a.cells[colIdx]?.textContent.trim() || '';
                 const bVal = b.cells[colIdx]?.textContent.trim() || '';
-                const aNum = parseFloat(aVal);
-                const bNum = parseFloat(bVal);
-                if (!isNaN(aNum) && !isNaN(bNum)) {
-                    return isAsc ? bNum - aNum : aNum - bNum;
+                const aNum = parseCellNum(aVal);
+                const bNum = parseCellNum(bVal);
+                if (aNum !== null || bNum !== null) {
+                    const av = aNum !== null ? aNum : -Infinity;
+                    const bv = bNum !== null ? bNum : -Infinity;
+                    return isAsc ? bv - av : av - bv;
                 }
                 return isAsc ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
-            });
+            };
+            sortableRows.sort(cmp);
+            if (pinnedRows.length > 1) pinnedRows.sort(cmp);
 
-            // Re-append: sortable rows first, then pinned rows at bottom
-            sortableRows.forEach(r => tbody.appendChild(r));
-            pinnedRows.forEach(r => tbody.appendChild(r));
+            sortableRows.forEach(r => { r.style.borderTop = ''; tbody.appendChild(r); });
+            pinnedRows.forEach(r => { r.style.borderTop = ''; tbody.appendChild(r); });
         });
     });
 }

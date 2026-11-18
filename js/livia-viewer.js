@@ -323,6 +323,13 @@ function focusMolstarResidue(frameId, chain, seqId, endSeqId) {
         frame.contentWindow.postMessage({ type: 'focusResidue', chain: String(chain), seqId: +seqId, endSeqId: +(endSeqId || seqId) }, '*');
     } catch (_e) {}
 }
+function downloadMolstarPng(frameId, filename) {
+    const frame = document.getElementById(frameId || 'viewer3d-frame');
+    if (!frame || !frame.contentWindow) return;
+    try {
+        frame.contentWindow.postMessage({ type: 'downloadPng', filename: filename || 'livia_3d_structure.png' }, '*');
+    } catch (_e) {}
+}
 
 // ── Build complete Mol* viewer HTML page with MVS coloring ──
 // structData: raw structure text (PDB or mmCIF)
@@ -572,6 +579,33 @@ window.addEventListener('message', function(ev) {
                 elements: { label_asym_id: String(ev.data.chain), beg_label_seq_id: +ev.data.seqId, end_label_seq_id: +(ev.data.endSeqId || ev.data.seqId) }
             });
         } catch (_ef) {}
+        return;
+    }
+    if (ev.data.type === 'downloadPng') {
+        if (!_ready || !_viewer) return;
+        (async function() {
+            var fn = String(ev.data.filename || 'livia_3d_structure.png').replace(/[^\w.-]+/g, '_');
+            if (!/\.png$/i.test(fn)) fn += '.png';
+            try {
+                var sh = _viewer.plugin && _viewer.plugin.helpers && _viewer.plugin.helpers.viewportScreenshot;
+                if (sh) {
+                    var cur = sh.behaviors.values.value;
+                    sh.behaviors.values.next(Object.assign({}, cur, { transparent: true }));
+                    if (typeof sh.download === 'function') { sh.download(fn); return; }
+                    if (typeof sh.getImageDataUri === 'function') {
+                        var uri = await sh.getImageDataUri();
+                        var a0 = document.createElement('a');
+                        a0.href = uri; a0.download = fn; a0.click();
+                        return;
+                    }
+                }
+                var cv = document.querySelector('canvas');
+                if (cv) {
+                    var a = document.createElement('a');
+                    a.href = cv.toDataURL('image/png'); a.download = fn; a.click();
+                }
+            } catch (_ep) {}
+        })();
         return;
     }
     if (ev.data.type === 'loadStructure' && ev.data.structData && ev.data.mvsStr) {
@@ -1008,6 +1042,30 @@ function applyViewer3dDomains(base, structText, fmt, chains) {
     }
     return out;
 }
+function mountViewer3dPngButton() {
+    const frame = document.getElementById('viewer3d-frame');
+    if (!frame || document.getElementById('viewer3d-png-btn')) return;
+    let bar = frame.nextElementSibling;
+    const hasFs = bar && bar.tagName === 'DIV' && bar.querySelector('button[onclick*="requestFullscreen"]');
+    if (!hasFs) {
+        bar = document.createElement('div');
+        bar.style.cssText = 'text-align:right; margin-top:0.3rem;';
+        frame.insertAdjacentElement('afterend', bar);
+    }
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'viewer3d-png-btn';
+    btn.textContent = '\u2193 3D PNG';
+    btn.title = 'Download a transparent-background PNG snapshot of the current 3D view';
+    btn.style.cssText = 'padding:0.25rem 0.6rem; border:1px solid #2471A3; border-radius:4px; background:#fff; cursor:pointer; font-size:0.78rem; color:#2471A3; font-weight:600; margin-right:0.35rem;';
+    btn.onclick = () => {
+        const stem = (document.getElementById('result-title')?.textContent || document.getElementById('title')?.textContent || 'livia_3d')
+            .replace(/Interaction Analysis Summary\s*[—:-]?\s*/i, '').trim() || 'livia_3d';
+        downloadMolstarPng('viewer3d-frame', `${stem}_3d.png`);
+    };
+    bar.insertBefore(btn, bar.firstChild);
+}
 if (typeof document !== 'undefined') {
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountViewer3dColorBar); else mountViewer3dColorBar();
+    const _initV3dUi = () => { mountViewer3dColorBar(); mountViewer3dPngButton(); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _initV3dUi); else _initV3dUi();
 }

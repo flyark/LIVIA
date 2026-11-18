@@ -94,6 +94,14 @@
         #pairs-table .col-extra { display: none; }
         #pairs-table.show-lir-cols .col-extra { display: table-cell; }
         #pairs-table.hide-neg tr.neg-pair:not(.force-show) { display: none; }
+        #pairs-table tr.pair-sub-hidden { display: none !important; }
+        #pairs-table.compact-pairs tr.compact-hide:not(.selected):not(.pair-exp-open) { display: none; }
+        .pair-exp-btn { border: 1px solid #cbd5e1; background: #f8fafc; color: #2471A3; border-radius: 4px; font-size: 0.7rem; font-weight: 600; padding: 0 5px; margin-left: 4px; cursor: pointer; line-height: 1.4; display: none; }
+        #pairs-table.compact-pairs .pair-exp-btn { display: inline-block; }
+        .livia-map-tip { position: fixed; z-index: 2000; pointer-events: none; background: rgba(23, 38, 58, 0.94); color: #fff; font-size: 12px; line-height: 1.4; padding: 5px 8px; border-radius: 6px; box-shadow: 0 3px 10px rgba(0,0,0,0.2); max-width: 320px; display: none; }
+        .refold-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem 0.55rem; margin-top: 0.75rem; padding: 0.55rem 0.75rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.8rem; color: #475569; }
+        .refold-bar button { padding: 0.26rem 0.62rem; border: 1px solid #2471A3; border-radius: 5px; background: #fff; color: #2471A3; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+        .refold-bar button:hover { background: #2471A3; color: #fff; }
         #pairs-table td, #pairs-table th { white-space: nowrap; padding: 0.5rem 0.55rem; }
 
         .help-content {
@@ -230,6 +238,7 @@
             <div style="display:flex; align-items:center; gap:0.3rem 1rem; flex-wrap:wrap;">
                 <h2 data-nav="Summary" id="result-title" style="margin-bottom:0;">Interaction Analysis Summary</h2>
                 <a style="font-size:0.8rem; color:#2471A3; cursor:pointer; text-decoration:none; border-bottom:1px dashed #2471A3;" onclick="downloadCSV()">&#8595; Download CSV</a>
+                <a id="summary-refold-jump" style="display:none; font-size:0.8rem; color:#2471A3; cursor:pointer; text-decoration:none; border-bottom:1px dashed #2471A3;" onclick="document.getElementById('refold-export-bar')?.scrollIntoView({block:'center'})">&#8595; FASTA / AF3 / Boltz</a>
                 <div id="bundle-row-break" style="display:none; flex-basis:100%; height:0;"></div><!-- bundle controls get their own line, so expanding 'custom' never reflows the title row -->
                 <span id="bundle-btn-wrap" style="display:none; align-items:center; gap:0.55rem; font-size:0.8rem; color:#555;" title="Shrink this prediction to a small LIVIA lightweight bundle (scores + structures + PAE images, no numeric PAE)">
                     <button id="bundle-btn" onclick="downloadLightweightBundle()">&#8595; Lightweight bundle</button>
@@ -259,6 +268,8 @@
             <div id="interactome-summary" style="display:none; font-size:0.85rem; color:#334; margin:0.2rem 0 0.1rem;"></div>
             <div class="info-box" id="rank-note" style="display:none">Rows are sorted by iLIS. A model's rank in its name (rank_001 …) is the predictor's own order (ipTM-based for AlphaFold and ColabFold), so it can differ from the iLIS order. Click a row to switch models; this updates all visualizations and the script below.</div>
             <input type="hidden" id="seed-select" value="0">
+            <input type="search" id="pairs-sub-filter" placeholder="Filter subunit / pair…" aria-label="Filter subunit or pair" oninput="applyPairsTableFilters()" style="display:none; width:168px; padding:2px 7px; border:1px solid #ccd6e0; border-radius:6px; font-size:0.78rem; margin:0.2rem 0.7rem 0.4rem 0; vertical-align:middle;">
+            <label id="toggle-compact-pairs-label" style="display:none; font-size:0.78rem; color:#666; align-items:center; gap:0.3rem; margin:0.2rem 0.8rem 0.4rem 0; cursor:pointer;" title="Show one row per chain pair (its highest-iLIS model); click ▸ on any pair to expand all models"><input type="checkbox" id="toggle-compact-pairs" onchange="setCompactPairsShown(this.checked)"> Best model per pair</label>
             <label style="font-size:0.78rem; color:#666; display:inline-flex; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem;"><input type="checkbox" id="toggle-lir-cols" onchange="document.getElementById('pairs-table').classList.toggle('show-lir-cols', this.checked)"> Show iLIA/LIR/cLIR columns</label>
             <label id="toggle-neg-pairs-label" style="display:none; font-size:0.78rem; color:#666; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem 1rem;" title="A pair is negative when it misses both 10% FPR cutoffs: best-model iLIS below 0.223 and average-of-models iLIS below 0.072"><input type="checkbox" id="toggle-neg-pairs" onchange="setNegPairsShown(this.checked)"> Show <span id="neg-pairs-count"></span> negative pairs (best iLIS &lt; 0.223 and average iLIS &lt; 0.072)</label>
             <div style="overflow-x:auto;" tabindex="0" role="region" aria-label="Scores of every model">
@@ -416,6 +427,20 @@
             <div style="font-size:0.82rem; color:#6B6B6B; margin-bottom:0.5rem;">
                 Light background = interaction residue (LIR: PAE &le; <span class="pae-v">12</span>&nbsp;&Aring;). Dark background = contact residue (cLIR: also C&beta; &le; <span class="cb-v">8</span>&nbsp;&Aring;). Each chain uses its own color.
             </div>
+            <div class="refold-bar" id="refold-export-bar" style="display:none; margin:0.35rem 0 0.75rem;">
+                <span style="font-weight:600; color:#1a5276;">Export sequences / re-folding inputs:</span>
+                <select id="seq-exp-scope" aria-label="Sequence export scope" style="font-size:0.78rem; padding:2px 5px; border:1px solid #cbd5e1; border-radius:5px;">
+                    <option value="all_full">All chains &mdash; full sequences</option>
+                    <option value="pair_full">Selected pair &mdash; full sequences</option>
+                    <option value="all_lir">All chains &mdash; LIR-trimmed constructs</option>
+                    <option value="pair_lir">Selected pair &mdash; LIR-trimmed constructs</option>
+                </select>
+                <button type="button" id="exp-seq-fasta" onclick="exportLoadedSequences('fasta')" title="Download FASTA sequences">&#8595; FASTA</button>
+                <button type="button" id="exp-seq-af3" onclick="exportLoadedSequences('af3')" title="Download AlphaFold 3 Server JSON input">&#8595; AF3 JSON</button>
+                <button type="button" id="exp-seq-boltz" onclick="exportLoadedSequences('boltz')" title="Download Boltz-2 YAML input">&#8595; Boltz YAML</button>
+                <button type="button" id="exp-seq-cf" onclick="exportLoadedSequences('colabfold')" title="Download ColabFold batch CSV input">&#8595; ColabFold CSV</button>
+                <span id="seq-exp-status" style="font-size:0.75rem; color:#2471A3;"></span>
+            </div>
             <div id="seq-viewer" style="font-family:'SF Mono','Fira Code',monospace; overflow-x:auto;"></div>
         </div>
 
@@ -486,6 +511,7 @@
             <div id="chain-toggle-bar" style="display:none; align-items:center; gap:0.4rem; margin-bottom:0.5rem; flex-wrap:wrap; font-size:0.82rem; color:#555;">
                 <span>Chains shown in 3D &amp; chord:</span>
                 <div id="chain-toggle-buttons" style="display:flex; gap:0.25rem; flex-wrap:wrap;"></div>
+                <button id="chain-isolate-pair" type="button" onclick="isolateSelectedPair()" style="display:none; padding:0.2rem 0.55rem; border:1px solid #2471A3; border-radius:4px; background:#fff; cursor:pointer; font-size:0.75rem; color:#2471A3; font-weight:600;" title="Show only the two chains of the selected pair in 3D and the circular map (click again to restore all chains)">Isolate pair</button>
                 <button id="chain-toggle-reset" onclick="resetChainVisibility()" style="padding:0.2rem 0.55rem; border:1px solid #ddd; border-radius:4px; background:#f8f9fa; cursor:pointer; font-size:0.75rem; color:#555;">Reset</button>
             </div>
             <iframe id="viewer3d-frame" title="3D structure viewer" style="width:100%; height:660px; border:1px solid #e0e0e0; border-radius:8px; background:#fff;" sandbox="allow-scripts allow-same-origin allow-downloads" allowfullscreen></iframe>
@@ -698,8 +724,8 @@
 <script src="js/livia-core.js?v=20261008b"></script>
 <script src="js/livia-reported.js?v=20261106a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20261118a"></script>
-<script src="js/livia-util.js?v=20261105a"></script>
+<script src="js/livia-viewer.js?v=20261118b"></script>
+<script src="js/livia-util.js?v=20261118a"></script>
 <script src="js/livia-colors.js?v=20261010a"></script>
 <script src="js/livia-subnav.js?v=20261007a"></script>
 <script>
@@ -1029,6 +1055,8 @@ async function handleInputFiles(fileList) {
     uniState.multiChainColors = null;
     uniState.currentPairResult = null;
     uniState.hiddenChains = new Set();
+    uniState._linearTouched = false;
+    uniState._expandedCompactPairs = new Set();
     uniState.ipTMIsRankingScore = false; uniState.ipTMIsEstimate = false;
     if (uniState.loadedImages) { for (const u of Object.values(uniState.loadedImages)) { try { URL.revokeObjectURL(u); } catch (e) {} } }
     uniState.loadedImages = {};
@@ -1190,6 +1218,8 @@ async function selectJob(jobName) {
     uniState.multiChainColors = null;
     uniState.currentPairResult = null;
     uniState.hiddenChains = new Set();
+    uniState._linearTouched = false;
+    uniState._expandedCompactPairs = new Set();
     uniState.ipTMIsRankingScore = false; uniState.ipTMIsEstimate = false;
     await loadFilesIntoState(jobFiles, true, folderName);
 
@@ -1956,6 +1986,39 @@ function setupMultiChainColors() {
 }
 
 // ── Chain visibility toggle (hides selected chains in 3D viewer + chord) ──
+function isPairIsolatedNow() {
+    const chainNames = uniState.chainNames || [];
+    if (chainNames.length <= 2 || !uniState.currentPairKey || !uniState.results) return false;
+    const v = uniState.results[uniState.currentPairKey];
+    if (!v || !uniState.hiddenChains) return false;
+    return chainNames.every(n => uniState.hiddenChains.has(n) === (n !== v.ci && n !== v.cj));
+}
+function syncIsolatePairButtons() {
+    const chainNames = uniState.chainNames || [];
+    const show = chainNames.length > 2 && !!uniState.currentPairKey;
+    const v = show && uniState.results ? uniState.results[uniState.currentPairKey] : null;
+    const iso = isPairIsolatedNow();
+    const pairTxt = v ? `${v.ci}+${v.cj}` : 'pair';
+    for (const btn of document.querySelectorAll('#chain-isolate-pair, #chord-isolate-pair')) {
+        btn.style.display = show ? 'inline-block' : 'none';
+        btn.textContent = iso ? `All chains (${pairTxt} isolated)` : `Isolate ${pairTxt}`;
+        btn.style.background = iso ? '#2471A3' : '#fff';
+        btn.style.color = iso ? '#fff' : '#2471A3';
+    }
+}
+function isolateSelectedPair() {
+    const chainNames = uniState.chainNames || [];
+    if (chainNames.length <= 2 || !uniState.currentPairKey || !uniState.results) return;
+    if (isPairIsolatedNow()) { resetChainVisibility(); return; }
+    const v = uniState.results[uniState.currentPairKey];
+    if (!v) return;
+    uniState.hiddenChains = new Set(chainNames.filter(n => n !== v.ci && n !== v.cj));
+    document.querySelectorAll('#chain-toggle-buttons button[data-chain], #chord-chain-chips button[data-chain]').forEach(b => {
+        applyChainToggleStyle(b, !uniState.hiddenChains.has(b.dataset.chain));
+    });
+    syncIsolatePairButtons();
+    refreshChainVisibilityViews();
+}
 function renderChainToggleBar() {
     const bar = document.getElementById('chain-toggle-bar');
     const btnHolder = document.getElementById('chain-toggle-buttons');
@@ -1969,6 +2032,7 @@ function renderChainToggleBar() {
         }
     }
     renderChordChainBar();   // the Circular Contact Map mirrors the same selection
+    syncIsolatePairButtons();
 }
 // A chain-visibility chip (drives hiddenChains) — shared by the 3D-viewer bar and the chord bar.
 function makeChainVisChip(name) {
@@ -1993,6 +2057,13 @@ function renderChordChainBar() {
     lbl.textContent = 'Chains shown:'; lbl.style.cssText = 'font-size:0.8rem; color:#555; margin-right:0.15rem;';
     holder.appendChild(lbl);
     for (const name of chainNames) holder.appendChild(makeChainVisChip(name));
+    if (chainNames.length > 2) {
+        const isoBtn = document.createElement('button');
+        isoBtn.id = 'chord-isolate-pair'; isoBtn.type = 'button';
+        isoBtn.style.cssText = 'padding:0.2rem 0.55rem; border:1px solid #2471A3; border-radius:4px; background:#fff; cursor:pointer; font-size:0.75rem; color:#2471A3; font-weight:600;';
+        isoBtn.onclick = isolateSelectedPair;
+        holder.appendChild(isoBtn);
+    }
 }
 function getChainToggleColor(chainName) {
     // Multi-chain palette active (Tab10/Tab20 chip in Visualization Script)
@@ -2024,12 +2095,14 @@ function toggleChainVisibility(name) {
         const b = document.querySelector(`#${id} button[data-chain="${name}"]`);
         if (b) applyChainToggleStyle(b, !uniState.hiddenChains.has(name));
     }
+    syncIsolatePairButtons();
     refreshChainVisibilityViews();
 }
 function resetChainVisibility() {
     if (!uniState.hiddenChains || uniState.hiddenChains.size === 0) return;
     uniState.hiddenChains = new Set();
-    document.querySelectorAll('#chain-toggle-buttons button, #chord-chain-chips button').forEach(b => applyChainToggleStyle(b, true));
+    document.querySelectorAll('#chain-toggle-buttons button[data-chain], #chord-chain-chips button[data-chain]').forEach(b => applyChainToggleStyle(b, true));
+    syncIsolatePairButtons();
     refreshChainVisibilityViews();
 }
 // Typing in a label-size box redraws the maps once the typing pauses, not on every keystroke.
@@ -4707,31 +4780,52 @@ function displayResults(results, jobName) {
             // Per-model rows (sorted by iLIS)
             for (const mi of sortedMi) {
                 const mv = perModelSym[mi][key];
+                const isBestModel = sortedMi.indexOf(mi) === 0;
                 const tr = document.createElement('tr');
-                tr.className = ((isFirstPair && mi === bestIdx) ? 'clickable selected' : 'clickable') + negCls;
-                if (sortedMi.indexOf(mi) === 0 && pi > 0) tr.style.borderTop = '3px solid #2471A3';
+                tr.className = ((isFirstPair && mi === bestIdx) ? 'clickable selected' : 'clickable') + (isBestModel ? '' : ' compact-hide') + negCls;
+                if (isBestModel && pi > 0) tr.style.borderTop = '3px solid #2471A3';
                 tr.dataset.pairkey = key; tr.dataset.model = String(mi);
+                tr.dataset.ci = mv.ci; tr.dataset.cj = mv.cj;
+                if (isBestModel) tr.dataset.best = '1';
                 tr.onclick = () => selectRow(key, String(mi), tr);
-                tr.innerHTML = `<td>${uniState.modelData[mi]?.label || 'model_' + mi}</td><td>${mv.ci} / ${mv.cj}</td><td>${ilisHtml(mv.iLIS)}</td><td>${(mv.iLISA||0).toFixed(1)}</td><td>${(mv.ipSAE||0).toFixed(3)}</td><td>${(mv.actifpTM||0).toFixed(3)}</td>${iptmCell(mv.ipTM)}<td>${mv.LIS.toFixed(3)}</td><td>${mv.cLIS.toFixed(3)}</td>${pdqCell(mv.pDockQ)}${pdqCell(mv.LIpDockQ)}${pdqCell(mean2Nullable(mv.pDockQ2_i, mv.pDockQ2_j))}${pdqCell(mean2Nullable(mv.LIpDockQ2_i, mv.LIpDockQ2_j))}<td class="col-extra">${(mv.iLIA||0).toFixed(1)}</td><td class="col-extra">${mv.lirI.size} / ${mv.lirJ.size}</td><td class="col-extra">${mv.clirI.size} / ${mv.clirJ.size}</td>`;
+                const expBtn = isBestModel ? `<button type="button" class="pair-exp-btn" data-expkey="${esc(key)}" onclick="event.stopPropagation(); togglePairModels(this.dataset.expkey)" title="Expand or collapse all models for this pair">\u25b8${sortedMi.length}</button>` : '';
+                tr.innerHTML = `<td>${esc(uniState.modelData[mi]?.label || 'model_' + mi)}${expBtn}</td><td data-paircell="1">${pairLabelHtml(mv.ci, mv.cj)}</td><td>${ilisHtml(mv.iLIS)}</td><td>${(mv.iLISA||0).toFixed(1)}</td><td>${(mv.ipSAE||0).toFixed(3)}</td><td>${(mv.actifpTM||0).toFixed(3)}</td>${iptmCell(mv.ipTM)}<td>${mv.LIS.toFixed(3)}</td><td>${mv.cLIS.toFixed(3)}</td>${pdqCell(mv.pDockQ)}${pdqCell(mv.LIpDockQ)}${pdqCell(mean2Nullable(mv.pDockQ2_i, mv.pDockQ2_j))}${pdqCell(mean2Nullable(mv.LIpDockQ2_i, mv.LIpDockQ2_j))}<td class="col-extra">${(mv.iLIA||0).toFixed(1)}</td><td class="col-extra">${mv.lirI.size} / ${mv.lirJ.size}</td><td class="col-extra">${mv.clirI.size} / ${mv.clirJ.size}</td>`;
                 tbody.appendChild(tr);
             }
             // Average row — auto-selected for first pair
             const avgTr = document.createElement('tr');
-            avgTr.className = 'clickable avg-row' + negCls;
+            avgTr.className = 'clickable avg-row compact-hide' + negCls;
             avgTr.dataset.pinned = 'true';
             avgTr.dataset.pairkey = key; avgTr.dataset.model = 'avg';
+            avgTr.dataset.ci = avg.ci; avgTr.dataset.cj = avg.cj;
             avgTr.onclick = () => selectRow(key, 'avg', avgTr);
-            avgTr.innerHTML = `<td>Average</td><td>${avg.ci} / ${avg.cj}</td><td>${ilisHtml(avg.iLIS, true)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td>${pdqCell(avg.pDockQ)}${pdqCell(avg.LIpDockQ)}${pdqCell(mean2Nullable(avg.pDockQ2_i, avg.pDockQ2_j))}${pdqCell(mean2Nullable(avg.LIpDockQ2_i, avg.LIpDockQ2_j))}<td class="col-extra">${(avg.iLIA||0).toFixed(1)}</td><td class="col-extra">${avg.avgLirI ?? avg.lirI.size} / ${avg.avgLirJ ?? avg.lirJ.size}</td><td class="col-extra">${avg.avgClirI ?? avg.clirI.size} / ${avg.avgClirJ ?? avg.clirJ.size}</td>`;
+            avgTr.innerHTML = `<td>Average</td><td data-paircell="1">${pairLabelHtml(avg.ci, avg.cj)}</td><td>${ilisHtml(avg.iLIS, true)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td>${pdqCell(avg.pDockQ)}${pdqCell(avg.LIpDockQ)}${pdqCell(mean2Nullable(avg.pDockQ2_i, avg.pDockQ2_j))}${pdqCell(mean2Nullable(avg.LIpDockQ2_i, avg.LIpDockQ2_j))}<td class="col-extra">${(avg.iLIA||0).toFixed(1)}</td><td class="col-extra">${avg.avgLirI ?? avg.lirI.size} / ${avg.avgLirJ ?? avg.lirJ.size}</td><td class="col-extra">${avg.avgClirI ?? avg.clirI.size} / ${avg.avgClirJ ?? avg.clirJ.size}</td>`;
             tbody.appendChild(avgTr);
         } else {
             // Single model row — auto-selected for first pair
             const tr = document.createElement('tr');
             tr.className = (isFirstPair ? 'clickable selected' : 'clickable') + negCls;
             tr.dataset.pairkey = key; tr.dataset.model = '0';
+            tr.dataset.ci = avg.ci; tr.dataset.cj = avg.cj; tr.dataset.best = '1';
             tr.onclick = () => selectRow(key, '0', tr);
-            tr.innerHTML = `<td>${uniState.modelData[0]?.label || '0'}</td><td>${avg.ci} / ${avg.cj}</td><td>${ilisHtml(avg.iLIS)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td>${pdqCell(avg.pDockQ)}${pdqCell(avg.LIpDockQ)}${pdqCell(mean2Nullable(avg.pDockQ2_i, avg.pDockQ2_j))}${pdqCell(mean2Nullable(avg.LIpDockQ2_i, avg.LIpDockQ2_j))}<td class="col-extra">${(avg.iLIA||0).toFixed(1)}</td><td class="col-extra">${avg.lirI.size} / ${avg.lirJ.size}</td><td class="col-extra">${avg.clirI.size} / ${avg.clirJ.size}</td>`;
+            tr.innerHTML = `<td>${esc(uniState.modelData[0]?.label || '0')}</td><td data-paircell="1">${pairLabelHtml(avg.ci, avg.cj)}</td><td>${ilisHtml(avg.iLIS)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td>${pdqCell(avg.pDockQ)}${pdqCell(avg.LIpDockQ)}${pdqCell(mean2Nullable(avg.pDockQ2_i, avg.pDockQ2_j))}${pdqCell(mean2Nullable(avg.LIpDockQ2_i, avg.LIpDockQ2_j))}<td class="col-extra">${(avg.iLIA||0).toFixed(1)}</td><td class="col-extra">${avg.lirI.size} / ${avg.lirJ.size}</td><td class="col-extra">${avg.clirI.size} / ${avg.clirJ.size}</td>`;
             tbody.appendChild(tr);
         }
+    }
+
+    {
+        const subInp = document.getElementById('pairs-sub-filter');
+        if (subInp) { subInp.value = ''; subInp.style.display = pairKeys.length >= 2 ? 'inline-block' : 'none'; }
+        const cmpLbl = document.getElementById('toggle-compact-pairs-label');
+        const cmpCb = document.getElementById('toggle-compact-pairs');
+        const offerCompact = hasMultipleModels && pairKeys.length >= 2;
+        if (cmpLbl) cmpLbl.style.display = offerCompact ? 'inline-flex' : 'none';
+        if (cmpCb) { cmpCb.checked = false; setCompactPairsShown(false); }
+        const hasStruct = !uniState.noStructure && Object.keys(uniState.structureContents || {}).length > 0;
+        const rfBar = document.getElementById('refold-export-bar');
+        const rfJump = document.getElementById('summary-refold-jump');
+        if (rfBar) rfBar.style.display = hasStruct ? 'flex' : 'none';
+        if (rfJump) rfJump.style.display = hasStruct ? '' : 'none';
     }
 
     // Negative-pair visibility adapts to complex size: a dimer (one pair) always shows its row; from a
@@ -4785,6 +4879,170 @@ function setNegPairsShown(show) {
     if (t) t.classList.toggle('hide-neg', !show);
 }
 
+function pairLabelHtml(ci, cj) {
+    const gi = typeof chainGeneName === 'function' ? chainGeneName(ci) : '';
+    const gj = typeof chainGeneName === 'function' ? chainGeneName(cj) : '';
+    const base = `${esc(ci)} / ${esc(cj)}`;
+    if ((gi && gi !== ci) || (gj && gj !== cj)) {
+        return `${base}<span class="pair-genes" style="color:#6B6B6B; font-size:0.75rem; font-weight:400;"> (${esc(gi || ci)} / ${esc(gj || cj)})</span>`;
+    }
+    return base;
+}
+
+function updatePairsTableGeneLabels() {
+    document.querySelectorAll('#pairs-tbody tr').forEach(tr => {
+        const ci = tr.dataset.ci, cj = tr.dataset.cj;
+        if (!ci || !cj) return;
+        const td = tr.querySelector('td[data-paircell="1"]');
+        if (td) td.innerHTML = pairLabelHtml(ci, cj);
+    });
+    applyPairsTableFilters();
+}
+
+function setCompactPairsShown(on) {
+    const t = document.getElementById('pairs-table');
+    if (!t) return;
+    t.classList.toggle('compact-pairs', !!on);
+    if (!on) {
+        uniState._expandedCompactPairs = new Set();
+        document.querySelectorAll('#pairs-tbody tr.pair-exp-open').forEach(tr => tr.classList.remove('pair-exp-open'));
+        document.querySelectorAll('#pairs-tbody button.pair-exp-btn').forEach(btn => {
+            btn.textContent = '\u25b8' + btn.textContent.replace(/^[\u25b8\u25be]/, '');
+        });
+    }
+}
+
+function togglePairModels(pairKey) {
+    if (!pairKey) return;
+    if (!uniState._expandedCompactPairs) uniState._expandedCompactPairs = new Set();
+    const open = !uniState._expandedCompactPairs.has(pairKey);
+    if (open) uniState._expandedCompactPairs.add(pairKey);
+    else uniState._expandedCompactPairs.delete(pairKey);
+    document.querySelectorAll('#pairs-tbody tr').forEach(tr => {
+        if (tr.dataset.pairkey === pairKey) tr.classList.toggle('pair-exp-open', open);
+    });
+    document.querySelectorAll('#pairs-tbody button.pair-exp-btn').forEach(btn => {
+        if (btn.dataset.expkey === pairKey) {
+            btn.textContent = (open ? '\u25be' : '\u25b8') + btn.textContent.replace(/^[\u25b8\u25be]/, '');
+        }
+    });
+}
+
+function applyPairsTableFilters() {
+    const raw = (document.getElementById('pairs-sub-filter')?.value || '').trim().toLowerCase();
+    const tokens = raw ? raw.split(/[\s,/+\u00d7-]+/).filter(Boolean) : [];
+    document.querySelectorAll('#pairs-tbody tr').forEach(tr => {
+        if (!tokens.length) { tr.classList.remove('pair-sub-hidden'); return; }
+        const ci = tr.dataset.ci || '', cj = tr.dataset.cj || '';
+        const gi = typeof chainGeneName === 'function' ? chainGeneName(ci) : '';
+        const gj = typeof chainGeneName === 'function' ? chainGeneName(cj) : '';
+        const hayI = (ci + ' ' + gi).toLowerCase();
+        const hayJ = (cj + ' ' + gj).toLowerCase();
+        const hayAll = hayI + ' ' + hayJ;
+        let match = false;
+        if (tokens.length === 1) match = hayAll.includes(tokens[0]);
+        else match = (hayI.includes(tokens[0]) && hayJ.includes(tokens[1])) || (hayI.includes(tokens[1]) && hayJ.includes(tokens[0])) || tokens.every(t => hayAll.includes(t));
+        tr.classList.toggle('pair-sub-hidden', !match);
+    });
+}
+
+function exportLoadedSequences(mode) {
+    if (uniState.noStructure || !uniState.structureContents) return;
+    const seedVal = document.getElementById('seed-select')?.value || '0';
+    const scKeys = Object.keys(uniState.structureContents);
+    if (!scKeys.length) return;
+    const useIdx = seedVal === 'avg' ? scKeys[0] : seedVal;
+    const structText = uniState.structureContents[useIdx] || uniState.structureContents[scKeys[0]];
+    if (!structText) return;
+    const chainSeqs = uniState.structureFormat === 'pdb' ? parsePdbSequence(structText) : parseCifSequence(structText);
+    const scope = (document.getElementById('seq-exp-scope')?.value) || 'all_full';
+    const isPairOnly = scope.startsWith('pair_');
+    const isLirTrim = scope.endsWith('_lir');
+    const v = uniState.currentPairKey && uniState.results ? uniState.results[uniState.currentPairKey] : null;
+    const rawTargets = (isPairOnly && v) ? [v.ci, v.cj] : (uniState.chainNames && uniState.chainNames.length ? uniState.chainNames : [...chainSeqs.keys()]);
+    const unionLir = isLirTrim ? allChainLirSets(uniState.results || uniState.avgResults || {}) : {};
+    const items = [];
+    for (const ch of rawTargets) {
+        const arr = chainSeqs.get(ch) || [];
+        if (!arr.length) continue;
+        const polyType = arr[0].type || 'protein';
+        if (polyType !== 'protein' && polyType !== 'dna' && polyType !== 'rna') continue;
+        let slice = arr;
+        let spanTag = `1-${arr.length}`;
+        if (isLirTrim && polyType === 'protein') {
+            let rawSet = unionLir[ch];
+            if (isPairOnly && v) {
+                const pairSet = ch === v.ci ? v.lirI : ch === v.cj ? v.lirJ : null;
+                if (pairSet && pairSet.size > 0) rawSet = pairSet;
+            }
+            if (rawSet && rawSet.size > 0) {
+                const seg = fillGaps(filterSmallSegments(rawSet));
+                if (seg.size > 0) {
+                    const minR = Math.min(...seg), maxR = Math.max(...seg);
+                    const sub = arr.filter(r => r.resnum >= minR && r.resnum <= maxR);
+                    if (sub.length > 0) { slice = sub; spanTag = `${minR}-${maxR}`; }
+                }
+            }
+        }
+        const seqStr = slice.map(r => r.aa).join('');
+        if (!seqStr) continue;
+        const gene = typeof chainGeneName === 'function' ? chainGeneName(ch) : '';
+        items.push({ chain: ch, gene, polyType, spanTag, trimmed: isLirTrim && spanTag !== `1-${arr.length}`, seq: seqStr });
+    }
+    if (!items.length) return;
+    const rawTitle = (document.getElementById('result-title')?.textContent || 'livia_complex').replace(/\s+/g, '_').replace(/[^\w.-]/g, '');
+    const suffix = (isPairOnly && v ? `_${v.ci}_${v.cj}` : '') + (isLirTrim ? '_LIR' : '');
+    const jobBase = (rawTitle || 'livia_complex') + suffix;
+    let outText = '', ext = 'txt', mime = 'text/plain';
+    if (mode === 'fasta') {
+        outText = items.map(it => {
+            const head = [it.chain, it.gene && it.gene !== it.chain ? it.gene : null, it.spanTag].filter(Boolean).join('|');
+            return `>${head}\n${it.seq}`;
+        }).join('\n') + '\n';
+        ext = 'fasta';
+    } else if (mode === 'af3') {
+        const grouped = new Map();
+        for (const it of items) {
+            const k = `${it.polyType}:${it.seq}`;
+            grouped.set(k, { polyType: it.polyType, seq: it.seq, count: (grouped.get(k)?.count || 0) + 1 });
+        }
+        const sequences = [...grouped.values()].map(g => {
+            const field = g.polyType === 'dna' ? 'dnaSequence' : g.polyType === 'rna' ? 'rnaSequence' : 'proteinChain';
+            return { [field]: { sequence: g.seq, count: g.count } };
+        });
+        outText = JSON.stringify([{ name: jobBase, modelSeeds: [], sequences, dialect: 'alphafoldserver', version: 1 }], null, 2) + '\n';
+        ext = 'af3.json'; mime = 'application/json';
+    } else if (mode === 'boltz') {
+        const lines = ['version: 1', 'sequences:'];
+        for (const it of items) {
+            lines.push(`  - ${it.polyType}:`);
+            lines.push(`      id: ${it.chain}`);
+            lines.push(`      sequence: ${it.seq}`);
+        }
+        outText = lines.join('\n') + '\n';
+        ext = 'boltz.yaml'; mime = 'text/yaml';
+    } else if (mode === 'colabfold') {
+        const csvq = (s) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+        outText = `id,sequence\n${csvq(jobBase)},${csvq(items.map(it => it.seq).join(':'))}\n`;
+        ext = 'colabfold.csv'; mime = 'text/csv';
+    } else {
+        return;
+    }
+    const fname = `${jobBase}.${ext}`;
+    const blob = new Blob([outText], { type: mime });
+    const a = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    const st = document.getElementById('seq-exp-status');
+    if (st) {
+        st.textContent = `Saved ${fname}`;
+        clearTimeout(st._tid);
+        st._tid = setTimeout(() => { st.textContent = ''; }, 2200);
+    }
+}
+
 function selectRow(pairKey, modelIdx, trEl) {
     document.getElementById('seed-select').value = modelIdx;
     if (modelIdx === 'avg') {
@@ -4798,6 +5056,7 @@ function selectRow(pairKey, modelIdx, trEl) {
     // the table instead of leaving the highlighted row invisible.
     document.querySelectorAll('#pairs-tbody tr.force-show').forEach(tr => tr.classList.remove('force-show'));
     try { document.querySelectorAll(`#pairs-tbody tr.neg-pair[data-pairkey="${CSS.escape(pairKey)}"]`).forEach(tr => tr.classList.add('force-show')); } catch (_e) {}
+    applyPairsTableFilters();
 
     // Per-model selector chips (header strips on every single-model card) are refreshed
     // inside selectPair → renderModelSelectors, which reads #seed-select + currentPairKey.
@@ -6049,6 +6308,141 @@ function _mistForChains(ci, cj){
     return pm.get([a, b].sort().join('|')) || null;
 }
 function _mistPairHtml(byType){ return LiviaReported.pairHtml(byType, uniState.reportedSources); }
+function _ensureMapTip() {
+    let el = document.getElementById('livia-map-tip');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'livia-map-tip';
+        el.className = 'livia-map-tip';
+        document.body.appendChild(el);
+    }
+    return el;
+}
+function _showMapTip(html, clientX, clientY) {
+    const el = _ensureMapTip();
+    el.innerHTML = html;
+    el.style.display = 'block';
+    const w = el.offsetWidth || 200, h = el.offsetHeight || 40;
+    const x = Math.min(window.innerWidth - w - 10, Math.max(8, clientX + 12));
+    const y = clientY - h - 10 >= 8 ? clientY - h - 10 : Math.min(window.innerHeight - h - 8, clientY + 14);
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+}
+function _hideMapTip() {
+    const el = document.getElementById('livia-map-tip');
+    if (el) el.style.display = 'none';
+}
+function selectPairAndModelFromMap(ci, cj, modelIdx) {
+    if (!ci || !cj || ci === cj) return null;
+    const mStr = modelIdx != null ? String(modelIdx) : String(document.getElementById('seed-select')?.value ?? '0');
+    const pool = (mStr !== 'avg' && uniState.perModelSym && uniState.perModelSym[parseInt(mStr, 10)])
+        ? uniState.perModelSym[parseInt(mStr, 10)]
+        : (uniState.results || uniState.avgResults || {});
+    let pairKey = null;
+    for (const [k, v] of Object.entries(pool)) {
+        if ((v.ci === ci && v.cj === cj) || (v.ci === cj && v.cj === ci)) { pairKey = k; break; }
+    }
+    if (!pairKey) {
+        const pr = findPairResult(ci, cj);
+        if (pr) pairKey = pr.key;
+    }
+    if (!pairKey) return null;
+    if (!uniState._linearTouched && uniState.linearChains && uniState.linearChains.size <= 2) {
+        uniState.linearChains = new Set([ci, cj]);
+    }
+    let tr = null;
+    try {
+        tr = document.querySelector(`#pairs-tbody tr[data-pairkey="${CSS.escape(pairKey)}"][data-model="${CSS.escape(mStr)}"]`)
+            || document.querySelector(`#pairs-tbody tr[data-pairkey="${CSS.escape(pairKey)}"]`);
+    } catch (_e) { tr = null; }
+    selectRow(pairKey, mStr, tr);
+    return pairKey;
+}
+function attachScoreMatrixInteractive(canvas, mi) {
+    if (canvas.dataset.mtxBound) return;
+    canvas.dataset.mtxBound = '1';
+    const hitCell = (ev) => {
+        const meta = canvas._mtxMeta;
+        if (!meta) return null;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = (parseFloat(canvas.style.width) || rect.width) / Math.max(1, rect.width);
+        const scaleY = (parseFloat(canvas.style.height) || rect.height) / Math.max(1, rect.height);
+        const x = (ev.clientX - rect.left) * scaleX - meta.leftMargin;
+        const y = (ev.clientY - rect.top) * scaleY - meta.topMargin;
+        const j = Math.floor(x / meta.cellSize), i = Math.floor(y / meta.cellSize);
+        if (i < 0 || j < 0 || i >= meta.nc || j >= meta.nc || i === j) return null;
+        return { i, j, meta };
+    };
+    canvas.addEventListener('mousemove', (ev) => {
+        const hit = hitCell(ev);
+        if (!hit) { canvas.style.cursor = ''; _hideMapTip(); return; }
+        canvas.style.cursor = 'pointer';
+        const { i, j, meta } = hit;
+        const ci = uniState.chainNames[i], cj = uniState.chainNames[j];
+        const ni = resolveMapName(ci), nj = resolveMapName(cj);
+        const rLo = Math.max(i, j), cLo = Math.min(i, j);
+        const rUp = Math.min(i, j), cUp = Math.max(i, j);
+        const vLo = meta.lowerFmt(meta.lowerG[rLo]?.[cLo] ?? 0);
+        const vUp = meta.upperFmt(meta.upperG[rUp]?.[cUp] ?? 0);
+        _showMapTip(`<b>${esc(ni)} \u00d7 ${esc(nj)}</b><br>${esc(meta.lowerName)}: ${esc(vLo)} \u00b7 ${esc(meta.upperName)}: ${esc(vUp)}<br><span style="opacity:0.78">Click to select pair &amp; model</span>`, ev.clientX, ev.clientY);
+    });
+    canvas.addEventListener('mouseleave', () => { canvas.style.cursor = ''; _hideMapTip(); });
+    canvas.addEventListener('click', (ev) => {
+        const hit = hitCell(ev);
+        if (!hit) return;
+        const ci = uniState.chainNames[hit.i], cj = uniState.chainNames[hit.j];
+        selectPairAndModelFromMap(ci, cj, mi);
+    });
+}
+function attachHeatmapInteractive(canvas, mi, kindLabel, fmtFn) {
+    if (canvas.dataset.hmBound) return;
+    canvas.dataset.hmBound = '1';
+    const hitRes = (ev) => {
+        const meta = canvas._paeMeta;
+        if (!meta || !meta.n || !meta.displaySize) return null;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = (parseFloat(canvas.style.width) || rect.width) / Math.max(1, rect.width);
+        const scaleY = (parseFloat(canvas.style.height) || rect.height) / Math.max(1, rect.height);
+        const px = (ev.clientX - rect.left) * scaleX - meta.leftMargin;
+        const py = (ev.clientY - rect.top) * scaleY - meta.topMargin;
+        if (px < 0 || py < 0 || px >= meta.displaySize || py >= meta.displaySize) return null;
+        const gi = Math.min(meta.n - 1, Math.max(0, Math.floor((py / meta.displaySize) * meta.n)));
+        const gj = Math.min(meta.n - 1, Math.max(0, Math.floor((px / meta.displaySize) * meta.n)));
+        const mapIdx = (g) => {
+            let cum = 0;
+            for (let k = 0; k < meta.chainSizes.length; k++) {
+                const sz = meta.chainSizes[k];
+                if (g < cum + sz) return { chain: meta.chainNames[k], res: g - cum + 1 };
+                cum += sz;
+            }
+            const last = meta.chainSizes.length - 1;
+            return { chain: meta.chainNames[last], res: Math.max(1, g - (cum - meta.chainSizes[last]) + 1) };
+        };
+        const a = mapIdx(gi), b = mapIdx(gj);
+        const val = meta.map2d && meta.map2d[gi] ? meta.map2d[gi][gj] : null;
+        return { gi, gj, chainI: a.chain, resI: a.res, chainJ: b.chain, resJ: b.res, val };
+    };
+    canvas.addEventListener('mousemove', (ev) => {
+        const hit = hitRes(ev);
+        if (!hit) { canvas.style.cursor = ''; _hideMapTip(); return; }
+        canvas.style.cursor = 'pointer';
+        const ni = resolveMapName(hit.chainI), nj = resolveMapName(hit.chainJ);
+        const valTxt = hit.val != null && !isNaN(hit.val) ? ` \u00b7 ${kindLabel} ${fmtFn(hit.val)}` : '';
+        const hint = hit.chainI !== hit.chainJ ? 'Click to select pair &amp; focus in 3D' : 'Click to focus residue in 3D';
+        _showMapTip(`<b>${esc(ni)}:${hit.resI} \u2194 ${esc(nj)}:${hit.resJ}</b>${esc(valTxt)}<br><span style="opacity:0.78">${hint}</span>`, ev.clientX, ev.clientY);
+    });
+    canvas.addEventListener('mouseleave', () => { canvas.style.cursor = ''; _hideMapTip(); });
+    canvas.addEventListener('click', (ev) => {
+        const hit = hitRes(ev);
+        if (!hit) return;
+        if (hit.chainI !== hit.chainJ) {
+            selectPairAndModelFromMap(hit.chainI, hit.chainJ, mi);
+        }
+        if (typeof focusMolstarResidue === 'function') {
+            setTimeout(() => focusMolstarResidue('viewer3d-frame', hit.chainI, hit.resI), 30);
+        }
+    });
+}
 function drawAllScoreMatrices() {
     const card = document.getElementById('score-matrix-card');
     const row = document.getElementById('score-matrix-row');
@@ -6097,6 +6491,7 @@ function drawAllScoreMatrices() {
         const canvas = document.createElement('canvas');
         const draw = (c, legend) => drawOneScoreMatrix(c, gridOf(md,lowerM) || zeros, gridOf(md,upperM) || zeros, nc, lowerMax, upperMax, fmtOf(lowerM), fmtOf(upperM), size, Object.assign({ legend }, cm));
         draw(canvas, false);
+        attachScoreMatrixInteractive(canvas, mi);
         wrap.appendChild(canvas);
         // an exported matrix carries its own color bars, so the figure reads on its own
         addSharedExport(wrap, 'score_matrix_' + (md.label || mi), () => { const c = document.createElement('canvas'); draw(c, true); return c; }, () => svgFromDraw((c) => draw(c, true)), 'mtx-exp');
@@ -6208,6 +6603,21 @@ function drawOneScoreMatrix(canvas, lowerG, upperG, nc, lowerMax, upperMax, lowe
     }
     ctx.strokeStyle = '#999'; ctx.lineWidth = 1.5 * S;
     ctx.beginPath(); ctx.moveTo(leftPx, 0); ctx.lineTo(leftPx + gridPx, gridPx); ctx.stroke();
+    if (!opt.legend) {
+        canvas._mtxMeta = { leftMargin, topMargin, cellSize, nc, lowerG, upperG, lowerFmt, upperFmt, lowerName: opt.lowerName || 'iLIS', upperName: opt.upperName || 'iLISA' };
+        const selV = uniState.currentPairResult;
+        if (selV && nc > 2) {
+            const idxI = (uniState.chainNames || []).indexOf(selV.ci);
+            const idxJ = (uniState.chainNames || []).indexOf(selV.cj);
+            if (idxI >= 0 && idxJ >= 0 && idxI !== idxJ) {
+                const pad = 1 * S;
+                ctx.strokeStyle = '#1a5276';
+                ctx.lineWidth = 2 * S;
+                ctx.strokeRect(leftPx + idxJ * cPx + pad, idxI * cPx + pad, cPx - 2 * pad, cPx - 2 * pad);
+                ctx.strokeRect(leftPx + idxI * cPx + pad, idxJ * cPx + pad, cPx - 2 * pad, cPx - 2 * pad);
+            }
+        }
+    }
 
     for (let k = 0; k < nc; k++) {
         const nm = smName(k);
@@ -6487,6 +6897,7 @@ function redrawMapLabels() {
     // for the identical reason in selectPair().
     if (!uniState.lightweight && typeof drawAllMaps === 'function') drawAllMaps();
     if (typeof drawAllScoreMatrices === 'function') drawAllScoreMatrices();
+    if (typeof updatePairsTableGeneLabels === 'function') updatePairsTableGeneLabels();
 }
 function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, vmax, plotPxTarget, showColorbar, fontScale) {
     const manyChains = chainSizes && chainSizes.length > 4;
@@ -6777,6 +7188,9 @@ function drawMapCanvas(canvas, map2d, n, chainSizes, chainNames, colorFn, vmin, 
     }
 
     ctx.restore();   // undo the top-margin translate
+    if (!exporting) {
+        canvas._paeMeta = { leftMargin, topMargin, displaySize, n, chainSizes, chainNames, map2d };
+    }
 }
 
 function dilateMap(map2d, radius) {
@@ -6829,6 +7243,7 @@ function drawPaeMaps() {
         item.appendChild(canvas);
         paeRow.appendChild(item);
         drawMapCanvas(canvas, model.pae, model.nTotal, chainSizes, chainNames, pal, 0, 30);
+        attachHeatmapInteractive(canvas, mi, 'PAE', v => v.toFixed(1) + ' \u00c5');
         addPngBtn(item, 'PAE_' + model.label, canvas);
     }
     drawColorbar('colorbar-pae', pal, 0, 30);
@@ -6852,6 +7267,7 @@ function drawLisMaps() {
         item.appendChild(canvas);
         lisRow.appendChild(item);
         drawMapCanvas(canvas, model.lisMap, model.nTotal, chainSizes, chainNames, pal, 0, 1);
+        attachHeatmapInteractive(canvas, mi, 'LIS', v => v.toFixed(3));
         addPngBtn(item, 'LIS_' + model.label, canvas);
     }
     drawColorbar('colorbar-lis', pal, 0, 1);
@@ -6877,6 +7293,8 @@ function drawClisMaps() {   // dilated, so single contact cells stay visible
         clisRow.appendChild(item);
         const dilated = dilateMap(model.clisMap, clisDilateRadius);
         drawMapCanvas(canvas, dilated, model.nTotal, chainSizes, chainNames, pal, 0, 1);
+        if (canvas._paeMeta) canvas._paeMeta.map2d = model.clisMap;
+        attachHeatmapInteractive(canvas, mi, 'cLIS', v => v.toFixed(3));
         addPngBtn(item, 'cLIS_' + model.label, canvas);
     }
     drawColorbar('colorbar-clis', pal, 0, 1);
@@ -8541,11 +8959,109 @@ function drawContactMapInto(pairKey, canvas, countEl, legendEl) {
     }
 
     ctx.restore();
+    if (!ctx.getSerializedSvg) {
+        canvas._linMeta = { width, height, barLeft, barRight, barW, barYtop, barYbot, barH, top, bot, contacts, swap, pairKey };
+        attachLinearMapInteractive(canvas);
+    }
     if (countEl) countEl.textContent = uniState.noStructure
         ? `${clirI_f.size} + ${clirJ_f.size} cLIR residues (no structure in bundle \u2014 contact lines omitted)`
         : `${contacts.length} cLIR contact pairs (C\u03B2 \u2264 8 \u00C5)`;
     renderContactHtmlLegend([top, bot], DOM_GRAYS, TED_GRAYS, legendEl);   // clickable HTML legend below
     return true;
+}
+
+function attachLinearMapInteractive(canvas) {
+    if (canvas.dataset.linBound) return;
+    canvas.dataset.linBound = '1';
+    const hitLinear = (ev) => {
+        const m = canvas._linMeta;
+        if (!m || m.barW <= 0) return null;
+        const rect = canvas.getBoundingClientRect();
+        const x = (ev.clientX - rect.left) * (m.width / Math.max(1, rect.width));
+        const y = (ev.clientY - rect.top) * (m.height / Math.max(1, rect.height));
+        if (x >= m.barLeft - 2 && x <= m.barRight + 2) {
+            const frac = Math.min(1, Math.max(0, (x - m.barLeft) / m.barW));
+            if (y >= m.barYtop - 3 && y <= m.barYtop + m.barH + 3) {
+                const res = Math.max(1, Math.min(m.top.len, Math.round(1 + frac * Math.max(0, m.top.len - 1))));
+                return { kind: 'bar', role: m.top, res, pairKey: m.pairKey };
+            }
+            if (y >= m.barYbot - 3 && y <= m.barYbot + m.barH + 3) {
+                const res = Math.max(1, Math.min(m.bot.len, Math.round(1 + frac * Math.max(0, m.bot.len - 1))));
+                return { kind: 'bar', role: m.bot, res, pairKey: m.pairKey };
+            }
+        }
+        const y0 = m.barYtop + m.barH, y1 = m.barYbot;
+        if (y > y0 && y < y1 && m.contacts && m.contacts.length) {
+            const midY = (y0 + y1) / 2;
+            const xTop = (r) => m.barLeft + ((r - 1) / Math.max(1, m.top.len - 1)) * m.barW;
+            const xBot = (r) => m.barLeft + ((r - 1) / Math.max(1, m.bot.len - 1)) * m.barW;
+            let best = null, bestD2 = 49;
+            for (const c of m.contacts) {
+                const rTop = m.swap ? c.resB : c.resA, rBot = m.swap ? c.resA : c.resB;
+                const ax = xTop(rTop), bx = xBot(rBot);
+                for (let k = 1; k <= 9; k++) {
+                    const t = k / 10, u = 1 - t;
+                    const px = u * u * u * ax + 3 * u * u * t * ax + 3 * u * t * t * bx + t * t * t * bx;
+                    const py = u * u * u * y0 + 3 * u * u * t * midY + 3 * u * t * t * midY + t * t * t * y1;
+                    const d2 = (x - px) * (x - px) + (y - py) * (y - py);
+                    if (d2 < bestD2) { bestD2 = d2; best = { kind: 'contact', top: m.top, bot: m.bot, rTop, rBot, dist: c.dist, pairKey: m.pairKey }; }
+                }
+            }
+            if (best) return best;
+        }
+        return null;
+    };
+    canvas.addEventListener('mousemove', (ev) => {
+        const hit = hitLinear(ev);
+        if (!hit) {
+            canvas.style.cursor = '';
+            _hideMapTip();
+            if (canvas._lastHi && typeof highlightMolstarResidue === 'function') {
+                canvas._lastHi = false;
+                highlightMolstarResidue('viewer3d-frame', null, null);
+            }
+            return;
+        }
+        canvas.style.cursor = 'pointer';
+        if (hit.kind === 'bar') {
+            const tag = hit.role.clir.has(hit.res) ? ' (cLIR)' : hit.role.lir.has(hit.res) ? ' (LIR)' : '';
+            _showMapTip(`<b>${esc(linearChainLabel(hit.role.name))}:${hit.res}</b>${tag}<br><span style="opacity:0.78">Click to focus in 3D</span>`, ev.clientX, ev.clientY);
+            if (typeof highlightMolstarResidue === 'function') {
+                canvas._lastHi = true;
+                highlightMolstarResidue('viewer3d-frame', hit.role.name, hit.res);
+            }
+        } else {
+            _showMapTip(`<b>${esc(linearChainLabel(hit.top.name))}:${hit.rTop} \u2194 ${esc(linearChainLabel(hit.bot.name))}:${hit.rBot}</b> (${hit.dist.toFixed(1)} \u00c5)<br><span style="opacity:0.78">Click to focus in 3D</span>`, ev.clientX, ev.clientY);
+            if (typeof highlightMolstarResidue === 'function') {
+                canvas._lastHi = true;
+                highlightMolstarResidue('viewer3d-frame', hit.top.name, hit.rTop);
+            }
+        }
+    });
+    canvas.addEventListener('mouseleave', () => {
+        canvas.style.cursor = '';
+        _hideMapTip();
+        if (canvas._lastHi && typeof highlightMolstarResidue === 'function') {
+            canvas._lastHi = false;
+            highlightMolstarResidue('viewer3d-frame', null, null);
+        }
+    });
+    canvas.addEventListener('click', (ev) => {
+        const hit = hitLinear(ev);
+        if (!hit) return;
+        const m = canvas._linMeta;
+        if (m && m.pairKey && m.pairKey !== uniState.currentPairKey) {
+            const seedVal = String(document.getElementById('seed-select')?.value ?? '0');
+            let tr = null;
+            try { tr = document.querySelector(`#pairs-tbody tr[data-pairkey="${CSS.escape(m.pairKey)}"][data-model="${CSS.escape(seedVal)}"]`); } catch (_e) {}
+            selectRow(m.pairKey, seedVal, tr);
+        }
+        const ch = hit.kind === 'bar' ? hit.role.name : hit.top.name;
+        const res = hit.kind === 'bar' ? hit.res : hit.rTop;
+        if (typeof focusMolstarResidue === 'function') {
+            setTimeout(() => focusMolstarResidue('viewer3d-frame', ch, res), 30);
+        }
+    });
 }
 
 // ── Linear Contact Map: independent chain multi-select ──────────────────────
@@ -8577,6 +9093,7 @@ function renderLinearChipBar() {
         btn.dataset.chain = name; btn.textContent = name;
         applyChainToggleStyle(btn, uniState.linearChains.has(name));
         btn.onclick = () => {
+            uniState._linearTouched = true;
             if (uniState.linearChains.has(name)) uniState.linearChains.delete(name);
             else uniState.linearChains.add(name);
             buildLinearContactMaps();
@@ -8813,6 +9330,7 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
     const hiddenSet = (typeof uniState !== 'undefined' && uniState.hiddenChains) || new Set();
     const maxDist = contacts.length > 0 ? Math.max(...contacts.map(c => c.dist || 8)) : 8;
     const minDist = contacts.length > 0 ? Math.min(...contacts.map(c => c.dist || 0)) : 0;
+    const drawnLines = [];
     for (const c of contacts) {
         if (hiddenSet.has(c.ci) || hiddenSet.has(c.cj)) continue; // chain visibility toggle
         const colI = chainColors[c.ci] || '#888', colJ = chainColors[c.cj] || '#888';
@@ -8822,6 +9340,10 @@ function drawChordFromContacts(ctx, size, chainNames, chainSizes, chainTypes, ch
         const t = maxDist > minDist ? 1 - ((c.dist || 0) - minDist) / (maxDist - minDist) : 1;
         const alpha = 0.08 + t * 0.2;
         LiviaMaps.strokeFadeQuad(ctx, xA, yA, cxC, cyC, xB, yB, hexToRgba(colI, alpha), hexToRgba(colJ, alpha), 0.7);
+        drawnLines.push({ xA, yA, xB, yB, ci: c.ci, cj: c.cj, resA: c.resA, resB: c.resB, dist: c.dist || 0 });
+    }
+    if (ctx.canvas && !ctx.getSerializedSvg) {
+        ctx.canvas._chordMeta = { cx: cxC, cy: cyC, innerR, outerR, chordR, size, arcs, lines: drawnLines };
     }
 
     // Draw arcs and labels (same as drawChord; hidden chains drawn as muted placeholder)
@@ -8920,6 +9442,7 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
     // Draw residue-level contact lines (apply Min segment filter to both chains;
     // cLIR is restricted to filtered LIR before pair drawing)
     const contactDist = parseFloat((document.getElementById('cb-cutoff') || {}).value) || 8;   // the Cβ cutoff the cLIR sets used
+    const drawnLines = [];
     for (const cp of contactPairs) {
         if (hiddenSet.has(cp.ci) || hiddenSet.has(cp.cj)) continue; // chain visibility toggle
         const idxI = chainNames.indexOf(cp.ci), idxJ = chainNames.indexOf(cp.cj);
@@ -8963,15 +9486,116 @@ function drawChord(ctx, size, chainNames, chainSizes, chainTypes, chainSeqs, cha
                 // Two solid half-curves instead of a per-line gradient — same two-tone
                 // read, but no <linearGradient> bloating the SVG export (js/livia-maps.js).
                 LiviaMaps.strokeFadeQuad(ctx, xA, yA, cxC, cyC, xB, yB, hexToRgba(colI, alpha), hexToRgba(colJ, alpha), 0.7);
+                drawnLines.push({ xA, yA, xB, yB, ci: cp.ci, cj: cp.cj, resA, resB, dist });
             }
         }
+    }
+    if (ctx.canvas && !ctx.getSerializedSvg) {
+        ctx.canvas._chordMeta = { cx: cxC, cy: cyC, innerR, outerR, chordR, size, arcs, lines: drawnLines };
     }
 
     ctx.restore();
 }
 
+function attachChordInteractive(ids) {
+    for (const id of ids) {
+        const canvas = document.getElementById(id);
+        if (!canvas || canvas.dataset.chordClickBound) continue;
+        canvas.dataset.chordClickBound = '1';
+        const hitChord = (ev) => {
+            const m = canvas._chordMeta;
+            if (!m) return null;
+            const rect = canvas.getBoundingClientRect();
+            const x = (ev.clientX - rect.left) * (m.size / Math.max(1, rect.width));
+            const y = (ev.clientY - rect.top) * (m.size / Math.max(1, rect.height));
+            const dx = x - m.cx, dy = y - m.cy, r = Math.hypot(dx, dy);
+            if (r >= m.innerR - 3 && r <= m.outerR + 2) {
+                let ang = Math.atan2(dy, dx);
+                if (ang < -Math.PI / 2) ang += 2 * Math.PI;
+                for (const arc of m.arcs) {
+                    if (ang >= arc.start && ang <= arc.end) {
+                        const frac = Math.min(1, Math.max(0, (ang - arc.start) / Math.max(1e-6, arc.end - arc.start)));
+                        const res = Math.max(1, Math.min(arc.size, Math.round(1 + frac * Math.max(0, arc.size - 1))));
+                        return { kind: 'arc', arc, res };
+                    }
+                }
+            } else if (r < m.innerR - 3 && m.lines && m.lines.length) {
+                let best = null, bestD2 = 49;
+                for (const ln of m.lines) {
+                    for (let k = 1; k <= 9; k++) {
+                        const t = k / 10, u = 1 - t;
+                        const px = u * u * ln.xA + 2 * u * t * m.cx + t * t * ln.xB;
+                        const py = u * u * ln.yA + 2 * u * t * m.cy + t * t * ln.yB;
+                        const d2 = (x - px) * (x - px) + (y - py) * (y - py);
+                        if (d2 < bestD2) { bestD2 = d2; best = { kind: 'line', line: ln }; }
+                    }
+                }
+                if (best) return best;
+            }
+            return null;
+        };
+        canvas.addEventListener('mousemove', (ev) => {
+            const hit = hitChord(ev);
+            if (!hit) {
+                if (canvas._chordTipActive) {
+                    canvas._chordTipActive = false;
+                    canvas.style.cursor = '';
+                    _hideMapTip();
+                }
+                if (canvas._lastChordHi && typeof highlightMolstarResidue === 'function') {
+                    canvas._lastChordHi = false;
+                    highlightMolstarResidue('viewer3d-frame', null, null);
+                }
+                return;
+            }
+            canvas._chordTipActive = true;
+            canvas.style.cursor = 'pointer';
+            if (hit.kind === 'arc') {
+                const nm = chordArcLabel(hit.arc) || hit.arc.name;
+                _showMapTip(`<b>${esc(nm)}:${hit.res}</b><br><span style="opacity:0.78">Click to focus in 3D</span>`, ev.clientX, ev.clientY);
+                if (typeof highlightMolstarResidue === 'function') {
+                    canvas._lastChordHi = true;
+                    highlightMolstarResidue('viewer3d-frame', hit.arc.name, hit.res);
+                }
+            } else {
+                const ln = hit.line;
+                const ni = resolveMapName(ln.ci), nj = resolveMapName(ln.cj);
+                _showMapTip(`<b>${esc(ni)}:${ln.resA} \u2194 ${esc(nj)}:${ln.resB}</b> (${ln.dist.toFixed(1)} \u00c5)<br><span style="opacity:0.78">Click to select pair &amp; focus in 3D</span>`, ev.clientX, ev.clientY);
+                if (typeof highlightMolstarResidue === 'function') {
+                    canvas._lastChordHi = true;
+                    highlightMolstarResidue('viewer3d-frame', ln.ci, ln.resA);
+                }
+            }
+        });
+        canvas.addEventListener('mouseleave', () => {
+            canvas._chordTipActive = false;
+            canvas.style.cursor = '';
+            _hideMapTip();
+            if (canvas._lastChordHi && typeof highlightMolstarResidue === 'function') {
+                canvas._lastChordHi = false;
+                highlightMolstarResidue('viewer3d-frame', null, null);
+            }
+        });
+        canvas.addEventListener('click', (ev) => {
+            const hit = hitChord(ev);
+            if (!hit) return;
+            if (hit.kind === 'arc') {
+                if (typeof focusMolstarResidue === 'function') focusMolstarResidue('viewer3d-frame', hit.arc.name, hit.res);
+            } else {
+                const ln = hit.line;
+                const seedVal = String(document.getElementById('seed-select')?.value ?? '0');
+                selectPairAndModelFromMap(ln.ci, ln.cj, seedVal);
+                if (typeof focusMolstarResidue === 'function') {
+                    setTimeout(() => focusMolstarResidue('viewer3d-frame', ln.ci, ln.resA), 30);
+                }
+            }
+        });
+    }
+}
+
 function buildChordDiagram() {
     LiviaMaps.attachChordDomainHover(['chord-canvas', 'chord-canvas-all']);
+    attachChordInteractive(['chord-canvas', 'chord-canvas-all']);
     const card = document.getElementById('chord-card');
     const canvas = document.getElementById('chord-canvas');
     const canvasAll = document.getElementById('chord-canvas-all');
