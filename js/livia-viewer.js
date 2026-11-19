@@ -88,6 +88,225 @@ function plddtColor(b) {
 
 // Jmol/CPK element colors for atomic (ball-and-stick) representations of PTM/modified residues.
 const ELEMENT_CPK = [['C', '#909090'], ['N', '#3050F8'], ['O', '#FF0D0D'], ['P', '#FF8000'], ['S', '#FFFF30'], ['H', '#FFFFFF']];
+const V3D_HL_COLOR = '#E91E63';
+
+// ── Extract 1-letter sequences and residue numbers per chain from PDB or mmCIF (memoized) ──
+const _V3D_AA3_TO_1 = {
+    ALA:'A', ARG:'R', ASN:'N', ASP:'D', CYS:'C', GLN:'Q', GLU:'E', GLY:'G', HIS:'H', ILE:'I',
+    LEU:'L', LYS:'K', MET:'M', PHE:'F', PRO:'P', SER:'S', THR:'T', TRP:'W', TYR:'Y', VAL:'V',
+    MSE:'M', SEP:'S', TPO:'T', PTR:'Y', CSO:'C', CSD:'C', CME:'C', PCA:'E', HYP:'P', MLY:'K',
+    M3L:'K', ALY:'K', SEC:'U', PYL:'O', ASX:'B', GLX:'Z',
+    DA:'A', DT:'T', DG:'G', DC:'C', A:'A', U:'U', G:'G', C:'C'
+};
+const _V3D_SEQ_CACHE = new Map(), _V3D_SEQ_CACHE_MAX = 24;
+function parseChainSequences(text, fmt) {
+    if (!text || text === _MOLSTAR_WARMUP_CIF) return { chains: [], byChain: new Map() };
+    const f = fmt === 'mmcif' || fmt === 'cif' || (!fmt && text.includes('_atom_site.')) ? 'cif' : 'pdb';
+    let by = _V3D_SEQ_CACHE.get(text);
+    if (by && by[f]) return by[f];
+    const res = _parseChainSequences(text, f);
+    if (!by) { if (_V3D_SEQ_CACHE.size >= _V3D_SEQ_CACHE_MAX) _V3D_SEQ_CACHE.delete(_V3D_SEQ_CACHE.keys().next().value); by = {}; _V3D_SEQ_CACHE.set(text, by); }
+    by[f] = res;
+    return res;
+}
+function _parseChainSequences(text, format) {
+    const raw = new Map();
+    const add = (ch, rn, comp) => {
+        const aa = _V3D_AA3_TO_1[comp];
+        if (!aa || !Number.isFinite(rn)) return;
+        let m = raw.get(ch);
+        if (!m) { m = new Map(); raw.set(ch, m); }
+        if (!m.has(rn)) m.set(rn, aa);
+    };
+    if (format === 'pdb') {
+        for (const line of text.split('\n')) {
+            if (line.length < 26) continue;
+            if (!line.startsWith('ATOM') && !line.startsWith('HETATM')) continue;
+            const atom = line.substring(12, 16).trim();
+            if (atom !== 'CA' && atom !== "C4'" && atom !== 'P') continue;
+            const comp = line.substring(17, 20).trim().toUpperCase();
+            if (!_V3D_AA3_TO_1[comp]) continue;
+            const ch = line.substring(21, 22).trim() || 'A';
+            const rn = parseInt(line.substring(22, 26).trim(), 10);
+            add(ch, rn, comp);
+        }
+    } else {
+        const lines = text.split('\n');
+        let inA = false; const cols = []; let ix = null;
+        for (const line of lines) {
+            if (line.startsWith('_atom_site.')) { inA = true; cols.push(line.trim().split('.')[1]); ix = null; continue; }
+            if (!inA || line.startsWith('#') || !line.trim()) continue;
+            if (line.startsWith('loop_') || line.startsWith('_')) { inA = false; continue; }
+            if (!ix) ix = {
+                atom: cols.indexOf('label_atom_id'),
+                comp: cols.indexOf('label_comp_id'),
+                ch: cols.indexOf('label_asym_id'),
+                rn: cols.indexOf('label_seq_id')
+            };
+            if (!/(^|\s)(CA|C4'|P)(\s|$)/.test(line)) continue;
+            const p = line.trim().split(/\s+/);
+            if (p.length < cols.length) continue;
+            const atom = ix.atom >= 0 ? p[ix.atom].replace(/^['"]|['"]$/g, '') : '';
+            if (atom !== 'CA' && atom !== "C4'" && atom !== 'P') continue;
+            const comp = (ix.comp >= 0 ? p[ix.comp] : '').toUpperCase();
+            if (!_V3D_AA3_TO_1[comp]) continue;
+            const ch = ix.ch >= 0 ? p[ix.ch] : 'A';
+            const rn = parseInt(ix.rn >= 0 ? p[ix.rn] : '', 10);
+            add(ch, rn, comp);
+        }
+    }
+    const chains = [...raw.keys()];
+    const byChain = new Map();
+    for (const ch of chains) {
+        const entries = [...raw.get(ch).entries()].sort((a, b) => a[0] - b[0]);
+        const resNums = entries.map(e => e[0]);
+        const seq = entries.map(e => e[1]).join('');
+        byChain.set(ch, { seq, resNums, resSet: new Set(resNums) });
+    }
+    return { chains, byChain };
+}
+
+// ── Search loaded structure by amino acid motif (X/. wildcard) or residue/range spec ──
+function searchStructure3d(seqData, rawQuery) {
+    const q = String(rawQuery || '').trim();
+    if (!q || !seqData || !seqData.chains.length) return { kind: 'empty', query: q, hits: [] };
+    // 1. Try residue / range syntax: e.g. "345", "120-135", "A:345", "A:120-135, B:45"
+    const parts = q.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+    const resRe = /^(?:([A-Za-z0-9]{1,4})\s*[:\-]\s*)?(\d+)(?:\s*[-–—..]+\s*(\d+))?$/;
+    if (parts.length && parts.every(p => resRe.test(p))) {
+        const hits = [];
+        for (const p of parts) {
+            const m = resRe.exec(p);
+            const chReq = m[1] ? m[1].toUpperCase() : '';
+            let a = parseInt(m[2], 10), b = m[3] ? parseInt(m[3], 10) : a;
+            if (a > b) { const t = a; a = b; b = t; }
+            const targetChains = chReq
+                ? seqData.chains.filter(c => c.toUpperCase() === chReq)
+                : seqData.chains;
+            for (const ch of targetChains) {
+                const info = seqData.byChain.get(ch);
+                if (!info) continue;
+                const present = info.resNums.filter(r => r >= a && r <= b);
+                if (!present.length) continue;
+                const s = present[0], e = present[present.length - 1];
+                const i0 = info.resNums.indexOf(s), i1 = info.resNums.indexOf(e);
+                const sub = i0 >= 0 && i1 >= i0 ? info.seq.slice(i0, i1 + 1) : '';
+                hits.push({ chain: ch, start: s, end: e, seq: sub, label: s === e ? `${ch}:${s}` : `${ch}:${s}\u2013${e}` });
+            }
+        }
+        return { kind: 'residue', query: q, hits };
+    }
+    // 2. Sequence / motif search (strip FASTA headers, spaces, digits, dashes; X or . = wildcard)
+    let clean = q.replace(/^>[^\n]*\n?/gm, '').replace(/[\s0-9-]+/g, '').toUpperCase();
+    if (!clean) return { kind: 'sequence', query: q, clean: '', hits: [] };
+    if (!/^[A-Z.*]+$/.test(clean)) return { kind: 'invalid', query: q, hits: [] };
+    const pat = clean.replace(/[.*+?^${}()|[\]\\]/g, (c) => (c === '.' ? '.' : '\\' + c)).replace(/X/g, '.');
+    const re = new RegExp(pat, 'g');
+    const hits = [];
+    for (const ch of seqData.chains) {
+        const info = seqData.byChain.get(ch);
+        if (!info || !info.seq) continue;
+        let idx = 0;
+        while (idx <= info.seq.length - clean.length && hits.length < 50) {
+            re.lastIndex = idx;
+            const m = re.exec(info.seq);
+            if (!m) break;
+            const i0 = m.index, i1 = m.index + m[0].length - 1;
+            const s = info.resNums[i0], e = info.resNums[i1];
+            hits.push({
+                chain: ch, start: s, end: e, seq: m[0],
+                label: s === e ? `${ch}:${s}` : `${ch}:${s}\u2013${e}`
+            });
+            idx = m.index + 1;
+        }
+    }
+    return { kind: 'sequence', query: q, clean, hits };
+}
+
+// ── Merge vivid highlight spans into base colorComponents without cartoon z-fighting ──
+function _subtractRanges(ranges, cuts) {
+    let cur = (ranges || []).map(r => ({ start: +r.start, end: +r.end }));
+    for (const c of cuts) {
+        const next = [];
+        for (const r of cur) {
+            if (r.end < c.start || r.start > c.end) { next.push(r); continue; }
+            if (r.start < c.start) next.push({ start: r.start, end: c.start - 1 });
+            if (r.end > c.end) next.push({ start: c.end + 1, end: r.end });
+        }
+        cur = next;
+    }
+    return cur;
+}
+function _mergeSpansByChain(spans) {
+    const by = new Map();
+    for (const sp of (spans || [])) {
+        if (!sp || !sp.chain || !(sp.start > 0)) continue;
+        const ch = String(sp.chain), s = +sp.start, e = +(sp.end || sp.start);
+        if (!by.has(ch)) by.set(ch, []);
+        by.get(ch).push({ start: Math.min(s, e), end: Math.max(s, e) });
+    }
+    const out = new Map();
+    for (const [ch, list] of by) {
+        list.sort((a, b) => a.start - b.start || a.end - b.end);
+        const merged = [];
+        for (const r of list) {
+            const last = merged[merged.length - 1];
+            if (last && r.start <= last.end + 1) last.end = Math.max(last.end, r.end);
+            else merged.push({ start: r.start, end: r.end });
+        }
+        out.set(ch, merged);
+    }
+    return out;
+}
+function _mergeHighlightComponents(baseComponents, spans) {
+    if (!spans || !spans.length) return baseComponents || [];
+    const byCh = _mergeSpansByChain(spans);
+    if (!byCh.size) return baseComponents || [];
+    const out = [];
+    for (const comp of (baseComponents || [])) {
+        if (comp.isIon || comp.stick || comp.isHighlightStick) { out.push(comp); continue; }
+        const cuts = byCh.get(String(comp.chain));
+        if (!cuts || !comp.ranges) { out.push(comp); continue; }
+        const rem = _subtractRanges(comp.ranges, cuts);
+        if (rem.length) out.push(Object.assign({}, comp, { ranges: rem }));
+    }
+    let totalRes = 0;
+    for (const ranges of byCh.values()) for (const r of ranges) totalRes += (r.end - r.start + 1);
+    for (const [ch, ranges] of byCh) {
+        out.push({ chain: ch, ranges, color: V3D_HL_COLOR });
+        if (totalRes <= 40) out.push({ chain: ch, ranges, color: V3D_HL_COLOR, isHighlightStick: true });
+    }
+    return out;
+}
+function _spansOutsideBase(baseComponents, spans) {
+    if (!baseComponents || !baseComponents.length || !spans || !spans.length) return false;
+    const drawn = new Map();
+    for (const c of baseComponents) {
+        if (c.isIon || c.stick || c.isHighlightStick) continue;
+        const ch = String(c.chain);
+        if (!drawn.has(ch)) drawn.set(ch, []);
+        if (c.ranges) drawn.get(ch).push(...c.ranges);
+    }
+    if (!drawn.size) return false;
+    for (const sp of spans) {
+        const rs = drawn.get(String(sp.chain));
+        if (!rs || !rs.length) return true;
+        const rem = _subtractRanges([{ start: +sp.start, end: +(sp.end || sp.start) }], rs);
+        if (rem.length) return true;
+    }
+    return false;
+}
+
+const _v3dState = new Map();
+function _getV3dState(frameId) {
+    const id = frameId || 'viewer3d-frame';
+    let st = _v3dState.get(id);
+    if (!st) {
+        st = { structData: '', fmt: 'mmcif', baseComponents: [], highlightSpans: [], pendingFocus: null, query: '', hits: [], activeHitIdx: -1, autoCompleteNote: '' };
+        _v3dState.set(id, st);
+    }
+    return st;
+}
 
 // ── Build the MVS structureChildren (per-component representations + colors) ──
 function _buildMvsStructureChildren(colorComponents) {
@@ -104,6 +323,23 @@ function _buildMvsStructureChildren(colorComponents) {
                     { kind: 'representation', params: { type: 'ball_and_stick' },
                       children: [{ kind: 'color', params: { color: comp.color } }] }
                 ]
+            });
+            continue;
+        }
+        if (comp.isHighlightStick) {
+            const selector = comp.ranges.map(r => ({
+                label_asym_id: comp.chain,
+                beg_label_seq_id: r.start,
+                end_label_seq_id: r.end,
+            }));
+            structureChildren.push({
+                kind: 'component',
+                params: { selector: selector.length === 1 ? selector[0] : selector },
+                children: [{
+                    kind: 'representation',
+                    params: { type: 'ball_and_stick' },
+                    children: [{ kind: 'color', params: { color: comp.color } }]
+                }]
             });
             continue;
         }
@@ -179,13 +415,21 @@ function buildMvsJson(colorComponents, fmt) {
 // Iframe must have been built with buildMolstarPage (which embeds the listener).
 // fmt: 'pdb' or 'mmcif' (must match initial load).
 // Returns true if message was sent; false if iframe isn't ready yet.
-function applyColorsToMolstarFrame(frameId, colorComponents, fmt) {
-    const frame = document.getElementById(frameId);
+function applyColorsToMolstarFrame(frameId, colorComponents, fmt, focusSpans) {
+    const id = frameId || 'viewer3d-frame';
+    const frame = document.getElementById(id);
+    const st = _getV3dState(id);
+    st.baseComponents = Array.isArray(colorComponents) ? colorComponents : [];
+    if (fmt) st.fmt = fmt;
+    const focusTarget = focusSpans || st.pendingFocus || null;
+    st.pendingFocus = null;
     if (!frame || !frame.contentWindow) return false;
-    const mvsJson = buildMvsJson(colorComponents, fmt);
+    const merged = _mergeHighlightComponents(st.baseComponents, st.highlightSpans);
+    const mvsJson = buildMvsJson(merged, st.fmt);
     frame.contentWindow.postMessage({
         type: 'updateColors',
         mvsStr: JSON.stringify(mvsJson),
+        focusSpans: focusTarget || null,
     }, '*');
     return true;
 }
@@ -195,15 +439,34 @@ function applyColorsToMolstarFrame(frameId, colorComponents, fmt) {
 // placeholder structure loaded at page-entry warmup with the real prediction structure
 // once analysis finishes, without rebuilding the iframe (avoids re-downloading Mol* JS).
 function swapMolstarStructure(frameId, structData, colorComponents, fmt, label) {   // label: a readable name for Mol*'s structure panel, in place of the blob URL
-    const frame = document.getElementById(frameId);
+    const id = frameId || 'viewer3d-frame';
+    const frame = document.getElementById(id);
+    const st = _getV3dState(id);
+    st.structData = structData || '';
+    st.fmt = fmt || 'mmcif';
+    st.baseComponents = Array.isArray(colorComponents) ? colorComponents : [];
+    st.autoCompleteNote = '';
+    if (st.query) {
+        const res = searchStructure3d(parseChainSequences(st.structData, st.fmt), st.query);
+        st.hits = res.hits;
+        st.highlightSpans = res.hits.map(h => ({ chain: h.chain, start: h.start, end: h.end }));
+        st.activeHitIdx = res.hits.length === 1 ? 0 : -1;
+    } else {
+        st.hits = [];
+        st.highlightSpans = [];
+        st.activeHitIdx = -1;
+    }
+    if (typeof _syncViewer3dFindUi === 'function') _syncViewer3dFindUi(id);
     if (!frame || !frame.contentWindow) return false;
-    const mvsJson = buildMvsJson(colorComponents, fmt);
+    const merged = _mergeHighlightComponents(st.baseComponents, st.highlightSpans);
+    const mvsJson = buildMvsJson(merged, st.fmt);
     frame.contentWindow.postMessage({
         type: 'loadStructure',
         structData: structData,
         mvsStr: JSON.stringify(mvsJson),
-        fmt: fmt,
+        fmt: st.fmt,
         label: label || '',
+        focusSpans: st.highlightSpans.length ? st.highlightSpans : null,
     }, '*');
     return true;
 }
@@ -319,7 +582,8 @@ function showMolstarFocusToast(frame, chain, seqId, endSeqId) {
     if (!frame || typeof document === 'undefined') return;
     const rect = frame.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
-    if (rect.top >= 40 && rect.bottom <= window.innerHeight - 40) return;
+    const visH = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+    if (visH >= Math.min(rect.height * 0.55, window.innerHeight * 0.45)) return;
     let toast = document.getElementById('livia-3d-focus-toast');
     if (!toast) {
         toast = document.createElement('div');
@@ -329,10 +593,10 @@ function showMolstarFocusToast(frame, chain, seqId, endSeqId) {
         document.body.appendChild(toast);
     }
     const spanTxt = endSeqId && +endSeqId !== +seqId ? `${seqId}\u2013${endSeqId}` : `${seqId}`;
-    const dir = rect.top > window.innerHeight - 40 ? '\u2193' : '\u2191';
+    const dir = rect.top > window.innerHeight / 2 ? '\u2193' : '\u2191';
     toast.innerHTML = '';
     const msg = document.createElement('span');
-    msg.textContent = `Focused ${chain}:${spanTxt} in 3D`;
+    msg.textContent = `Highlighted ${chain}:${spanTxt} in 3D`;
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = `Jump to 3D ${dir}`;
@@ -347,14 +611,72 @@ function showMolstarFocusToast(frame, chain, seqId, endSeqId) {
     clearTimeout(toast._tid);
     toast._tid = setTimeout(() => { toast.style.display = 'none'; }, 3500);
 }
+function highlightSpansInMolstar(frameId, spans, focusTarget, opts) {
+    const id = frameId || 'viewer3d-frame';
+    const frame = document.getElementById(id);
+    if (!frame || !frame.contentWindow) return false;
+    const st = _getV3dState(id);
+    const clean = (spans || []).filter(s => s && s.chain && s.start > 0).map(s => ({ chain: String(s.chain), start: +s.start, end: +(s.end || s.start) }));
+    const foc = (focusTarget && focusTarget.length ? focusTarget : clean).map(s => ({ chain: String(s.chain), start: +s.start, end: +(s.end || s.start) }));
+    st.highlightSpans = clean;
+    st.autoCompleteNote = '';
+    if (clean.length && _spansOutsideBase(st.baseComponents, clean)) {
+        const sc = document.querySelector('.show-complete-cb');
+        if (sc && !sc.checked && typeof toggleShowComplete === 'function') {
+            st.pendingFocus = foc;
+            st.autoCompleteNote = 'Complete structure turned on to show highlighted residues';
+            sc.checked = true;
+            toggleShowComplete(sc);
+            if (typeof _syncViewer3dFindUi === 'function') _syncViewer3dFindUi(id);
+            return true;
+        }
+    }
+    if (st.baseComponents && st.baseComponents.length) {
+        applyColorsToMolstarFrame(id, st.baseComponents, st.fmt, foc.length ? foc : null);
+    } else if (foc.length) {
+        try { frame.contentWindow.postMessage({ type: 'focusSpans', spans: foc }, '*'); } catch (_e) {}
+    }
+    if (!opts || !opts.keepFindUi) {
+        if (typeof _syncViewer3dFindUi === 'function') _syncViewer3dFindUi(id);
+    }
+    return true;
+}
+function clearMolstarHighlight(frameId) {
+    const id = frameId || 'viewer3d-frame';
+    const st = _getV3dState(id);
+    st.highlightSpans = [];
+    st.pendingFocus = null;
+    st.query = '';
+    st.hits = [];
+    st.activeHitIdx = -1;
+    st.autoCompleteNote = '';
+    const inp = document.getElementById('v3d-find-in');
+    if (inp && id === 'viewer3d-frame') inp.value = '';
+    if (st.baseComponents && st.baseComponents.length) {
+        applyColorsToMolstarFrame(id, st.baseComponents, st.fmt, null);
+    }
+    if (typeof _syncViewer3dFindUi === 'function') _syncViewer3dFindUi(id);
+}
+function resetMolstarCamera(frameId) {
+    const frame = document.getElementById(frameId || 'viewer3d-frame');
+    if (!frame || !frame.contentWindow) return;
+    try { frame.contentWindow.postMessage({ type: 'resetCamera' }, '*'); } catch (_e) {}
+}
 function focusMolstarResidue(frameId, chain, seqId, endSeqId) {
     if (!chain || !seqId) return;
-    const frame = document.getElementById(frameId);
+    const id = frameId || 'viewer3d-frame';
+    const frame = document.getElementById(id);
     if (!frame || !frame.contentWindow) return;
-    try {
-        frame.contentWindow.postMessage({ type: 'focusResidue', chain: String(chain), seqId: +seqId, endSeqId: +(endSeqId || seqId) }, '*');
-        showMolstarFocusToast(frame, chain, seqId, endSeqId);
-    } catch (_e) {}
+    const ch = String(chain), s = +seqId, e = +(endSeqId || seqId);
+    const st = _getV3dState(id);
+    const spanTxt = e !== s ? `${s}\u2013${e}` : `${s}`;
+    st.query = '';
+    st.hits = [{ chain: ch, start: s, end: e, seq: '', label: `${ch}:${spanTxt}` }];
+    st.activeHitIdx = 0;
+    const inp = document.getElementById('v3d-find-in');
+    if (inp && id === 'viewer3d-frame') inp.value = '';
+    highlightSpansInMolstar(id, [{ chain: ch, start: s, end: e }], [{ chain: ch, start: s, end: e }]);
+    showMolstarFocusToast(frame, ch, s, e);
 }
 function downloadMolstarPng(frameId, filename) {
     const frame = document.getElementById(frameId || 'viewer3d-frame');
@@ -371,8 +693,23 @@ function downloadMolstarPng(frameId, filename) {
 // parentBaseUrl: absolute URL of the parent LIVIA page (used for self-hosted Mol* fallback)
 const MOLSTAR_VERSION = '5.9.0';
 function buildMolstarPage(structData, fmt, colorComponents, parentBaseUrl) {
-    if (structData !== _MOLSTAR_WARMUP_CIF) _cancelMolstarIdle('viewer3d-frame');
-    const mvsJson = buildMvsJson(colorComponents, fmt);
+    let comps = colorComponents || [];
+    if (structData !== _MOLSTAR_WARMUP_CIF) {
+        _cancelMolstarIdle('viewer3d-frame');
+        const st = _getV3dState('viewer3d-frame');
+        st.structData = structData || '';
+        st.fmt = fmt || 'mmcif';
+        st.baseComponents = Array.isArray(colorComponents) ? colorComponents : [];
+        if (st.query) {
+            const res = searchStructure3d(parseChainSequences(st.structData, st.fmt), st.query);
+            st.hits = res.hits;
+            st.highlightSpans = res.hits.map(h => ({ chain: h.chain, start: h.start, end: h.end }));
+            st.activeHitIdx = res.hits.length === 1 ? 0 : -1;
+        }
+        comps = _mergeHighlightComponents(st.baseComponents, st.highlightSpans);
+        if (typeof _syncViewer3dFindUi === 'function') _syncViewer3dFindUi('viewer3d-frame');
+    }
+    const mvsJson = buildMvsJson(comps, fmt);
     const selfHostBase = parentBaseUrl || '';
 
     return `<!DOCTYPE html>
@@ -588,6 +925,110 @@ function _injectCurrentCameraIntoMvs(mvsStr) {
     } catch (_e) { return mvsStr; }
 }
 
+var _camGen = 0;
+function _pinNoClipping() {
+    try {
+        var c3d = _viewer && _viewer.plugin && _viewer.plugin.canvas3d;
+        if (c3d && c3d.props) {
+            var clip = c3d.props.cameraClipping || {};
+            if (clip.radius !== 0) c3d.setProps({ cameraClipping: Object.assign({}, clip, { radius: 0 }) });
+        }
+    } catch (_ec) {}
+}
+function _computeFocusSphere(text, format, spans) {
+    if (!text || !spans || !spans.length) return null;
+    var byCh = {};
+    for (var i = 0; i < spans.length; i++) {
+        var sp = spans[i];
+        if (!sp || !sp.chain || !(sp.start > 0)) continue;
+        var ch = String(sp.chain);
+        if (!byCh[ch]) byCh[ch] = [];
+        byCh[ch].push([+sp.start, +(sp.end || sp.start)]);
+    }
+    var inSpan = function(ch, rn) {
+        var list = byCh[ch];
+        if (!list) return false;
+        for (var j = 0; j < list.length; j++) if (rn >= list[j][0] && rn <= list[j][1]) return true;
+        return false;
+    };
+    var pts = [];
+    var isCif = format === 'mmcif' || format === 'cif' || text.indexOf('_atom_site.') >= 0;
+    var lines = text.split('\\n');
+    if (!isCif) {
+        for (var k = 0; k < lines.length; k++) {
+            var ln = lines[k];
+            if (ln.length < 54) continue;
+            if (ln.indexOf('ATOM') !== 0 && ln.indexOf('HETATM') !== 0) continue;
+            var ch = ln.substring(21, 22).trim() || 'A';
+            var rn = parseInt(ln.substring(22, 26).trim(), 10);
+            if (!inSpan(ch, rn)) continue;
+            var x = parseFloat(ln.substring(30, 38)), y = parseFloat(ln.substring(38, 46)), z = parseFloat(ln.substring(46, 54));
+            if (isFinite(x) && isFinite(y) && isFinite(z)) pts.push([x, y, z]);
+        }
+    } else {
+        var inA = false, cols = [], ix = null;
+        for (var k2 = 0; k2 < lines.length; k2++) {
+            var ln2 = lines[k2];
+            if (ln2.indexOf('_atom_site.') === 0) { inA = true; cols.push(ln2.trim().split('.')[1]); ix = null; continue; }
+            if (!inA || ln2.charAt(0) === '#' || !ln2.trim()) continue;
+            if (ln2.indexOf('loop_') === 0 || ln2.charAt(0) === '_') { inA = false; continue; }
+            if (!ix) ix = {
+                ch: cols.indexOf('label_asym_id'), ach: cols.indexOf('auth_asym_id'),
+                rn: cols.indexOf('label_seq_id'), arn: cols.indexOf('auth_seq_id'),
+                x: cols.indexOf('Cartn_x'), y: cols.indexOf('Cartn_y'), z: cols.indexOf('Cartn_z')
+            };
+            var p = ln2.trim().split(/\\s+/);
+            if (p.length < cols.length) continue;
+            var ch2 = ix.ch >= 0 ? p[ix.ch] : (ix.ach >= 0 ? p[ix.ach] : 'A');
+            var rn2 = parseInt(ix.rn >= 0 ? p[ix.rn] : (ix.arn >= 0 ? p[ix.arn] : ''), 10);
+            if (!inSpan(ch2, rn2)) {
+                var ach2 = ix.ach >= 0 ? p[ix.ach] : '', arn2 = parseInt(ix.arn >= 0 ? p[ix.arn] : '', 10);
+                if (!ach2 || !inSpan(ach2, arn2)) continue;
+            }
+            var x2 = parseFloat(p[ix.x]), y2 = parseFloat(p[ix.y]), z2 = parseFloat(p[ix.z]);
+            if (isFinite(x2) && isFinite(y2) && isFinite(z2)) pts.push([x2, y2, z2]);
+        }
+    }
+    if (!pts.length) return null;
+    var cx = 0, cy = 0, cz = 0;
+    for (var m = 0; m < pts.length; m++) { cx += pts[m][0]; cy += pts[m][1]; cz += pts[m][2]; }
+    cx /= pts.length; cy /= pts.length; cz /= pts.length;
+    var r2 = 0;
+    for (var n = 0; n < pts.length; n++) {
+        var dx = pts[n][0] - cx, dy = pts[n][1] - cy, dz = pts[n][2] - cz;
+        var d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 > r2) r2 = d2;
+    }
+    return { center: [cx, cy, cz], radius: Math.max(Math.sqrt(r2) + 10, 18) };
+}
+function _focusOnSpans(spans, dur) {
+    if (!_ready || !_viewer || !spans || !spans.length) return;
+    try {
+        var pl = _viewer.plugin;
+        if (pl && pl.managers && pl.managers.structure && pl.managers.structure.focus) {
+            pl.managers.structure.focus.clear();
+        }
+        _pinNoClipping();
+        var sph = _computeFocusSphere(structData, fmt, spans);
+        if (sph && pl && pl.managers && pl.managers.camera && typeof pl.managers.camera.focusSphere === 'function') {
+            pl.managers.camera.focusSphere(sph, { durationMs: dur == null ? 250 : dur });
+            setTimeout(_pinNoClipping, 60);
+            setTimeout(_pinNoClipping, 300);
+        }
+    } catch (_ef) {}
+}
+function _resetCameraNow() {
+    if (!_ready || !_viewer) return;
+    try {
+        var pl = _viewer.plugin;
+        if (pl && pl.managers && pl.managers.structure && pl.managers.structure.focus) pl.managers.structure.focus.clear();
+        _pinNoClipping();
+        var c3d = pl && pl.canvas3d;
+        if (c3d && typeof c3d.requestCameraReset === 'function') c3d.requestCameraReset({ durationMs: 250 });
+        else if (pl && pl.managers && pl.managers.camera && typeof pl.managers.camera.reset === 'function') pl.managers.camera.reset(undefined, 250);
+    } catch (_er) {}
+}
+
 // Listen for parent postMessage: structure swap (warm-up pattern) + color update
 window.addEventListener('message', function(ev) {
     if (!ev.data) return;
@@ -605,20 +1046,26 @@ window.addEventListener('message', function(ev) {
         return;
     }
     if (ev.data.type === 'focusResidue') {
-        if (!_ready || !_viewer || typeof _viewer.structureInteractivity !== 'function' || !ev.data.chain || !(ev.data.seqId > 0)) return;
-        try {
-            _viewer.structureInteractivity({
-                action: 'focus',
-                elements: { label_asym_id: String(ev.data.chain), beg_label_seq_id: +ev.data.seqId, end_label_seq_id: +(ev.data.endSeqId || ev.data.seqId) }
-            });
-        } catch (_ef) {}
+        if (!ev.data.chain || !(ev.data.seqId > 0)) return;
+        _camGen++;
+        _focusOnSpans([{ chain: String(ev.data.chain), start: +ev.data.seqId, end: +(ev.data.endSeqId || ev.data.seqId) }], 250);
+        return;
+    }
+    if (ev.data.type === 'focusSpans') {
+        _camGen++;
+        _focusOnSpans(ev.data.spans, 250);
+        return;
+    }
+    if (ev.data.type === 'resetCamera') {
+        _camGen++;
+        _resetCameraNow();
         return;
     }
     if (ev.data.type === 'downloadPng') {
         if (!_ready || !_viewer) return;
         (async function() {
-            var fn = String(ev.data.filename || 'livia_3d_structure.png').replace(/[^\w.-]+/g, '_');
-            if (!/\.png$/i.test(fn)) fn += '.png';
+            var fn = String(ev.data.filename || 'livia_3d_structure.png').replace(/[^\\w.-]+/g, '_');
+            if (!/\\.png$/i.test(fn)) fn += '.png';
             try {
                 var sh = _viewer.plugin && _viewer.plugin.helpers && _viewer.plugin.helpers.viewportScreenshot;
                 if (sh) {
@@ -644,36 +1091,33 @@ window.addEventListener('message', function(ev) {
     if (ev.data.type === 'loadStructure' && ev.data.structData && ev.data.mvsStr) {
         if (!_ready || !_viewer) { _pendingStructure = ev.data; return; }
         _structLabel = ev.data.label || '';
+        structData = ev.data.structData;
+        if (ev.data.fmt) fmt = ev.data.fmt;
+        var loadFocus = ev.data.focusSpans || null;
+        var myGen = ++_camGen;
         try {
             if (_structUrl) { try { URL.revokeObjectURL(_structUrl); } catch(_) {} }
             var newBlob = new Blob([ev.data.structData], { type: 'text/plain' });
             _structUrl = URL.createObjectURL(newBlob);
             var newMvs = ev.data.mvsStr.replace('__STRUCT_BLOB_URL__', _structUrl);
-            // Structure changed → must explicitly refit camera, otherwise Mol* keeps the
-            // canvas3d state from the previous load (e.g. the tight zoom around the
-            // warm-up placeholder atom at the origin) and the new structure ends up
-            // mostly off-screen.
             var keepCtl = !!(_viewer.plugin && _viewer.plugin.layout && _viewer.plugin.layout.state && _viewer.plugin.layout.state.showControls);
             var p = _viewer.loadMvsData(newMvs, 'mvsj');
             var refit = function() {
+                if (myGen !== _camGen) return;
                 _restoreCtl(keepCtl);
                 _applyIllustrativeStyle(_viewer);
                 var resetCamera = function() {
+                    if (myGen !== _camGen) return;
                     try {
                         var c3d = _viewer && _viewer.plugin && _viewer.plugin.canvas3d;
-                        // Force Mol* to recompute viewport size: when the iframe just
-                        // transitioned from display:none → visible (warm-up → real
-                        // results), ResizeObserver may not have fired yet and the
-                        // camera would fit using stale 0x0 dimensions (looks broken
-                        // on mobile in particular).
-                        var wh = window.innerWidth + 'x' + window.innerHeight;   // the retries below resize only when the frame's size moved (each resize can reallocate the render buffers)
+                        var wh = window.innerWidth + 'x' + window.innerHeight;
                         if (c3d && typeof c3d.handleResize === 'function' && wh !== _lastWH) { c3d.handleResize(); _lastWH = wh; }
-                        if (c3d && typeof c3d.requestCameraReset === 'function') c3d.requestCameraReset();
+                        _pinNoClipping();
+                        if (loadFocus && loadFocus.length) _focusOnSpans(loadFocus, 0);
+                        else if (c3d && typeof c3d.requestCameraReset === 'function') c3d.requestCameraReset();
                         else if (_viewer && _viewer.plugin && _viewer.plugin.managers && _viewer.plugin.managers.camera && typeof _viewer.plugin.managers.camera.reset === 'function') _viewer.plugin.managers.camera.reset();
                     } catch(_e) {}
                 };
-                // Retry across a few frames — Mol*'s structure ingestion may finish
-                // a tick after loadMvsData's promise resolves.
                 resetCamera();
                 requestAnimationFrame(function() { resetCamera(); requestAnimationFrame(resetCamera); });
                 setTimeout(resetCamera, 100);
@@ -686,24 +1130,28 @@ window.addEventListener('message', function(ev) {
     }
     if (ev.data.type !== 'updateColors' || !ev.data.mvsStr) return;
     if (!_ready || !_viewer || !_structUrl) {
-        _pendingColorMvs = ev.data.mvsStr;
+        _pendingColorMvs = ev.data;
         return;
     }
     try {
+        var updFocus = ev.data.focusSpans || null;
+        var myGen2 = ++_camGen;
         var newMvs = ev.data.mvsStr.replace('__STRUCT_BLOB_URL__', _structUrl);
         newMvs = _injectCurrentCameraIntoMvs(newMvs);
-        // Snapshot the FULL camera state (incl. radius/radiusMax for ortho zoom) before reload.
-        // MVS only carries target/position/up, so we need this to keep zoom stable.
         var savedCamera = null;
-        try {
-            var c3d = _viewer.plugin && _viewer.plugin.canvas3d;
-            if (c3d && c3d.camera && c3d.camera.state) {
-                // Clone so Mol* can't mutate it after we save.
-                savedCamera = JSON.parse(JSON.stringify(c3d.camera.state));
-            }
-        } catch(_e) {}
-        var restore = function() {
+        if (!updFocus || !updFocus.length) {
             try {
+                var c3d = _viewer.plugin && _viewer.plugin.canvas3d;
+                if (c3d && c3d.camera && c3d.camera.state) {
+                    savedCamera = JSON.parse(JSON.stringify(c3d.camera.state));
+                }
+            } catch(_e) {}
+        }
+        var restore = function() {
+            if (myGen2 !== _camGen) return;
+            try {
+                _pinNoClipping();
+                if (updFocus && updFocus.length) { _focusOnSpans(updFocus, 180); return; }
                 var c3dr = _viewer && _viewer.plugin && _viewer.plugin.canvas3d;
                 if (savedCamera && c3dr && c3dr.camera) c3dr.camera.setState(savedCamera, 0);
             } catch(_e2) {}
@@ -711,14 +1159,19 @@ window.addEventListener('message', function(ev) {
         var keepCtl = !!(_viewer.plugin && _viewer.plugin.layout && _viewer.plugin.layout.state && _viewer.plugin.layout.state.showControls);
         var p = _viewer.loadMvsData(newMvs, 'mvsj');
         var reapply = function() {
+            if (myGen2 !== _camGen) return;
             _restoreCtl(keepCtl);
             _applyIllustrativeStyle(_viewer);
-            // Restore at multiple ticks to win against Mol*'s post-load auto-fit which
-            // can run asynchronously after loadMvsData's promise resolves.
-            restore();
-            requestAnimationFrame(function() { restore(); requestAnimationFrame(restore); });
-            setTimeout(restore, 100);
-            setTimeout(restore, 300);
+            if (updFocus && updFocus.length) {
+                _focusOnSpans(updFocus, 250);
+                setTimeout(function() { if (myGen2 === _camGen) _focusOnSpans(updFocus, 0); }, 180);
+                setTimeout(function() { if (myGen2 === _camGen) _pinNoClipping(); }, 350);
+            } else {
+                restore();
+                requestAnimationFrame(function() { restore(); requestAnimationFrame(restore); });
+                setTimeout(restore, 100);
+                setTimeout(restore, 300);
+            }
         };
         if (p && typeof p.then === 'function') p.then(reapply, reapply);
         else setTimeout(reapply, 50);
@@ -730,7 +1183,10 @@ function _notifyReady() {
     try { parent.postMessage({ type: 'molstarReady' }, '*'); } catch(e) {}
     if (_pendingStructure && _viewer) {
         _structLabel = _pendingStructure.label || '';
-        // Process queued structure swap (warm-up → real prediction transition)
+        structData = _pendingStructure.structData;
+        if (_pendingStructure.fmt) fmt = _pendingStructure.fmt;
+        var psFocus = _pendingStructure.focusSpans || null;
+        var psGen = ++_camGen;
         try {
             if (_structUrl) { try { URL.revokeObjectURL(_structUrl); } catch(_) {} }
             var psBlob = new Blob([_pendingStructure.structData], { type: 'text/plain' });
@@ -739,19 +1195,18 @@ function _notifyReady() {
             var psKeepCtl = !!(_viewer.plugin && _viewer.plugin.layout && _viewer.plugin.layout.state && _viewer.plugin.layout.state.showControls);
             var psP = _viewer.loadMvsData(psMvs, 'mvsj');
             var psRefit = function() {
+                if (psGen !== _camGen) return;
                 _restoreCtl(psKeepCtl);
                 _applyIllustrativeStyle(_viewer);
                 var resetCamera = function() {
+                    if (psGen !== _camGen) return;
                     try {
                         var c3d = _viewer && _viewer.plugin && _viewer.plugin.canvas3d;
-                        // Force Mol* to recompute viewport size: when the iframe just
-                        // transitioned from display:none → visible (warm-up → real
-                        // results), ResizeObserver may not have fired yet and the
-                        // camera would fit using stale 0x0 dimensions (looks broken
-                        // on mobile in particular).
-                        var wh = window.innerWidth + 'x' + window.innerHeight;   // the retries below resize only when the frame's size moved (each resize can reallocate the render buffers)
+                        var wh = window.innerWidth + 'x' + window.innerHeight;
                         if (c3d && typeof c3d.handleResize === 'function' && wh !== _lastWH) { c3d.handleResize(); _lastWH = wh; }
-                        if (c3d && typeof c3d.requestCameraReset === 'function') c3d.requestCameraReset();
+                        _pinNoClipping();
+                        if (psFocus && psFocus.length) _focusOnSpans(psFocus, 0);
+                        else if (c3d && typeof c3d.requestCameraReset === 'function') c3d.requestCameraReset();
                         else if (_viewer && _viewer.plugin && _viewer.plugin.managers && _viewer.plugin.managers.camera && typeof _viewer.plugin.managers.camera.reset === 'function') _viewer.plugin.managers.camera.reset();
                     } catch(_e) {}
                 };
@@ -764,15 +1219,17 @@ function _notifyReady() {
             else setTimeout(psRefit, 50);
         } catch (e) { console.warn('Pending structure load failed:', e); }
         _pendingStructure = null;
-        _pendingColorMvs = null; // colors are baked into MVS that came with the structure
+        _pendingColorMvs = null;
         return;
     }
     if (_pendingColorMvs && _viewer && _structUrl) {
         try {
-            var newMvs = _pendingColorMvs.replace('__STRUCT_BLOB_URL__', _structUrl);
+            var pmStr = typeof _pendingColorMvs === 'string' ? _pendingColorMvs : _pendingColorMvs.mvsStr;
+            var pmFocus = typeof _pendingColorMvs === 'object' ? _pendingColorMvs.focusSpans : null;
+            var newMvs = pmStr.replace('__STRUCT_BLOB_URL__', _structUrl);
             var pcKeepCtl = !!(_viewer.plugin && _viewer.plugin.layout && _viewer.plugin.layout.state && _viewer.plugin.layout.state.showControls);
             var p = _viewer.loadMvsData(newMvs, 'mvsj');
-            var reapply = function() { _restoreCtl(pcKeepCtl); _applyIllustrativeStyle(_viewer); };
+            var reapply = function() { _restoreCtl(pcKeepCtl); _applyIllustrativeStyle(_viewer); if (pmFocus && pmFocus.length) _focusOnSpans(pmFocus, 200); };
             if (p && typeof p.then === 'function') p.then(reapply, reapply);
             else setTimeout(reapply, 50);
         } catch (e) { console.warn('Pending color update failed:', e); }
@@ -1075,15 +1532,132 @@ function applyViewer3dDomains(base, structText, fmt, chains) {
     }
     return out;
 }
+function _ensureViewer3dFindCss() {
+    if (document.getElementById('v3d-find-css')) return;
+    const st = document.createElement('style'); st.id = 'v3d-find-css';
+    st.textContent = `.v3d-find { display:flex; flex-direction:column; gap:0.35rem; margin:0 0 0.55rem; font-size:0.82rem; color:#555; }
+.v3d-find-row { display:flex; flex-wrap:wrap; align-items:center; gap:0.35rem 0.45rem; }
+.v3d-find-lab { font-size:0.7rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:#7A8899; min-width:5.6rem; }
+.v3d-find-in { flex:1 1 240px; max-width:360px; height:28px; box-sizing:border-box; padding:0 0.55rem; border:1px solid #DCE3EB; border-radius:6px; font-family:inherit; font-size:0.8rem; color:#17263A; background:#fff; }
+.v3d-find-in:focus { outline:2px solid #2471A3; outline-offset:1px; border-color:#2471A3; }
+.v3d-find-btn { height:28px; padding:0 0.65rem; border-radius:6px; font-family:inherit; font-size:0.78rem; font-weight:600; cursor:pointer; border:1px solid #DCE3EB; background:#fff; color:#17263A; }
+.v3d-find-btn:hover { border-color:#2471A3; color:#2471A3; }
+.v3d-find-btn.pri { background:#1A5276; border-color:#1A5276; color:#fff; }
+.v3d-find-btn.pri:hover { background:#2471A3; border-color:#2471A3; color:#fff; }
+.v3d-find-res { display:flex; flex-wrap:wrap; align-items:center; gap:0.3rem 0.4rem; padding-left:6.05rem; font-size:0.78rem; }
+.v3d-find-res:empty { display:none; }
+.v3d-hit { display:inline-flex; align-items:center; gap:0.3rem; padding:0.18rem 0.5rem; border-radius:999px; border:1px solid #F3B3CB; background:#FDF2F6; color:#9C1143; font-family:inherit; font-size:0.76rem; font-weight:600; cursor:pointer; }
+.v3d-hit:hover, .v3d-hit.on { background:#E91E63; border-color:#E91E63; color:#fff; }
+.v3d-hit code { font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace; font-size:0.74rem; font-weight:500; opacity:0.88; }
+.v3d-find-msg { color:#6B7785; font-size:0.78rem; }
+.v3d-find-msg.miss { color:#B03A2E; }
+@media (max-width:600px) { .v3d-find-lab { min-width:0; width:100%; } .v3d-find-res { padding-left:0; } }`;
+    document.head.appendChild(st);
+}
+function mountViewer3dFindBar(frameId) {
+    const id = frameId || 'viewer3d-frame';
+    if (id !== 'viewer3d-frame') return;
+    const frame = document.getElementById(id);
+    if (!frame || document.getElementById('viewer3d-findbar')) return;
+    _ensureViewer3dFindCss();
+    const wrap = document.createElement('div');
+    wrap.id = 'viewer3d-findbar';
+    wrap.className = 'v3d-find';
+    wrap.innerHTML = `<div class="v3d-find-row"><span class="v3d-find-lab">Find in 3D</span>`
+        + `<input type="search" id="v3d-find-in" class="v3d-find-in" spellcheck="false" autocomplete="off" placeholder="Sequence (e.g. PPXY, TNCESL) or residue (A:120-135)" aria-label="Search sequence motif or residue range in 3D structure">`
+        + `<button type="button" id="v3d-find-go" class="v3d-find-btn pri">Highlight</button>`
+        + `<button type="button" id="v3d-find-clr" class="v3d-find-btn" hidden>Clear</button>`
+        + `<button type="button" id="v3d-find-rst" class="v3d-find-btn" title="Reset 3D camera to the full structure">Reset view</button></div>`
+        + `<div id="v3d-find-res" class="v3d-find-res" aria-live="polite"></div>`;
+    const colorBar = document.getElementById('viewer3d-colorbar');
+    const host = frame.parentElement && frame.parentElement.classList.contains('viewer3d') ? frame.parentElement : frame;
+    if (colorBar && colorBar.parentElement === host.parentElement) colorBar.insertAdjacentElement('afterend', wrap);
+    else if (host.parentElement) host.parentElement.insertBefore(wrap, host);
+    const inp = wrap.querySelector('#v3d-find-in');
+    const runSearch = () => {
+        const q = (inp.value || '').trim();
+        if (!q) { clearMolstarHighlight(id); return; }
+        const st = _getV3dState(id);
+        st.query = q;
+        const seqs = parseChainSequences(st.structData, st.fmt);
+        const res = searchStructure3d(seqs, q);
+        st.hits = res.hits;
+        st.activeHitIdx = res.hits.length === 1 ? 0 : -1;
+        if (!res.hits.length) {
+            st.highlightSpans = [];
+            st.autoCompleteNote = '';
+            if (st.baseComponents && st.baseComponents.length) applyColorsToMolstarFrame(id, st.baseComponents, st.fmt, null);
+            _syncViewer3dFindUi(id, res);
+            return;
+        }
+        const spans = res.hits.map(h => ({ chain: h.chain, start: h.start, end: h.end }));
+        highlightSpansInMolstar(id, spans, spans);
+        _syncViewer3dFindUi(id, res);
+    };
+    wrap.querySelector('#v3d-find-go').onclick = runSearch;
+    wrap.querySelector('#v3d-find-clr').onclick = () => clearMolstarHighlight(id);
+    wrap.querySelector('#v3d-find-rst').onclick = () => resetMolstarCamera(id);
+    inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); runSearch(); }
+        else if (e.key === 'Escape') { e.preventDefault(); clearMolstarHighlight(id); }
+    });
+    inp.addEventListener('search', () => { if (!inp.value.trim()) clearMolstarHighlight(id); });
+    _syncViewer3dFindUi(id);
+}
+function _syncViewer3dFindUi(frameId, lastRes) {
+    const id = frameId || 'viewer3d-frame';
+    if (id !== 'viewer3d-frame') return;
+    if (!document.getElementById('viewer3d-findbar')) mountViewer3dFindBar(id);
+    const resEl = document.getElementById('v3d-find-res');
+    const clrBtn = document.getElementById('v3d-find-clr');
+    if (!resEl) return;
+    const st = _getV3dState(id);
+    const hasHl = !!(st.highlightSpans && st.highlightSpans.length);
+    if (clrBtn) clrBtn.hidden = !hasHl && !st.query;
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    if (!st.hits.length) {
+        if (st.query) {
+            const seqs = parseChainSequences(st.structData, st.fmt);
+            const chTxt = seqs.chains.length ? ` in chain${seqs.chains.length === 1 ? '' : 's'} ${seqs.chains.join(', ')}` : ' (no structure loaded yet)';
+            const msg = lastRes && lastRes.kind === 'invalid'
+                ? 'Enter amino acid letters (X or . for any residue) or residue numbers (e.g. A:120-135).'
+                : `No match for "${st.query}"${chTxt}.`;
+            resEl.innerHTML = `<span class="v3d-find-msg miss">${esc(msg)}</span>`;
+        } else {
+            resEl.innerHTML = '';
+        }
+        return;
+    }
+    const pills = st.hits.slice(0, 12).map((h, i) => {
+        const sub = h.seq ? (h.seq.length > 10 ? h.seq.slice(0, 8) + '\u2026' : h.seq) : '';
+        return `<button type="button" class="v3d-hit${st.activeHitIdx === i ? ' on' : ''}" data-hi="${i}" title="Focus ${esc(h.label)}${h.seq ? ' (' + esc(h.seq) + ')' : ''} in 3D">${esc(h.label)}${sub ? ` <code>${esc(sub)}</code>` : ''}</button>`;
+    }).join('');
+    const allPill = st.hits.length > 1 ? `<button type="button" class="v3d-hit${st.activeHitIdx === -1 ? ' on' : ''}" data-hi="-1">All (${st.hits.length})</button>` : '';
+    const extra = st.hits.length > 12 ? `<span class="v3d-find-msg">+${st.hits.length - 12} more</span>` : '';
+    const note = st.autoCompleteNote ? `<span class="v3d-find-msg">\u00b7 ${esc(st.autoCompleteNote)}</span>` : '';
+    const prefix = st.query ? `<span class="v3d-find-msg">${st.hits.length} match${st.hits.length === 1 ? '' : 'es'}:</span>` : `<span class="v3d-find-msg">Highlighted:</span>`;
+    resEl.innerHTML = `${prefix}${allPill}${pills}${extra}${note}`;
+    resEl.querySelectorAll('[data-hi]').forEach((b) => {
+        b.onclick = () => {
+            const idx = +b.dataset.hi;
+            st.activeHitIdx = idx;
+            const spans = st.hits.map(h => ({ chain: h.chain, start: h.start, end: h.end }));
+            const focus = idx >= 0 && st.hits[idx] ? [{ chain: st.hits[idx].chain, start: st.hits[idx].start, end: st.hits[idx].end }] : spans;
+            highlightSpansInMolstar(id, spans, focus, { keepFindUi: true });
+            resEl.querySelectorAll('[data-hi]').forEach(x => x.classList.toggle('on', +x.dataset.hi === idx));
+        };
+    });
+}
 function mountViewer3dPngButton() {
     const frame = document.getElementById('viewer3d-frame');
     if (!frame || document.getElementById('viewer3d-png-btn')) return;
-    let bar = frame.nextElementSibling;
-    const hasFs = bar && bar.tagName === 'DIV' && bar.querySelector('button[onclick*="requestFullscreen"]');
-    if (!hasFs) {
+    const fsBtn = frame.parentElement && frame.parentElement.querySelector('button[onclick*="requestFullscreen"]');
+    let bar = fsBtn ? fsBtn.parentElement : null;
+    if (!bar || bar === frame.parentElement) {
         bar = document.createElement('div');
         bar.style.cssText = 'text-align:right; margin-top:0.3rem;';
-        frame.insertAdjacentElement('afterend', bar);
+        const after = document.getElementById('viewer3d-domkey') || frame;
+        after.insertAdjacentElement('afterend', bar);
     }
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -1099,6 +1673,6 @@ function mountViewer3dPngButton() {
     bar.insertBefore(btn, bar.firstChild);
 }
 if (typeof document !== 'undefined') {
-    const _initV3dUi = () => { mountViewer3dColorBar(); mountViewer3dPngButton(); };
+    const _initV3dUi = () => { mountViewer3dColorBar(); mountViewer3dFindBar(); mountViewer3dPngButton(); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _initV3dUi); else _initV3dUi();
 }
