@@ -2733,6 +2733,20 @@ function discoverGeneric(filenames) {
     };
     const scoresFiles = jsonFiles.filter(looksLikeScores);
 
+    const usedGenericLabels = new Set();
+    const shortGenericLabel = (base, idx) => {
+        const stem = base.replace(/\.(cif|pdb)$/i, '');
+        const afVer = base.match(/^AF-[A-Z0-9-]+-(model_v\d+)\.(cif|pdb)$/i);
+        let lbl = afVer ? afVer[1] : stem;
+        if (!afVer && lbl.length > 22) {
+            const tok = stem.match(/(?:^|[_\-.])((?:rank|model|sample)[_-]?\d+)$/i);
+            lbl = tok ? tok[1] : (structFiles.length === 1 ? 'model_1' : stem);
+        }
+        if (usedGenericLabels.has(lbl)) lbl = stem;
+        usedGenericLabels.add(lbl);
+        return lbl;
+    };
+
     for (let i = 0; i < structFiles.length; i++) {
         const structBase = structFiles[i].split('/').pop();
         const ext = structBase.split('.').pop();
@@ -2775,7 +2789,7 @@ function discoverGeneric(filenames) {
             paeSource: paeSource,
             confidencePath: confidencePath,
             format: ext,
-            label: structBase,
+            label: shortGenericLabel(structBase, i),
         };
     }
     return predictions;
@@ -4815,7 +4829,8 @@ function displayResults(results, jobName) {
                 if (isBestModel) tr.dataset.best = '1';
                 tr.onclick = () => selectRow(key, String(mi), tr);
                 const expBtn = isBestModel ? `<button type="button" class="pair-exp-btn" data-expkey="${esc(key)}" onclick="event.stopPropagation(); togglePairModels(this.dataset.expkey)" title="Expand or collapse all models for this pair">\u25b8${sortedMi.length}</button>` : '';
-                tr.innerHTML = `<td>${esc(uniState.modelData[mi]?.label || 'model_' + mi)}${expBtn}</td><td data-paircell="1">${pairLabelHtml(mv.ci, mv.cj)}</td><td>${ilisHtml(mv.iLIS)}</td><td>${(mv.iLISA||0).toFixed(1)}</td><td>${(mv.ipSAE||0).toFixed(3)}</td><td>${(mv.actifpTM||0).toFixed(3)}</td>${iptmCell(mv.ipTM)}<td>${mv.LIS.toFixed(3)}</td><td>${mv.cLIS.toFixed(3)}</td>${pdqCell(mv.pDockQ)}${pdqCell(mv.LIpDockQ)}${pdqCell(mean2Nullable(mv.pDockQ2_i, mv.pDockQ2_j))}${pdqCell(mean2Nullable(mv.LIpDockQ2_i, mv.LIpDockQ2_j))}<td class="col-extra">${(mv.iLIA||0).toFixed(1)}</td><td class="col-extra">${mv.lirI.size} / ${mv.lirJ.size}</td><td class="col-extra">${mv.clirI.size} / ${mv.clirJ.size}</td>`;
+                const modTip = uniState.structureFilenames[mi] ? ` title="${esc(uniState.structureFilenames[mi])}"` : '';
+                tr.innerHTML = `<td${modTip}>${esc(uniState.modelData[mi]?.label || 'model_' + mi)}${expBtn}</td><td data-paircell="1">${pairLabelHtml(mv.ci, mv.cj)}</td><td>${ilisHtml(mv.iLIS)}</td><td>${(mv.iLISA||0).toFixed(1)}</td><td>${(mv.ipSAE||0).toFixed(3)}</td><td>${(mv.actifpTM||0).toFixed(3)}</td>${iptmCell(mv.ipTM)}<td>${mv.LIS.toFixed(3)}</td><td>${mv.cLIS.toFixed(3)}</td>${pdqCell(mv.pDockQ)}${pdqCell(mv.LIpDockQ)}${pdqCell(mean2Nullable(mv.pDockQ2_i, mv.pDockQ2_j))}${pdqCell(mean2Nullable(mv.LIpDockQ2_i, mv.LIpDockQ2_j))}<td class="col-extra">${(mv.iLIA||0).toFixed(1)}</td><td class="col-extra">${mv.lirI.size} / ${mv.lirJ.size}</td><td class="col-extra">${mv.clirI.size} / ${mv.clirJ.size}</td>`;
                 tbody.appendChild(tr);
             }
             // Average row — auto-selected for first pair
@@ -4834,7 +4849,8 @@ function displayResults(results, jobName) {
             tr.dataset.pairkey = key; tr.dataset.model = '0';
             tr.dataset.ci = avg.ci; tr.dataset.cj = avg.cj; tr.dataset.best = '1';
             tr.onclick = () => selectRow(key, '0', tr);
-            tr.innerHTML = `<td>${esc(uniState.modelData[0]?.label || '0')}</td><td data-paircell="1">${pairLabelHtml(avg.ci, avg.cj)}</td><td>${ilisHtml(avg.iLIS)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td>${pdqCell(avg.pDockQ)}${pdqCell(avg.LIpDockQ)}${pdqCell(mean2Nullable(avg.pDockQ2_i, avg.pDockQ2_j))}${pdqCell(mean2Nullable(avg.LIpDockQ2_i, avg.LIpDockQ2_j))}<td class="col-extra">${(avg.iLIA||0).toFixed(1)}</td><td class="col-extra">${avg.lirI.size} / ${avg.lirJ.size}</td><td class="col-extra">${avg.clirI.size} / ${avg.clirJ.size}</td>`;
+            const modTip0 = uniState.structureFilenames[0] ? ` title="${esc(uniState.structureFilenames[0])}"` : '';
+            tr.innerHTML = `<td${modTip0}>${esc(uniState.modelData[0]?.label || '0')}</td><td data-paircell="1">${pairLabelHtml(avg.ci, avg.cj)}</td><td>${ilisHtml(avg.iLIS)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td>${pdqCell(avg.pDockQ)}${pdqCell(avg.LIpDockQ)}${pdqCell(mean2Nullable(avg.pDockQ2_i, avg.pDockQ2_j))}${pdqCell(mean2Nullable(avg.LIpDockQ2_i, avg.LIpDockQ2_j))}<td class="col-extra">${(avg.iLIA||0).toFixed(1)}</td><td class="col-extra">${avg.lirI.size} / ${avg.lirJ.size}</td><td class="col-extra">${avg.clirI.size} / ${avg.clirJ.size}</td>`;
             tbody.appendChild(tr);
         }
     }
