@@ -54,6 +54,11 @@
   .ctrlbar button{ background:var(--accent); color:#fff; border:0; border-radius:7px; padding:8px 16px; font-weight:600; font-size:14px; cursor:pointer; }
   .ctrlbar button:disabled{ opacity:.45; cursor:default; }
   .ctrlbar button.ghost{ background:#eef3f8; color:var(--accent); }
+  .fpr-seg{ display:inline-flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; vertical-align:middle; margin-left:4px; }
+  .ctrlbar .fpr-seg button{ background:#fff; color:#4A596F; border:0; border-left:1px solid var(--line); border-radius:0; padding:0 9px; height:30px; font-size:12.5px; font-weight:600; cursor:pointer; }
+  .ctrlbar .fpr-seg button:first-child{ border-left:0; }
+  .ctrlbar .fpr-seg button:hover:not(.on){ background:#eef3f8; color:var(--accent); }
+  .ctrlbar .fpr-seg button.on{ background:var(--accent); color:#fff; }
   #status{ color:var(--mut); font-size:.85rem; }
   .statbar{ display:flex; gap:24px; flex-wrap:wrap; margin:0 2px 14px; }
   .statbar .s{ font-size:13px; color:var(--mut); } .statbar .s b{ color:var(--ink); font-size:16px; }
@@ -159,7 +164,7 @@
   </div>
 
   <div class="ctrlbar" id="buildbar">
-    <span><label class="lb">iLIS &ge;</label> <input id="cut" aria-label="iLIS cutoff" type="range" min="0" max="0.9" step="0.001" value="0.223"> <input id="cutv" aria-label="iLIS cutoff value" type="number" min="0" max="1" step="0.001" value="0.223" style="width:78px"></span>
+    <span><label class="lb">iLIS &ge;</label> <input id="cut" aria-label="iLIS cutoff" type="range" min="0" max="0.9" step="0.001" value="0.223"> <input id="cutv" aria-label="iLIS cutoff value" type="number" min="0" max="1" step="0.001" value="0.223" style="width:78px"> <span class="fpr-seg" id="cut-fpr" role="group" aria-label="iLIS FPR presets"><button type="button" data-cut="0.223" class="on" title="10% FPR cutoff (iLIS ≥ 0.223)">10% FPR</button><button type="button" data-cut="0.339" title="5% FPR cutoff (iLIS ≥ 0.339)">5% FPR</button><button type="button" data-cut="0.551" title="1% FPR cutoff (iLIS ≥ 0.551)">1% FPR</button></span></span>
     <span id="clustmode-wrap" class="hidden"><label class="lb">clustering</label> <select id="clustmode" title="user-defined: color + group by your uploaded cluster map (Leiden not run). Leiden: ignore the map and detect communities."><option value="user">user-defined</option><option value="leiden">Leiden (auto)</option></select></span>
     <span id="labelby-wrap" class="hidden"><label class="lb">Label by</label> <select id="labelby"></select></span>
     <details class="pop" id="clustopts">
@@ -268,10 +273,10 @@ function commColor(i){
 const commHex = c => COMMCOLORS[c] || commColor(c);
 // user-defined clustering: a loaded cluster map is used unless the toggle says Leiden
 function userClusterMode(){ return !!(USERCLUST && USERCLUST.size && (!$('clustmode') || $('clustmode').value === 'user')); }
-// display name for a community index: the user's label if any (a bare number → "Community N"), else "Community N"
-function commLabel(c){ const nm = LAST && LAST.commNames && LAST.commNames[c]; if (nm == null) return 'Community ' + c; return /^\d+$/.test(nm) ? 'Community ' + nm : nm; }
-// value written to exports for a community index: the user's raw label if any, else the index
-const commOut = c => (LAST && LAST.commNames && LAST.commNames[c] != null) ? LAST.commNames[c] : c;
+// display name for a community index: the user's label if any (a bare number → "Community N"), else 1-based "Community N"
+function commLabel(c){ const nm = LAST && LAST.commNames && LAST.commNames[c]; if (nm == null) return 'Community ' + (c + 1); return /^\d+$/.test(nm) ? 'Community ' + nm : nm; }
+// value written to exports for a community index: the user's raw label if any, else 1-based index
+const commOut = c => (LAST && LAST.commNames && LAST.commNames[c] != null) ? LAST.commNames[c] : (c + 1);
 // membership from the user's cluster map: distinct labels → indices ordered by size (largest first, matches Leiden)
 function userMembership(nodes){
   const labelOf = nodes.map(s => USERCLUST.get(s));
@@ -604,6 +609,14 @@ async function build(){
       await ensureWasm();
       setStatus(`Running Leiden on ${nodes.length} nodes / ${edges.length} edges…`);
       ({ membership, degree } = await leiden(nodes, edges, res, obj, seed));
+      // Renumber Leiden communities so Community 1, 2, 3... match the Modules display order (≥3 proteins first, by intra-community edges then mean iLIS)
+      const cIdx0 = new Map(nodes.map((s, i) => [s, membership[i]]));
+      const stats = new Map();
+      membership.forEach((c) => { let o = stats.get(c); if (!o) { o = { c, n: 0, e: 0, sum: 0 }; stats.set(c, o); } o.n++; });
+      edges.forEach((e) => { const ca = cIdx0.get(e.a); if (ca === cIdx0.get(e.b)) { const o = stats.get(ca); if (o) { o.e++; o.sum += e.iLIS; } } });
+      const ordered = [...stats.values()].sort((a, b) => ((a.n >= 3 ? 0 : 1) - (b.n >= 3 ? 0 : 1)) || (b.e - a.e) || ((b.e ? b.sum / b.e : 0) - (a.e ? a.sum / a.e : 0)) || (b.n - a.n));
+      const remap = new Map(ordered.map((o, idx) => [o.c, idx]));
+      membership = membership.map((c) => remap.get(c));
     }
     const strengthMap=new Map(nodes.map(s=>[s,0])); edges.forEach(e=>{ strengthMap.set(e.a,strengthMap.get(e.a)+e.iLIS); strengthMap.set(e.b,strengthMap.get(e.b)+e.iLIS); });
     await visP;
@@ -969,6 +982,7 @@ async function importSettings(file){
   if (USERCLUST && $('clustmode')) $('clustmode').value = s.clustmode || 'user';
   if (s.labelby){ META_COL=s.labelby; if($('labelby')) $('labelby').value=s.labelby; }
   $('unicolor').classList.toggle('hidden', $('colorby').value!=='uniform');
+  syncCutFpr();
   if (RAWPAIRS.size){ await build(); await applyLayout($('layout').value); }
   setStatus('Settings loaded.');
 }
@@ -988,7 +1002,24 @@ function linkSlider(sId, nId, effect){ const s=$(sId), n=$(nId);   // slider + t
   s.addEventListener('input', ()=>{ n.value=s.value; if(effect) effect(); });
   n.addEventListener('input', ()=>{ if(n.value==='') return; s.value=Math.max(+s.min, Math.min(+s.max, +n.value)); if(effect) effect(); });
 }
-linkSlider('cut','cutv'); linkSlider('res','resv');                          // iLIS + resolution apply on the next Build
+function syncCutFpr(){
+  const v = +$('cutv').value;
+  const g = $('cut-fpr'); if (!g) return;
+  g.querySelectorAll('button[data-cut]').forEach((b) => {
+    const on = Math.abs(v - +b.dataset.cut) < 0.0005;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+if ($('cut-fpr')) $('cut-fpr').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-cut]'); if (!b) return;
+  const v = b.dataset.cut;
+  $('cut').value = v; $('cutv').value = v;
+  syncCutFpr();
+  if (RAWPAIRS.size && !$('build').disabled) build();
+});
+linkSlider('cut','cutv', syncCutFpr); linkSlider('res','resv');                          // iLIS + resolution apply on the next Build
+syncCutFpr();
 linkSlider('nsize','nsizev', restyle); linkSlider('emin','eminv', restyle); linkSlider('lbldeg','lbldegv', restyle);
 $('mindeg').addEventListener('input', ()=>{ $('mindegv').value=$('mindeg').value; });     // min edges/node: re-layout is heavy -> apply on release / Enter
 $('mindegv').addEventListener('input', ()=>{ if($('mindegv').value!=='') $('mindeg').value=Math.max(1, Math.min(+$('mindeg').max, +$('mindegv').value)); });
@@ -1086,6 +1117,7 @@ function applyNetOpts(ilis, species){
     const v = String(+ilis);
     if ($('cut'))  $('cut').value  = v;
     if ($('cutv')) $('cutv').value = v;
+    syncCutFpr();
   }
   if (species != null && species !== '' && $('mg-species')) $('mg-species').value = String(species);
 }
