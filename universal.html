@@ -4910,14 +4910,14 @@ function setNegPairsShown(show) {
     if (t) t.classList.toggle('hide-neg', !show);
 }
 
-function pairLabelHtml(ci, cj) {
+function pairLabelTitle(ci, cj) {
     const gi = typeof chainGeneName === 'function' ? chainGeneName(ci) : '';
     const gj = typeof chainGeneName === 'function' ? chainGeneName(cj) : '';
-    const base = `${esc(ci)} / ${esc(cj)}`;
-    if ((gi && gi !== ci) || (gj && gj !== cj)) {
-        return `${base}<span class="pair-genes" style="color:#6B6B6B; font-size:0.75rem; font-weight:400;"> (${esc(gi || ci)} / ${esc(gj || cj)})</span>`;
-    }
-    return base;
+    return ((gi && gi !== ci) || (gj && gj !== cj)) ? `${gi || ci} / ${gj || cj}` : '';
+}
+
+function pairLabelHtml(ci, cj) {
+    return `${esc(ci)} / ${esc(cj)}`;
 }
 
 function updatePairsTableGeneLabels() {
@@ -4925,7 +4925,11 @@ function updatePairsTableGeneLabels() {
         const ci = tr.dataset.ci, cj = tr.dataset.cj;
         if (!ci || !cj) return;
         const td = tr.querySelector('td[data-paircell="1"]');
-        if (td) td.innerHTML = pairLabelHtml(ci, cj);
+        if (td) {
+            td.innerHTML = pairLabelHtml(ci, cj);
+            const tip = pairLabelTitle(ci, cj);
+            if (tip) td.title = tip; else td.removeAttribute('title');
+        }
     });
     applyPairsTableFilters();
 }
