@@ -6,11 +6,11 @@
 
 - **Prediction Analysis (`universal.html`)**: `https://flyark.github.io/LIVIA/universal.html`
   - Client-side evaluator for local or remote structure predictions (`.pdb`/`.cif` + PAE `.json`/`.npz`/`.pkl`, or `.zip`/`.tar.gz` archives).
-  - Computes `LIS`, `cLIS`, `iLIS`, `LIA`, `cLIA`, `iLIA`, `iLISA`, `ipSAE`, `actifpTM`, `pDockQ`, `LIpDockQ`, `pDockQ2`, `LIpDockQ2`, `ipTM`, `pTM`, per-chain `LIR` and `cLIR` residue indices, PAE/LIS/cLIS heatmaps, linear/circular interaction maps, and 3D Mol* views.
-  - Supports URL loading via `?url=<encoded_zip_or_json_url>` or postMessage handshakes (`?post=1`).
+  - Computes `LIS`, `cLIS`, `iLIS`, `LIA`, `cLIA`, `iLIA`, `iLISA`, `ipSAE`, `actifpTM`, `pDockQ`, `LIpDockQ`, `pDockQ2`, `LIpDockQ2`, `ipTM`, `pTM`, per-chain `LIR` and `cLIR` residue indices, interactive PAE/LIS/cLIS heatmaps (hover readout + click-to-highlight in 3D), linear/circular interaction maps, 3D Mol* views (`Isolate selected pair`, PNG snapshot), and refold exports (`FASTA`, `AlphaFold 3 JSON`, `Boltz-2 YAML`).
+  - Supports URL loading via `?url=<encoded_zip_or_json_url>` or postMessage handshakes (`?post=1`, `livia-load` and zero-copy `livia-load-files`), plus keyboard shortcuts (`↑`/`↓` switch pair, `1`–`5` switch model, `i` isolate pair).
 - **cLIP (`clip.html`)**: `https://flyark.github.io/LIVIA/clip.html`
   - Clustered Local Interaction Profiler for `lis.py` CSV outputs (`?data=<csv_or_zip_url>&gene=<query_name>`).
-  - Clusters passing models by cosine distance over query `cLIR` contact fingerprints to map binding sites along a query protein, overlaid with Pfam/UniProt domains, AlphaFold DB `pLDDT`, and AlphaMissense scores.
+  - Clusters passing models by cosine distance over query `cLIR` contact fingerprints to map binding sites along a query protein, overlaid with Pfam/UniProt domains, AlphaFold DB `pLDDT`, and AlphaMissense scores, with `by cluster`, `all models` (combined total curve), and `classic` frequency modes.
 - **PPI Network (`network.html`)**: `https://flyark.github.io/LIVIA/network.html`
   - Interactive network builder and community detector (Leiden, Louvain, MCL) for `lis.py` screen tables.
 - **FlyPredictome Viewer (`flypredictome.html`)**: `https://flyark.github.io/LIVIA/flypredictome.html`

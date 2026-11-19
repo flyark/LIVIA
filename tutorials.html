@@ -242,11 +242,11 @@
             <div class="steps-sidebar" data-tutorial="universal">
                 <div class="step-item active" data-step="0" onclick="goToStep('universal', 0)">
                     <div class="step-badge">1</div>
-                    <div class="step-text">Load your prediction files or select example files</div>
+                    <div class="step-text">Drop prediction files anywhere on the window or pick an example</div>
                 </div>
                 <div class="step-item" data-step="1" onclick="goToStep('universal', 1)">
                     <div class="step-badge">2</div>
-                    <div class="step-text">Review per-model metrics — iLIS, iLIA, iLISA, ipSAE, actifpTM, ipTM</div>
+                    <div class="step-text">Review per-model metrics, filter subunits, or export Markdown / FASTA / AF3 / Boltz</div>
                 </div>
                 <div class="step-item" data-step="2" onclick="goToStep('universal', 2)">
                     <div class="step-badge">3</div>
@@ -254,7 +254,7 @@
                 </div>
                 <div class="step-item" data-step="3" onclick="goToStep('universal', 3)">
                     <div class="step-badge">4</div>
-                    <div class="step-text">Score Matrix and PAE/LIS/cLIS heatmaps across all models</div>
+                    <div class="step-text">Score Matrix and interactive PAE/LIS/cLIS heatmaps (hover readout &amp; click to 3D)</div>
                 </div>
                 <div class="step-item" data-step="4" onclick="goToStep('universal', 4)">
                     <div class="step-badge">5</div>
@@ -274,7 +274,7 @@
                 </div>
                 <div class="step-item" data-step="8" onclick="goToStep('universal', 8)">
                     <div class="step-badge">9</div>
-                    <div class="step-text">View the 3D structure in Mol* viewer</div>
+                    <div class="step-text">3D structure in Mol* &mdash; isolate selected pair (<code>i</code>) &amp; one-click PNG export</div>
                 </div>
                 <div class="step-item" data-step="9" onclick="goToStep('universal', 9)">
                     <div class="step-badge">10</div>
@@ -374,8 +374,78 @@
     </div>
 
     <!-- ============================================================ -->
-    <!-- TUTORIAL 3: FlyPredictome -->
+    <!-- TUTORIAL 3: LIVIA Atlas (5 steps) -->
     <!-- ============================================================ -->
+    <div class="tutorial-card" id="tut-atlas">
+        <div class="tutorial-header">
+            <div>
+                <h3>LIVIA Atlas</h3>
+                <p>Explore proteome-scale binding sites, residue frequency tracks, and open 3D complexes directly in LIVIA</p>
+            </div>
+            <a class="try-btn" href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener">Open Atlas &rarr;</a>
+        </div>
+        <div class="tutorial-body">
+            <div class="steps-sidebar" data-tutorial="atlas">
+                <div class="step-item active" data-step="0" onclick="goToStep('atlas', 0)">
+                    <div class="step-badge">1</div>
+                    <div class="step-text">Press <code>/</code> to search a protein or type two names (<code>TP53 MDM2</code>) to jump straight to a pair</div>
+                </div>
+                <div class="step-item" data-step="1" onclick="goToStep('atlas', 1)">
+                    <div class="step-badge">2</div>
+                    <div class="step-text">Contact residue frequency &mdash; by-cluster profiles aligned with Pfam domains, pLDDT, and AlphaMissense</div>
+                </div>
+                <div class="step-item" data-step="2" onclick="goToStep('atlas', 2)">
+                    <div class="step-badge">3</div>
+                    <div class="step-text">Switch to <strong>all models</strong> for the combined total curve and mark residue ranges or motifs (<code>15-29</code>)</div>
+                </div>
+                <div class="step-item" data-step="3" onclick="goToStep('atlas', 3)">
+                    <div class="step-badge">4</div>
+                    <div class="step-text">Filter Interactors by cluster, BioGRID evidence, or structure availability, with <strong>Models past</strong> and <strong>Contact spans</strong></div>
+                </div>
+                <div class="step-item" data-step="4" onclick="goToStep('atlas', 4)">
+                    <div class="step-badge">5</div>
+                    <div class="step-text">Open archived AFDB or Human Predictome 3D models straight into LIVIA via fast byte-range streaming</div>
+                </div>
+            </div>
+            <div class="screenshot-area" data-tutorial="atlas">
+                <img id="img-atlas" src="screenshots/tut_atlas_1.png" alt="LIVIA Atlas tutorial step">
+                <div class="screenshot-caption" id="cap-atlas">Press / anywhere in LIVIA Atlas to search a protein, or type two gene names (TP53 MDM2) to jump directly to their pair page</div>
+                <div class="progress-dots" id="dots-atlas"></div>
+                <div class="playback-controls">
+                    <button class="playback-btn" onclick="togglePlayback('atlas')" id="play-btn-atlas" title="Pause/Resume">&#9646;&#9646; Pause</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- KEYBOARD SHORTCUTS & POWER TIPS -->
+    <!-- ============================================================ -->
+    <div class="tour-full" id="tips" style="padding:1.25rem 1.5rem;">
+        <h2 style="font-size:1.15rem; margin-bottom:0.5rem;">Keyboard Shortcuts &amp; Quick Tips</h2>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(290px, 1fr)); gap:1rem; font-size:0.86rem; color:#555; line-height:1.65;">
+            <div>
+                <p style="font-weight:600; color:#1a5276; margin-bottom:0.35rem;">LIVIA Prediction Analysis</p>
+                <ul style="padding-left:1.15rem;">
+                    <li><code>&uarr;</code> / <code>&darr;</code> &mdash; switch the selected chain pair; <code>1</code>&ndash;<code>5</code> &mdash; switch ranked models</li>
+                    <li><code>i</code> &mdash; toggle <strong>Isolate selected pair</strong> in the 3D Mol* viewer</li>
+                    <li><strong>Drop anywhere</strong> &mdash; drag prediction files or folders onto any area of the window to load</li>
+                    <li><strong>Click any PAE / LIS / cLIS cell</strong> &mdash; highlights that residue pair live in the 3D viewer</li>
+                    <li><strong>Copy Markdown</strong> &amp; <strong>FASTA / AF3 / Boltz</strong> &mdash; export LLM-ready summaries or refold inputs in one click</li>
+                </ul>
+            </div>
+            <div>
+                <p style="font-weight:600; color:#1a5276; margin-bottom:0.35rem;">LIVIA Atlas &amp; cLIP</p>
+                <ul style="padding-left:1.15rem;">
+                    <li><code>/</code> &mdash; focus search from anywhere; type <code>TP53 MDM2</code> to jump directly to a pair</li>
+                    <li><strong>1D&ndash;3D hover sync</strong> &mdash; hover any residue on the Atlas frequency or fingerprint plot to highlight it on the 3D structure</li>
+                    <li><strong>Multi-span &amp; motif lookup</strong> &mdash; type <code>10-19,188-202</code>, <code>R175,R248</code>, or <code>LXXLL</code> in any Residue box</li>
+                    <li><strong>Frequency styles</strong> &mdash; toggle <em>by cluster</em>, <em>all models</em> (combined curve only), or <em>classic</em></li>
+                    <li><strong>Shareable URLs</strong> &mdash; active filters, clusters, frequency style, and residue queries stay in the page URL</li>
+                </ul>
+            </div>
+        </div>
+    </div>
 
 </div>
 
@@ -392,15 +462,15 @@
 const tutorials = {
     universal: {
         steps: [
-            { src: 'screenshots/tut_universal_1.png', caption: 'Load prediction files or pick a p53\u2013MDM2 example (AlphaFold-Multimer via ColabFold, AlphaFold3, Boltz-2, Chai-1, OpenFold3, Protenix-v2, ESMFold2), or a 3\u20134 chain AlphaFold3 complex (PRC2, BBSome, MIS12C)' },
-            { src: 'screenshots/tut_universal_2.png', caption: 'Per-model metrics \u2014 iLIS, iLIA, iLISA, ipSAE, actifpTM, ipTM, LIS, cLIS, and LIR/cLIR counts, with iLIS FPR thresholds below' },
+            { src: 'screenshots/tut_universal_1.png', caption: 'Drop prediction files anywhere on the window or pick a p53\u2013MDM2 example (AlphaFold-Multimer via ColabFold, AlphaFold3, Boltz-2, Chai-1, OpenFold3, Protenix-v2, ESMFold2) or a multi-chain complex' },
+            { src: 'screenshots/tut_universal_2.png', caption: 'Per-model metrics \u2014 iLIS, iLISA, ipSAE, actifpTM*, ipTM, LIS, cLIS, pDockQ/pDockQ2 \u2014 with subunit filtering, Best model per pair mode, Copy Markdown, and FASTA/AF3/Boltz exports' },
             { src: 'screenshots/tut_universal_identity.png', caption: 'Chain identity resolves each chain in UniProt (gene, organism, domains), then Reported Interactions (MIST) checks whether the pair is already on record \u2014 physical (PPI) and genetic (GI) interaction paper counts' },
-            { src: 'screenshots/tut_universal_3.png', caption: 'Score Matrix \u2014 each triangle picks from iLIS, iLIA, iLISA, ipTM, ipSAE, actifpTM, LIS, cLIS, LIR, cLIR, pDockQ, LIpDockQ, pDockQ2 or LIpDockQ2 \u2014 alongside PAE, LIS, and cLIS heatmaps across all models' },
+            { src: 'screenshots/tut_universal_3.png', caption: 'Score Matrix alongside interactive PAE, LIS, and cLIS heatmaps \u2014 hover for live residue-pair values and click any cell to focus those residues in the 3D viewer' },
             { src: 'screenshots/tut_universal_labels.png', caption: 'Label Settings \u2014 axis name mode, style, and a custom "chain,label" editor that renames chains everywhere they appear' },
             { src: 'screenshots/tut_universal_seq.png', caption: 'LIR (light): PAE \u2264 12 \u00C5 residues. cLIR (dark bold): also within C\u03B2 8 \u00C5' },
             { src: 'screenshots/tut_universal_linear.png', caption: 'Linear Contact Map \u2014 cLIR contact lines with UniProt/Pfam domain tracks, pLDDT coloring, and MIST-reported interaction counts' },
             { src: 'screenshots/tut_universal_chord.png', caption: 'Circular Contact Map \u2014 chord diagram with cLIR contact lines and optional pLDDT/domain rings, per model or all models combined' },
-            { src: 'screenshots/tut_universal_4.png', caption: 'View the 3D structure in Mol* viewer (with LIR/cLIR coloring)' },
+            { src: 'screenshots/tut_universal_4.png', caption: 'Interactive 3D structure in Mol* with LIR/cLIR coloring, Isolate selected pair (shortcut i), and one-click PNG snapshot export' },
             { src: 'screenshots/tut_universal_5.png', caption: 'Visualization Script \u2014 color presets, custom per-chain colors, and ChimeraX/PyMOL script preview with full/partial structure downloads' },
             { src: 'screenshots/tut_universal_6.png', caption: 'Per-Residue intra-chain LIS & pLDDT for both chains' }
         ],
@@ -415,6 +485,16 @@ const tutorials = {
             { src: 'screenshots/tut_fly_bm.png', caption: 'Same flow on FlyPredictome \u2014 visit a famdb_details page and click the bookmark' },
             { src: 'screenshots/tut_fly_2.png', caption: 'LIVIA FlyPredictome opens with per-rank metrics, sequence viewer, contact maps, and a 3D viewer' },
             { src: 'screenshots/tut_ortho_bm.png', caption: 'FlyPredictome’s ortholog detail pages also route to LIVIA Ortholog Interactome' }
+        ],
+        current: 0, timer: null, paused: false
+    },
+    atlas: {
+        steps: [
+            { src: 'screenshots/tut_atlas_1.png', caption: 'Press / anywhere in LIVIA Atlas to search a protein, or type two gene names (TP53 MDM2) to jump directly to their pair page' },
+            { src: 'screenshots/tut_atlas_2.png', caption: 'Contact residue frequency \u2014 per-cluster contact curves aligned with Pfam domains, AlphaFold DB pLDDT, and human AlphaMissense pathogenicity' },
+            { src: 'screenshots/tut_atlas_3.png', caption: 'Switch to all models for the combined total curve alone and mark single residues, ranges (15-29), comma-separated spans, or PROSITE/ELM motifs' },
+            { src: 'screenshots/tut_atlas_4.png', caption: 'Filter Interactors by screen, FPR cutoff, cluster, BioGRID evidence, or structure availability, with Models past beside Contact spans and shareable URL state' },
+            { src: 'screenshots/tut_atlas_5.png', caption: 'Click LIVIA \u2197 to stream archived AFDB or Human Predictome 3D models straight into Prediction Analysis with compact model labels and one-click exports' }
         ],
         current: 0, timer: null, paused: false
     }
