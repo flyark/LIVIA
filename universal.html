@@ -895,22 +895,40 @@ const EXAMPLES = {
     'complex_i': { file: 'flypredictome_complex-i_c23-1.zip', label: 'Complex I — 14 subunits (FlyPredictome)', size: '5.0 MB' },
 };
 
+let _exampleReqSeq = 0;
+let _exampleAbort = null;
+let _exampleInFlight = null;
 async function loadExample(platform) {
     const ex = EXAMPLES[platform];
     if (!ex) return;
+    if (_exampleInFlight === platform && _exampleAbort) return;
+    const seq = ++_exampleReqSeq;
+    if (_exampleAbort) { try { _exampleAbort.abort(); } catch (e) {} }
+    const ac = new AbortController();
+    _exampleAbort = ac;
+    _exampleInFlight = platform;
     setStatus(`Downloading ${ex.label} (${ex.size})...`, 'loading');
     try {
         const localUrl = `examples/${ex.file}`;
         const remoteUrl = `https://flyark.github.io/LIVIA/examples/${ex.file}`;
         let resp;
-        try { resp = await fetch(localUrl); } catch (e) { resp = null; }
-        if (!resp || !resp.ok) resp = await fetch(remoteUrl);
+        try { resp = await fetch(localUrl, { signal: ac.signal }); } catch (e) {
+            if (e && e.name === 'AbortError') return;
+            resp = null;
+        }
+        if (seq !== _exampleReqSeq) return;
+        if (!resp || !resp.ok) resp = await fetch(remoteUrl, { signal: ac.signal });
+        if (seq !== _exampleReqSeq) return;
         if (!resp.ok) throw new Error('Failed to download example file');
         const blob = await resp.blob();
+        if (seq !== _exampleReqSeq) return;
         const file = new File([blob], ex.file, { type: 'application/zip' });
         await handleInputFiles([file]);
     } catch (e) {
+        if (seq !== _exampleReqSeq || (e && e.name === 'AbortError')) return;
         setStatus('Could not load example: ' + e.message, 'error');
+    } finally {
+        if (seq === _exampleReqSeq) { _exampleAbort = null; _exampleInFlight = null; }
     }
 }
 

@@ -580,26 +580,44 @@ function applyClipOpts(ilis, topn){
   if (window.opener) ready(window.opener);   // announce readiness in case the opener is already waiting
 })();
 // Examples: fly TF kinase screens (published, Kim et al. 2025) — load the CSV, pick the TF, generate.
+let _clipExSeq = 0, _clipExAbort = null, _clipExKey = null;
 async function loadExample(file, gene) {
   if (location.protocol === 'file:'){   // file:// blocks fetch of the bundled files; dropping your own still works
     $('status').textContent = 'Bundled examples need an http server. Run  python3 -m http.server 8000  in the LIVIA folder — or just drop your own lis.py CSV, which works offline.';
     return;
   }
+  const key = `${file}|${gene}`;
+  if (_clipExKey === key && _clipExAbort) return;
+  const seq = ++_clipExSeq;
+  if (_clipExAbort) { try { _clipExAbort.abort(); } catch (e) {} }
+  const ac = new AbortController();
+  _clipExAbort = ac;
+  _clipExKey = key;
   $('status').textContent = `loading ${gene}…`;
   try {
+    // a data-file may be a bundled name (examples/…) or a full hosted URL (FlyPredictome-clip-data)
+    const src = /^https?:\/\//.test(file) ? file : 'examples/' + file;
+    const resp = await fetch(src, { signal: ac.signal });
+    if (seq !== _clipExSeq) return;
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const blob = await resp.blob();
+    if (seq !== _clipExSeq) return;
     // start clean so a second example doesn't stack on the first
     FILES.length = 0; FASTA_PARSE = null; FASTA_WARN = []; META = null; META_LABELCOL = null;
     LABEL_IDS = {}; LABEL_FRAG = {}; XLSX_IDS = {}; FORCE_ACC = ''; STRUCT_FILE = null; PARTNER_EXCLUDE = new Set();
     if ($('mg-species')) $('mg-species').value = '';
-    // a data-file may be a bundled name (examples/…) or a full hosted URL (FlyPredictome-clip-data)
-    const src = /^https?:\/\//.test(file) ? file : 'examples/' + file;
-    const blob = await (await fetch(src)).blob();
     // routeFiles handles a .zip (CSV + optional FASTA, auto-sorted) or a bare .csv, and awaits the
     // name→symbol auto-conversion, so the bait below is the converted symbol.
     await routeFiles([new File([blob], file, { type: blob.type })], 'csv');
+    if (seq !== _clipExSeq) return;
     const sel = $('gene'); const o = [...sel.options].find(x => x.value.toLowerCase() === gene.toLowerCase()) || sel.options[0];
     if (o){ sel.value = o.value; $('run').click(); }
-  } catch (err) { $('status').textContent = '⚠ could not load example: ' + err.message; }
+  } catch (err) {
+    if (seq !== _clipExSeq || (err && err.name === 'AbortError')) return;
+    $('status').textContent = '⚠ could not load example: ' + err.message;
+  } finally {
+    if (seq === _clipExSeq) { _clipExAbort = null; _clipExKey = null; }
+  }
 }
 document.querySelectorAll('.load-ex').forEach(a => a.onclick = (e) => { e.preventDefault(); loadExample(a.dataset.file, a.dataset.gene); });
 // Jump-to-gene: search any FlyPredictome network gene and load its interactome bundle. Lazily

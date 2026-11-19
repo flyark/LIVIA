@@ -419,18 +419,24 @@ async function routeFiles(list){
   updateLoaded();
   if (RAWPAIRS.size && $('mg-auto') && $('mg-auto').checked && !META) await maybeAutoConvert();
 }
+let _netExBusy = false;
 async function loadExample(){
+  if (_netExBusy) return;
   if (location.protocol === 'file:'){   // file:// blocks fetch of the bundled zip; dropping your own CSVs still works
     setStatus('Bundled example needs an http server. Run  python3 -m http.server 8000  in the LIVIA folder — or drop your own lis.py CSVs, which works offline.');
     return;
   }
+  _netExBusy = true;
   setStatus('Loading example…');
   RAWPAIRS.clear(); ATLAS_SRC = null; FILES_RAW.length=0; FASTA_RAW=''; FILECOUNT=0; META=null; META_COL=null;
   try {
-    const buf = await (await fetch('examples/fly_pathway_interactome.zip')).arrayBuffer();
+    const resp = await fetch('examples/fly_pathway_interactome.zip');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const buf = await resp.arrayBuffer();
     await routeFiles([new File([buf], 'fly_pathway_interactome.zip', {type:'application/zip'})]);
     if (RAWPAIRS.size){ await build(); await afterBuild(URLP); }
   } catch(e){ setStatus('Could not load the example: '+(e.message||e)); }
+  finally { _netExBusy = false; }
 }
 async function routeMeta(list){
   const f=[...list].filter(x=>/\.csv$/i.test(x.name))[0]; if(!f) return;

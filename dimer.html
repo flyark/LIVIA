@@ -729,18 +729,21 @@ let acSelected = -1;
     document.addEventListener('click', (e) => { if (!e.target.closest('.ac-wrap')) hideAc(); });
 })();
 
-function hideAc() { document.getElementById('ac-list').classList.remove('active'); acSelected = -1; }
+let acSeq = 0;
+function hideAc() { clearTimeout(acDebounce); acSeq++; document.getElementById('ac-list').classList.remove('active'); acSelected = -1; }
 function updateAcHL(items) {
     items.forEach((it, i) => it.classList.toggle('selected', i === acSelected));
     if (acSelected >= 0) items[acSelected].scrollIntoView({ block: 'nearest' });
 }
 
 async function searchUniprot(query) {
+    const seq = ++acSeq;
     try {
         const url = `https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent('"' + query + '"')}&fields=accession,gene_names,protein_name,organism_name&size=8&format=json`;
         const resp = await fetch(url);
-        if (!resp.ok) return;
+        if (seq !== acSeq || !resp.ok) return;
         const data = await resp.json();
+        if (seq !== acSeq) return;
         const results = data.results || [];
         const list = document.getElementById('ac-list');
         list.innerHTML = '';
@@ -867,13 +870,18 @@ async function showProteinInfo(entry) {
 // ============================================================================
 // FETCH DIMERS
 // ============================================================================
+let _dimerFetchSeq = 0;
+let _selectDimerSeq = 0;
 async function fetchDimers() {
+    hideAc();
     const rawInput = document.getElementById('uniprot-input').value.trim();
     if (!rawInput) { setStatus('Please enter a UniProt ID, model ID, or URL.', 'error'); return; }
 
     const parsed = parseInput(rawInput);
     if (!parsed) { setStatus('Invalid input. Enter a UniProt ID, AF model ID, or AlphaFold DB URL.', 'error'); return; }
 
+    const seq = ++_dimerFetchSeq;
+    _selectDimerSeq++;
     document.getElementById('btn-fetch').disabled = true;
     document.getElementById('results').classList.remove('active');
     document.getElementById('error-msg').classList.remove('active');
@@ -885,6 +893,7 @@ async function fetchDimers() {
             // Direct model entity ID — fetch its metadata and load directly
             setStatus(`Fetching model ${parsed.id}...`, 'loading');
             const data = await fetchJsonViaProxy(`https://alphafold.ebi.ac.uk/api/complex/${parsed.id}`);
+            if (seq !== _dimerFetchSeq) return;
             const entry = Array.isArray(data) ? data[0] : data;
             if (!entry || !entry.modelEntityId) throw new Error(`Invalid response for "${parsed.id}".`);
 
@@ -897,6 +906,7 @@ async function fetchDimers() {
             // UniProt ID — search for complexes
             setStatus(`Searching AlphaFold DB for complexes involving ${parsed.id}...`, 'loading');
             const data = await fetchJsonViaProxy(`https://alphafold.ebi.ac.uk/api/complex/${parsed.id}`);
+            if (seq !== _dimerFetchSeq) return;
             if (!Array.isArray(data) || data.length === 0) {
                 throw new Error(`No complexes found for "${parsed.id}". Not all proteins have dimer predictions in AlphaFold DB yet, and it shows only the complexes that pass its confidence filter, so a pair can have been folded without being displayed. Try searching on alphafold.ebi.ac.uk and paste the model URL here.`);
             }
@@ -919,10 +929,11 @@ async function fetchDimers() {
         }
 
     } catch (e) {
+        if (seq !== _dimerFetchSeq) return;
         setStatus(e.message + ' — AlphaFold DB may be temporarily slow. Try again.', 'error');
         console.error(e);
     }
-    document.getElementById('btn-fetch').disabled = false;
+    if (seq === _dimerFetchSeq) document.getElementById('btn-fetch').disabled = false;
 }
 
 function displayDimerTable() {
@@ -957,6 +968,8 @@ function displayDimerTable() {
 
 async function selectDimer(idx, trEl) {
     const entry = dimerList[idx];
+    if (!entry) return;
+    const selSeq = ++_selectDimerSeq;
     selectedDimer = entry;
 
     // Show external links and protein info
@@ -996,30 +1009,20 @@ async function selectDimer(idx, trEl) {
     }
 
     try {
-        setStatus(`Fetching CIF for ${modelEntityId}...`, 'loading');
+        setStatus(`Fetching CIF and PAE for ${modelEntityId}...`, 'loading');
         const cifUrl = `https://alphafold.ebi.ac.uk/files/${modelEntityId}-model_v${version}.cif`;
-        dimerCifText = await fetchTextViaProxy(cifUrl);
-        dimerCifFilename = `${modelEntityId}-model_v${version}.cif`;
-
-        setStatus(`Fetching PAE for ${modelEntityId}...`, 'loading');
         const paeUrl = `https://alphafold.ebi.ac.uk/files/${modelEntityId}-predicted_aligned_error_v${version}.json`;
-        dimerPaeData = await fetchJsonViaProxy(paeUrl);
-
-        // Fetch UniProt domain annotations and gene symbols per chain
         const uniprotIds = entry.uniprotAccession || [];
-        
-        chainDomains = { A: [], B: [] };
-        chainTedDomains = { A: [], B: [] };
+        const nextDomains = { A: [], B: [] };
+        const nextTed = { A: [], B: [] };
         const domainPromises = [];
-        if (uniprotIds[0]) domainPromises.push(fetchDomains(uniprotIds[0]).then(d => { chainDomains.A = d;}));
-        if (uniprotIds[1]) domainPromises.push(fetchDomains(uniprotIds[1]).then(d => { chainDomains.B = d;}));
-        else if (uniprotIds[0]) domainPromises.push(fetchDomains(uniprotIds[0]).then(d => { chainDomains.B = d; })); // homodimer
-        // Fetch TED domains in parallel
-        if (uniprotIds[0]) domainPromises.push(fetchTedDomains(uniprotIds[0]).then(d => { chainTedDomains.A = d; }));
-        if (uniprotIds[1]) domainPromises.push(fetchTedDomains(uniprotIds[1]).then(d => { chainTedDomains.B = d; }));
-        else if (uniprotIds[0]) domainPromises.push(fetchTedDomains(uniprotIds[0]).then(d => { chainTedDomains.B = d; })); // homodimer
+        if (uniprotIds[0]) domainPromises.push(fetchDomains(uniprotIds[0]).then(d => { nextDomains.A = d; }));
+        if (uniprotIds[1]) domainPromises.push(fetchDomains(uniprotIds[1]).then(d => { nextDomains.B = d; }));
+        else if (uniprotIds[0]) domainPromises.push(fetchDomains(uniprotIds[0]).then(d => { nextDomains.B = d; }));
+        if (uniprotIds[0]) domainPromises.push(fetchTedDomains(uniprotIds[0]).then(d => { nextTed.A = d; }));
+        if (uniprotIds[1]) domainPromises.push(fetchTedDomains(uniprotIds[1]).then(d => { nextTed.B = d; }));
+        else if (uniprotIds[0]) domainPromises.push(fetchTedDomains(uniprotIds[0]).then(d => { nextTed.B = d; }));
 
-        // Fetch gene symbols from UniProt if not provided by AlphaFold DB
         if (!entry.gene || entry.gene.length === 0) {
             const genePromises = [...new Set(uniprotIds)].map(async uid => {
                 try {
@@ -1032,13 +1035,24 @@ async function selectDimer(idx, trEl) {
                 return uid;
             });
             domainPromises.push(Promise.all(genePromises).then(symbols => {
-                // Map UniProt accessions to gene symbols
                 const symbolMap = {};
                 [...new Set(uniprotIds)].forEach((uid, i) => { symbolMap[uid] = symbols[i]; });
                 entry.gene = uniprotIds.map(uid => symbolMap[uid]);
             }));
         }
-        await Promise.allSettled(domainPromises);
+
+        const [cifText, paeData] = await Promise.all([
+            fetchTextViaProxy(cifUrl),
+            fetchJsonViaProxy(paeUrl),
+            Promise.allSettled(domainPromises)
+        ]);
+        if (selSeq !== _selectDimerSeq) return;
+
+        dimerCifText = cifText;
+        dimerCifFilename = `${modelEntityId}-model_v${version}.cif`;
+        dimerPaeData = paeData;
+        chainDomains = nextDomains;
+        chainTedDomains = nextTed;
 
         // Fetch monomer predictions in background (non-blocking)
         monomerData = {};
@@ -1047,11 +1061,13 @@ async function selectDimer(idx, trEl) {
 
         setStatus('Analyzing...', 'loading');
         await new Promise(r => setTimeout(r, 10));
+        if (selSeq !== _selectDimerSeq) return;
 
         processDimer();
-        queryDimerMist();   // reported A–B interactions from MIST + BioGRID (non-blocking)
+        queryDimerMist();
 
     } catch (e) {
+        if (selSeq !== _selectDimerSeq) return;
         setStatus(e.message + ' — AlphaFold DB may be temporarily slow. Try again.', 'error');
         console.error(e);
     }

@@ -585,7 +585,10 @@ let acSelected = -1;
     });
 })();
 
+let acSeq = 0;
 function hideAc() {
+    clearTimeout(acDebounce);
+    acSeq++;
     document.getElementById('ac-list').classList.remove('active');
     acSelected = -1;
 }
@@ -596,11 +599,13 @@ function updateAcHighlight(items) {
 }
 
 async function searchUniprot(query) {
+    const seq = ++acSeq;
     try {
         const url = `https://rest.uniprot.org/uniprotkb/search?query=${encodeURIComponent(query)}&fields=accession,gene_names,protein_name,organism_name&size=8&format=json`;
         const resp = await fetch(url);
-        if (!resp.ok) return;
+        if (seq !== acSeq || !resp.ok) return;
         const data = await resp.json();
+        if (seq !== acSeq) return;
         const results = data.results || [];
         const list = document.getElementById('ac-list');
         list.innerHTML = '';
@@ -675,13 +680,20 @@ function parseUniprotId(input) {
 
 // If user types a gene name instead of UniProt ID, try to resolve it
 async function resolveGeneToUniprot(query) {
-    try {
-        const url = `https://rest.uniprot.org/uniprotkb/search?query=gene:${encodeURIComponent(query)}+AND+reviewed:true&fields=accession&size=1&format=json`;
-        const resp = await fetch(url);
-        if (!resp.ok) return null;
-        const data = await resp.json();
-        if (data.results && data.results.length > 0) return data.results[0].primaryAccession;
-    } catch {}
+    const q = encodeURIComponent(query);
+    const urls = [
+        `https://rest.uniprot.org/uniprotkb/search?query=gene_exact:${q}+AND+organism_id:9606+AND+reviewed:true&fields=accession&size=1&format=json`,
+        `https://rest.uniprot.org/uniprotkb/search?query=gene_exact:${q}+AND+reviewed:true&fields=accession&size=1&format=json`,
+        `https://rest.uniprot.org/uniprotkb/search?query=gene:${q}+AND+reviewed:true&fields=accession&size=1&format=json`
+    ];
+    for (const url of urls) {
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) continue;
+            const data = await resp.json();
+            if (data.results && data.results.length > 0) return data.results[0].primaryAccession;
+        } catch {}
+    }
     return null;
 }
 
@@ -714,13 +726,21 @@ async function showProteinInfo(uniprotId) {
     } catch (e) { console.warn('Protein info error:', e); }
 }
 
+let _monFetchSeq = 0;
+let _monFetchAbort = null;
 async function fetchData() {
+    hideAc();
     const input = document.getElementById('uniprot-input').value;
-    const uniprotId = parseUniprotId(input);
+    let uniprotId = parseUniprotId(input);
     if (!uniprotId) {
         setStatus('Please enter a valid UniProt ID or AlphaFold DB URL.', 'error');
         return;
     }
+
+    const seq = ++_monFetchSeq;
+    if (_monFetchAbort) { try { _monFetchAbort.abort(); } catch (e) {} }
+    const ac = new AbortController();
+    _monFetchAbort = ac;
 
     document.getElementById('btn-fetch').disabled = true;
 
@@ -775,19 +795,22 @@ async function fetchData() {
 
         // Step 1: Get prediction metadata
         let apiUrl = `https://alphafold.ebi.ac.uk/api/prediction/${uniprotId}`;
-        let metaResp = await fetch(apiUrl);
+        let metaResp = await fetch(apiUrl, { signal: ac.signal });
+        if (seq !== _monFetchSeq) return;
 
-        // If not found, try resolving as gene name
-        if (metaResp.status === 404) {
+        // If not found (or 400 invalid accession format), try resolving as gene name
+        if (metaResp.status === 404 || metaResp.status === 400) {
             setStatus(`"${uniprotId}" not found directly, searching UniProt...`, 'loading');
             const resolved = await resolveGeneToUniprot(uniprotId);
+            if (seq !== _monFetchSeq) return;
             if (resolved) {
                 document.getElementById('uniprot-input').value = resolved;
                 uniprotId = resolved;
                 monUniprotId = resolved;
                 setStatus(`Resolved to ${resolved}. Fetching prediction...`, 'loading');
                 apiUrl = `https://alphafold.ebi.ac.uk/api/prediction/${resolved}`;
-                metaResp = await fetch(apiUrl);
+                metaResp = await fetch(apiUrl, { signal: ac.signal });
+                if (seq !== _monFetchSeq) return;
             }
         }
 
@@ -796,6 +819,7 @@ async function fetchData() {
             throw new Error(`API error: ${metaResp.status} ${metaResp.statusText}`);
         }
         const meta = await metaResp.json();
+        if (seq !== _monFetchSeq) return;
         const entry = Array.isArray(meta) ? meta[0] : meta;
 
         const paeUrl = entry.paeDocUrl;
@@ -803,11 +827,19 @@ async function fetchData() {
 
         if (!paeUrl || !pdbUrl) throw new Error('PAE or PDB data not available for this entry.');
 
-        // Step 2: Fetch PAE
-        setStatus('Fetching PAE data...', 'loading');
-        const paeResp = await fetch(paeUrl);
+        // Step 2: Fetch PAE, PDB, UniProt domains, and TED domains in parallel
+        setStatus('Fetching PAE and PDB structure...', 'loading');
+        const [paeResp, pdbResp, doms, tedDoms] = await Promise.all([
+            fetch(paeUrl, { signal: ac.signal }),
+            fetch(pdbUrl, { signal: ac.signal }),
+            fetchDomains(uniprotId).catch(() => []),
+            fetchTedDomains(uniprotId).catch(() => [])
+        ]);
+        if (seq !== _monFetchSeq) return;
         if (!paeResp.ok) throw new Error('Failed to fetch PAE data.');
-        const paeJson = await paeResp.json();
+        if (!pdbResp.ok) throw new Error('Failed to fetch PDB data.');
+        const [paeJson, pdbText] = await Promise.all([paeResp.json(), pdbResp.text()]);
+        if (seq !== _monFetchSeq) return;
 
         // Parse PAE: format is [{predicted_aligned_error: [[...]], max_predicted_aligned_error: 31.75}]
         const paeEntry = Array.isArray(paeJson) ? paeJson[0] : paeJson;
@@ -815,13 +847,11 @@ async function fetchData() {
         monPaeMax = paeEntry.max_predicted_aligned_error || 31.75;
         monProteinLen = monPae.length;
 
-        // Step 3: Fetch PDB
-        setStatus('Fetching PDB structure...', 'loading');
-        const pdbResp = await fetch(pdbUrl);
-        if (!pdbResp.ok) throw new Error('Failed to fetch PDB data.');
-        monPdbText = await pdbResp.text();
-        monPdbFilename = `AF-${uniprotId}-F1-model_v4.pdb`;
+        monPdbText = pdbText;
+        monPdbFilename = (pdbUrl.split('/').pop() || '').split('?')[0] || `AF-${uniprotId}-F1-model_v6.pdb`;
         monUniprotId = uniprotId;
+        monDomains = Array.isArray(doms) ? doms : [];
+        monTedDomains = Array.isArray(tedDoms) ? tedDoms : [];
 
         // Parse PDB for CB coordinates
         monCoords = parsePdbCoords(monPdbText);
@@ -846,17 +876,6 @@ async function fetchData() {
         // Show protein info from UniProt
         showProteinInfo(uniprotId);
 
-        // Fetch UniProt domain annotations and TED domains in parallel
-        try {
-            [monDomains, monTedDomains] = await Promise.all([
-                fetchDomains(uniprotId).catch(() => []),
-                fetchTedDomains(uniprotId).catch(() => [])
-            ]);
-        } catch (e) {
-            monDomains = [];
-            monTedDomains = [];
-        }
-
         // Show regions card
         document.getElementById('regions-card').style.display = '';
 
@@ -868,11 +887,12 @@ async function fetchData() {
         detectAndCalculate();
 
     } catch (e) {
+        if (seq !== _monFetchSeq || (e && e.name === 'AbortError')) return;
         setStatus(e.message + ' — AlphaFold DB may be temporarily slow. Try again.', 'error');
         console.error(e);
     }
 
-    document.getElementById('btn-fetch').disabled = false;
+    if (seq === _monFetchSeq) document.getElementById('btn-fetch').disabled = false;
 }
 
 // ============================================================================

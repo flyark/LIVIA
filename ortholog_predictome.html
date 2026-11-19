@@ -950,7 +950,11 @@ function generateCxc(row, pdbFilename, colors) {
 }
 
 // ── Main generate ──
+let _opGenSeq = 0;
+let _opRankSeq = 0;
 async function generate() {
+    const genSeq = ++_opGenSeq;
+    _opRankSeq++;
     let urlInput = document.getElementById('url-input').value.trim();
     let html = document.getElementById('html-input').value.trim();
     const rank = 1;
@@ -973,6 +977,7 @@ async function generate() {
         document.getElementById('btn-generate').disabled = true;
 
         const resolved = await fetchPredictomeDetailWithFallback(urlInput);
+        if (genSeq !== _opGenSeq) return;
         if (resolved && resolved.html) {
             html = resolved.html;
             urlInput = resolved.url;
@@ -1025,6 +1030,7 @@ async function generate() {
     if (flyParsed.pdbUrl) {
         try {
             const pdbText = await fetchStructureTextViaProxy(flyParsed.pdbUrl);
+            if (genSeq !== _opGenSeq) return;
             if (pdbText && pdbText.includes('ATOM')) {
                 flyChainSeqs = parsePdbSequence(pdbText);
                 flyPdbText = pdbText;
@@ -1036,6 +1042,7 @@ async function generate() {
     // Fetch domain annotations
     if (flyChainSeqs) {
         fetchFlyDomains(flyChainSeqs, urlInput).then(() => {
+            if (genSeq !== _opGenSeq) return;
             const target = flyParsed.rows.find(r => parseInt(r['Rank']) === flyCurrentRank);
             if (target && flyPdbText) {
                 const sym1 = target['Symbol 1'] || 'Protein1';
@@ -1234,12 +1241,14 @@ window.addEventListener('resize', ranksHint);
 
 async function loadRank(rankNum) {
     if (!flyParsed) return;
+    const rSeq = ++_opRankSeq;
     flyCurrentRank = rankNum;
 
     const isAvg = rankNum === 'avg';
 
     if (!isAvg && !flyPdbPerRank[rankNum]) {
         await fetchRankPdb(rankNum);
+        if (rSeq !== _opRankSeq) return;
     }
     if (!isAvg) flyPdbText = flyPdbPerRank[rankNum] || flyPdbPerRank[1] || flyPdbText;
     if (isAvg) flyPdbText = flyPdbPerRank[1] || flyPdbText;
