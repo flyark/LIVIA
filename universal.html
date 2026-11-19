@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <title>LIVIA — Prediction Analysis</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <!-- Mol* loaded inside iframe, not here -->
     <link rel="stylesheet" href="css/livia.css?v=20261116a">
     <style>
@@ -102,6 +102,11 @@
         .refold-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem 0.55rem; margin-top: 0.75rem; padding: 0.55rem 0.75rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.8rem; color: #475569; }
         .refold-bar button { padding: 0.26rem 0.62rem; border: 1px solid #2471A3; border-radius: 5px; background: #fff; color: #2471A3; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
         .refold-bar button:hover { background: #2471A3; color: #fff; }
+        .global-drop-overlay { position: fixed; inset: 0; z-index: 3000; display: none; align-items: center; justify-content: center; background: rgba(26, 82, 118, 0.16); backdrop-filter: blur(2px); pointer-events: none; }
+        .global-drop-overlay.active { display: flex; }
+        .global-drop-box { background: #fff; border: 2.5px dashed #2471A3; border-radius: 14px; padding: 1.6rem 2.4rem; text-align: center; color: #1a5276; font-weight: 600; font-size: 1rem; box-shadow: 0 12px 32px rgba(26, 82, 118, 0.22); }
+        .kb-hint { font-size: 0.73rem; color: #6B6B6B; margin: 0.15rem 0 0.35rem; }
+        .kb-hint kbd { display: inline-block; padding: 0 4px; border: 1px solid #cbd5e1; border-radius: 3px; background: #f8fafc; font-size: 0.7rem; color: #334155; font-family: monospace; }
         #pairs-table td, #pairs-table th { white-space: nowrap; padding: 0.5rem 0.55rem; }
 
         .help-content {
@@ -140,10 +145,10 @@
             .colorbar-labels { width: 100%; max-width: 300px; }
         }
     </style>
-<script src="js/canvas2svg.js?v=20260720"></script>
+<script src="js/canvas2svg.js?v=20260720" defer></script>
 <script src="js/livia-maps.js?v=20261117b"></script>
 <script src="js/clip-resolver.js?v=20261116a"></script>
-<script src="js/remotezip.js?v=20260918"></script>
+<script src="js/remotezip.js?v=20260918" defer></script>
 <script src="js/livia-wasm.js?v=20261115a"></script>
 </head>
 <body>
@@ -239,6 +244,7 @@
                 <h2 data-nav="Summary" id="result-title" style="margin-bottom:0;">Interaction Analysis Summary</h2>
                 <a style="font-size:0.8rem; color:#2471A3; cursor:pointer; text-decoration:none; border-bottom:1px dashed #2471A3;" onclick="downloadCSV()">&#8595; Download CSV</a>
                 <a id="summary-refold-jump" style="display:none; font-size:0.8rem; color:#2471A3; cursor:pointer; text-decoration:none; border-bottom:1px dashed #2471A3;" onclick="document.getElementById('refold-export-bar')?.scrollIntoView({block:'center'})">&#8595; FASTA / AF3 / Boltz</a>
+                <a id="summary-reset-prefs" style="display:none; font-size:0.78rem; color:#6B6B6B; cursor:pointer; text-decoration:none; border-bottom:1px dashed #94a3b8;" onclick="resetUniPrefs()" title="Reset saved viewing preferences to defaults">Reset prefs</a>
                 <div id="bundle-row-break" style="display:none; flex-basis:100%; height:0;"></div><!-- bundle controls get their own line, so expanding 'custom' never reflows the title row -->
                 <span id="bundle-btn-wrap" style="display:none; align-items:center; gap:0.55rem; font-size:0.8rem; color:#555;" title="Shrink this prediction to a small LIVIA lightweight bundle (scores + structures + PAE images, no numeric PAE)">
                     <button id="bundle-btn" onclick="downloadLightweightBundle()">&#8595; Lightweight bundle</button>
@@ -272,6 +278,7 @@
             <label id="toggle-compact-pairs-label" style="display:none; font-size:0.78rem; color:#666; align-items:center; gap:0.3rem; margin:0.2rem 0.8rem 0.4rem 0; cursor:pointer;" title="Show one row per chain pair (its highest-iLIS model); click ▸ on any pair to expand all models"><input type="checkbox" id="toggle-compact-pairs" onchange="setCompactPairsShown(this.checked)"> Best model per pair</label>
             <label style="font-size:0.78rem; color:#666; display:inline-flex; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem;"><input type="checkbox" id="toggle-lir-cols" onchange="document.getElementById('pairs-table').classList.toggle('show-lir-cols', this.checked)"> Show iLIA/LIR/cLIR columns</label>
             <label id="toggle-neg-pairs-label" style="display:none; font-size:0.78rem; color:#666; align-items:center; gap:0.3rem; margin:0.2rem 0 0.4rem 1rem;" title="A pair is negative when it misses both 10% FPR cutoffs: best-model iLIS below 0.223 and average-of-models iLIS below 0.072"><input type="checkbox" id="toggle-neg-pairs" onchange="setNegPairsShown(this.checked)"> Show <span id="neg-pairs-count"></span> negative pairs (best iLIS &lt; 0.223 and average iLIS &lt; 0.072)</label>
+            <div class="kb-hint">Shortcuts: <kbd>&uarr;</kbd>/<kbd>&darr;</kbd> switch pair &middot; <kbd>1</kbd>&ndash;<kbd>5</kbd> model &middot; <kbd>i</kbd> isolate pair &middot; drop files anywhere</div>
             <div style="overflow-x:auto;" tabindex="0" role="region" aria-label="Scores of every model">
             <table class="data-table" id="pairs-table">
                 <thead><tr><th>Rank/Model</th><th>Pair</th><th>iLIS</th><th>iLISA</th><th>ipSAE</th><th id="th-actifptm" title="lis.py's approximation of actifpTM (Varga et al. 2025), from the PAE over residue pairs in contact (Cβ cutoff), as lis.py computes it; a platform's own actifpTM (ColabFold writes one) is not used">actifpTM*</th><th>ipTM</th><th>LIS</th><th>cLIS</th><th title="Bryant et al. 2022, pure geometric interface, no PAE">pDockQ</th><th title="pDockQ fed this file's own PAE+contact-gated cLIR interface">LIpDockQ</th><th title="Zhu et al. 2023, CA-based interface; mean of the two per-chain directions">pDockQ2</th><th title="pDockQ2's PAE-decay applied to this file's own cLIR interface; mean of the two per-chain directions">LIpDockQ2</th><th class="col-extra">iLIA</th><th class="col-extra">LIR (i/j)</th><th class="col-extra">cLIR (i/j)</th></tr></thead>
@@ -724,7 +731,7 @@
 <script src="js/livia-core.js?v=20261008b"></script>
 <script src="js/livia-reported.js?v=20261106a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20261118b"></script>
+<script src="js/livia-viewer.js?v=20261118c"></script>
 <script src="js/livia-util.js?v=20261118a"></script>
 <script src="js/livia-colors.js?v=20261010a"></script>
 <script src="js/livia-subnav.js?v=20261007a"></script>
@@ -4814,13 +4821,18 @@ function displayResults(results, jobName) {
     }
 
     {
+        uniState._lastMapSig = null;
+        uniState._allChordCache = null;
+        uniState._perResCache = null;
         const subInp = document.getElementById('pairs-sub-filter');
         if (subInp) { subInp.value = ''; subInp.style.display = pairKeys.length >= 2 ? 'inline-block' : 'none'; }
         const cmpLbl = document.getElementById('toggle-compact-pairs-label');
         const cmpCb = document.getElementById('toggle-compact-pairs');
         const offerCompact = hasMultipleModels && pairKeys.length >= 2;
+        const savedPref = typeof readUniPrefs === 'function' ? readUniPrefs() : null;
+        const wantCompact = !!(offerCompact && savedPref && savedPref.compactPairs);
         if (cmpLbl) cmpLbl.style.display = offerCompact ? 'inline-flex' : 'none';
-        if (cmpCb) { cmpCb.checked = false; setCompactPairsShown(false); }
+        if (cmpCb) { cmpCb.checked = wantCompact; setCompactPairsShown(wantCompact); }
         const hasStruct = !uniState.noStructure && Object.keys(uniState.structureContents || {}).length > 0;
         const rfBar = document.getElementById('refold-export-bar');
         const rfJump = document.getElementById('summary-refold-jump');
@@ -5509,7 +5521,10 @@ function selectPair(key) {
     // (presets, palette, pickers, custom upload) — those all re-render through here, and the labels read
     // the live colors. Score matrix can show even for lightweight bundles; maps only when not lightweight.
     if (typeof drawAllScoreMatrices === 'function') drawAllScoreMatrices();
-    if (!uniState.lightweight && typeof drawAllMaps === 'function') drawAllMaps();
+    if (!uniState.lightweight && typeof drawAllMaps === 'function') {
+        const curSig = typeof _currentMapSig === 'function' ? _currentMapSig() : null;
+        if (!curSig || curSig !== uniState._lastMapSig) drawAllMaps();
+    }
     updateViewer3d(key);
     // Refresh chain toggle button colors — preset chips / swap / Tab10 chip all funnel
     // through here via selectedRow.click(), and the picker hex may have just changed.
@@ -5530,21 +5545,36 @@ function selectPair(key) {
     dlStruct.textContent = `\u2193 Full structure .${uniState.structureFormat}`;
     dlStruct.className = `btn-download cif`;
 
-    // Confident-region structure: the two interface chains trimmed to their LIR span.
-    // Same filename as the full download, so the generated script's open/load still resolves it.
+    // Confident-region structure: lazily trimmed on click so row switching stays instant.
     const dlStructConf = document.getElementById('dl-structure-conf');
     if (dlStructConf) {
-        const lirSets = allChainLirSets(uniState.results);                          // per-chain LIR, honoring the Fill-gaps / Min-segment settings
-        const km = {}; structChains(structContent, uniState.structureFormat).forEach(c => {
-            const raw = lirSets[c];
-            if (!raw || raw.size === 0) { km[c] = null; return; }                    // no interface → keep the whole subunit
-            const seg = fillGaps(filterSmallSegments(raw));                          // exactly the segments the viewer/script show
-            km[c] = seg.size ? seg : null;
-        });
-        const confText = trimStructure(structContent, uniState.structureFormat, km);
-        setBlobHref(dlStructConf, confText);
-        dlStructConf.download = structFilename.replace(/(\.[^.]+)$/, '_partial$1');
+        const outName = structFilename.replace(/(\.[^.]+)$/, '_partial$1');
+        dlStructConf.download = outName;
         dlStructConf.textContent = `\u2193 Partial structure .${uniState.structureFormat}`;
+        dlStructConf._trimSpec = { structContent, format: uniState.structureFormat, results: uniState.results, outName };
+        dlStructConf._trimReady = false;
+        dlStructConf.href = '#';
+        if (!dlStructConf.dataset.lazyTrimBound) {
+            dlStructConf.dataset.lazyTrimBound = '1';
+            dlStructConf.addEventListener('click', (ev) => {
+                const sp = dlStructConf._trimSpec;
+                if (!sp || dlStructConf._trimReady) return;
+                ev.preventDefault();
+                const lirSets = allChainLirSets(sp.results);
+                const km = {};
+                structChains(sp.structContent, sp.format).forEach(c => {
+                    const raw = lirSets[c];
+                    if (!raw || raw.size === 0) { km[c] = null; return; }
+                    const seg = fillGaps(filterSmallSegments(raw));
+                    km[c] = seg.size ? seg : null;
+                });
+                const confText = trimStructure(sp.structContent, sp.format, km);
+                setBlobHref(dlStructConf, confText);
+                dlStructConf.download = sp.outName;
+                dlStructConf._trimReady = true;
+                dlStructConf.click();
+            });
+        }
     }
 
     // Refresh the per-model selector chips (label + per-pair iLIS, selected highlighted)
@@ -7291,8 +7321,12 @@ function drawClisMaps() {   // dilated, so single contact cells stay visible
         item.appendChild(label);
         item.appendChild(canvas);
         clisRow.appendChild(item);
-        const dilated = dilateMap(model.clisMap, clisDilateRadius);
-        drawMapCanvas(canvas, dilated, model.nTotal, chainSizes, chainNames, pal, 0, 1);
+        if (!model._clisDilated || model._clisDilatedR !== clisDilateRadius || model._clisDilatedSrc !== model.clisMap) {
+            model._clisDilated = dilateMap(model.clisMap, clisDilateRadius);
+            model._clisDilatedR = clisDilateRadius;
+            model._clisDilatedSrc = model.clisMap;
+        }
+        drawMapCanvas(canvas, model._clisDilated, model.nTotal, chainSizes, chainNames, pal, 0, 1);
         if (canvas._paeMeta) canvas._paeMeta.map2d = model.clisMap;
         attachHeatmapInteractive(canvas, mi, 'cLIS', v => v.toFixed(3));
         addPngBtn(item, 'cLIS_' + model.label, canvas);
@@ -7304,11 +7338,41 @@ onMapScaleChange = (kind) => {
     ({ pae: drawPaeMaps, lis: drawLisMaps, clis: drawClisMaps })[kind]();
 };
 
+function _currentMapSig() {
+    const names = uniState.chainNames || [];
+    const cols = names.length <= 2
+        ? [document.getElementById('color-clir-a')?.value || '', document.getElementById('color-clir-b')?.value || '']
+        : names.map(n => (uniState.multiChainColors && uniState.multiChainColors[n]) || '');
+    return JSON.stringify([
+        uniState.loadEpoch || 0,
+        names,
+        cols,
+        uniLabelBlack,
+        uniLabelAxis,
+        uniLabelStyle,
+        uniLabelDirX,
+        uniLabelDirY,
+        uniLabelScale,
+        uniSizeScale,
+        uniShowMapSize,
+        uniSizeFormat,
+        uniSizeColorMode,
+        uniShowMapDom,
+        uniMapDomOrder,
+        uniMapDomColorMode,
+        uniMapDetailedLabels,
+        uniCustomLabels,
+        uniState.chainGenes,
+        Object.keys(uniState.chainDomains || {}).map(k => (uniState.chainDomains[k] || []).length)
+    ]);
+}
+
 function drawAllMaps() {
     mapTrio(uniState.modelData.length === 1);
     drawPaeMaps();
     drawLisMaps();
     drawClisMaps();
+    uniState._lastMapSig = _currentMapSig();
 }
 // One model: the PAE, LIS and cLIS cards stand side by side in one row (read at a glance, as on the dimer page) instead
 // of three stacked cards; several models: back to one card per map kind, each a row of models.
@@ -8263,65 +8327,72 @@ function buildPerResidueCharts(pairKey) {
     const selectedModelIdx = seedVal === 'avg' ? -1 : parseInt(seedVal);
     const v = uniState.results[pairKey];
 
+    // Cache per-chain pLDDT and intra-chain LIS across models (only changes on new load or PAE cutoff)
+    const perResKey = `${uniState.loadEpoch || 0}|${paeCutoff}|${uniState.modelData.length}|${chainNames.join(',')}`;
+    if (!uniState._perResCache || uniState._perResCache.key !== perResKey) {
+        const byChain = new Map();
+        for (let ci = 0; ci < chainNames.length; ci++) {
+            if (chainTypes[ci] === 'ion' || chainTypes[ci] === 'glycan' || chainTypes[ci] === 'ligand') continue;
+            const chainName = chainNames[ci];
+            const chainLen = chainSizes[ci];
+            const offset = chainSizes.slice(0, ci).reduce((a, b) => a + b, 0);
+            const models = [];
+            for (const md of uniState.modelData) {
+                const pae = md.pae;
+                const nTotal = md.nTotal || (pae ? pae.length : 0);
+                const structText = md.structText;
+                const format = md.structFormat || uniState.structureFormat;
+                const bfMap = structText ? parseBfactorsPerResidue(structText, format) : new Map();
+                const plddt = [];
+                for (let r = 1; r <= chainLen; r++) {
+                    const val = bfMap.get(`${chainName}:${r}`);
+                    plddt.push(val !== undefined ? val : null);
+                }
+                const intraLis = [];
+                for (let r = 0; r < chainLen; r++) {
+                    const ri = offset + r;
+                    let lisSum = 0;
+                    if (pae && ri < nTotal) {
+                        const row = pae[ri];
+                        for (let j = 0; j < chainLen; j++) {
+                            if (j === r) continue;
+                            const rj = offset + j;
+                            if (rj < nTotal) {
+                                const v = row[rj];
+                                if (v <= paeCutoff) lisSum += 1 - v / paeCutoff;
+                            }
+                        }
+                    }
+                    intraLis.push(chainLen > 1 ? lisSum / (chainLen - 1) : 0);
+                }
+                models.push({ plddt, intraLis });
+            }
+            const avgPlddt = [];
+            const avgLis = [];
+            for (let r = 0; r < chainLen; r++) {
+                let pSum = 0, pN = 0, lSum = 0;
+                for (const m of models) {
+                    if (m.plddt[r] !== null) { pSum += m.plddt[r]; pN++; }
+                    lSum += m.intraLis[r];
+                }
+                avgPlddt.push(pN > 0 ? pSum / pN : null);
+                avgLis.push(lSum / models.length);
+            }
+            byChain.set(chainName, { models, avgPlddt, avgLis });
+        }
+        uniState._perResCache = { key: perResKey, byChain };
+    }
+
     // Compute per-chain per-model data
-    const chainData = []; // [{name, size, models: [{plddt:[], intraLis:[]}], avgPlddt:[], avgLis:[], lir, clir}]
+    const chainData = [];
 
     for (let ci = 0; ci < chainNames.length; ci++) {
         if (chainTypes[ci] === 'ion' || chainTypes[ci] === 'glycan' || chainTypes[ci] === 'ligand') continue;
         const chainName = chainNames[ci];
         const chainLen = chainSizes[ci];
-        const offset = chainSizes.slice(0, ci).reduce((a, b) => a + b, 0);
-
-        const models = [];
-        for (const md of uniState.modelData) {
-            const pae = md.pae;
-            const nTotal = md.nTotal || (pae ? pae.length : 0);
-            const structText = md.structText;
-            const format = md.structFormat || uniState.structureFormat;
-
-            // pLDDT from B-factors
-            const bfMap = structText ? parseBfactorsPerResidue(structText, format) : new Map();
-            const plddt = [];
-            for (let r = 1; r <= chainLen; r++) {
-                const val = bfMap.get(`${chainName}:${r}`);
-                plddt.push(val !== undefined ? val : null);
-            }
-
-            // Intra-chain LIS (asymmetric, per-direction)
-            const intraLis = [];
-            for (let r = 0; r < chainLen; r++) {
-                const ri = offset + r;
-                let lisSum = 0;
-                if (pae && ri < nTotal) {
-                    for (let j = 0; j < chainLen; j++) {
-                        if (j === r) continue;
-                        const rj = offset + j;
-                        if (rj < nTotal) {
-                            const v = pae[ri][rj];
-                            if (v <= paeCutoff) {
-                                lisSum += 1 - v / paeCutoff;
-                            }
-                        }
-                    }
-                }
-                intraLis.push(chainLen > 1 ? lisSum / (chainLen - 1) : 0);
-            }
-
-            models.push({ plddt, intraLis });
-        }
-
-        // Compute averages across models
-        const avgPlddt = [];
-        const avgLis = [];
-        for (let r = 0; r < chainLen; r++) {
-            let pSum = 0, pN = 0, lSum = 0;
-            for (const m of models) {
-                if (m.plddt[r] !== null) { pSum += m.plddt[r]; pN++; }
-                lSum += m.intraLis[r];
-            }
-            avgPlddt.push(pN > 0 ? pSum / pN : null);
-            avgLis.push(lSum / models.length);
-        }
+        const cached = uniState._perResCache.byChain.get(chainName);
+        if (!cached) continue;
+        const { models, avgPlddt, avgLis } = cached;
 
         // LIR/cLIR for this chain: union across ALL pairs involving this chain
         // (so every chain shows its full interface annotation, not just the selected pair)
@@ -9691,68 +9762,73 @@ function buildChordDiagram() {
     if (chordAllWrap) chordAllWrap.style.display = hasMultipleModels ? '' : 'none';
 
     if (hasMultipleModels && canvasAll) {
-        // Collect contacts from each model using its own structure coordinates
-        const contactDist = parseFloat((document.getElementById('cb-cutoff') || {}).value) || 8;   // the Cβ cutoff the cLIR sets used
-        const allContactsByPair = {}; // pairKey → Map("resA-resB" → {resA, resB, dist, ci, cj})
-        // Per-chain LIR/cLIR unioned across ALL models, for the all-models arc shading
-        const allLIR = {}, allCLIR = {};
-        for (const name of chainNames) { allLIR[name] = new Set(); allCLIR[name] = new Set(); }
-        for (let mi = 0; mi < uniState.modelPairs.length; mi++) {
-            // modelData[mi].structText is keyed positionally and always defined.
-            // Earlier code used structureContents[String(mi)], which broke for
-            // ensembles whose ranks are non-numeric (e.g. 's1', 'A').
-            const miStructText = uniState.modelData[mi]?.structText
-                                 ?? uniState.structureContents[String(mi)];
-            if (!miStructText) continue;
-            const miCoords = parseStructureCoords(miStructText, uniState.structureFormat);
-            const miCoordMap = new Map();
-            for (const c of miCoords) {
-                if (!miCoordMap.has(c.chain)) miCoordMap.set(c.chain, new Map());
-                miCoordMap.get(c.chain).set(c.resnum, c);
-            }
-            const sym = symmetrizePairs(uniState.modelPairs[mi]);
-            for (const [key, v] of Object.entries(sym)) {
-                if (!allContactsByPair[key]) allContactsByPair[key] = new Map();
-                const idxI = chainNames.indexOf(v.ci), idxJ = chainNames.indexOf(v.cj);
-                const typeI = chainTypes[idxI], typeJ = chainTypes[idxJ];
-                const isIonPair = ['ion', 'glycan', 'ligand'].includes(typeI) || ['ion', 'glycan', 'ligand'].includes(typeJ);
-                // Apply Min segment filter; cLIR restricted to filtered LIR
-                const lirI_f = filterSmallSegments(v.lirI || new Set());
-                const lirJ_f = filterSmallSegments(v.lirJ || new Set());
-                const clirI_f = new Set([...(v.clirI || [])].filter(r => lirI_f.has(r)));
-                const clirJ_f = new Set([...(v.clirJ || [])].filter(r => lirJ_f.has(r)));
-                if (allLIR[v.ci]) { for (const r of lirI_f) allLIR[v.ci].add(r); for (const r of clirI_f) allCLIR[v.ci].add(r); }
-                if (allLIR[v.cj]) { for (const r of lirJ_f) allLIR[v.cj].add(r); for (const r of clirJ_f) allCLIR[v.cj].add(r); }
-                const setI = (clirI_f.size > 0) ? clirI_f : isIonPair ? lirI_f : new Set();
-                const setJ = (clirJ_f.size > 0) ? clirJ_f : isIonPair ? lirJ_f : new Set();
-                const coordsI = miCoordMap.get(v.ci), coordsJ = miCoordMap.get(v.cj);
-                if (!coordsI || !coordsJ) continue;
-                for (const resA of setI) {
-                    const cA = coordsI.get(resA);
-                    if (!cA) continue;
-                    for (const resB of setJ) {
-                        const cKey = `${resA}-${resB}`;
-                        if (allContactsByPair[key].has(cKey)) continue;
-                        const cB = coordsJ.get(resB);
-                        if (!cB) continue;
-                        const dx = cA.x-cB.x, dy = cA.y-cB.y, dz = cA.z-cB.z;
-                        const dist = Math.sqrt(dx*dx+dy*dy+dz*dz);
-                        if (dist <= contactDist) {
-                            allContactsByPair[key].set(cKey, { ci: v.ci, cj: v.cj, resA, resB, dist });
+        const contactDist = parseFloat((document.getElementById('cb-cutoff') || {}).value) || 8;
+        const minSegVal = parseInt((document.getElementById('min-segment-input') || {}).value, 10) || 3;
+        const allKey = `${uniState.loadEpoch || 0}|${contactDist}|${minSegVal}|${uniState.modelPairs.length}|${chainNames.join(',')}`;
+        if (!uniState._allChordCache || uniState._allChordCache.key !== allKey) {
+            const allContactsByPair = {};
+            const allLIR = {}, allCLIR = {};
+            for (const name of chainNames) { allLIR[name] = new Set(); allCLIR[name] = new Set(); }
+            for (let mi = 0; mi < uniState.modelPairs.length; mi++) {
+                const miStructText = uniState.modelData[mi]?.structText
+                                     ?? uniState.structureContents[String(mi)];
+                if (!miStructText) continue;
+                const miCoords = parseStructureCoords(miStructText, uniState.structureFormat);
+                const miCoordMap = new Map();
+                for (const c of miCoords) {
+                    if (!miCoordMap.has(c.chain)) miCoordMap.set(c.chain, new Map());
+                    miCoordMap.get(c.chain).set(c.resnum, c);
+                }
+                const sym = symmetrizePairs(uniState.modelPairs[mi]);
+                for (const [key, v] of Object.entries(sym)) {
+                    if (!allContactsByPair[key]) allContactsByPair[key] = new Map();
+                    const idxI = chainNames.indexOf(v.ci), idxJ = chainNames.indexOf(v.cj);
+                    const typeI = chainTypes[idxI], typeJ = chainTypes[idxJ];
+                    const isIonPair = ['ion', 'glycan', 'ligand'].includes(typeI) || ['ion', 'glycan', 'ligand'].includes(typeJ);
+                    const lirI_f = filterSmallSegments(v.lirI || new Set());
+                    const lirJ_f = filterSmallSegments(v.lirJ || new Set());
+                    const clirI_f = new Set([...(v.clirI || [])].filter(r => lirI_f.has(r)));
+                    const clirJ_f = new Set([...(v.clirJ || [])].filter(r => lirJ_f.has(r)));
+                    if (allLIR[v.ci]) { for (const r of lirI_f) allLIR[v.ci].add(r); for (const r of clirI_f) allCLIR[v.ci].add(r); }
+                    if (allLIR[v.cj]) { for (const r of lirJ_f) allLIR[v.cj].add(r); for (const r of clirJ_f) allCLIR[v.cj].add(r); }
+                    const setI = (clirI_f.size > 0) ? clirI_f : isIonPair ? lirI_f : new Set();
+                    const setJ = (clirJ_f.size > 0) ? clirJ_f : isIonPair ? lirJ_f : new Set();
+                    const coordsI = miCoordMap.get(v.ci), coordsJ = miCoordMap.get(v.cj);
+                    if (!coordsI || !coordsJ) continue;
+                    for (const resA of setI) {
+                        const cA = coordsI.get(resA);
+                        if (!cA) continue;
+                        for (const resB of setJ) {
+                            const cKey = `${resA}-${resB}`;
+                            if (allContactsByPair[key].has(cKey)) continue;
+                            const cB = coordsJ.get(resB);
+                            if (!cB) continue;
+                            const dx = cA.x - cB.x, dy = cA.y - cB.y, dz = cA.z - cB.z;
+                            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                            if (dist <= contactDist) {
+                                allContactsByPair[key].set(cKey, { ci: v.ci, cj: v.cj, resA, resB, dist });
+                            }
                         }
                     }
                 }
             }
-        }
-        // Flatten all contacts into a single list for drawing
-        const allContacts = [];
-        for (const [key, contactMap] of Object.entries(allContactsByPair)) {
-            for (const c of contactMap.values()) {
-                allContacts.push(c);
+            const allContacts = [];
+            for (const contactMap of Object.values(allContactsByPair)) {
+                for (const c of contactMap.values()) allContacts.push(c);
             }
+            uniState._allChordCache = { key: allKey, allContacts, allLIR, allCLIR };
         }
-
-        if (allContacts.length > 0) {
+        const { allContacts, allLIR, allCLIR } = uniState._allChordCache;
+        const allDrawSig = JSON.stringify([
+            allKey,
+            chainNames.map(n => chainColors[n] || ''),
+            [...(uniState.hiddenChains || [])].sort(),
+            uniShowChordLabels, uniShowChordIDs, uniShowChordLength, uniShowChordTicks, uniShowChordRadial, uniShowChordDom, uniShowChordTed, uniShowChordPlddt, uniLabelBlack,
+            chainNames.map(n => chainGeneName(n)),
+            Object.keys(uniState.chainDomains || {}).map(k => (uniState.chainDomains[k] || []).length)
+        ]);
+        if (allContacts.length > 0 && canvasAll._drawnSig !== allDrawSig) {
+            canvasAll._drawnSig = allDrawSig;
             canvasAll.width = size * S;
             canvasAll.height = size * S;
             canvasAll.style.width = size + 'px';
@@ -9891,6 +9967,167 @@ function buildChordDiagram() {
     } catch (e) { showOrigin(ev, m.name || ''); banner('Could not load pushed bundle: ' + e.message, 'error'); }
   });
   if (window.opener) ready(window.opener);   // announce readiness in case the opener is already waiting
+})();
+
+// ── Saved user viewing preferences (localStorage) ──
+const UNI_PREFS_KEY = 'livia_uni_prefs_v1';
+function readUniPrefs() {
+    try { return JSON.parse(localStorage.getItem(UNI_PREFS_KEY) || 'null'); } catch (_e) { return null; }
+}
+function syncResetPrefsLink() {
+    const lnk = document.getElementById('summary-reset-prefs');
+    if (lnk) lnk.style.display = readUniPrefs() ? '' : 'none';
+}
+function saveUniPrefs() {
+    try {
+        const sc = document.querySelector('.show-complete-cb');
+        const gn = document.querySelector('.gray-nonlir-cb');
+        const prefs = {
+            scriptMode: typeof scriptMode === 'string' ? scriptMode : 'chimerax',
+            gapFill: document.getElementById('gap-fill-input')?.value || '10',
+            minSeg: document.getElementById('min-segment-input')?.value || '3',
+            showLirCols: !!document.getElementById('toggle-lir-cols')?.checked,
+            compactPairs: !!document.getElementById('toggle-compact-pairs')?.checked,
+            showComplete: !!(sc && sc.checked),
+            grayNonLir: !!(gn && gn.checked)
+        };
+        localStorage.setItem(UNI_PREFS_KEY, JSON.stringify(prefs));
+        syncResetPrefsLink();
+    } catch (_e) {}
+}
+function applyUniPrefs() {
+    const p = readUniPrefs();
+    syncResetPrefsLink();
+    if (!p) return;
+    const gf = document.getElementById('gap-fill-input');
+    if (gf && p.gapFill != null) gf.value = p.gapFill;
+    const ms = document.getElementById('min-segment-input');
+    if (ms && p.minSeg != null) ms.value = p.minSeg;
+    const lirCb = document.getElementById('toggle-lir-cols');
+    if (lirCb && p.showLirCols != null) {
+        lirCb.checked = !!p.showLirCols;
+        document.getElementById('pairs-table')?.classList.toggle('show-lir-cols', !!p.showLirCols);
+    }
+    if (p.scriptMode && (p.scriptMode === 'pymol' || p.scriptMode === 'chimerax') && typeof switchScriptTab === 'function') {
+        switchScriptTab(p.scriptMode);
+    }
+    if (p.showComplete && typeof toggleShowComplete === 'function') {
+        const sc = document.querySelector('.show-complete-cb');
+        if (sc && !sc.checked) { sc.checked = true; toggleShowComplete(sc); }
+    }
+    if (p.grayNonLir && typeof toggleGrayNonLir === 'function') {
+        const gn = document.querySelector('.gray-nonlir-cb');
+        if (gn && !gn.checked) { gn.checked = true; toggleGrayNonLir(gn); }
+    }
+}
+function resetUniPrefs() {
+    try { localStorage.removeItem(UNI_PREFS_KEY); } catch (_e) {}
+    const gf = document.getElementById('gap-fill-input');
+    if (gf) gf.value = '10';
+    const ms = document.getElementById('min-segment-input');
+    if (ms) ms.value = '3';
+    const lirCb = document.getElementById('toggle-lir-cols');
+    if (lirCb) { lirCb.checked = false; document.getElementById('pairs-table')?.classList.remove('show-lir-cols'); }
+    const cmpCb = document.getElementById('toggle-compact-pairs');
+    if (cmpCb) { cmpCb.checked = false; setCompactPairsShown(false); }
+    const sc = document.querySelector('.show-complete-cb');
+    if (sc && sc.checked) { sc.checked = false; toggleShowComplete(sc); }
+    const gn = document.querySelector('.gray-nonlir-cb');
+    if (gn && gn.checked) { gn.checked = false; toggleGrayNonLir(gn); }
+    if (typeof switchScriptTab === 'function') switchScriptTab('chimerax');
+    if (typeof updateGapFill === 'function') updateGapFill();
+    syncResetPrefsLink();
+}
+(function () {
+    const boot = () => {
+        applyUniPrefs();
+        const res = document.getElementById('results');
+        if (res) {
+            res.addEventListener('change', (ev) => {
+                const t = ev.target;
+                if (!t) return;
+                if (t.id === 'toggle-lir-cols' || t.id === 'toggle-compact-pairs' || t.id === 'gap-fill-input' || t.id === 'min-segment-input' || t.classList?.contains('show-complete-cb') || t.classList?.contains('gray-nonlir-cb')) {
+                    saveUniPrefs();
+                }
+            });
+            res.addEventListener('click', (ev) => {
+                if (ev.target && ev.target.closest && ev.target.closest('.input-tab[data-tab]')) {
+                    setTimeout(saveUniPrefs, 0);
+                }
+            });
+        }
+
+        // Global drag-and-drop overlay so users can drop a new prediction anywhere
+        let overlay = document.getElementById('global-drop-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'global-drop-overlay';
+            overlay.className = 'global-drop-overlay';
+            overlay.innerHTML = '<div class="global-drop-box">Drop AlphaFold / ColabFold / Boltz / Chai-1 / LIVIA files to analyze</div>';
+            document.body.appendChild(overlay);
+        }
+        let dragDepth = 0;
+        const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+        window.addEventListener('dragenter', (e) => {
+            if (!hasFiles(e)) return;
+            dragDepth++;
+            overlay.classList.add('active');
+        });
+        window.addEventListener('dragover', (e) => {
+            if (!hasFiles(e)) return;
+            e.preventDefault();
+        });
+        window.addEventListener('dragleave', () => {
+            dragDepth = Math.max(0, dragDepth - 1);
+            if (dragDepth === 0) overlay.classList.remove('active');
+        });
+        window.addEventListener('drop', (e) => {
+            dragDepth = 0;
+            overlay.classList.remove('active');
+            if (!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
+            if (e.target && e.target.closest && e.target.closest('#drop-zone')) return;
+            e.preventDefault();
+            handleInputFiles(e.dataTransfer.files);
+        });
+
+        // Keyboard navigation across visible pairs, models (1-5), and Isolate pair (i)
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            const ae = document.activeElement, tag = ae && ae.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (ae && ae.isContentEditable)) return;
+            const resEl = document.getElementById('results');
+            if (!resEl || !resEl.classList.contains('active')) return;
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'j' || e.key === 'k') {
+                const vis = [...document.querySelectorAll('#pairs-tbody tr')].filter(tr => tr.offsetParent !== null);
+                if (!vis.length) return;
+                const curIdx = vis.findIndex(tr => tr.classList.contains('selected'));
+                const step = (e.key === 'ArrowDown' || e.key === 'j') ? 1 : -1;
+                const nextIdx = curIdx < 0 ? 0 : Math.max(0, Math.min(vis.length - 1, curIdx + step));
+                if (nextIdx !== curIdx) {
+                    e.preventDefault();
+                    vis[nextIdx].click();
+                }
+            } else if (/^[1-9]$/.test(e.key)) {
+                const mi = parseInt(e.key, 10) - 1;
+                if (uniState.modelData && mi < uniState.modelData.length && typeof selectModel === 'function') {
+                    e.preventDefault();
+                    selectModel(String(mi));
+                }
+            } else if (e.key === '0') {
+                if (uniState.modelData && uniState.modelData.length > 1 && typeof selectModel === 'function') {
+                    e.preventDefault();
+                    selectModel('avg');
+                }
+            } else if (e.key === 'i' || e.key === 'I') {
+                if (uniState.chainNames && uniState.chainNames.length > 2 && typeof isolateSelectedPair === 'function') {
+                    e.preventDefault();
+                    isolateSelectedPair();
+                }
+            }
+        });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
 })();
 </script>
 <script>window.goatcounter = { path: function () { return location.pathname.replace(/index\.html$/, ''); }, title: 'LIVIA ' + (location.pathname.split('/').pop() || 'index.html') };   /* the page only: never the file, pair or query */</script>

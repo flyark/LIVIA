@@ -315,12 +315,45 @@ function highlightMolstarResidue(frameId, chain, seqId, endSeqId) {
         } catch (_e) {}
     });
 }
+function showMolstarFocusToast(frame, chain, seqId, endSeqId) {
+    if (!frame || typeof document === 'undefined') return;
+    const rect = frame.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    if (rect.top >= 40 && rect.bottom <= window.innerHeight - 40) return;
+    let toast = document.getElementById('livia-3d-focus-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'livia-3d-focus-toast';
+        toast.setAttribute('role', 'status');
+        toast.style.cssText = 'position:fixed; right:18px; bottom:18px; z-index:2500; display:none; align-items:center; gap:10px; background:rgba(23,38,58,0.95); color:#fff; padding:8px 12px; border-radius:8px; font-size:12.5px; box-shadow:0 6px 20px rgba(0,0,0,0.22); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;';
+        document.body.appendChild(toast);
+    }
+    const spanTxt = endSeqId && +endSeqId !== +seqId ? `${seqId}\u2013${endSeqId}` : `${seqId}`;
+    const dir = rect.top > window.innerHeight - 40 ? '\u2193' : '\u2191';
+    toast.innerHTML = '';
+    const msg = document.createElement('span');
+    msg.textContent = `Focused ${chain}:${spanTxt} in 3D`;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = `Jump to 3D ${dir}`;
+    btn.style.cssText = 'border:1px solid rgba(255,255,255,0.4); background:#2471A3; color:#fff; border-radius:5px; padding:3px 9px; font-size:12px; font-weight:600; cursor:pointer;';
+    btn.onclick = () => {
+        const card = frame.closest('.card') || frame;
+        card.scrollIntoView({ block: 'center' });
+        toast.style.display = 'none';
+    };
+    toast.append(msg, btn);
+    toast.style.display = 'flex';
+    clearTimeout(toast._tid);
+    toast._tid = setTimeout(() => { toast.style.display = 'none'; }, 3500);
+}
 function focusMolstarResidue(frameId, chain, seqId, endSeqId) {
     if (!chain || !seqId) return;
     const frame = document.getElementById(frameId);
     if (!frame || !frame.contentWindow) return;
     try {
         frame.contentWindow.postMessage({ type: 'focusResidue', chain: String(chain), seqId: +seqId, endSeqId: +(endSeqId || seqId) }, '*');
+        showMolstarFocusToast(frame, chain, seqId, endSeqId);
     } catch (_e) {}
 }
 function downloadMolstarPng(frameId, filename) {
