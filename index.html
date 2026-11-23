@@ -98,22 +98,6 @@
         .router-sub a { color: var(--blue); font-weight: 600; text-decoration: none; }
         .router-sub a:hover { text-decoration: underline; }
 
-        /* 1-Click Paper Examples Launcher */
-        .paper-strip { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 0.95rem 1.2rem; margin-bottom: 1.5rem; box-shadow: 0 1px 6px rgba(15, 35, 55, 0.04); }
-        .paper-strip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.65rem; }
-        .paper-strip-head h3 { font-family: var(--disp); font-size: 0.95rem; color: var(--navy); }
-        .paper-strip-head span { font-size: 0.77rem; color: var(--muted); }
-        .paper-pills { display: flex; flex-wrap: wrap; gap: 0.45rem; }
-        .paper-pill {
-            display: inline-flex; align-items: center; gap: 0.38rem;
-            padding: 0.34rem 0.68rem; border-radius: 8px; border: 1px solid #D9E2EC;
-            background: #F8FAFC; color: var(--navy); text-decoration: none;
-            font-size: 0.79rem; transition: all 0.15s;
-        }
-        .paper-pill:hover { border-color: var(--blue); background: #EAF2F8; }
-        .paper-pill .fig-tag { font-family: var(--mono); font-size: 0.68rem; font-weight: 600; color: var(--blue); background: #E3EFF8; padding: 1px 5px; border-radius: 4px; }
-        .paper-pill .pill-meta { color: var(--muted); font-size: 0.73rem; }
-
         /* 34-second tour */
         .tour-card { display: grid; grid-template-columns: 2fr 3fr; gap: 1.5rem; align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem 1.5rem; box-shadow: 0 2px 10px rgba(15, 35, 55, 0.05); margin-bottom: 1.5rem; }
         .tour-card h2 { font-family: var(--disp); font-size: 1.2rem; color: var(--navy); margin-bottom: 0.35rem; }
@@ -203,7 +187,7 @@
     <!-- Paper banner -->
     <a class="paper-banner" href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" rel="noopener">
         <span class="paper-icon">&#128196;</span>
-        <span class="paper-cite">Kim &amp; Perrimon (2026). <strong>LIVIA and LIVIA Atlas</strong>: browser-based interface-resolved analysis of predicted protein interactions across modeling tools and species. <em>bioRxiv</em>.</span>
+        <span class="paper-cite">Kim &amp; Perrimon (2026). LIVIA: a browser-based tool for assessing and visualizing predicted protein interactions. <em>bioRxiv</em>.</span>
         <span class="paper-arrow">&rarr;</span>
     </a>
 
@@ -229,7 +213,7 @@
             <div>
                 <div class="router-kicker">2 &middot; Precomputed 50-Species Resource</div>
                 <h3>Search a protein, variant, or motif</h3>
-                <p>Explore <strong>12.58M unique protein pairs</strong> (24.48M models) across 49 cellular species and 2,783 viral taxa in <strong>LIVIA Atlas</strong>. See cLIP binding-site clusters, tested negatives, AlphaMissense/pLDDT tracks, ortholog &amp; paralog matrices, or query a specific residue/motif (e.g., <code>R248</code>, <code>LXXLL</code>).</p>
+                <p>Explore precomputed interactome screens across human, model organisms, pathogens, and viruses in <strong>LIVIA Atlas</strong>. See cLIP binding-site clusters, tested negatives, AlphaMissense/pLDDT tracks, ortholog &amp; paralog matrices, or query a specific residue/motif (e.g., <code>R248</code>, <code>LXXLL</code>).</p>
             </div>
             <div class="router-foot">
                 <a class="router-cta" href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener">Open LIVIA Atlas &#8599;</a>
@@ -259,25 +243,6 @@
                 <a class="router-cta" href="clip.html">Launch cLIP &rarr;</a>
                 <span class="router-sub">Resolves AFDB 3D &amp; domains locally</span>
             </div>
-        </div>
-    </div>
-
-    <!-- 1-Click Paper Examples Launcher -->
-    <div class="paper-strip">
-        <div class="paper-strip-head">
-            <h3>Explore Paper Examples (1-Click)</h3>
-            <span>Jump straight into the headline complexes, cLIP maps, and networks from Kim &amp; Perrimon (2026)</span>
-        </div>
-        <div class="paper-pills">
-            <a class="paper-pill" href="universal.html?ex=alphafold3"><span class="fig-tag">Fig. 1</span><strong>TP53&ndash;MDM2</strong><span class="pill-meta">AF3 &middot; 5 MB</span></a>
-            <a class="paper-pill" href="universal.html?ex=prc2"><span class="fig-tag">ED Fig. 2</span><strong>PRC2 trimer</strong><span class="pill-meta">AF3 3-chain</span></a>
-            <a class="paper-pill" href="universal.html?ex=cct"><span class="fig-tag">ED Fig. 3</span><strong>CCT/TRiC</strong><span class="pill-meta">9-chain bundle &middot; 5.8 MB</span></a>
-            <a class="paper-pill" href="https://flyark.github.io/livia-atlas/#/human/P05412" target="_blank" rel="noopener"><span class="fig-tag">Fig. 2c</span><strong>JUN (c-Jun) cLIP</strong><span class="pill-meta">Atlas &#8599;</span></a>
-            <a class="paper-pill" href="https://flyark.github.io/livia-atlas/#/human/P04637?res=R248" target="_blank" rel="noopener"><span class="fig-tag">Fig. 3b</span><strong>TP53 R248 query</strong><span class="pill-meta">Atlas &#8599;</span></a>
-            <a class="paper-pill" href="https://flyark.github.io/livia-atlas/#/human/P04637/Q00987" target="_blank" rel="noopener"><span class="fig-tag">Fig. 3c</span><strong>TP53 &times; MDM2</strong><span class="pill-meta">Paralog matrix &#8599;</span></a>
-            <a class="paper-pill" href="https://flyark.github.io/livia-atlas/#/network/human?ex=network_human_rbbp4_apms.tsv" target="_blank" rel="noopener"><span class="fig-tag">Fig. 4</span><strong>RBBP4 AP-MS</strong><span class="pill-meta">Steiner network &#8599;</span></a>
-            <a class="paper-pill" href="https://flyark.github.io/livia-atlas/#/virus/taxon/10254" target="_blank" rel="noopener"><span class="fig-tag">Fig. 5</span><strong>Vaccinia virus</strong><span class="pill-meta">218 proteins &#8599;</span></a>
-            <a class="paper-pill" href="https://flyark.github.io/livia-atlas/#/human/Q7KZI7?res=T595" target="_blank" rel="noopener"><span class="fig-tag">ED Fig. 7</span><strong>MARK2 T595</strong><span class="pill-meta">Kinase hotspot &#8599;</span></a>
         </div>
     </div>
 
