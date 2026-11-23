@@ -194,11 +194,11 @@
     <div class="row" style="margin-top:1rem">
       <label>Query protein: <select id="gene"><option>—</option></select></label>
       <label title="every model that reaches the cutoff is clustered, whatever its rank">iLIS ≥ <input id="ilis" type="number" value="0.223" step="0.01" style="width:92px"></label>
-      <label>FPR <select id="fpr">
+      <label title="AFM-v2.3 heterodimer reference tiers (10% / 5% / 1% empirical FPR on top-ranked 5-model ColabFold alphafold2_multimer_v3; reference tier only for other predictors or homodimers)">Ref. tier <select id="fpr">
         <option value="">custom</option>
-        <option value="0.223" selected>10% (0.223)</option>
-        <option value="0.339">5% (0.339)</option>
-        <option value="0.551">1% (0.551)</option>
+        <option value="0.223" selected>10% ref. (0.223)</option>
+        <option value="0.339">5% ref. (0.339)</option>
+        <option value="0.551">1% ref. (0.551)</option>
       </select></label>
       <label title="the N highest-iLIS predictions (partners, when one prediction per partner is on)">top N <input id="topn" type="number" placeholder="all" step="5" style="width:64px"></label>
       <label title="Cluster each partner once, on its best-iLIS prediction among its models that pass (any model of a partner that passes counts), instead of every passing model"><input type="checkbox" id="one-per-partner"> one prediction per partner</label>
@@ -1357,6 +1357,40 @@ async function loadReported(A){
   renderClusterInfo(A);
 }
 
+function clipExclusiveResidues(A){
+  const { pipe, cl } = A, k = cl.optimalK, plen = pipe.proteinLen;
+  if (k < 2 || !plen) return {};
+  const counts = {}, totals = {};
+  for (let c = 1; c <= k; c++){ counts[c] = new Uint32Array(plen + 1); totals[c] = 0; }
+  for (let i = 0; i < pipe.fingerprints.length; i++){
+    const c = cl.labels[i]; if (!counts[c]) continue;
+    totals[c]++;
+    for (const r of pipe.fingerprints[i]) if (r >= 1 && r <= plen) counts[c][r]++;
+  }
+  const seq = (typeof FASTA !== 'undefined' && FASTA[A.gene]) || A._uniprotSeq || '';
+  const amap = A.residueMap || null, qCh = A._queryChain || 'A';
+  const out = {};
+  for (let c = 1; c <= k; c++){
+    const tot = totals[c]; if (!tot) { out[c] = []; continue; }
+    const list = [];
+    for (let r = 1; r <= plen; r++){
+      const inFrac = counts[c][r] / tot;
+      if (inFrac < 0.30) continue;
+      let maxOther = 0;
+      for (let o = 1; o <= k; o++){ if (o !== c && totals[o]) maxOther = Math.max(maxOther, counts[o][r] / totals[o]); }
+      if (maxOther > 0.15) continue;
+      const sr = amap ? amap[r - 1] : r;
+      const aa = seq && sr && seq[sr - 1] ? seq[sr - 1] : '';
+      const pl = A._plddt && sr ? A._plddt.get(qCh + ':' + sr) : null;
+      const am = A._am && sr ? A._am[sr] : null;
+      list.push({ r, sr, aa, inFrac, maxOther, spec: inFrac - maxOther, pl, am });
+    }
+    list.sort((a, b) => (b.spec - a.spec) || (b.inFrac - a.inFrac) || (a.r - b.r));
+    out[c] = list.slice(0, 12);
+  }
+  return out;
+}
+
 function renderClusterInfo(A){
   const { pipe, cl } = A, k = cl.optimalK;
   const members = {};
@@ -1368,12 +1402,23 @@ function renderClusterInfo(A){
   const anyRep = bg.status === 'ok' && Object.values(bg.map).some(x => x && (x.ph || x.ge));
   const tip = (p, kb) => kb && (kb.ph || kb.ge) ? `${p}: reported in BioGRID with ${A.gene} (${[kb.ph ? `physical, ${kb.ph} record${kb.ph === 1 ? '' : 's'}` : '', kb.ge ? `genetic, ${kb.ge} record${kb.ge === 1 ? '' : 's'}` : ''].filter(Boolean).join('; ')}) · click: its residues` : `${p} · click: its residues`;
   const name = (p) => { const kb = rep(p); return `<a href="#" data-p="${_esc(p)}" class="${kb && kb.ph ? 'kb-p' : ''}${kb && kb.ge ? ' kb-g' : ''}" title="${_esc(tip(p, kb))}">${_esc(p)}</a>`; };
+  const excl = clipExclusiveResidues(A);
   let html = '';
   for (const c of ordered){
     const all = members[c] || []; const mem = [...new Set(all)].sort((a, b) => String(a).toLowerCase().localeCompare(String(b).toLowerCase()));
     const nRep = mem.filter(isRep).length;
+    const ex = excl[c] || [];
+    const exHtml = k >= 2 ? (ex.length
+      ? `<details style="margin-top:.35rem; font-size:.78rem; color:#455A64;"><summary style="cursor:pointer; color:#2471A3; font-weight:600;" title="Residues contacted by ≥30% of models in this cluster and ≤15% in every other cluster — candidates for separation-of-function mutagenesis">Separation-of-function candidates (${ex.length} cluster-specific residue${ex.length === 1 ? '' : 's'})</summary><div style="margin-top:.3rem; display:flex; flex-wrap:wrap; gap:4px 6px;">`
+        + ex.map(x => {
+            const lbl = `${x.aa || ''}${x.sr || x.r}`;
+            const meta = `${Math.round(x.inFrac*100)}% in C${c} vs ≤${Math.round(x.maxOther*100)}% others` + (x.pl != null ? ` · pLDDT ${x.pl.toFixed(0)}` : '') + (x.am != null ? ` · AM ${x.am.toFixed(2)}` : '');
+            return `<span title="${_esc(meta)}" style="display:inline-block; padding:1px 6px; border-radius:5px; background:#EEF5FA; border:1px solid #CFE1F0; font-family:ui-monospace,monospace; font-size:.74rem; color:#1A5276;"><b>${_esc(lbl)}</b> <span style="color:#5E6C7A;">${Math.round(x.inFrac*100)}%</span>${x.am != null ? ` <span style="color:${x.am>=0.564?'#B03A2E':'#5E6C7A'};">AM ${x.am.toFixed(2)}</span>` : ''}</span>`;
+          }).join('')
+        + `</div></details>`
+      : `<div class="muted" style="font-size:.74rem; margin-top:.2rem;">No residues exclusive to ${_esc(clusterLabel(c))} (&ge;30% in-cluster, &le;15% in all others).</div>`) : '';
     html += `<div class="cl-row"><i style="background:${clusterColor(c,k)}"></i>`
-      + `<div><b>${_esc(clusterLabel(c))}</b> <span class="muted">(${mem.length} partner${mem.length === 1 ? '' : 's'}, ${all.length} prediction${all.length === 1 ? '' : 's'})${anyRep ? ` &middot; <span title="partners in this cluster with a physical or genetic interaction reported in BioGRID with ${_esc(A.gene)}">${nRep} of ${mem.length} reported</span>` : ''}</span>: ${mem.map(name).join(', ')}</div></div>`;
+      + `<div><b>${_esc(clusterLabel(c))}</b> <span class="muted">(${mem.length} partner${mem.length === 1 ? '' : 's'}, ${all.length} prediction${all.length === 1 ? '' : 's'})${anyRep ? ` &middot; <span title="partners in this cluster with a physical or genetic interaction reported in BioGRID with ${_esc(A.gene)}">${nRep} of ${mem.length} reported</span>` : ''}</span>: ${mem.map(name).join(', ')}${exHtml}</div></div>`;
   }
   const vals = Object.values(bg.map);
   const nP = vals.filter(x => x.ph && !x.ge).length, nG = vals.filter(x => x.ge && !x.ph).length, nB = vals.filter(x => x.ph && x.ge).length;
@@ -2259,7 +2304,7 @@ async function load3D(source, A){
   A._queryChain = pickQueryChain(A._plddt, A.pipe.proteinLen);   // dimer: pick the chain matching the query length, not always A
   { const chs = A._plddt ? new Set([...A._plddt.keys()].map(k => k.split(':')[0])) : new Set();
     if (chs.size > 1) $('struct-badge').textContent += ` · query = chain ${A._queryChain}`; }
-  renderFreq(A); if (A._fragOffset) renderHeatmap(A);   // re-render with the AFDB pLDDT overlay + fragment full-protein axis now available
+  renderFreq(A); renderClusterInfo(A); if (A._fragOffset) renderHeatmap(A);   // re-render with the AFDB pLDDT overlay + fragment full-protein axis now available
   const base = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
   const page = buildMolstarPage(text, fmt, clusterColorComponents(A), base);
   const blob = new Blob([page], { type:'text/html' });
@@ -2316,7 +2361,7 @@ async function resolve3D(A){
   if ($('pair-partner') && $('pair-partner').value) renderPairSeq(A, $('pair-partner').value);
   CLIPResolver.fetchDomains(res.accession).then(d => { if (d && d.length){ A._domains = d; renderFreq(A); if ($('pair-partner') && $('pair-partner').value) drawPairTracks($('pair-canvas'), A, $('pair-partner').value); } });   // UniProt domain track (needs only accession)
   { const pp = $('pair-partner') && $('pair-partner').value; if (pp) fetchPartnerDomainsFor(A, pp, () => { if ($('pair-partner').value === pp) { drawPairTracks($('pair-canvas'), A, pp); renderPairSeq(A, pp); } }); }
-  CLIPResolver.fetchAlphaMissense(res.accession).then(am => { if (am && am.length){ A._am = am; renderFreq(A); document.querySelectorAll('.am-only').forEach(e => e.classList.remove('hidden')); } });   // AlphaMissense per-residue pathogenicity (human only)
+  CLIPResolver.fetchAlphaMissense(res.accession).then(am => { if (am && am.length){ A._am = am; renderFreq(A); renderClusterInfo(A); document.querySelectorAll('.am-only').forEach(e => e.classList.remove('hidden')); } });   // AlphaMissense per-residue pathogenicity (human only)
   if (!res.cifUrl){ badge.textContent = `· ${res.accession}${res.gene ? ' (' + res.gene + ')' : ''} · via ${res.matchedBy} · ⚠ no AFDB structure`; $('viewer3d-frame').src = 'about:blank';
     const long = Math.max(+res.length || 0, +res.structureLength || 0, plen || 0) > 2700;
     no3D(`No 3D structure: AlphaFold DB returned no model for UniProt ${_esc(res.accession)}${long ? ' (it has none for proteins longer than 2,700 residues)' : ' (the entry may not be in the database, or the site did not answer; reload the page to try again)'}. Drop a structure file (.cif or .pdb) of the query to color its clusters in 3D.`); return; }

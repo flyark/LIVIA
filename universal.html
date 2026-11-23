@@ -201,30 +201,33 @@
         <div class="btn-row">
             <button class="btn btn-primary" id="btn-process" onclick="processFiles()" disabled>Process</button>
             <div class="examples-col">
-                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-                    <span style="color:#6B6B6B; font-size:0.82rem;">p53&ndash;MDM2 examples:</span>
-                    <button onclick="loadExample('colabfold')" class="example-btn">ColabFold (8 MB)</button>
-                    <button onclick="loadExample('alphafold3')" class="example-btn">AlphaFold3 (5 MB)</button>
-                    <button onclick="loadExample('boltz2')" class="example-btn">Boltz-2 (26 MB)</button>
-                    <button onclick="loadExample('chai-1')" class="example-btn">Chai-1 (63 MB)</button>
-                    <button onclick="loadExample('openfold3')" class="example-btn">OpenFold3 (33 MB)</button>
-                    <button onclick="loadExample('protenix-v2')" class="example-btn">Protenix-v2 (21 MB)</button>
-                    <button onclick="loadExample('esmfold2')" class="example-btn">ESMFold2 (2 MB)</button>
+                <div style="display:flex; gap:0.45rem; flex-wrap:wrap; align-items:center;">
+                    <span style="color:#1a5276; font-weight:600; font-size:0.82rem;">Quick examples (&le;6 MB):</span>
+                    <button onclick="loadExample('alphafold3')" class="example-btn"><b>p53&ndash;MDM2</b> &mdash; AlphaFold3 (5 MB)</button>
+                    <button onclick="loadExample('esmfold2')" class="example-btn"><b>p53&ndash;MDM2</b> &mdash; ESMFold2 (2 MB)</button>
+                    <button onclick="loadExample('mis12c')" class="example-btn"><b>MIS12C</b> &mdash; 4-chain AF3 (6 MB)</button>
+                    <button onclick="loadExample('orc_cdc6')" class="example-btn"><b>ORC&ndash;Cdc6</b> &mdash; 6-chain bundle (4.6 MB)</button>
+                    <button onclick="loadExample('cct')" class="example-btn"><b>CCT/TRiC</b> &mdash; 9-chain bundle (5.8 MB)</button>
+                    <button onclick="loadExample('eif3')" class="example-btn"><b>eIF3</b> &mdash; 10-chain bundle (5.9 MB)</button>
+                    <button onclick="loadExample('complex_i')" class="example-btn"><b>Complex I</b> &mdash; 14-chain bundle (5.0 MB)</button>
                 </div>
-                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-top:0.4rem;">
-                    <span style="color:#6B6B6B; font-size:0.82rem;">3- to 4-chain complexes (AlphaFold3):</span>
-                    <button onclick="loadExample('prc2')"   class="example-btn"><b>PRC2</b> &mdash; EZH2 / SUZ12 / EED (17 MB)</button>
-                    <button onclick="loadExample('bbsome')" class="example-btn"><b>BBSome</b> &mdash; BBIP1 / BBS4 / BBS8 (8 MB)</button>
-                    <button onclick="loadExample('mis12c')" class="example-btn"><b>MIS12C</b> &mdash; DSN1 / MIS12 / NSL1 / PMF1 (6 MB)</button>
-                </div>
-                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-top:0.4rem;">
-                    <span style="color:#6B6B6B; font-size:0.82rem;">6- to 14-chain complexes (AlphaFold3):</span>
-                    <button onclick="loadExample('orc_cdc6')" class="example-btn"><b>ORC&ndash;Cdc6</b> &mdash; Orc1&ndash;5 / Cdc6 (4.6 MB)</button>
-                    <button onclick="loadExample('cct')"      class="example-btn"><b>CCT/TRiC</b> &mdash; CCT1&ndash;8 / mst (5.8 MB)</button>
-                    <button onclick="loadExample('eif3')"     class="example-btn"><b>eIF3</b> &mdash; eIF3a/c/d1/e/f1/h/k/l/m + CG12725 (5.9 MB)</button>
-                    <button onclick="loadExample('complex_i')" class="example-btn"><b>Complex I</b> &mdash; 13 ND subunits + CG11752 (5.0 MB)</button>
-                </div>
-                <div style="font-size:0.72rem; color:#707070; margin-top:0.3rem;">AlphaFold3 predicted via <a href="https://alphafoldserver.com" target="_blank" style="color:#707070;">AlphaFold Server</a>. ColabFold, Boltz-2, Chai-1, OpenFold3, and Protenix-v2 predicted via <a href="https://www.tamarind.bio" target="_blank" style="color:#707070;">Tamarind Bio</a>. ESMFold2 predicted via <a href="https://biohub.ai" target="_blank" style="color:#707070;">biohub API</a>. ORC&ndash;Cdc6, CCT/TRiC, eIF3, and Complex I are higher-order complexes from the <a href="https://flyark.github.io/FlyPredictome-network/" target="_blank" style="color:#707070;">FlyPredictome interactome network</a>, shipped as lightweight bundles.</div>
+                <details style="margin-top:0.45rem;">
+                    <summary style="cursor:pointer; font-size:0.8rem; color:#2471A3; font-weight:600; user-select:none;">More multi-predictor &amp; raw complex examples (8&ndash;63 MB downloads)</summary>
+                    <div style="display:flex; gap:0.45rem; flex-wrap:wrap; align-items:center; margin-top:0.4rem;">
+                        <span style="color:#6B6B6B; font-size:0.8rem;">p53&ndash;MDM2 across predictors:</span>
+                        <button onclick="loadExample('colabfold')" class="example-btn">ColabFold (8 MB)</button>
+                        <button onclick="loadExample('protenix-v2')" class="example-btn">Protenix-v2 (21 MB)</button>
+                        <button onclick="loadExample('boltz2')" class="example-btn">Boltz-2 (26 MB)</button>
+                        <button onclick="loadExample('openfold3')" class="example-btn">OpenFold3 (33 MB)</button>
+                        <button onclick="loadExample('chai-1')" class="example-btn">Chai-1 (63 MB)</button>
+                    </div>
+                    <div style="display:flex; gap:0.45rem; flex-wrap:wrap; align-items:center; margin-top:0.35rem;">
+                        <span style="color:#6B6B6B; font-size:0.8rem;">3-chain complexes (raw AF3):</span>
+                        <button onclick="loadExample('bbsome')" class="example-btn"><b>BBSome</b> &mdash; BBIP1 / BBS4 / BBS8 (8 MB)</button>
+                        <button onclick="loadExample('prc2')" class="example-btn"><b>PRC2</b> &mdash; EZH2 / SUZ12 / EED (17 MB)</button>
+                    </div>
+                </details>
+                <div style="font-size:0.72rem; color:#707070; margin-top:0.35rem;">AlphaFold3 predicted via <a href="https://alphafoldserver.com" target="_blank" style="color:#707070;">AlphaFold Server</a>. ColabFold, Boltz-2, Chai-1, OpenFold3, and Protenix-v2 predicted via <a href="https://www.tamarind.bio" target="_blank" style="color:#707070;">Tamarind Bio</a>. ESMFold2 predicted via <a href="https://biohub.ai" target="_blank" style="color:#707070;">biohub API</a>. ORC&ndash;Cdc6, CCT/TRiC, eIF3, and Complex I are higher-order complexes shipped as lightweight bundles.</div>
                 <div style="margin-top:0.6rem; padding:0.5rem 0.8rem; background:#eaf2f8; border-radius:6px; font-size:0.8rem; color:#555;">
                     For batch analysis, use <code style="background:#d6e9f8; color:#33414E; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis.py</code> (PPI scoring) and <code style="background:#d6e9f8; color:#33414E; padding:0.1rem 0.3rem; border-radius:3px; font-size:0.75rem;">lis_to_cxc.py</code> (ChimeraX script generation) from <a href="https://github.com/flyark/AFM-LIS" target="_blank" style="color:#2471A3; font-weight:600;">AFM-LIS</a>.
                 </div>
@@ -287,20 +290,20 @@
             </div>
             <div style="margin-top:0.6rem; font-size:0.75rem; color:#707070; line-height:1.8;">
                 <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
-                    <strong style="min-width:90px;">iLIS:</strong>
-                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.551</span> (1% FPR)</span>
-                    <span><span style="color:#0B7A61; font-weight:700;">&ge;0.339</span> (5% FPR)</span>
-                    <span><span style="color:#8F6400; font-weight:700;">&ge;0.223</span> (10% FPR)</span>
-                    <span><span style="color:#667080; font-weight:700;">&lt;0.223</span> (below threshold)</span>
+                    <strong style="min-width:90px;">iLIS (AFM-v2.3 ref.):</strong>
+                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.551</span> (1% ref. tier)</span>
+                    <span><span style="color:#0B7A61; font-weight:700;">&ge;0.339</span> (5% ref. tier)</span>
+                    <span><span style="color:#8F6400; font-weight:700;">&ge;0.223</span> (10% ref. tier)</span>
+                    <span><span style="color:#667080; font-weight:700;">&lt;0.223</span> (below reference)</span>
                 </div>
                 <div id="avg-legend" style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
-                    <strong style="min-width:90px;" title="the mean of the per-model iLIS of a pair over the models of the run (a model with no interface counts 0); iLISA of the average = this mean × the average iLIA; calibrated on runs of five ColabFold models">iLIS (average of the models):</strong>
-                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.268</span> (1% FPR)</span>
-                    <span><span style="color:#0B7A61; font-weight:700;">&ge;0.120</span> (5% FPR)</span>
-                    <span><span style="color:#8F6400; font-weight:700;">&ge;0.072</span> (10% FPR)</span>
-                    <span><span style="color:#667080; font-weight:700;">&lt;0.072</span> (below threshold)</span>
+                    <strong style="min-width:90px;" title="the mean of the per-model iLIS of a pair over the models of the run (a model with no interface counts 0); iLISA of the average = this mean × the average iLIA; calibrated on runs of five ColabFold AFM-v2.3 models">iLIS (5-model avg.):</strong>
+                    <span><span style="color:#6B21A8; font-weight:700;">&ge;0.268</span> (1% ref. tier)</span>
+                    <span><span style="color:#0B7A61; font-weight:700;">&ge;0.120</span> (5% ref. tier)</span>
+                    <span><span style="color:#8F6400; font-weight:700;">&ge;0.072</span> (10% ref. tier)</span>
+                    <span><span style="color:#667080; font-weight:700;">&lt;0.072</span> (below reference)</span>
                 </div>
-                <div>Thresholds based on large-scale Y2H reference sets in yeast, fly, and human predicted using ColabFold. See <a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>, for iLIS benchmark details. Different platforms may require different thresholds.</div>
+                <div>Reference tiers correspond to 1% / 5% / 10% empirical FPR on top-ranked 5-model ColabFold AlphaFold-Multimer v2.3 (<code>alphafold2_multimer_v3</code>) heterodimers (<a href="https://doi.org/10.64898/2026.04.14.718529" target="_blank" style="color:#2471A3;">Kim et al., 2026</a>). For AlphaFold 3, Boltz, Chai-1, single-model runs, homodimers, and multichain assemblies, use these as standardized reference tiers rather than strict empirical FPRs.</div>
             </div>
         </div>
 
@@ -9892,6 +9895,13 @@ function buildChordDiagram() {
 // rather than failing outright. See js/remotezip.js.
 (function(){
   const p = new URLSearchParams(location.search);
+  const exKey = p.get('ex');
+  if (exKey && typeof EXAMPLES === 'object' && EXAMPLES[exKey] && !p.get('data')) {
+    const runEx = () => loadExample(exKey);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', runEx, { once: true });
+    else runEx();
+    return;
+  }
   const url = p.get('data'); if (!url) return;
   const entryName = p.get('entry');
   const go = async () => {

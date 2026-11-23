@@ -5,87 +5,162 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="help" type="text/plain" href="llms.txt" title="LLM and programmatic navigation guide">
-    <title>LIVIA — Local Interaction Visualization and Analysis</title>
+    <title>LIVIA &mdash; Local Interaction Visualization and Analysis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"></noscript>
     <style>
+        :root {
+            --navy: #1A5276;
+            --blue: #2471A3;
+            --accent: #FF8A65;
+            --bg: #F6F8FB;
+            --ink: #1F2933;
+            --ink-2: #52606D;
+            --muted: #6B7785;
+            --line: #E2E8F0;
+            --sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --disp: 'Archivo', 'IBM Plex Sans', -apple-system, sans-serif;
+            --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
         html { scrollbar-gutter: stable; } * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; min-height: 100vh; display: flex; flex-direction: column; }
-        .header { background: white; color: #1a5276; padding: 0.8rem 2rem 0.8rem; border-bottom: 1px solid #e8e8e8; }
-        .header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.15rem; color: #1a5276; letter-spacing: -0.02em; }
-        .header h1 .livia { color: #2471A3; font-weight: 700; }
-        .header h1 .acro { color: #2471A3; }
-        .header .subtitle { font-size: 0.92rem; color: #6B6B6B; margin-bottom: 0.8rem; font-weight: 400; }
-        .header-links { display: flex; gap: 0.5rem 0.25rem; flex-wrap: wrap; }
-        .header-links a { position: relative; color: #555; text-decoration: none; font-size: 0.72rem; padding: 0.22rem 0.4rem; border: 1px solid #ddd; border-radius: 6px; transition: all 0.2s; background: #f8f9fa; }
-        .header-links a:hover { background: #2471A3; color: white; border-color: #2471A3; }
-        .header-links .new-tag { position: absolute; top: -7px; right: -3px; padding: 0 4px; border-radius: 6px; background: #B35A12; color: #fff; font-size: 8px; font-weight: 700; line-height: 11px; letter-spacing: 0.02em; pointer-events: none; }
-        .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+        body { font-family: var(--sans); background: var(--bg); color: var(--ink); min-height: 100vh; display: flex; flex-direction: column; }
+
+        /* Unified header harmonized with LIVIA Atlas */
+        .header { background: #fff; color: var(--navy); padding: 0.9rem 1.5rem; border-bottom: 1px solid var(--line); }
+        .header .container { padding: 0; }
+        .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+        .brand-lockup { display: flex; align-items: center; gap: 0.7rem; }
+        .brand-mark { width: 34px; height: 34px; flex: 0 0 34px; }
+        .header h1 { font-family: var(--disp); font-size: 1.55rem; font-weight: 800; line-height: 1.15; color: var(--navy); letter-spacing: -0.02em; }
+        .header h1 .livia, .header h1 .acro { color: var(--blue); }
+        .header .subtitle { font-size: 0.88rem; color: var(--ink-2); margin-top: 0.15rem; font-weight: 400; }
+
+        .header-links { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.75rem; }
+        .header-links > a, .nav-drop > summary {
+            position: relative; display: inline-flex; align-items: center; gap: 0.25rem;
+            color: #3E4C59; text-decoration: none; font-size: 0.78rem; font-weight: 500;
+            padding: 0.28rem 0.62rem; border: 1px solid #D9E2EC; border-radius: 7px;
+            transition: all 0.18s; background: #F8FAFC; cursor: pointer; list-style: none;
+        }
+        .nav-drop > summary::-webkit-details-marker { display: none; }
+        .header-links > a:hover, .nav-drop > summary:hover { background: var(--blue); color: #fff; border-color: var(--blue); }
+        .header-links > a.atlas-pill { background: #EAF2F8; border-color: #BDD5EA; color: var(--navy); font-weight: 600; }
+        .header-links > a.atlas-pill:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
+        .nav-drop { position: relative; }
+        .nav-pop {
+            position: absolute; top: calc(100% + 5px); left: 0; z-index: 40; min-width: 225px;
+            background: #fff; border: 1px solid #D9E2EC; border-radius: 10px; padding: 0.35rem;
+            box-shadow: 0 10px 26px rgba(26, 82, 118, 0.14); display: grid; gap: 2px;
+        }
+        .nav-pop a {
+            display: block; padding: 0.42rem 0.65rem; border-radius: 6px; text-decoration: none;
+            color: var(--ink); font-size: 0.8rem; transition: background 0.15s;
+        }
+        .nav-pop a:hover { background: #EAF2F8; color: var(--navy); }
+        .nav-pop a span { display: block; font-size: 0.7rem; color: var(--muted); }
+        .header-links .new-tag { position: absolute; top: -7px; right: -4px; padding: 0 4px; border-radius: 6px; background: #B35A12; color: #fff; font-size: 8px; font-weight: 700; line-height: 11px; letter-spacing: 0.02em; pointer-events: none; }
+
+        .container { max-width: 1120px; width: 100%; margin: 0 auto; padding: 1.4rem 1.5rem; }
 
         /* Paper banner */
-        .paper-banner { display: flex; align-items: center; gap: 0.7rem; background: #eaf2f8; border: 1px solid #d4e3f0; border-radius: 10px; padding: 0.7rem 1.1rem; margin-bottom: 1rem; text-decoration: none; color: #1a5276; transition: all 0.2s; }
-        .paper-banner:hover { background: #d4e3f0; border-color: #2471A3; }
-        .paper-banner .paper-icon { font-size: 1.1rem; line-height: 1; }
-        .paper-banner .paper-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #2471A3; }
-        .paper-banner .paper-cite { font-size: 0.88rem; color: #1a5276; flex: 1; }
-        .paper-banner .paper-cite em { color: #555; font-style: italic; }
-        .paper-banner .paper-arrow { font-size: 1.1rem; color: #2471A3; transition: transform 0.2s; }
+        .paper-banner { display: flex; align-items: center; gap: 0.7rem; background: #EAF2F8; border: 1px solid #CFE1F0; border-radius: 10px; padding: 0.65rem 1rem; margin-bottom: 1.1rem; text-decoration: none; color: var(--navy); transition: all 0.2s; }
+        .paper-banner:hover { background: #DCEBF7; border-color: var(--blue); }
+        .paper-banner .paper-icon { font-size: 1.05rem; line-height: 1; }
+        .paper-banner .paper-cite { font-size: 0.86rem; color: var(--navy); flex: 1; line-height: 1.4; }
+        .paper-banner .paper-cite em { color: var(--ink-2); font-style: italic; }
+        .paper-banner .paper-arrow { font-size: 1.05rem; color: var(--blue); transition: transform 0.2s; }
         .paper-banner:hover .paper-arrow { transform: translateX(3px); }
-        @media (max-width: 600px) {
-            .paper-banner { flex-wrap: wrap; }
-            .paper-banner .paper-cite { flex-basis: 100%; }
-        }
 
-        /* Hero card */
-        .hero-card { background: white; border-radius: 14px; padding: 2rem 2.5rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 2rem; border: 2px solid transparent; transition: all 0.2s; text-decoration: none; color: #333; display: block; }
-        .hero-card:hover { border-color: #2471A3; box-shadow: 0 6px 24px rgba(36,113,163,0.15); }
-        .hero-card h2 { font-size: 1.5rem; color: #1a5276; margin-bottom: 0.4rem; }
-        .hero-card p { font-size: 0.92rem; color: #555; line-height: 1.5; }
-        .hero-cta { display: inline-block; margin-top: 1rem; padding: 0.5rem 1.2rem; background: #2471A3; color: white; border-radius: 8px; font-weight: 600; font-size: 0.9rem; text-decoration: none; transition: background 0.2s; }
-        .hero-cta:hover { background: #1a5276; }
-        .hero-hint { font-size: 0.8rem; color: #6B6B6B; margin-top: 0.6rem; }
-        .hero-pair { display: grid; grid-template-columns: 3fr 2fr; gap: 1.5rem; margin-bottom: 2rem; }
-        /* the 34-second tour (files on flyark.github.io/livia-media; nothing downloads until play) */
-        .tour-card { display: grid; grid-template-columns: 2fr 3fr; gap: 1.75rem; align-items: center; background: white; border-radius: 14px; padding: 1.5rem 1.75rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 2rem; }
-        .tour-card h2 { font-size: 1.35rem; color: #1a5276; margin-bottom: 0.4rem; }
-        .tour-card p { font-size: 0.92rem; color: #555; line-height: 1.5; margin-bottom: 0.8rem; }
-        .tour-card .tour-meta { display: block; font-size: 0.78rem; color: #6B6B6B; margin-bottom: 0.8rem; }
-        .tour-more { font-size: 0.88rem; font-weight: 600; color: #2471A3; text-decoration: none; }
+        /* Section heading */
+        .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+        .section-head h2 { font-family: var(--disp); font-size: 1.05rem; font-weight: 700; color: var(--navy); letter-spacing: -0.01em; }
+        .section-head span { font-size: 0.8rem; color: var(--muted); }
+
+        /* 4-card Workflow Router */
+        .router-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+        .router-card {
+            background: #fff; border-radius: 12px; padding: 1.25rem 1.4rem;
+            box-shadow: 0 2px 10px rgba(15, 35, 55, 0.05); border: 1.5px solid var(--line);
+            transition: all 0.18s; display: flex; flex-direction: column; justify-content: space-between;
+            text-decoration: none; color: var(--ink);
+        }
+        .router-card:hover { border-color: var(--blue); box-shadow: 0 6px 20px rgba(36, 113, 163, 0.13); transform: translateY(-1px); }
+        .router-card.featured { border-color: #BDD5EA; background: linear-gradient(180deg, #FFFFFF 0%, #F8FBFE 100%); }
+        .router-kicker { font-family: var(--mono); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--blue); margin-bottom: 0.35rem; }
+        .router-card h3 { font-family: var(--disp); font-size: 1.18rem; color: var(--navy); margin-bottom: 0.35rem; line-height: 1.25; }
+        .router-card p { font-size: 0.86rem; color: var(--ink-2); line-height: 1.5; margin-bottom: 0.85rem; }
+        .router-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; padding-top: 0.6rem; border-top: 1px solid #EEF2F6; }
+        .router-cta { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.42rem 0.9rem; background: var(--blue); color: #fff; border-radius: 7px; font-weight: 600; font-size: 0.83rem; text-decoration: none; transition: background 0.18s; }
+        .router-card:hover .router-cta { background: var(--navy); }
+        .router-sub { font-size: 0.76rem; color: var(--muted); }
+        .router-sub a { color: var(--blue); font-weight: 600; text-decoration: none; }
+        .router-sub a:hover { text-decoration: underline; }
+
+        /* 1-Click Paper Examples Launcher */
+        .paper-strip { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 0.95rem 1.2rem; margin-bottom: 1.5rem; box-shadow: 0 1px 6px rgba(15, 35, 55, 0.04); }
+        .paper-strip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.65rem; }
+        .paper-strip-head h3 { font-family: var(--disp); font-size: 0.95rem; color: var(--navy); }
+        .paper-strip-head span { font-size: 0.77rem; color: var(--muted); }
+        .paper-pills { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+        .paper-pill {
+            display: inline-flex; align-items: center; gap: 0.38rem;
+            padding: 0.34rem 0.68rem; border-radius: 8px; border: 1px solid #D9E2EC;
+            background: #F8FAFC; color: var(--navy); text-decoration: none;
+            font-size: 0.79rem; transition: all 0.15s;
+        }
+        .paper-pill:hover { border-color: var(--blue); background: #EAF2F8; }
+        .paper-pill .fig-tag { font-family: var(--mono); font-size: 0.68rem; font-weight: 600; color: var(--blue); background: #E3EFF8; padding: 1px 5px; border-radius: 4px; }
+        .paper-pill .pill-meta { color: var(--muted); font-size: 0.73rem; }
+
+        /* 34-second tour */
+        .tour-card { display: grid; grid-template-columns: 2fr 3fr; gap: 1.5rem; align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem 1.5rem; box-shadow: 0 2px 10px rgba(15, 35, 55, 0.05); margin-bottom: 1.5rem; }
+        .tour-card h2 { font-family: var(--disp); font-size: 1.2rem; color: var(--navy); margin-bottom: 0.35rem; }
+        .tour-card p { font-size: 0.88rem; color: var(--ink-2); line-height: 1.5; margin-bottom: 0.65rem; }
+        .tour-card .tour-meta { display: block; font-size: 0.76rem; color: var(--muted); margin-bottom: 0.65rem; }
+        .tour-more { font-size: 0.84rem; font-weight: 600; color: var(--blue); text-decoration: none; }
         .tour-more:hover { text-decoration: underline; }
-        .tour-video { width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; background: #0d1b2a; display: block; }
-        .hero-pair .hero-card { margin-bottom: 0; }
+        .tour-video { width: 100%; aspect-ratio: 16 / 9; border-radius: 9px; background: #0d1b2a; display: block; }
 
         /* Section divider */
-        .section-divider { font-size: 0.88rem; font-weight: 600; color: #6B6B6B; margin-bottom: 1rem; padding-bottom: 0.4rem; border-bottom: 1px solid #e0e0e0; }
+        .section-divider { font-size: 0.84rem; font-weight: 600; color: var(--ink-2); margin-bottom: 0.85rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; }
+        .section-divider .div-note { font-weight: 400; font-size: 0.76rem; color: var(--muted); }
 
         /* Small cards grid */
-        .cards-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
-        .small-card { background: white; border-radius: 10px; padding: 1rem 1.2rem; box-shadow: 0 1px 4px rgba(0,0,0,0.06); text-decoration: none; color: #333; transition: all 0.2s; border: 2px solid transparent; cursor: pointer; display: block; }
-        .small-card:hover { border-color: #2471A3; box-shadow: 0 4px 12px rgba(36,113,163,0.12); }
-        .small-card h3 { font-size: 0.95rem; color: #1a5276; margin-bottom: 0.25rem; }
-        .small-card p { font-size: 0.8rem; color: #666; line-height: 1.4; }
-        .small-card .examples { font-size: 0.72rem; color: #707070; margin-top: 0.3rem; }
+        .cards-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.9rem; margin-bottom: 1.4rem; }
+        .small-card { background: #fff; border-radius: 10px; padding: 0.95rem 1.1rem; box-shadow: 0 1px 4px rgba(15, 35, 55, 0.05); text-decoration: none; color: var(--ink); transition: all 0.18s; border: 1.5px solid var(--line); cursor: pointer; display: block; }
+        .small-card:hover { border-color: var(--blue); box-shadow: 0 4px 12px rgba(36, 113, 163, 0.12); }
+        .small-card h3 { font-size: 0.92rem; color: var(--navy); margin-bottom: 0.25rem; }
+        .small-card p { font-size: 0.79rem; color: var(--ink-2); line-height: 1.42; }
+        .small-card .examples { font-size: 0.72rem; color: var(--muted); margin-top: 0.35rem; font-family: var(--mono); }
 
         /* Bottom links */
-        .bottom-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
-        .bottom-link { flex: 1; background: #f8f9fa; border-radius: 8px; padding: 0.8rem 1rem; text-decoration: none; color: #555; transition: all 0.2s; border: 1px solid #e8e8e8; display: block; }
-        .bottom-link:hover { border-color: #2471A3; color: #2471A3; }
-        .bottom-link h4 { font-size: 0.88rem; color: #1a5276; margin-bottom: 0.15rem; }
-        .bottom-link p { font-size: 0.78rem; color: #6B6B6B; }
+        .bottom-row { display: flex; gap: 0.9rem; margin-bottom: 1.2rem; }
+        .bottom-link { flex: 1; background: #fff; border-radius: 9px; padding: 0.8rem 1rem; text-decoration: none; color: var(--ink-2); transition: all 0.18s; border: 1px solid var(--line); display: block; }
+        .bottom-link:hover { border-color: var(--blue); color: var(--blue); }
+        .bottom-link h4 { font-size: 0.88rem; color: var(--navy); margin-bottom: 0.15rem; }
+        .bottom-link p { font-size: 0.78rem; color: var(--muted); }
 
-        .links { text-align: center; margin: 0.5rem 0 1rem; }
-        .links a { color: #2471A3; text-decoration: none; font-size: 0.85rem; margin: 0 0.6rem; }
-        .links a:hover { text-decoration: underline; }
-        .footer { text-align: center; padding: 1.5rem 2rem; font-size: 0.8rem; color: #707070; }
-        .footer a { color: #2471A3; text-decoration: none; }
+        .notes-box { background: #fff; border: 1px solid var(--line); border-radius: 9px; padding: 0.85rem 1.15rem; font-size: 0.78rem; color: var(--ink-2); line-height: 1.65; }
+        .notes-box strong { color: var(--navy); }
+        .notes-box a { color: var(--blue); }
+
+        .footer { text-align: center; padding: 1.4rem 1.5rem; font-size: 0.8rem; color: var(--muted); }
+        .footer a { color: var(--blue); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
 
         @media (max-width: 1024px) {
             .cards-grid { grid-template-columns: repeat(2, 1fr); }
         }
+        @media (max-width: 720px) {
+            .router-grid { grid-template-columns: 1fr; }
+            .tour-card { grid-template-columns: 1fr; gap: 1rem; padding: 1.15rem; }
+        }
         @media (max-width: 600px) {
             .cards-grid { grid-template-columns: 1fr; }
-            .hero-card { padding: 1.5rem; }
-            .hero-pair { grid-template-columns: 1fr; }
-            .tour-card { grid-template-columns: 1fr; gap: 1rem; padding: 1.25rem; }
-            .hero-card h2 { font-size: 1.2rem; }
+            .paper-banner { flex-wrap: wrap; }
+            .paper-banner .paper-cite { flex-basis: 100%; }
             .bottom-row { flex-direction: column; }
         }
     </style>
@@ -93,20 +168,32 @@
 <body>
 <div class="header">
     <div class="container" role="main">
-        <h1><span class="livia">LIVIA</span> &mdash; <span class="acro">L</span>ocal <span class="acro">I</span>nteraction <span class="acro">VI</span>sualization and <span class="acro">A</span>nalysis</h1>
-        <p class="subtitle">Analyze protein-protein interactions from structure predictions and generate visualization scripts</p>
+        <div class="brand-row">
+            <div class="brand-lockup">
+                <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="12" fill="#1A5276"/><path d="M20 16V46H40" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="48.5" cy="46" r="7.6" fill="#FF8A65"/></svg>
+                <div>
+                    <h1><span class="livia">LIVIA</span> &mdash; <span class="acro">L</span>ocal <span class="acro">I</span>nteraction <span class="acro">VI</span>sualization and <span class="acro">A</span>nalysis</h1>
+                    <p class="subtitle">Browser-local scoring, binding-surface clustering, and proteome-scale exploration of predicted protein interactions</p>
+                </div>
+            </div>
+        </div>
         <div class="header-links">
             <a href="universal.html">Prediction Analysis</a>
-            <a href="flypredictome.html">FlyPredictome</a>
-            <a href="ortholog_predictome.html">Ortholog Interactome</a>
-            <a href="dimer.html">AFDB Dimer</a>
-            <a href="monomer.html">AFDB Monomer Subdomain</a>
             <a href="clip.html">cLIP</a>
             <a href="network.html">PPI Network</a>
-            <a href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener">LIVIA Atlas<span class="new-tag">new</span></a>
+            <a class="atlas-pill" href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener">LIVIA Atlas &#8599;</a>
+            <details class="nav-drop">
+                <summary>Direct Viewers &#9662;</summary>
+                <div class="nav-pop">
+                    <a href="flypredictome.html">FlyPredictome<span>Drosophila screen runs (also in Atlas)</span></a>
+                    <a href="ortholog_predictome.html">Ortholog Interactome<span>Human kinase&ndash;TF runs (also in Atlas)</span></a>
+                    <a href="dimer.html">AFDB Dimer<span>Fetch AlphaFold DB dimer by ID or URL</span></a>
+                    <a href="monomer.html">AFDB Monomer Subdomain<span>Intramolecular PAE domain clustering</span></a>
+                </div>
+            </details>
             <a href="tutorials.html">Tutorials</a>
             <a href="about.html">About</a>
-            <a href="https://github.com/flyark/LIVIA" target="_blank">GitHub</a>
+            <a href="https://github.com/flyark/LIVIA" target="_blank" rel="noopener">GitHub</a>
         </div>
     </div>
 </div>
@@ -114,17 +201,91 @@
 <div class="container">
 
     <!-- Paper banner -->
-    <a class="paper-banner" href="https://doi.org/10.64898/2026.05.01.721633" target="_blank">
+    <a class="paper-banner" href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" rel="noopener">
         <span class="paper-icon">&#128196;</span>
-        <span class="paper-cite">Kim &amp; Perrimon (2026). LIVIA: a browser-based tool for assessing and visualizing predicted protein interactions. <em>bioRxiv</em>.</span>
+        <span class="paper-cite">Kim &amp; Perrimon (2026). <strong>LIVIA and LIVIA Atlas</strong>: browser-based interface-resolved analysis of predicted protein interactions across modeling tools and species. <em>bioRxiv</em>.</span>
         <span class="paper-arrow">&rarr;</span>
     </a>
+
+    <!-- 4-Card Workflow Router -->
+    <div class="section-head">
+        <h2>What do you want to do?</h2>
+        <span>Zero-upload client-side analysis &mdash; choose your starting point</span>
+    </div>
+    <div class="router-grid">
+        <div class="router-card featured">
+            <div>
+                <div class="router-kicker">1 &middot; Single or Multichain Prediction</div>
+                <h3>Inspect my structure prediction</h3>
+                <p>Drop local outputs from <strong>AlphaFold-Multimer, AlphaFold 3, ColabFold, Boltz-1/2, Chai-1, OpenFold3, Protenix-v2, or ESMFold2</strong>. Compute iLIS, LIpDockQ, ipSAE, and actifpTM*, view synchronized PAE/LIS/cLIS maps and Mol* 3D, export ChimeraX/PyMOL scripts, or package a 1&ndash;5 MB shareable lightweight bundle.</p>
+            </div>
+            <div class="router-foot">
+                <a class="router-cta" href="universal.html">Launch Prediction Analysis &rarr;</a>
+                <span class="router-sub">Files stay in your browser</span>
+            </div>
+        </div>
+
+        <div class="router-card featured">
+            <div>
+                <div class="router-kicker">2 &middot; Precomputed 50-Species Resource</div>
+                <h3>Search a protein, variant, or motif</h3>
+                <p>Explore <strong>12.58M unique protein pairs</strong> (24.48M models) across 49 cellular species and 2,783 viral taxa in <strong>LIVIA Atlas</strong>. See cLIP binding-site clusters, tested negatives, AlphaMissense/pLDDT tracks, ortholog &amp; paralog matrices, or query a specific residue/motif (e.g., <code>R248</code>, <code>LXXLL</code>).</p>
+            </div>
+            <div class="router-foot">
+                <a class="router-cta" href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener">Open LIVIA Atlas &#8599;</a>
+                <span class="router-sub"><a href="https://flyark.github.io/livia-atlas/#/pairs" target="_blank" rel="noopener">Batch pair lookup &rarr;</a></span>
+            </div>
+        </div>
+
+        <div class="router-card">
+            <div>
+                <div class="router-kicker">3 &middot; Protein List &rarr; Complex Assembly</div>
+                <h3>Assemble a hit list into complexes</h3>
+                <p>Paste an AP-MS, BioID, or CRISPR hit list into <strong>LIVIA Atlas Network</strong> to recruit Steiner bridges, detect Leiden communities, inspect tested-negative matrices, and export multi-chain AlphaFold 3 JSON or Boltz-2 YAML inputs. Have your own <code>lis.py</code> CSV instead?</p>
+            </div>
+            <div class="router-foot">
+                <a class="router-cta" href="https://flyark.github.io/livia-atlas/#/network/human" target="_blank" rel="noopener">Open Atlas Network &#8599;</a>
+                <span class="router-sub">Own <code>lis.py</code> CSV? <a href="network.html">LIVIA PPI Network &rarr;</a></span>
+            </div>
+        </div>
+
+        <div class="router-card">
+            <div>
+                <div class="router-kicker">4 &middot; Custom Screen Clustering</div>
+                <h3>Cluster my <code>lis.py</code> screen by binding site</h3>
+                <p>Drop a local <strong><code>lis.py</code></strong> CSV/XLSX table into <strong>cLIP</strong> (clustered Local Interaction Profiler) to group partners by shared cLIR contact footprints, separate competing vs. co-binding surfaces, identify cluster-specific mutant candidates, and recolor AlphaFold DB 3D models.</p>
+            </div>
+            <div class="router-foot">
+                <a class="router-cta" href="clip.html">Launch cLIP &rarr;</a>
+                <span class="router-sub">Resolves AFDB 3D &amp; domains locally</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1-Click Paper Examples Launcher -->
+    <div class="paper-strip">
+        <div class="paper-strip-head">
+            <h3>Explore Paper Examples (1-Click)</h3>
+            <span>Jump straight into the headline complexes, cLIP maps, and networks from Kim &amp; Perrimon (2026)</span>
+        </div>
+        <div class="paper-pills">
+            <a class="paper-pill" href="universal.html?ex=alphafold3"><span class="fig-tag">Fig. 1</span><strong>TP53&ndash;MDM2</strong><span class="pill-meta">AF3 &middot; 5 MB</span></a>
+            <a class="paper-pill" href="universal.html?ex=prc2"><span class="fig-tag">ED Fig. 2</span><strong>PRC2 trimer</strong><span class="pill-meta">AF3 3-chain</span></a>
+            <a class="paper-pill" href="universal.html?ex=cct"><span class="fig-tag">ED Fig. 3</span><strong>CCT/TRiC</strong><span class="pill-meta">9-chain bundle &middot; 5.8 MB</span></a>
+            <a class="paper-pill" href="https://flyark.github.io/livia-atlas/#/human/P05412" target="_blank" rel="noopener"><span class="fig-tag">Fig. 2c</span><strong>JUN (c-Jun) cLIP</strong><span class="pill-meta">Atlas &#8599;</span></a>
+            <a class="paper-pill" href="https://flyark.github.io/livia-atlas/#/human/P04637?res=R248" target="_blank" rel="noopener"><span class="fig-tag">Fig. 3b</span><strong>TP53 R248 query</strong><span class="pill-meta">Atlas &#8599;</span></a>
+            <a class="paper-pill" href="https://flyark.github.io/livia-atlas/#/human/P04637/Q00987" target="_blank" rel="noopener"><span class="fig-tag">Fig. 3c</span><strong>TP53 &times; MDM2</strong><span class="pill-meta">Paralog matrix &#8599;</span></a>
+            <a class="paper-pill" href="https://flyark.github.io/livia-atlas/#/network/human?ex=network_human_rbbp4_apms.tsv" target="_blank" rel="noopener"><span class="fig-tag">Fig. 4</span><strong>RBBP4 AP-MS</strong><span class="pill-meta">Steiner network &#8599;</span></a>
+            <a class="paper-pill" href="https://flyark.github.io/livia-atlas/#/virus/taxon/10254" target="_blank" rel="noopener"><span class="fig-tag">Fig. 5</span><strong>Vaccinia virus</strong><span class="pill-meta">218 proteins &#8599;</span></a>
+            <a class="paper-pill" href="https://flyark.github.io/livia-atlas/#/human/Q7KZI7?res=T595" target="_blank" rel="noopener"><span class="fig-tag">ED Fig. 7</span><strong>MARK2 T595</strong><span class="pill-meta">Kinase hotspot &#8599;</span></a>
+        </div>
+    </div>
 
     <!-- The 34-second tour -->
     <div class="tour-card">
         <div class="tour-text">
             <h2>See LIVIA in 34 seconds</h2>
-            <p>Drop in a prediction and see its interface: iLIS beside every other metric, contact maps and 3D, even for big complexes.</p>
+            <p>Drop in a prediction and see its interface: iLIS beside every other metric, contact maps and 3D, even for large multichain complexes.</p>
             <span class="tour-meta">34 s &middot; no sound</span>
             <a class="tour-more" href="tutorials.html#tour">Full tour (69 s) on the Tutorials page &rarr;</a>
         </div>
@@ -133,62 +294,32 @@
         </video>
     </div>
 
-    <!-- Hero: Prediction Analysis -->
-    <a class="hero-card" href="universal.html">
-        <h2>Prediction Analysis</h2>
-        <p>Analyze predictions from AlphaFold-Multimer, AlphaFold3, ColabFold, Boltz-1/2, Chai-1, OpenFold3, Protenix-v2, and ESMFold2. Calculate interface confidence metrics (iLIS, LIS, cLIS), view interactive PAE/LIS/cLIS maps, and generate visualization scripts.</p>
-        <span class="hero-cta">Launch Prediction Analysis &rarr;</span>
-        <div class="hero-hint">Supports any major structure prediction platform &mdash; no installation needed.</div>
-    </a>
-
-    <!-- Heroes: cLIP + PPI Network Builder (side by side) -->
-    <div class="hero-pair">
-    <a class="hero-card" href="clip.html">
-        <h2>cLIP <span style="font-weight:400; color:#555;">(<b style="color:#2471A3">c</b>lustered <b style="color:#2471A3">L</b>ocal <b style="color:#2471A3">I</b>nteraction <b style="color:#2471A3">P</b>rofiler)</span></h2>
-        <p>Cluster a protein's interactome by shared contact residues (cLIR) &mdash; drop <strong>lis.py</strong> output, all in your browser.</p>
-        <span class="hero-cta">Launch cLIP &rarr;</span>
-        <div class="hero-hint">Resolves AlphaFold DB structures automatically from sequence or protein name.</div>
-    </a>
-    <a class="hero-card" href="network.html">
-        <h2>PPI Network Builder</h2>
-        <p>Build an interaction network from <strong>lis.py</strong> output &mdash; Leiden communities run in your browser.</p>
-        <span class="hero-cta">Launch PPI Network &rarr;</span>
-        <div class="hero-hint">Interactive layouts, name&rarr;symbol auto-convert, and export to Cytoscape/SVG.</div>
-    </a>
+    <!-- Direct External Fetchers -->
+    <div class="section-divider">
+        <span>Direct External Fetchers &amp; Intramolecular Analysis</span>
+        <span class="div-note">FlyPredictome, Ortholog Interactome, and AFDB Dimers are also unified inside <a href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener" style="color:var(--blue); font-weight:600;">LIVIA Atlas</a></span>
     </div>
 
-    <!-- Section divider -->
-    <div class="section-divider">Browse Precomputed Interactomes &mdash; <a href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener" style="color:#2471A3; font-weight:400;">LIVIA Atlas</a> &middot; <a href="https://www.flyrnai.org/tools/fly_predictome" target="_blank" style="color:#2471A3; font-weight:400;">FlyPredictome</a> &middot; <a href="https://alphafold.ebi.ac.uk" target="_blank" style="color:#2471A3; font-weight:400;">AlphaFold DB</a></div>
-
-    <!-- LIVIA Atlas: the precomputed screens, searchable by protein (a separate site) -->
-    <a class="hero-card" href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener">
-        <h2>LIVIA Atlas</h2>
-        <p>Predicted protein interactions, scored with iLIS and resolved to residues. Search a protein to see who is predicted to bind it, how confidently, and where.</p>
-        <span class="hero-cta">Open the LIVIA Atlas &rarr;</span>
-        <div class="hero-hint">On every protein page, cLIP groups the partners by the residues they contact.</div>
-    </a>
-
-    <!-- Four small cards -->
     <div class="cards-grid">
         <a class="small-card" href="flypredictome.html">
             <h3>FlyPredictome</h3>
-            <p>Search <em>Drosophila</em> protein interactions from FlyPredictome predictions (Kim et al., 2026).</p>
-            <div class="examples">e.g., Akt1&ndash;foxo, Dl&ndash;N, Dsh&ndash;Axn</div>
+            <p>Inspect individual <em>Drosophila</em> runs fetched directly from FlyPredictome (Kim et al., 2026).</p>
+            <div class="examples">Akt1&ndash;foxo &middot; Dl&ndash;N &middot; Dsh&ndash;Axn</div>
         </a>
         <a class="small-card" href="ortholog_predictome.html">
             <h3>Ortholog Interactome</h3>
-            <p>Search human kinase&ndash;TF interactions from ortholog predictions (Kim et al., 2025).</p>
-            <div class="examples">e.g., TP53, CDK2, AKT1, BRAF</div>
+            <p>Fetch individual human kinase&ndash;TF runs directly from the FlyPredictome ortholog server.</p>
+            <div class="examples">TP53 &middot; CDK2 &middot; AKT1 &middot; BRAF</div>
         </a>
         <a class="small-card" href="dimer.html">
             <h3>AFDB Dimer</h3>
-            <p>Fetch dimer predictions from the AlphaFold Protein Structure Database (Han et al., 2026).</p>
-            <div class="examples">e.g., Fiber protein 2, pp71</div>
+            <p>Fetch any AlphaFold DB dimer entry directly by UniProt ID, entry ID, or EBI URL (Han et al., 2026).</p>
+            <div class="examples">Fiber protein 2 &middot; pp71</div>
         </a>
         <a class="small-card" href="monomer.html">
             <h3>AFDB Monomer Subdomain</h3>
-            <p>Analyze intramolecular domain interactions in AlphaFold monomer predictions.</p>
-            <div class="examples">e.g., Haspin (Q8TF76), SCN9A (Q15858)</div>
+            <p>Partition intramolecular domains and inter-domain contacts in AlphaFold monomer predictions via PAE.</p>
+            <div class="examples">Haspin (Q8TF76) &middot; SCN9A (Q15858)</div>
         </a>
     </div>
 
@@ -199,31 +330,26 @@
             <p>Visual walkthroughs for each tool &mdash; learn by example.</p>
         </a>
         <a class="bottom-link" href="about.html">
-            <h4>About</h4>
-            <p>Metric definitions, color schemes, and references.</p>
+            <h4>About &amp; Metrics</h4>
+            <p>LIR/cLIR, iLIS, LIpDockQ, actifpTM*, privacy, and references.</p>
         </a>
-        <a class="bottom-link" href="https://github.com/flyark/LIVIA" target="_blank">
+        <a class="bottom-link" href="https://github.com/flyark/LIVIA" target="_blank" rel="noopener">
             <h4>GitHub</h4>
-            <p>Source code, documentation, and issue tracker.</p>
+            <p>Source code, <code>lis.py</code> companion, and issue tracker.</p>
         </a>
     </div>
 
-
-</div>
-
-<div style="max-width:1100px; margin:0 auto; padding:0 1.5rem 1rem;">
-    <div style="background:#f8f9fa; border-radius:8px; padding:0.8rem 1.2rem; font-size:0.78rem; color:#6B6B6B; line-height:1.6;">
-        <strong style="color:#555;">Browser:</strong> Tested on Chrome and Safari (macOS/iOS). All analysis runs in your browser, and your files are never uploaded. To add names, domains and reported interactions, some pages look things up at public services (UniProt, EBI BLAST, AlphaFold DB, MIST, BioGRID): see <a href="about.html#data">what leaves your browser</a>.
+    <div class="notes-box">
+        <strong>Privacy &amp; Browser:</strong> Tested on Chrome and Safari (macOS/iOS). All structure scoring runs locally in your browser; your files are never uploaded. To add gene names, domains, and reported interactions, selected pages query public APIs (UniProt, EBI BLAST, AlphaFold DB, MIST, BioGRID) &mdash; see <a href="about.html#data">what leaves your browser</a>.
         <br>
-        <strong style="color:#555;">Note:</strong> Each prediction platform (AlphaFold3, ColabFold, Boltz, Chai-1, etc.) may produce different confidence calibrations. The iLIS &ge; 0.223 threshold was established using ColabFold/AlphaFold-Multimer predictions. Other platforms may require adjusted thresholds.
+        <strong>Reference Cutoffs:</strong> The top-ranked <code>iLIS</code> reference tiers (<code>0.223</code> / <code>0.339</code> / <code>0.551</code>; 10% / 5% / 1% empirical FPR) were calibrated on 5-model ColabFold AlphaFold-Multimer v2.3 (<code>alphafold2_multimer_v3</code>) heterodimers. For AlphaFold 3, Boltz, Chai-1, single-model runs, homodimers, and multichain assemblies, these thresholds serve as standardized reference tiers rather than strict empirical FPRs.
     </div>
 </div>
+
 <div class="footer">
-    <a href="https://github.com/flyark/LIVIA" target="_blank">LIVIA GitHub</a> &middot; <a href="https://github.com/flyark/AFM-LIS" target="_blank">AFM-LIS GitHub</a>
+    <a href="https://github.com/flyark/LIVIA" target="_blank" rel="noopener">LIVIA GitHub</a> &middot; <a href="https://github.com/flyark/AFM-LIS" target="_blank" rel="noopener">AFM-LIS GitHub</a> &middot; <a href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener">LIVIA Atlas</a>
     <br>
-    <a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank">Kim &amp; Perrimon (2026)</a>
-    <br>
-    Ah-Ram Kim &middot; Harvard Medical School
+    <a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" rel="noopener">Kim &amp; Perrimon (2026)</a> &middot; Ah-Ram Kim &middot; Harvard Medical School
 </div>
 <script>window.goatcounter = { path: function () { return location.pathname.replace(/index\.html$/, ''); }, title: 'LIVIA ' + (location.pathname.split('/').pop() || 'index.html') };   /* the page only: never the file, pair or query */</script>
 <script data-goatcounter="https://livia.goatcounter.com/count"
