@@ -6,126 +6,86 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="help" type="text/plain" href="llms.txt" title="LLM and programmatic navigation guide">
     <title>LIVIA &mdash; Local Interaction Visualization and Analysis</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"></noscript>
     <style>
-        :root {
-            --navy: #1A5276;
-            --blue: #2471A3;
-            --accent: #FF8A65;
-            --bg: #F6F8FB;
-            --ink: #1F2933;
-            --ink-2: #52606D;
-            --muted: #6B7785;
-            --line: #E2E8F0;
-            --sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            --disp: 'Archivo', 'IBM Plex Sans', -apple-system, sans-serif;
-            --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-        }
         html { scrollbar-gutter: stable; } * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: var(--sans); background: var(--bg); color: var(--ink); min-height: 100vh; display: flex; flex-direction: column; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; min-height: 100vh; display: flex; flex-direction: column; }
 
-        /* Unified header harmonized with LIVIA Atlas */
-        .header { background: #fff; color: var(--navy); padding: 0.9rem 1.5rem; border-bottom: 1px solid var(--line); }
-        .header .container { padding: 0; }
-        .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-        .brand-lockup { display: flex; align-items: center; gap: 0.7rem; }
-        .brand-mark { width: 34px; height: 34px; flex: 0 0 34px; }
-        .header h1 { font-family: var(--disp); font-size: 1.55rem; font-weight: 800; line-height: 1.15; color: var(--navy); letter-spacing: -0.02em; }
-        .header h1 .livia, .header h1 .acro { color: var(--blue); }
-        .header .subtitle { font-size: 0.88rem; color: var(--ink-2); margin-top: 0.15rem; font-weight: 400; }
-
-        .header-links { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.75rem; }
-        .header-links > a, .nav-drop > summary {
-            position: relative; display: inline-flex; align-items: center; gap: 0.25rem;
-            color: #3E4C59; text-decoration: none; font-size: 0.78rem; font-weight: 500;
-            padding: 0.28rem 0.62rem; border: 1px solid #D9E2EC; border-radius: 7px;
-            transition: all 0.18s; background: #F8FAFC; cursor: pointer; list-style: none;
-        }
-        .nav-drop > summary::-webkit-details-marker { display: none; }
-        .header-links > a:hover, .nav-drop > summary:hover { background: var(--blue); color: #fff; border-color: var(--blue); }
-        .header-links > a.atlas-pill { background: #EAF2F8; border-color: #BDD5EA; color: var(--navy); font-weight: 600; }
-        .header-links > a.atlas-pill:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
-        .nav-drop { position: relative; }
-        .nav-pop {
-            position: absolute; top: calc(100% + 5px); left: 0; z-index: 40; min-width: 225px;
-            background: #fff; border: 1px solid #D9E2EC; border-radius: 10px; padding: 0.35rem;
-            box-shadow: 0 10px 26px rgba(26, 82, 118, 0.14); display: grid; gap: 2px;
-        }
-        .nav-pop a {
-            display: block; padding: 0.42rem 0.65rem; border-radius: 6px; text-decoration: none;
-            color: var(--ink); font-size: 0.8rem; transition: background 0.15s;
-        }
-        .nav-pop a:hover { background: #EAF2F8; color: var(--navy); }
-        .nav-pop a span { display: block; font-size: 0.7rem; color: var(--muted); }
-        .header-links .new-tag { position: absolute; top: -7px; right: -4px; padding: 0 4px; border-radius: 6px; background: #B35A12; color: #fff; font-size: 8px; font-weight: 700; line-height: 11px; letter-spacing: 0.02em; pointer-events: none; }
-
-        .container { max-width: 1120px; width: 100%; margin: 0 auto; padding: 1.4rem 1.5rem; }
+        /* Unified LIVIA header (matches every subpage) */
+        .header { background: white; color: #1a5276; padding: 0.8rem 2rem 0.8rem; border-bottom: 1px solid #e8e8e8; }
+        .header-brand { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.65rem; }
+        .header-brand a.brand-home { display: inline-flex; flex: 0 0 auto; border-radius: 8px; }
+        .header-brand .brand-mark { width: 34px; height: 34px; display: block; }
+        .header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.1rem; color: #1a5276; letter-spacing: -0.02em; line-height: 1.15; }
+        .header h1 .livia, .header h1 .acro { color: #2471A3; font-weight: 700; }
+        .header .subtitle { font-size: 0.92rem; color: #6B6B6B; margin-bottom: 0; font-weight: 400; }
+        .header-links { display: flex; gap: 0.5rem 0.25rem; flex-wrap: wrap; }
+        .header-links a { position: relative; color: #555; text-decoration: none; font-size: 0.72rem; padding: 0.22rem 0.4rem; border: 1px solid #ddd; border-radius: 6px; transition: all 0.2s; background: #f8f9fa; }
+        .header-links a:hover { background: #2471A3; color: white; border-color: #2471A3; }
+        .header-links .new-tag { position: absolute; top: -7px; right: -3px; padding: 0 4px; border-radius: 6px; background: #B35A12; color: #fff; font-size: 8px; font-weight: 700; line-height: 11px; letter-spacing: 0.02em; pointer-events: none; }
+        .container { max-width: 1100px; width: 100%; margin: 0 auto; padding: 1.5rem; }
 
         /* Paper banner */
-        .paper-banner { display: flex; align-items: center; gap: 0.7rem; background: #EAF2F8; border: 1px solid #CFE1F0; border-radius: 10px; padding: 0.65rem 1rem; margin-bottom: 1.1rem; text-decoration: none; color: var(--navy); transition: all 0.2s; }
-        .paper-banner:hover { background: #DCEBF7; border-color: var(--blue); }
-        .paper-banner .paper-icon { font-size: 1.05rem; line-height: 1; }
-        .paper-banner .paper-cite { font-size: 0.86rem; color: var(--navy); flex: 1; line-height: 1.4; }
-        .paper-banner .paper-cite em { color: var(--ink-2); font-style: italic; }
-        .paper-banner .paper-arrow { font-size: 1.05rem; color: var(--blue); transition: transform 0.2s; }
+        .paper-banner { display: flex; align-items: center; gap: 0.7rem; background: #eaf2f8; border: 1px solid #d4e3f0; border-radius: 10px; padding: 0.7rem 1.1rem; margin-bottom: 1.2rem; text-decoration: none; color: #1a5276; transition: all 0.2s; }
+        .paper-banner:hover { background: #d4e3f0; border-color: #2471A3; }
+        .paper-banner .paper-icon { font-size: 1.1rem; line-height: 1; }
+        .paper-banner .paper-cite { font-size: 0.88rem; color: #1a5276; flex: 1; }
+        .paper-banner .paper-cite em { color: #555; font-style: italic; }
+        .paper-banner .paper-arrow { font-size: 1.1rem; color: #2471A3; transition: transform 0.2s; }
         .paper-banner:hover .paper-arrow { transform: translateX(3px); }
 
-        /* Core tools grid */
+        /* Core tools 2x2 grid */
         .router-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
         .router-card {
-            background: #fff; border-radius: 12px; padding: 1.25rem 1.4rem;
-            box-shadow: 0 2px 10px rgba(15, 35, 55, 0.05); border: 1.5px solid var(--line);
+            background: white; border-radius: 12px; padding: 1.25rem 1.4rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06); border: 1.5px solid #e4eaf0;
             transition: all 0.18s; display: flex; flex-direction: column; justify-content: space-between;
-            text-decoration: none; color: var(--ink);
+            text-decoration: none; color: #333;
         }
-        .router-card:hover { border-color: var(--blue); box-shadow: 0 6px 20px rgba(36, 113, 163, 0.13); transform: translateY(-1px); }
-        .router-card.featured { border-color: #BDD5EA; background: linear-gradient(180deg, #FFFFFF 0%, #F8FBFE 100%); }
-        .router-card h3 { font-family: var(--disp); font-size: 1.15rem; color: var(--navy); margin-bottom: 0.4rem; line-height: 1.25; }
-        .router-card p { font-size: 0.86rem; color: var(--ink-2); line-height: 1.5; margin-bottom: 0.85rem; }
-        .router-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; padding-top: 0.6rem; border-top: 1px solid #EEF2F6; }
-        .router-cta { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.42rem 0.9rem; background: var(--blue); color: #fff; border-radius: 7px; font-weight: 600; font-size: 0.83rem; text-decoration: none; transition: background 0.18s; }
-        .router-card:hover .router-cta { background: var(--navy); }
-        .router-sub { font-size: 0.76rem; color: var(--muted); }
-        .router-sub a { color: var(--blue); font-weight: 600; text-decoration: none; }
+        .router-card:hover { border-color: #2471A3; box-shadow: 0 6px 20px rgba(36,113,163,0.13); transform: translateY(-1px); }
+        .router-card.featured { border-color: #c5daec; background: linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%); }
+        .router-card h3 { font-size: 1.15rem; color: #1a5276; margin-bottom: 0.4rem; line-height: 1.25; }
+        .router-card p { font-size: 0.86rem; color: #555; line-height: 1.5; margin-bottom: 0.85rem; }
+        .router-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; padding-top: 0.6rem; border-top: 1px solid #eef2f6; }
+        .router-cta { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.42rem 0.9rem; background: #2471A3; color: white; border-radius: 7px; font-weight: 600; font-size: 0.84rem; text-decoration: none; transition: background 0.18s; }
+        .router-card:hover .router-cta { background: #1a5276; }
+        .router-sub { font-size: 0.76rem; color: #6B6B6B; }
+        .router-sub a { color: #2471A3; font-weight: 600; text-decoration: none; }
         .router-sub a:hover { text-decoration: underline; }
 
         /* 34-second tour */
-        .tour-card { display: grid; grid-template-columns: 2fr 3fr; gap: 1.5rem; align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem 1.5rem; box-shadow: 0 2px 10px rgba(15, 35, 55, 0.05); margin-bottom: 1.5rem; }
-        .tour-card h2 { font-family: var(--disp); font-size: 1.2rem; color: var(--navy); margin-bottom: 0.35rem; }
-        .tour-card p { font-size: 0.88rem; color: var(--ink-2); line-height: 1.5; margin-bottom: 0.65rem; }
-        .tour-card .tour-meta { display: block; font-size: 0.76rem; color: var(--muted); margin-bottom: 0.65rem; }
-        .tour-more { font-size: 0.84rem; font-weight: 600; color: var(--blue); text-decoration: none; }
+        .tour-card { display: grid; grid-template-columns: 2fr 3fr; gap: 1.5rem; align-items: center; background: white; border: 1px solid #e4eaf0; border-radius: 12px; padding: 1.25rem 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.06); margin-bottom: 1.5rem; }
+        .tour-card h2 { font-size: 1.25rem; color: #1a5276; margin-bottom: 0.35rem; }
+        .tour-card p { font-size: 0.88rem; color: #555; line-height: 1.5; margin-bottom: 0.65rem; }
+        .tour-card .tour-meta { display: block; font-size: 0.76rem; color: #6B6B6B; margin-bottom: 0.65rem; }
+        .tour-more { font-size: 0.84rem; font-weight: 600; color: #2471A3; text-decoration: none; }
         .tour-more:hover { text-decoration: underline; }
         .tour-video { width: 100%; aspect-ratio: 16 / 9; border-radius: 9px; background: #0d1b2a; display: block; }
 
         /* Section divider */
-        .section-divider { font-size: 0.84rem; font-weight: 600; color: var(--ink-2); margin-bottom: 0.85rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; }
-        .section-divider .div-note { font-weight: 400; font-size: 0.76rem; color: var(--muted); }
+        .section-divider { font-size: 0.86rem; font-weight: 600; color: #555; margin-bottom: 0.9rem; padding-bottom: 0.4rem; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; }
+        .section-divider .div-note { font-weight: 400; font-size: 0.78rem; color: #6B6B6B; }
 
         /* Small cards grid */
-        .cards-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.9rem; margin-bottom: 1.4rem; }
-        .small-card { background: #fff; border-radius: 10px; padding: 0.95rem 1.1rem; box-shadow: 0 1px 4px rgba(15, 35, 55, 0.05); text-decoration: none; color: var(--ink); transition: all 0.18s; border: 1.5px solid var(--line); cursor: pointer; display: block; }
-        .small-card:hover { border-color: var(--blue); box-shadow: 0 4px 12px rgba(36, 113, 163, 0.12); }
-        .small-card h3 { font-size: 0.92rem; color: var(--navy); margin-bottom: 0.25rem; }
-        .small-card p { font-size: 0.79rem; color: var(--ink-2); line-height: 1.42; }
-        .small-card .examples { font-size: 0.72rem; color: var(--muted); margin-top: 0.35rem; font-family: var(--mono); }
+        .cards-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+        .small-card { background: white; border-radius: 10px; padding: 1rem 1.15rem; box-shadow: 0 1px 4px rgba(0,0,0,0.06); text-decoration: none; color: #333; transition: all 0.2s; border: 2px solid transparent; cursor: pointer; display: block; }
+        .small-card:hover { border-color: #2471A3; box-shadow: 0 4px 12px rgba(36,113,163,0.12); }
+        .small-card h3 { font-size: 0.95rem; color: #1a5276; margin-bottom: 0.25rem; }
+        .small-card p { font-size: 0.8rem; color: #666; line-height: 1.4; }
+        .small-card .examples { font-size: 0.72rem; color: #707070; margin-top: 0.35rem; }
 
         /* Bottom links */
-        .bottom-row { display: flex; gap: 0.9rem; margin-bottom: 1.2rem; }
-        .bottom-link { flex: 1; background: #fff; border-radius: 9px; padding: 0.8rem 1rem; text-decoration: none; color: var(--ink-2); transition: all 0.18s; border: 1px solid var(--line); display: block; }
-        .bottom-link:hover { border-color: var(--blue); color: var(--blue); }
-        .bottom-link h4 { font-size: 0.88rem; color: var(--navy); margin-bottom: 0.15rem; }
-        .bottom-link p { font-size: 0.78rem; color: var(--muted); }
+        .bottom-row { display: flex; gap: 1rem; margin-bottom: 1.4rem; }
+        .bottom-link { flex: 1; background: #f8f9fa; border-radius: 8px; padding: 0.8rem 1rem; text-decoration: none; color: #555; transition: all 0.2s; border: 1px solid #e8e8e8; display: block; }
+        .bottom-link:hover { border-color: #2471A3; color: #2471A3; }
+        .bottom-link h4 { font-size: 0.88rem; color: #1a5276; margin-bottom: 0.15rem; }
+        .bottom-link p { font-size: 0.78rem; color: #6B6B6B; }
 
-        .notes-box { background: #fff; border: 1px solid var(--line); border-radius: 9px; padding: 0.85rem 1.15rem; font-size: 0.78rem; color: var(--ink-2); line-height: 1.65; }
-        .notes-box strong { color: var(--navy); }
-        .notes-box a { color: var(--blue); }
+        .notes-box { background: #f8f9fa; border: 1px solid #e8e8e8; border-radius: 8px; padding: 0.85rem 1.2rem; font-size: 0.78rem; color: #6B6B6B; line-height: 1.65; }
+        .notes-box strong { color: #555; }
+        .notes-box a { color: #2471A3; }
 
-        .footer { text-align: center; padding: 1.4rem 1.5rem; font-size: 0.8rem; color: var(--muted); }
-        .footer a { color: var(--blue); text-decoration: none; }
+        .footer { text-align: center; padding: 1.5rem 2rem; font-size: 0.8rem; color: #707070; }
+        .footer a { color: #2471A3; text-decoration: none; }
         .footer a:hover { text-decoration: underline; }
 
         @media (max-width: 1024px) {
@@ -146,29 +106,22 @@
 <body>
 <div class="header">
     <div class="container" role="main">
-        <div class="brand-row">
-            <div class="brand-lockup">
-                <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="12" fill="#1A5276"/><path d="M20 16V46H40" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="48.5" cy="46" r="7.6" fill="#FF8A65"/></svg>
-                <div>
-                    <h1><span class="livia">LIVIA</span> &mdash; <span class="acro">L</span>ocal <span class="acro">I</span>nteraction <span class="acro">VI</span>sualization and <span class="acro">A</span>nalysis</h1>
-                    <p class="subtitle">Local scoring, binding-site clustering, and visualization for predicted protein interactions</p>
-                </div>
+        <div class="header-brand">
+            <a class="brand-home" href="index.html" aria-label="LIVIA Home"><svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="12" fill="#1A5276"/><path d="M20 16V46H40" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="48.5" cy="46" r="7.6" fill="#FF8A65"/></svg></a>
+            <div>
+                <h1><span class="livia">LIVIA</span> &mdash; <span class="acro">L</span>ocal <span class="acro">I</span>nteraction <span class="acro">VI</span>sualization and <span class="acro">A</span>nalysis</h1>
+                <p class="subtitle">Local scoring, binding-site clustering, and visualization for predicted protein interactions</p>
             </div>
         </div>
         <div class="header-links">
             <a href="universal.html">Prediction Analysis</a>
+            <a href="flypredictome.html">FlyPredictome</a>
+            <a href="ortholog_predictome.html">Ortholog Interactome</a>
+            <a href="dimer.html">AFDB Dimer</a>
+            <a href="monomer.html">AFDB Monomer Subdomain</a>
             <a href="clip.html">cLIP</a>
             <a href="network.html">PPI Network</a>
-            <a class="atlas-pill" href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener">LIVIA Atlas &#8599;</a>
-            <details class="nav-drop">
-                <summary>Direct Viewers &#9662;</summary>
-                <div class="nav-pop">
-                    <a href="flypredictome.html">FlyPredictome<span>Drosophila screen runs (also in Atlas)</span></a>
-                    <a href="ortholog_predictome.html">Ortholog Interactome<span>Human kinase&ndash;TF runs (also in Atlas)</span></a>
-                    <a href="dimer.html">AFDB Dimer<span>Fetch AlphaFold DB dimer by ID or URL</span></a>
-                    <a href="monomer.html">AFDB Monomer Subdomain<span>Intramolecular PAE domain clustering</span></a>
-                </div>
-            </details>
+            <a href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener">LIVIA Atlas<span class="new-tag">new</span></a>
             <a href="tutorials.html">Tutorials</a>
             <a href="about.html">About</a>
             <a href="https://github.com/flyark/LIVIA" target="_blank" rel="noopener">GitHub</a>
@@ -211,7 +164,7 @@
 
         <div class="router-card">
             <div>
-                <h3>cLIP <span style="font-weight:400; font-size:0.9rem; color:var(--ink-2);">(clustered Local Interaction Profiler)</span></h3>
+                <h3>cLIP <span style="font-weight:400; font-size:0.9rem; color:#555;">(clustered Local Interaction Profiler)</span></h3>
                 <p>Drop a <code>lis.py</code> table to cluster a protein's partners by shared contact residues (cLIR) and map sites onto its 3D structure.</p>
             </div>
             <div class="router-foot">
@@ -247,30 +200,30 @@
 
     <!-- Direct External Fetchers -->
     <div class="section-divider">
-        <span>Direct External Fetchers &amp; Intramolecular Analysis</span>
-        <span class="div-note">FlyPredictome, Ortholog Interactome, and AFDB Dimers are also unified inside <a href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener" style="color:var(--blue); font-weight:600;">LIVIA Atlas</a></span>
+        <span>Direct Database Viewers &amp; Monomer Analysis</span>
+        <span class="div-note">FlyPredictome, Ortholog Interactome, and AFDB Dimers are also unified inside <a href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener" style="color:#2471A3; font-weight:600;">LIVIA Atlas</a></span>
     </div>
 
     <div class="cards-grid">
         <a class="small-card" href="flypredictome.html">
             <h3>FlyPredictome</h3>
-            <p>Inspect individual <em>Drosophila</em> runs fetched directly from FlyPredictome (Kim et al., 2026).</p>
-            <div class="examples">Akt1&ndash;foxo &middot; Dl&ndash;N &middot; Dsh&ndash;Axn</div>
+            <p>Search <em>Drosophila</em> protein interactions from FlyPredictome predictions (Kim et al., 2026).</p>
+            <div class="examples">e.g., Akt1&ndash;foxo, Dl&ndash;N, Dsh&ndash;Axn</div>
         </a>
         <a class="small-card" href="ortholog_predictome.html">
             <h3>Ortholog Interactome</h3>
-            <p>Fetch individual human kinase&ndash;TF runs directly from the FlyPredictome ortholog server.</p>
-            <div class="examples">TP53 &middot; CDK2 &middot; AKT1 &middot; BRAF</div>
+            <p>Search human kinase&ndash;TF interactions from ortholog predictions (Kim et al., 2025).</p>
+            <div class="examples">e.g., TP53, CDK2, AKT1, BRAF</div>
         </a>
         <a class="small-card" href="dimer.html">
             <h3>AFDB Dimer</h3>
-            <p>Fetch any AlphaFold DB dimer entry directly by UniProt ID, entry ID, or EBI URL (Han et al., 2026).</p>
-            <div class="examples">Fiber protein 2 &middot; pp71</div>
+            <p>Fetch dimer predictions from the AlphaFold Protein Structure Database (Han et al., 2026).</p>
+            <div class="examples">e.g., Fiber protein 2, pp71</div>
         </a>
         <a class="small-card" href="monomer.html">
             <h3>AFDB Monomer Subdomain</h3>
-            <p>Partition intramolecular domains and inter-domain contacts in AlphaFold monomer predictions via PAE.</p>
-            <div class="examples">Haspin (Q8TF76) &middot; SCN9A (Q15858)</div>
+            <p>Analyze intramolecular domain interactions in AlphaFold monomer predictions.</p>
+            <div class="examples">e.g., Haspin (Q8TF76), SCN9A (Q15858)</div>
         </a>
     </div>
 
@@ -281,17 +234,17 @@
             <p>Visual walkthroughs for each tool &mdash; learn by example.</p>
         </a>
         <a class="bottom-link" href="about.html">
-            <h4>About &amp; Metrics</h4>
-            <p>LIR/cLIR, iLIS, LIpDockQ, actifpTM*, privacy, and references.</p>
+            <h4>About</h4>
+            <p>Metric definitions, color schemes, and references.</p>
         </a>
         <a class="bottom-link" href="https://github.com/flyark/LIVIA" target="_blank" rel="noopener">
             <h4>GitHub</h4>
-            <p>Source code, <code>lis.py</code> companion, and issue tracker.</p>
+            <p>Source code, documentation, and issue tracker.</p>
         </a>
     </div>
 
     <div class="notes-box">
-        <strong>Privacy &amp; Browser:</strong> Tested on Chrome and Safari (macOS/iOS). All structure scoring runs locally in your browser; your files are never uploaded. To add gene names, domains, and reported interactions, selected pages query public APIs (UniProt, EBI BLAST, AlphaFold DB, MIST, BioGRID) &mdash; see <a href="about.html#data">what leaves your browser</a>.
+        <strong>Browser:</strong> Tested on Chrome and Safari (macOS/iOS). All analysis runs in your browser, and your files are never uploaded. To add names, domains and reported interactions, some pages look things up at public services (UniProt, EBI BLAST, AlphaFold DB, MIST, BioGRID): see <a href="about.html#data">what leaves your browser</a>.
         <br>
         <strong>Reference Cutoffs:</strong> The <code>iLIS</code> reference cutoffs (<code>0.223</code> / <code>0.339</code> / <code>0.551</code>, corresponding to 10% / 5% / 1% empirical FPR) were calibrated on the top-ranked of five heterodimer models predicted with <strong>AlphaFold-Multimer v2.3</strong> weights (ColabFold <code>--model-type alphafold2_multimer_v3</code>). For other predictors (AlphaFold 3, Boltz, Chai-1, etc.), single-model runs, homodimers, and multichain assemblies, these values serve as standardized reference tiers rather than exact empirical FPRs.
     </div>
@@ -300,7 +253,9 @@
 <div class="footer">
     <a href="https://github.com/flyark/LIVIA" target="_blank" rel="noopener">LIVIA GitHub</a> &middot; <a href="https://github.com/flyark/AFM-LIS" target="_blank" rel="noopener">AFM-LIS GitHub</a> &middot; <a href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener">LIVIA Atlas</a>
     <br>
-    <a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" rel="noopener">Kim &amp; Perrimon (2026)</a> &middot; Ah-Ram Kim &middot; Harvard Medical School
+    <a href="https://doi.org/10.64898/2026.05.01.721633" target="_blank" rel="noopener">Kim &amp; Perrimon (2026)</a>
+    <br>
+    Ah-Ram Kim &middot; Harvard Medical School
 </div>
 <script>window.goatcounter = { path: function () { return location.pathname.replace(/index\.html$/, ''); }, title: 'LIVIA ' + (location.pathname.split('/').pop() || 'index.html') };   /* the page only: never the file, pair or query */</script>
 <script data-goatcounter="https://livia.goatcounter.com/count"

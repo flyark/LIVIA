@@ -10,7 +10,7 @@
 <script src="js/livia-wasm.js?v=20261115a"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="stylesheet" href="css/livia.css?v=20261116a">
+<link rel="stylesheet" href="css/livia.css?v=20261123a">
 <style>
   /* network-specific — livia.css provides the shell (body, .header, .container, .card, .btn, .input-tabs, .footer) */
   :root{ --accent:#2471A3; --ink:#1b2733; --mut:#566370; --line:#e2e8ee; }
@@ -93,8 +93,13 @@
 <body>
 <div class="header">
   <div class="container" role="main">
-    <h1><span style="color:#2471A3;">LIVIA</span> &mdash; PPI Network Builder</h1>
-    <p>Build an interaction network from lis.py output</p>
+    <div class="header-brand">
+            <a class="brand-home" href="index.html" aria-label="LIVIA Home"><svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="12" fill="#1A5276"/><path d="M20 16V46H40" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="48.5" cy="46" r="7.6" fill="#FF8A65"/></svg></a>
+            <div>
+                <h1><span style="color:#2471A3;">LIVIA</span> &mdash; PPI Network Builder</h1>
+        <p>Build an interaction network from lis.py output</p>
+            </div>
+        </div>
     <div class="header-links">
       <a href="index.html">Home</a>
       <a href="universal.html">Prediction Analysis</a>

@@ -7,7 +7,7 @@
     <title>LIVIA — Prediction Analysis</title>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <!-- Mol* loaded inside iframe, not here -->
-    <link rel="stylesheet" href="css/livia.css?v=20261116a">
+    <link rel="stylesheet" href="css/livia.css?v=20261123a">
     <style>
         /* ── Page-specific styles for Universal ── */
         .step-link { color: #2471A3; text-decoration: none; }
@@ -155,8 +155,13 @@
 
 <div class="header">
     <div class="container" role="main">
-        <h1><span style="color:#2471A3;">LIVIA</span> &mdash; Prediction Analysis</h1>
-        <p>Analyze predictions from AlphaFold-Multimer, AlphaFold3, ColabFold, Boltz-1/2, Chai-1, OpenFold3, Protenix-v2, and ESMFold2</p>
+        <div class="header-brand">
+            <a class="brand-home" href="index.html" aria-label="LIVIA Home"><svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="12" fill="#1A5276"/><path d="M20 16V46H40" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="48.5" cy="46" r="7.6" fill="#FF8A65"/></svg></a>
+            <div>
+                <h1><span style="color:#2471A3;">LIVIA</span> &mdash; Prediction Analysis</h1>
+            <p>Analyze predictions from AlphaFold-Multimer, AlphaFold3, ColabFold, Boltz-1/2, Chai-1, OpenFold3, Protenix-v2, and ESMFold2</p>
+            </div>
+        </div>
         <div class="header-links">
             <a href="index.html">Home</a>
             <a href="universal.html" class="active">Prediction Analysis</a>

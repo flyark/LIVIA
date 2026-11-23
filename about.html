@@ -11,6 +11,11 @@
         .header { background: white; color: #1a5276; padding: 0.8rem 2rem 0.8rem; border-bottom: 1px solid #e8e8e8; }
         .header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.15rem; color: #1a5276; letter-spacing: -0.02em; }
         .header p { font-size: 0.92rem; color: #6B6B6B; margin-bottom: 0.8rem; font-weight: 400; }
+        .header-brand { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.65rem; }
+        .header-brand a.brand-home { display: inline-flex; flex: 0 0 auto; border-radius: 8px; }
+        .header-brand .brand-mark { width: 34px; height: 34px; display: block; }
+        .header-brand h1 { margin-bottom: 0.1rem; line-height: 1.15; }
+        .header-brand p, .header-brand .subtitle { margin-bottom: 0; }
         .header-links { display: flex; gap: 0.5rem 0.25rem; flex-wrap: wrap; }
         .header-links a { position: relative; color: #555; text-decoration: none; font-size: 0.72rem; padding: 0.22rem 0.4rem; border: 1px solid #ddd; border-radius: 6px; transition: all 0.2s; background: #f8f9fa; }
         .header-links a:hover { background: #2471A3; color: white; border-color: #2471A3; }
@@ -100,8 +105,13 @@
 
 <div class="header">
     <div class="container" role="main">
-        <h1><span style="color:#2471A3;">LIVIA</span> &mdash; About</h1>
-        <p>Metric definitions, color schemes, and references</p>
+        <div class="header-brand">
+            <a class="brand-home" href="index.html" aria-label="LIVIA Home"><svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="12" fill="#1A5276"/><path d="M20 16V46H40" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="48.5" cy="46" r="7.6" fill="#FF8A65"/></svg></a>
+            <div>
+                <h1><span style="color:#2471A3;">LIVIA</span> &mdash; About</h1>
+            <p>Metric definitions, color schemes, and references</p>
+            </div>
+        </div>
         <div class="header-links">
             <a href="index.html">Home</a>
             <a href="universal.html">Prediction Analysis</a>

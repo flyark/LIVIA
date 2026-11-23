@@ -14,7 +14,7 @@
 <script src="js/livia-viewer.js?v=20261119a"></script>
 <script src="js/livia-subnav.js?v=20261007a"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="stylesheet" href="css/livia.css?v=20261116a">
+<link rel="stylesheet" href="css/livia.css?v=20261123a">
 <style>
   /* cLIP-specific — livia.css provides the shell (body, .header, .container, .card, .btn) */
   .card h2 { margin:0 0 .5rem; font-size:1.05rem; color:#1a5276; font-weight:600; }
@@ -81,8 +81,13 @@
 <body>
 <div class="header">
   <div class="container" role="main">
-    <h1><span style="color:#2471A3;">LIVIA</span> &mdash; cLIP <span style="font-weight:400;">(<b style="color:#2471A3">c</b>lustered <b style="color:#2471A3">L</b>ocal <b style="color:#2471A3">I</b>nteraction <b style="color:#2471A3">P</b>rofiler)</span></h1>
-    <p>Cluster a protein's interactome by shared contact residues (cLIR) &mdash; drop lis.py output, all in your browser</p>
+    <div class="header-brand">
+            <a class="brand-home" href="index.html" aria-label="LIVIA Home"><svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="12" fill="#1A5276"/><path d="M20 16V46H40" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="48.5" cy="46" r="7.6" fill="#FF8A65"/></svg></a>
+            <div>
+                <h1><span style="color:#2471A3;">LIVIA</span> &mdash; cLIP <span style="font-weight:400;">(<b style="color:#2471A3">c</b>lustered <b style="color:#2471A3">L</b>ocal <b style="color:#2471A3">I</b>nteraction <b style="color:#2471A3">P</b>rofiler)</span></h1>
+        <p>Cluster a protein's interactome by shared contact residues (cLIR) &mdash; drop lis.py output, all in your browser</p>
+            </div>
+        </div>
     <div class="header-links">
       <a href="index.html">Home</a>
       <a href="universal.html">Prediction Analysis</a>
