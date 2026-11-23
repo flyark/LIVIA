@@ -73,12 +73,7 @@
         .paper-banner .paper-arrow { font-size: 1.05rem; color: var(--blue); transition: transform 0.2s; }
         .paper-banner:hover .paper-arrow { transform: translateX(3px); }
 
-        /* Section heading */
-        .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
-        .section-head h2 { font-family: var(--disp); font-size: 1.05rem; font-weight: 700; color: var(--navy); letter-spacing: -0.01em; }
-        .section-head span { font-size: 0.8rem; color: var(--muted); }
-
-        /* 4-card Workflow Router */
+        /* Core tools grid */
         .router-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
         .router-card {
             background: #fff; border-radius: 12px; padding: 1.25rem 1.4rem;
@@ -88,8 +83,7 @@
         }
         .router-card:hover { border-color: var(--blue); box-shadow: 0 6px 20px rgba(36, 113, 163, 0.13); transform: translateY(-1px); }
         .router-card.featured { border-color: #BDD5EA; background: linear-gradient(180deg, #FFFFFF 0%, #F8FBFE 100%); }
-        .router-kicker { font-family: var(--mono); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--blue); margin-bottom: 0.35rem; }
-        .router-card h3 { font-family: var(--disp); font-size: 1.18rem; color: var(--navy); margin-bottom: 0.35rem; line-height: 1.25; }
+        .router-card h3 { font-family: var(--disp); font-size: 1.15rem; color: var(--navy); margin-bottom: 0.4rem; line-height: 1.25; }
         .router-card p { font-size: 0.86rem; color: var(--ink-2); line-height: 1.5; margin-bottom: 0.85rem; }
         .router-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; padding-top: 0.6rem; border-top: 1px solid #EEF2F6; }
         .router-cta { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.42rem 0.9rem; background: var(--blue); color: #fff; border-radius: 7px; font-weight: 600; font-size: 0.83rem; text-decoration: none; transition: background 0.18s; }
@@ -157,7 +151,7 @@
                 <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="12" fill="#1A5276"/><path d="M20 16V46H40" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="48.5" cy="46" r="7.6" fill="#FF8A65"/></svg>
                 <div>
                     <h1><span class="livia">LIVIA</span> &mdash; <span class="acro">L</span>ocal <span class="acro">I</span>nteraction <span class="acro">VI</span>sualization and <span class="acro">A</span>nalysis</h1>
-                    <p class="subtitle">Browser-local scoring, binding-surface clustering, and proteome-scale exploration of predicted protein interactions</p>
+                    <p class="subtitle">Local scoring, binding-site clustering, and visualization for predicted protein interactions</p>
                 </div>
             </div>
         </div>
@@ -191,29 +185,23 @@
         <span class="paper-arrow">&rarr;</span>
     </a>
 
-    <!-- 4-Card Workflow Router -->
-    <div class="section-head">
-        <h2>What do you want to do?</h2>
-        <span>Zero-upload client-side analysis &mdash; choose your starting point</span>
-    </div>
+    <!-- Core Tools (2x2 clean grid) -->
     <div class="router-grid">
         <div class="router-card featured">
             <div>
-                <div class="router-kicker">1 &middot; Single or Multichain Prediction</div>
-                <h3>Inspect my structure prediction</h3>
-                <p>Drop local outputs from <strong>AlphaFold-Multimer, AlphaFold 3, ColabFold, Boltz-1/2, Chai-1, OpenFold3, Protenix-v2, or ESMFold2</strong>. Compute iLIS, LIpDockQ, ipSAE, and actifpTM*, view synchronized PAE/LIS/cLIS maps and Mol* 3D, export ChimeraX/PyMOL scripts, or package a 1&ndash;5 MB shareable lightweight bundle.</p>
+                <h3>Prediction Analysis</h3>
+                <p>Score and inspect AlphaFold, ColabFold, Boltz, Chai-1, OpenFold3, Protenix-v2, and ESMFold2 predictions. View PAE/LIS/cLIS maps and 3D structures, or export scripts and lightweight bundles.</p>
             </div>
             <div class="router-foot">
-                <a class="router-cta" href="universal.html">Launch Prediction Analysis &rarr;</a>
-                <span class="router-sub">Files stay in your browser</span>
+                <a class="router-cta" href="universal.html">Open Prediction Analysis &rarr;</a>
+                <span class="router-sub">Runs locally, no upload</span>
             </div>
         </div>
 
         <div class="router-card featured">
             <div>
-                <div class="router-kicker">2 &middot; Precomputed 50-Species Resource</div>
-                <h3>Search a protein, variant, or motif</h3>
-                <p>Explore precomputed interactome screens across human, model organisms, pathogens, and viruses in <strong>LIVIA Atlas</strong>. See cLIP binding-site clusters, tested negatives, AlphaMissense/pLDDT tracks, ortholog &amp; paralog matrices, or query a specific residue/motif (e.g., <code>R248</code>, <code>LXXLL</code>).</p>
+                <h3>LIVIA Atlas</h3>
+                <p>Browse precomputed interactome screens across species. Search a protein, residue, or motif to explore cLIP binding sites, orthologs, and paralogs.</p>
             </div>
             <div class="router-foot">
                 <a class="router-cta" href="https://flyark.github.io/livia-atlas/" target="_blank" rel="noopener">Open LIVIA Atlas &#8599;</a>
@@ -223,25 +211,23 @@
 
         <div class="router-card">
             <div>
-                <div class="router-kicker">3 &middot; Protein List &rarr; Complex Assembly</div>
-                <h3>Assemble a hit list into complexes</h3>
-                <p>Paste an AP-MS, BioID, or CRISPR hit list into <strong>LIVIA Atlas Network</strong> to recruit Steiner bridges, detect Leiden communities, inspect tested-negative matrices, and export multi-chain AlphaFold 3 JSON or Boltz-2 YAML inputs. Have your own <code>lis.py</code> CSV instead?</p>
+                <h3>cLIP <span style="font-weight:400; font-size:0.9rem; color:var(--ink-2);">(clustered Local Interaction Profiler)</span></h3>
+                <p>Drop a <code>lis.py</code> table to cluster a protein's partners by shared contact residues (cLIR) and map sites onto its 3D structure.</p>
             </div>
             <div class="router-foot">
-                <a class="router-cta" href="https://flyark.github.io/livia-atlas/#/network/human" target="_blank" rel="noopener">Open Atlas Network &#8599;</a>
-                <span class="router-sub">Own <code>lis.py</code> CSV? <a href="network.html">LIVIA PPI Network &rarr;</a></span>
+                <a class="router-cta" href="clip.html">Open cLIP &rarr;</a>
+                <span class="router-sub">Resolves AlphaFold DB structures automatically</span>
             </div>
         </div>
 
         <div class="router-card">
             <div>
-                <div class="router-kicker">4 &middot; Custom Screen Clustering</div>
-                <h3>Cluster my <code>lis.py</code> screen by binding site</h3>
-                <p>Drop a local <strong><code>lis.py</code></strong> CSV/XLSX table into <strong>cLIP</strong> (clustered Local Interaction Profiler) to group partners by shared cLIR contact footprints, separate competing vs. co-binding surfaces, identify cluster-specific mutant candidates, and recolor AlphaFold DB 3D models.</p>
+                <h3>PPI Network</h3>
+                <p>Build interaction networks and Leiden communities from your own <code>lis.py</code> output, or assemble a protein list directly from LIVIA Atlas.</p>
             </div>
             <div class="router-foot">
-                <a class="router-cta" href="clip.html">Launch cLIP &rarr;</a>
-                <span class="router-sub">Resolves AFDB 3D &amp; domains locally</span>
+                <a class="router-cta" href="network.html">Open PPI Network &rarr;</a>
+                <span class="router-sub"><a href="https://flyark.github.io/livia-atlas/#/network/human" target="_blank" rel="noopener">Build from Atlas screens &#8599;</a></span>
             </div>
         </div>
     </div>
