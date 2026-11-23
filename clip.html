@@ -194,7 +194,7 @@
     <div class="row" style="margin-top:1rem">
       <label>Query protein: <select id="gene"><option>—</option></select></label>
       <label title="every model that reaches the cutoff is clustered, whatever its rank">iLIS ≥ <input id="ilis" type="number" value="0.223" step="0.01" style="width:92px"></label>
-      <label title="AFM-v2.3 heterodimer reference tiers (10% / 5% / 1% empirical FPR on top-ranked 5-model ColabFold alphafold2_multimer_v3; reference tier only for other predictors or homodimers)">Ref. tier <select id="fpr">
+      <label title="iLIS reference cutoffs (0.223 / 0.339 / 0.551; 10% / 5% / 1% empirical FPR) calibrated on the top-ranked of five heterodimer models predicted with AlphaFold-Multimer v2.3 weights (ColabFold --model-type alphafold2_multimer_v3); reference tiers only for other predictors or homodimers">Ref. tier <select id="fpr">
         <option value="">custom</option>
         <option value="0.223" selected>10% ref. (0.223)</option>
         <option value="0.339">5% ref. (0.339)</option>

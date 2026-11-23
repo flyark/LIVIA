@@ -307,7 +307,7 @@
     <div class="notes-box">
         <strong>Privacy &amp; Browser:</strong> Tested on Chrome and Safari (macOS/iOS). All structure scoring runs locally in your browser; your files are never uploaded. To add gene names, domains, and reported interactions, selected pages query public APIs (UniProt, EBI BLAST, AlphaFold DB, MIST, BioGRID) &mdash; see <a href="about.html#data">what leaves your browser</a>.
         <br>
-        <strong>Reference Cutoffs:</strong> The top-ranked <code>iLIS</code> reference tiers (<code>0.223</code> / <code>0.339</code> / <code>0.551</code>; 10% / 5% / 1% empirical FPR) were calibrated on 5-model ColabFold AlphaFold-Multimer v2.3 (<code>alphafold2_multimer_v3</code>) heterodimers. For AlphaFold 3, Boltz, Chai-1, single-model runs, homodimers, and multichain assemblies, these thresholds serve as standardized reference tiers rather than strict empirical FPRs.
+        <strong>Reference Cutoffs:</strong> The <code>iLIS</code> reference cutoffs (<code>0.223</code> / <code>0.339</code> / <code>0.551</code>, corresponding to 10% / 5% / 1% empirical FPR) were calibrated on the top-ranked of five heterodimer models predicted with <strong>AlphaFold-Multimer v2.3</strong> weights (ColabFold <code>--model-type alphafold2_multimer_v3</code>). For other predictors (AlphaFold 3, Boltz, Chai-1, etc.), single-model runs, homodimers, and multichain assemblies, these values serve as standardized reference tiers rather than exact empirical FPRs.
     </div>
 </div>
 
