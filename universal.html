@@ -207,7 +207,8 @@
             <button class="btn btn-primary" id="btn-process" onclick="processFiles()" disabled>Process</button>
             <div class="examples-col">
                 <div style="display:flex; gap:0.45rem; flex-wrap:wrap; align-items:center;">
-                    <span style="color:#1a5276; font-weight:600; font-size:0.82rem;">Quick examples (&le;6 MB):</span>
+                    <span style="color:#1a5276; font-weight:600; font-size:0.82rem;">Quick examples (&le;8 MB):</span>
+                    <button onclick="loadExample('colabfold')" class="example-btn"><b>p53&ndash;MDM2</b> &mdash; ColabFold (8 MB)</button>
                     <button onclick="loadExample('alphafold3')" class="example-btn"><b>p53&ndash;MDM2</b> &mdash; AlphaFold3 (5 MB)</button>
                     <button onclick="loadExample('esmfold2')" class="example-btn"><b>p53&ndash;MDM2</b> &mdash; ESMFold2 (2 MB)</button>
                     <button onclick="loadExample('mis12c')" class="example-btn"><b>MIS12C</b> &mdash; 4-chain AF3 (6 MB)</button>
@@ -220,7 +221,6 @@
                     <summary style="cursor:pointer; font-size:0.8rem; color:#2471A3; font-weight:600; user-select:none;">More multi-predictor &amp; raw complex examples (8&ndash;63 MB downloads)</summary>
                     <div style="display:flex; gap:0.45rem; flex-wrap:wrap; align-items:center; margin-top:0.4rem;">
                         <span style="color:#6B6B6B; font-size:0.8rem;">p53&ndash;MDM2 across predictors:</span>
-                        <button onclick="loadExample('colabfold')" class="example-btn">ColabFold (8 MB)</button>
                         <button onclick="loadExample('protenix-v2')" class="example-btn">Protenix-v2 (21 MB)</button>
                         <button onclick="loadExample('boltz2')" class="example-btn">Boltz-2 (26 MB)</button>
                         <button onclick="loadExample('openfold3')" class="example-btn">OpenFold3 (33 MB)</button>
@@ -739,7 +739,7 @@
 <script src="js/livia-core.js?v=20261008b"></script>
 <script src="js/livia-reported.js?v=20261106a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20261119a"></script>
+<script src="js/livia-viewer.js?v=20261124a"></script>
 <script src="js/livia-util.js?v=20261118a"></script>
 <script src="js/livia-colors.js?v=20261010a"></script>
 <script src="js/livia-subnav.js?v=20261007a"></script>
@@ -1081,6 +1081,7 @@ async function handleInputFiles(fileList, customJobName) {
     uniState.chainSizes = null;
     uniState.chainTypes = null;
     uniState.ptmResidues = null;
+    uniState.covalentLinks = null;
     uniState.nTotal = 0;
     uniState.structureContents = {};
     uniState.structureFilenames = {};
@@ -1245,6 +1246,7 @@ async function selectJob(jobName) {
     uniState.chainSizes = null;
     uniState.chainTypes = null;
     uniState.ptmResidues = null;
+    uniState.covalentLinks = null;
     uniState.nTotal = 0;
     uniState.structureContents = {};
     uniState.structureFilenames = {};
@@ -3233,6 +3235,63 @@ function getChainsFromCif(cifText) {
     const seenResidues = new Set();
     const ptm = new Map();   // "chain:seq" -> {chain, seq, atoms:[sidechain atom names]} for PTM residues (shown as sticks)
 
+    // Parse mmCIF _struct_conn covalent bonds (both multi-row `loop_` tables and single-record
+    // key-value blocks, e.g. single-monosaccharide O-glycans in AlphaFold 3) so glycan/ligand
+    // chains stay visually bonded to their attachment polymer residue (SER/THR/ASN/CYS, etc.).
+    const rawCovale = [];
+    let inStructConnLoop = false;
+    const scCols = [];
+    const scSingle = {};
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#')) {
+            if (inStructConnLoop && scCols.length) inStructConnLoop = false;
+            continue;
+        }
+        if (line.startsWith('_struct_conn.')) {
+            const parts = line.split(/\s+/);
+            const col = parts[0].slice('_struct_conn.'.length);
+            if (parts.length >= 2) {
+                scSingle[col] = parts[1];
+                inStructConnLoop = false;
+            } else {
+                inStructConnLoop = true;
+                scCols.push(col);
+            }
+            continue;
+        }
+        if (inStructConnLoop) {
+            if (line.startsWith('loop_') || line.startsWith('_')) {
+                inStructConnLoop = false;
+                continue;
+            }
+            const parts = line.split(/\s+/);
+            const g = (k) => { const idx = scCols.indexOf(k); return idx >= 0 ? (parts[idx] || '') : ''; };
+            if (g('conn_type_id').toLowerCase() === 'covale') {
+                rawCovale.push({
+                    c1: g('ptnr1_label_asym_id') || g('ptnr1_auth_asym_id'),
+                    s1: parseInt(g('ptnr1_label_seq_id')),
+                    c2: g('ptnr2_label_asym_id') || g('ptnr2_auth_asym_id'),
+                    s2: parseInt(g('ptnr2_label_seq_id')),
+                });
+            }
+        }
+    }
+    if ((scSingle.conn_type_id || '').toLowerCase() === 'covale') {
+        rawCovale.push({
+            c1: scSingle.ptnr1_label_asym_id || scSingle.ptnr1_auth_asym_id || '',
+            s1: parseInt(scSingle.ptnr1_label_seq_id),
+            c2: scSingle.ptnr2_label_asym_id || scSingle.ptnr2_auth_asym_id || '',
+            s2: parseInt(scSingle.ptnr2_label_seq_id),
+        });
+    }
+    const covTargetRes = new Set();
+    for (const rc of rawCovale) {
+        if (rc.c1 && !isNaN(rc.s1)) covTargetRes.add(`${rc.c1}:${rc.s1}`);
+        if (rc.c2 && !isNaN(rc.s2)) covTargetRes.add(`${rc.c2}:${rc.s2}`);
+    }
+    const covResAtoms = new Map(); // "chain:seq" -> Set(atomName) for non-backbone (+CA) atoms of covalently attached residues
+
     for (const line of lines) {
         if (line.startsWith('_atom_site.')) {
             inAtomSite = true;
@@ -3255,6 +3314,14 @@ function getChainsFromCif(cifText) {
             const compId = getCol('label_comp_id');
             const chain = getCol('label_asym_id');
             const resSeq = getCol('label_seq_id');
+
+            if (covTargetRes.size > 0 && groupPDB === 'ATOM' && !BACKBONE_ATOMS.has(atomName)) {
+                const ck = `${chain}:${parseInt(resSeq)}`;
+                if (covTargetRes.has(ck)) {
+                    if (!covResAtoms.has(ck)) covResAtoms.set(ck, new Set());
+                    covResAtoms.get(ck).add(atomName);
+                }
+            }
 
             let counted = false;
             if (groupPDB === 'ATOM' && (atomName === 'CA' || atomName === 'P')) {
@@ -3301,9 +3368,34 @@ function getChainsFromCif(cifText) {
             }
         }
     }
+    // Build non-protein -> attached polymer residue map from _struct_conn covalent bonds
+    const covalentLinks = {};
+    const NP_STICK = new Set(['glycan', 'ligand', 'ion']);
+    const seenCov = new Set();
+    for (const rc of rawCovale) {
+        const t1 = chainTypes.get(rc.c1) || 'protein';
+        const t2 = chainTypes.get(rc.c2) || 'protein';
+        let npChain = null, polyChain = null, polySeq = NaN;
+        if (NP_STICK.has(t1) && !NP_STICK.has(t2) && !isNaN(rc.s2)) {
+            npChain = rc.c1; polyChain = rc.c2; polySeq = rc.s2;
+        } else if (NP_STICK.has(t2) && !NP_STICK.has(t1) && !isNaN(rc.s1)) {
+            npChain = rc.c2; polyChain = rc.c1; polySeq = rc.s1;
+        }
+        if (!npChain || !polyChain || isNaN(polySeq)) continue;
+        const dk = `${npChain}|${polyChain}|${polySeq}`;
+        if (seenCov.has(dk)) continue;
+        seenCov.add(dk);
+        const atomSet = covResAtoms.get(`${polyChain}:${polySeq}`);
+        (covalentLinks[npChain] = covalentLinks[npChain] || []).push({
+            chain: polyChain,
+            seq: polySeq,
+            atoms: atomSet ? [...atomSet] : [],
+        });
+    }
     return {
         names: chainOrder, sizes: chainOrder.map(c => chainCounts.get(c)), types: chainOrder.map(c => chainTypes.get(c) || 'protein'),
         ptm: (() => { const byChain = {}; for (const r of ptm.values()) { (byChain[r.chain] = byChain[r.chain] || []).push({ seq: r.seq, atoms: r.atoms }); } return byChain; })(),
+        covalentLinks,
     };
 }
 
@@ -3629,6 +3721,7 @@ async function processFiles() {
         uniState.chainSizes = null;
         uniState.chainTypes = null;
     uniState.ptmResidues = null;
+    uniState.covalentLinks = null;
         uniState.nTotal = 0;
         uniState.multiChainColors = null;
         uniState.hiddenChains = new Set();
@@ -4023,6 +4116,7 @@ async function processFiles() {
             uniState.chainSizes = sizes;
             if (!uniState.chainTypes) uniState.chainTypes = types;
             if (!uniState.ptmResidues) uniState.ptmResidues = chainInfo.ptm || {};   // modified/PTM residues → shown as sticks in 3D
+            if (!uniState.covalentLinks) uniState.covalentLinks = chainInfo.covalentLinks || {};   // _struct_conn glycan/ligand -> polymer attachments
 
             uniState.modelData.push({
                 pae, lisMap, clisMap, ilisGrid, iliaGrid, iptmGrid, lirGrid, clirGrid, metricGrids: MG, nTotal, idx,
@@ -4347,6 +4441,7 @@ async function processPrecomputedBundle() {
     uniState.chainSizes = null;
     uniState.chainTypes = null;
     uniState.ptmResidues = null;
+    uniState.covalentLinks = null;
     uniState.nTotal = 0;
     uniState.multiChainColors = null;
     uniState.hiddenChains = new Set();
@@ -4511,6 +4606,7 @@ async function processPrecomputedBundle() {
     uniState.chainTypes = types;
     uniState.nTotal = nTotal;
     uniState.ptmResidues = chainInfo.ptm || {};
+    uniState.covalentLinks = chainInfo.covalentLinks || {};
     uniState.structureFormat = fmt;
     uniState.confidenceScores = {};
     // Gene labels from the manifest `chains` map (optional) — surfaced everywhere via chainLabel().
@@ -4677,6 +4773,19 @@ function pdqCell(val, extraCol) {
     const cls = extraCol ? ' class="col-extra"' : '';
     return (val == null || isNaN(val)) ? `<td${cls}></td>` : `<td${cls}>${val.toFixed(3)}</td>`;
 }
+// pDockQ2 (Zhu et al. 2023) is strictly CA-based (protein/nucleic P), so pairs involving a
+// glycan/ligand/ion chain have no CA atoms on that chain. Display an em-dash with tooltip in
+// the UI table rather than a misleading 0.000 (CSV export remains unchanged for lis.py parity).
+function pdq2Cell(val, ci, cj) {
+    const types = uniState.chainTypes || [];
+    const names = uniState.chainNames || [];
+    const ti = types[names.indexOf(ci)] || 'protein';
+    const tj = types[names.indexOf(cj)] || 'protein';
+    if (['ion', 'glycan', 'ligand'].includes(ti) || ['ion', 'glycan', 'ligand'].includes(tj)) {
+        return `<td style="color:#94A3B8;" title="pDockQ2 uses CA-only contacts (Zhu et al. 2023) and is not applicable to glycan/ligand/ion chains; use LIpDockQ2 instead">&mdash;</td>`;
+    }
+    return pdqCell(val);
+}
 
 // Whole-interactome summary over the POSITIVE chain pairs (iLIS >= posCut): mean ± std of the
 // pairwise iLIS and of the per-pair ipTM (chain_pair_iptm). Pairs are deduped (A-B == B-A, keep max iLIS).
@@ -4838,7 +4947,7 @@ function displayResults(results, jobName) {
                 tr.onclick = () => selectRow(key, String(mi), tr);
                 const expBtn = isBestModel ? `<button type="button" class="pair-exp-btn" data-expkey="${esc(key)}" onclick="event.stopPropagation(); togglePairModels(this.dataset.expkey)" title="Expand or collapse all models for this pair">\u25b8${sortedMi.length}</button>` : '';
                 const modTip = uniState.structureFilenames[mi] ? ` title="${esc(uniState.structureFilenames[mi])}"` : '';
-                tr.innerHTML = `<td${modTip}>${esc(uniState.modelData[mi]?.label || 'model_' + mi)}${expBtn}</td><td data-paircell="1">${pairLabelHtml(mv.ci, mv.cj)}</td><td>${ilisHtml(mv.iLIS)}</td><td>${(mv.iLISA||0).toFixed(1)}</td><td>${(mv.ipSAE||0).toFixed(3)}</td><td>${(mv.actifpTM||0).toFixed(3)}</td>${iptmCell(mv.ipTM)}<td>${mv.LIS.toFixed(3)}</td><td>${mv.cLIS.toFixed(3)}</td>${pdqCell(mv.pDockQ)}${pdqCell(mv.LIpDockQ)}${pdqCell(mean2Nullable(mv.pDockQ2_i, mv.pDockQ2_j))}${pdqCell(mean2Nullable(mv.LIpDockQ2_i, mv.LIpDockQ2_j))}<td class="col-extra">${(mv.iLIA||0).toFixed(1)}</td><td class="col-extra">${mv.lirI.size} / ${mv.lirJ.size}</td><td class="col-extra">${mv.clirI.size} / ${mv.clirJ.size}</td>`;
+                tr.innerHTML = `<td${modTip}>${esc(uniState.modelData[mi]?.label || 'model_' + mi)}${expBtn}</td><td data-paircell="1">${pairLabelHtml(mv.ci, mv.cj)}</td><td>${ilisHtml(mv.iLIS)}</td><td>${(mv.iLISA||0).toFixed(1)}</td><td>${(mv.ipSAE||0).toFixed(3)}</td><td>${(mv.actifpTM||0).toFixed(3)}</td>${iptmCell(mv.ipTM)}<td>${mv.LIS.toFixed(3)}</td><td>${mv.cLIS.toFixed(3)}</td>${pdqCell(mv.pDockQ)}${pdqCell(mv.LIpDockQ)}${pdq2Cell(mean2Nullable(mv.pDockQ2_i, mv.pDockQ2_j), mv.ci, mv.cj)}${pdqCell(mean2Nullable(mv.LIpDockQ2_i, mv.LIpDockQ2_j))}<td class="col-extra">${(mv.iLIA||0).toFixed(1)}</td><td class="col-extra">${mv.lirI.size} / ${mv.lirJ.size}</td><td class="col-extra">${mv.clirI.size} / ${mv.clirJ.size}</td>`;
                 tbody.appendChild(tr);
             }
             // Average row — auto-selected for first pair
@@ -4848,7 +4957,7 @@ function displayResults(results, jobName) {
             avgTr.dataset.pairkey = key; avgTr.dataset.model = 'avg';
             avgTr.dataset.ci = avg.ci; avgTr.dataset.cj = avg.cj;
             avgTr.onclick = () => selectRow(key, 'avg', avgTr);
-            avgTr.innerHTML = `<td>Average</td><td data-paircell="1">${pairLabelHtml(avg.ci, avg.cj)}</td><td>${ilisHtml(avg.iLIS, true)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td>${pdqCell(avg.pDockQ)}${pdqCell(avg.LIpDockQ)}${pdqCell(mean2Nullable(avg.pDockQ2_i, avg.pDockQ2_j))}${pdqCell(mean2Nullable(avg.LIpDockQ2_i, avg.LIpDockQ2_j))}<td class="col-extra">${(avg.iLIA||0).toFixed(1)}</td><td class="col-extra">${avg.avgLirI ?? avg.lirI.size} / ${avg.avgLirJ ?? avg.lirJ.size}</td><td class="col-extra">${avg.avgClirI ?? avg.clirI.size} / ${avg.avgClirJ ?? avg.clirJ.size}</td>`;
+            avgTr.innerHTML = `<td>Average</td><td data-paircell="1">${pairLabelHtml(avg.ci, avg.cj)}</td><td>${ilisHtml(avg.iLIS, true)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td>${pdqCell(avg.pDockQ)}${pdqCell(avg.LIpDockQ)}${pdq2Cell(mean2Nullable(avg.pDockQ2_i, avg.pDockQ2_j), avg.ci, avg.cj)}${pdqCell(mean2Nullable(avg.LIpDockQ2_i, avg.LIpDockQ2_j))}<td class="col-extra">${(avg.iLIA||0).toFixed(1)}</td><td class="col-extra">${avg.avgLirI ?? avg.lirI.size} / ${avg.avgLirJ ?? avg.lirJ.size}</td><td class="col-extra">${avg.avgClirI ?? avg.clirI.size} / ${avg.avgClirJ ?? avg.clirJ.size}</td>`;
             tbody.appendChild(avgTr);
         } else {
             // Single model row — auto-selected for first pair
@@ -4858,7 +4967,7 @@ function displayResults(results, jobName) {
             tr.dataset.ci = avg.ci; tr.dataset.cj = avg.cj; tr.dataset.best = '1';
             tr.onclick = () => selectRow(key, '0', tr);
             const modTip0 = uniState.structureFilenames[0] ? ` title="${esc(uniState.structureFilenames[0])}"` : '';
-            tr.innerHTML = `<td${modTip0}>${esc(uniState.modelData[0]?.label || '0')}</td><td data-paircell="1">${pairLabelHtml(avg.ci, avg.cj)}</td><td>${ilisHtml(avg.iLIS)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td>${pdqCell(avg.pDockQ)}${pdqCell(avg.LIpDockQ)}${pdqCell(mean2Nullable(avg.pDockQ2_i, avg.pDockQ2_j))}${pdqCell(mean2Nullable(avg.LIpDockQ2_i, avg.LIpDockQ2_j))}<td class="col-extra">${(avg.iLIA||0).toFixed(1)}</td><td class="col-extra">${avg.lirI.size} / ${avg.lirJ.size}</td><td class="col-extra">${avg.clirI.size} / ${avg.clirJ.size}</td>`;
+            tr.innerHTML = `<td${modTip0}>${esc(uniState.modelData[0]?.label || '0')}</td><td data-paircell="1">${pairLabelHtml(avg.ci, avg.cj)}</td><td>${ilisHtml(avg.iLIS)}</td><td>${(avg.iLISA||0).toFixed(1)}</td><td>${(avg.ipSAE||0).toFixed(3)}</td><td>${(avg.actifpTM||0).toFixed(3)}</td>${iptmCell(avg.ipTM)}<td>${avg.LIS.toFixed(3)}</td><td>${avg.cLIS.toFixed(3)}</td>${pdqCell(avg.pDockQ)}${pdqCell(avg.LIpDockQ)}${pdq2Cell(mean2Nullable(avg.pDockQ2_i, avg.pDockQ2_j), avg.ci, avg.cj)}${pdqCell(mean2Nullable(avg.LIpDockQ2_i, avg.LIpDockQ2_j))}<td class="col-extra">${(avg.iLIA||0).toFixed(1)}</td><td class="col-extra">${avg.lirI.size} / ${avg.lirJ.size}</td><td class="col-extra">${avg.clirI.size} / ${avg.clirJ.size}</td>`;
             tbody.appendChild(tr);
         }
     }
@@ -5455,24 +5564,48 @@ function buildColorComponents(v) {
     // Always show ALL non-protein chains (ion/glycan/ligand → ball-and-stick; rna/dna → cartoon).
     // Color each by its own chord/legend color (getChainToggleColor), spanning the full chain so
     // multi-residue nucleic chains render as a complete cartoon.
+    // For glycan/ligand chains covalently bonded to polymer residue(s) via mmCIF _struct_conn,
+    // bundle the attached residue's CA+sidechain atoms into the SAME Mol* ball-and-stick component
+    // (colored in the polymer chain's color) so Mol* renders the covalent glycosidic/linkage bond.
     const allChains = [v.ci, v.cj, ...otherChains];
     const npNames = uniState.chainNames || [];
     const npSizes = uniState.chainSizes || [];
+    const covMap = uniState.covalentLinks || {};
+    let npBfactors = null;
+    if (mode === 'plddt') {
+        const seedVal = document.getElementById('seed-select').value;
+        const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
+        const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
+        npBfactors = parseBfactorsPerResidue(structText, uniState.structureFormat);
+    }
     for (const c of allChains) {
         if (!isNonProteinChain(c)) continue;
         if (components.some(comp => comp.chain === c)) continue;
         const idx = npNames.indexOf(c);
         const sz = (idx >= 0 && npSizes[idx]) ? npSizes[idx] : 1;
         let color = getChainToggleColor(c);
-        if (mode === 'plddt') {
-            const seedVal = document.getElementById('seed-select').value;
-            const useIdx = seedVal === 'avg' ? Object.keys(uniState.structureContents)[0] : seedVal;
-            const structText = uniState.structureContents[useIdx] || uniState.structureContents[Object.keys(uniState.structureContents)[0]];
-            const bfactors = parseBfactorsPerResidue(structText, uniState.structureFormat);
-            const bf = bfactors.get(`${c}:1`);
+        if (npBfactors) {
+            const bf = npBfactors.get(`${c}:1`);
             if (bf !== undefined) color = plddtColor(bf);
         }
+        const beforeLen = components.length;
         addComp(c, [{ start: 1, end: sz }], color);
+        if (components.length > beforeLen && components[beforeLen].isIon) {
+            const links = (covMap[c] || []).filter(lk => !uniState.hiddenChains?.has(lk.chain));
+            if (links.length) {
+                components[beforeLen].covalentAttachments = links.map(lk => {
+                    let attColor = getChainToggleColor(lk.chain);
+                    if (npBfactors) {
+                        const abf = npBfactors.get(`${lk.chain}:${lk.seq}`);
+                        if (abf !== undefined) attColor = plddtColor(abf);
+                    } else if (nc <= 2 || !multiActive) {
+                        if (lk.chain === v.ci) attColor = colors.clir_a;
+                        else if (lk.chain === v.cj) attColor = colors.clir_b;
+                    }
+                    return { chain: lk.chain, seq: lk.seq, atoms: lk.atoms || [], color: attColor };
+                });
+            }
+        }
     }
 
     // PTM / modified residues (phospho SEP/TPO/PTR, etc.): show the whole modified sidechain as
@@ -5806,6 +5939,23 @@ function generateCxc(v, structFilename, colors) {
         lines.push(`color #1${clirJSpec} ${colors.clir_b}`);
         lines.push('');
     }
+    {
+        const covSpecs = [];
+        for (const links of Object.values(uniState.covalentLinks || {})) {
+            for (const lk of links) {
+                const sp = `#1/${lk.chain}:${lk.seq}`;
+                if (!covSpecs.includes(sp)) covSpecs.push(sp);
+            }
+        }
+        if (covSpecs.length) {
+            lines.push('# \u2500\u2500 Show covalently attached glycan/ligand anchor residues \u2500\u2500');
+            for (const sp of covSpecs) {
+                lines.push(`show ${sp} atoms`);
+                lines.push(`style ${sp} ball`);
+            }
+            lines.push('');
+        }
+    }
     lines.push('# \u2500\u2500 Final \u2500\u2500', 'view', 'lighting soft depthCue true', '');
     lines.push('# \u2500\u2500 Save figure \u2500\u2500');
     lines.push(`# save chain${v.ci}_chain${v.cj}.png transparentBackground true`);
@@ -6017,6 +6167,9 @@ function generatePml(v, structFilename, colors) {
             } else {
                 lines.push(`set_color chcol_${ionCh}, ${hexToRgbFloat(getChainToggleColor(ionCh))}`);
                 lines.push(`color chcol_${ionCh}, chain ${ionCh}`);
+            }
+            for (const lk of ((uniState.covalentLinks || {})[ionCh] || [])) {
+                lines.push(`show sticks, (chain ${lk.chain} and resi ${lk.seq} and (sidechain or name CA))`);
             }
         }
     }
@@ -7940,6 +8093,10 @@ function buildAllChainsCxc(overrideFilename, sel) {
         for (const c of ionChains) {
             lines.push(`show #1/${c} atoms`);
             lines.push(`color #1/${c} ${getChainToggleColor(c)}`);
+            for (const lk of ((uniState.covalentLinks || {})[c] || [])) {
+                lines.push(`show #1/${lk.chain}:${lk.seq} atoms`);
+                lines.push(`style #1/${lk.chain}:${lk.seq} ball`);
+            }
         }
         lines.push('');
     }
@@ -8160,6 +8317,9 @@ function buildAllChainsPml(overrideFilename) {
             } else {
                 lines.push(`set_color chcol_${ionCh}, ${hexToRgbFloat(getChainToggleColor(ionCh))}`);
                 lines.push(`color chcol_${ionCh}, chain ${ionCh}`);
+            }
+            for (const lk of ((uniState.covalentLinks || {})[ionCh] || [])) {
+                lines.push(`show sticks, (chain ${lk.chain} and resi ${lk.seq} and (sidechain or name CA))`);
             }
         }
     }

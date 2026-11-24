@@ -313,17 +313,45 @@ function _buildMvsStructureChildren(colorComponents) {
     const structureChildren = [];
     for (const comp of colorComponents) {
         if (comp.isIon) {
-            // Non-polymer chain (ion / ligand / glycan / nucleic) → one ball-and-stick component
-            // scoped to THIS chain's label_asym_id, colored by its own chord/legend color.
-            // (Scoping by chain avoids the global 'ion'/'ligand' selectors letting the last color win.)
-            structureChildren.push({
-                kind: 'component',
-                params: { selector: { label_asym_id: comp.chain } },
-                children: [
-                    { kind: 'representation', params: { type: 'ball_and_stick' },
-                      children: [{ kind: 'color', params: { color: comp.color } }] }
-                ]
-            });
+            // Non-polymer chain (ion / ligand / glycan) → one ball-and-stick component scoped to
+            // THIS chain's label_asym_id, colored by its own chord/legend color.
+            // When covalently attached to polymer residue(s) via mmCIF _struct_conn (e.g. N-/O-glycan
+            // on ASN/SER/THR or covalent ligand on CYS), include those residue sidechain+CA atoms inside
+            // the SAME Mol* ball_and_stick component so Mol* draws the inter-chain covalent bond stick
+            // seamlessly between the polymer sidechain (polymer color) and the glycan/ligand (its color).
+            const atts = Array.isArray(comp.covalentAttachments) ? comp.covalentAttachments : [];
+            if (atts.length > 0) {
+                const sels = [{ label_asym_id: comp.chain }];
+                const colorChildren = [{ kind: 'color', params: { color: comp.color } }];
+                for (const att of atts) {
+                    const attSels = (att.atoms && att.atoms.length)
+                        ? att.atoms.map(atom => ({ label_asym_id: att.chain, label_seq_id: att.seq, label_atom_id: atom }))
+                        : [{ label_asym_id: att.chain, label_seq_id: att.seq }];
+                    sels.push(...attSels);
+                    if (att.color) {
+                        colorChildren.push({
+                            kind: 'color',
+                            params: { selector: attSels.length === 1 ? attSels[0] : attSels, color: att.color }
+                        });
+                    }
+                }
+                structureChildren.push({
+                    kind: 'component',
+                    params: { selector: sels },
+                    children: [
+                        { kind: 'representation', params: { type: 'ball_and_stick' }, children: colorChildren }
+                    ]
+                });
+            } else {
+                structureChildren.push({
+                    kind: 'component',
+                    params: { selector: { label_asym_id: comp.chain } },
+                    children: [
+                        { kind: 'representation', params: { type: 'ball_and_stick' },
+                          children: [{ kind: 'color', params: { color: comp.color } }] }
+                    ]
+                });
+            }
             continue;
         }
         if (comp.isHighlightStick) {
