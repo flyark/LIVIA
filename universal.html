@@ -739,7 +739,7 @@
 <script src="js/livia-core.js?v=20261008b"></script>
 <script src="js/livia-reported.js?v=20261106a"></script>
 <script src="js/livia-scripts.js?v=20260627"></script>
-<script src="js/livia-viewer.js?v=20261124a"></script>
+<script src="js/livia-viewer.js?v=20261124b"></script>
 <script src="js/livia-util.js?v=20261118a"></script>
 <script src="js/livia-colors.js?v=20261010a"></script>
 <script src="js/livia-subnav.js?v=20261007a"></script>
@@ -3042,6 +3042,9 @@ function extractConfidenceScores(confidencePath, platform) {
 // STRUCTURE PARSING
 // ============================================================================
 
+// Standard DNA/RNA residue codes (used for 5'-terminal nucleotide C4' fallback when P is absent)
+const NUCLEIC_COMP = new Set(['DA', 'DT', 'DG', 'DC', 'DU', 'A', 'U', 'G', 'C', 'ADE', 'THY', 'GUA', 'CYT', 'URA']);
+
 function parseCifCoords(cifText) {
     const residues = new Map();
     let hetIdx = 0;
@@ -3058,14 +3061,15 @@ function parseCifCoords(cifText) {
         if (inAtomSite && !line.startsWith('_atom_site.') && !line.startsWith('#') && line.trim()) {
             if (line.startsWith('loop_') || line.startsWith('_')) { inAtomSite = false; continue; }
             const p = line.trim().split(/\s+/);
-            if (p.length < colNames.length) continue;
+            // Do not enforce p.length === colNames.length: Boltz CIFs wrap trailing pdbx_PDB_model_num onto the next line.
+            if (!p.length || (p[0] !== 'ATOM' && p[0] !== 'HETATM')) continue;
 
-            const getCol = (name) => p[colNames.indexOf(name)] || '';
+            const getCol = (name) => { const ci = colNames.indexOf(name); return (ci >= 0 && ci < p.length) ? p[ci] : ''; };
             const groupPDB = getCol('group_PDB');
             if (groupPDB !== 'ATOM' && groupPDB !== 'HETATM') continue;
 
-            const atomName = getCol('label_atom_id');
-            const compId = getCol('label_comp_id');
+            const atomName = getCol('label_atom_id').replace(/^"(.*)"$|^'(.*)'$/, '$1$2');
+            const compId = getCol('label_comp_id').toUpperCase();
             const chain = getCol('label_asym_id');
             const resnum = parseInt(getCol('label_seq_id'));
             const x = parseFloat(getCol('Cartn_x'));
@@ -3076,15 +3080,11 @@ function parseCifCoords(cifText) {
 
             // HETATM (label_seq_id is often '.'): AlphaFold3 tokenizes every
             // non-polymer atom separately, so the PAE matrix has one token per
-            // HETATM atom. We must emit one coordinate per atom (ion = 1 atom;
-            // glycan/ligand = N atoms) in file order, otherwise the contact map
-            // falls out of alignment with the PAE tokens and every chain after a
-            // glycan loses its contact-based metrics (cLIS/iLIS, actifpTM).
+            // HETATM atom. Emit one coordinate per atom (including multi-ion chains)
+            // in file order so the contact map stays aligned with PAE tokens.
             if (groupPDB === 'HETATM') {
                 if (ION_NAMES.has(compId)) {
-                    if (!residues.has(`${chain}:1`)) {
-                        residues.set(`${chain}:1`, { chain, resnum: 1, x, y, z, hasP: false });
-                    }
+                    residues.set(`ion:${chain}:${hetIdx++}`, { chain, resnum: 1, x, y, z, hasP: false });
                 } else {
                     residues.set(`het:${chain}:${hetIdx++}`, { chain, resnum: 1, x, y, z, hasP: atomName.includes('P') });
                 }
@@ -3098,7 +3098,10 @@ function parseCifCoords(cifText) {
                 residues.set(key, { chain, resnum, x, y, z, hasP: false });
             } else if (atomName === 'CA' && compId === 'GLY' && !residues.has(key)) {
                 residues.set(key, { chain, resnum, x, y, z, hasP: false });
-            } else if (atomName === 'P' && !residues.has(key)) {
+            } else if (atomName === 'P') {
+                residues.set(key, { chain, resnum, x, y, z, hasP: true });
+            } else if (atomName === "C4'" && NUCLEIC_COMP.has(compId) && !residues.has(key)) {
+                // 5'-terminal DNA/RNA nucleotides lack a P atom; fall back to C4' so token count stays aligned with PAE.
                 residues.set(key, { chain, resnum, x, y, z, hasP: true });
             }
         }
@@ -3113,18 +3116,19 @@ function parsePdbCoords(pdbText) {
         if (!line.startsWith('ATOM') && !line.startsWith('HETATM')) continue;
         if (line.length < 54) continue;
         const atomName = line.substring(12, 16).trim();
-        const compId = line.substring(17, 20).trim();
+        const compId = line.substring(17, 20).trim().toUpperCase();
         const chain = line.substring(21, 22).trim() || 'A';
         const resnum = parseInt(line.substring(22, 26).trim());
         const x = parseFloat(line.substring(30, 38));
         const y = parseFloat(line.substring(38, 46));
         const z = parseFloat(line.substring(46, 54));
+        if (isNaN(x)) continue;
         const key = `${chain}:${resnum}`;
         if (line.startsWith('HETATM')) {
-            // One token per HETATM atom (ion = 1 atom, glycan/ligand = N atoms),
+            // One token per HETATM atom (ion = 1 atom each, glycan/ligand = N atoms),
             // keeping coords aligned with the per-atom PAE tokens. See parseCifCoords.
             if (ION_NAMES.has(compId)) {
-                if (!residues.has(`${chain}:1`)) residues.set(`${chain}:1`, { chain, resnum: 1, x, y, z, hasP: false });
+                residues.set(`ion:${chain}:${hetIdx++}`, { chain, resnum: 1, x, y, z, hasP: false });
             } else {
                 residues.set(`het:${chain}:${hetIdx++}`, { chain, resnum: 1, x, y, z, hasP: atomName.includes('P') });
             }
@@ -3132,7 +3136,9 @@ function parsePdbCoords(pdbText) {
             residues.set(key, { chain, resnum, x, y, z, hasP: false });
         } else if (atomName === 'CA' && compId === 'GLY' && !residues.has(key)) {
             residues.set(key, { chain, resnum, x, y, z, hasP: false });
-        } else if (atomName === 'P' && !residues.has(key)) {
+        } else if (atomName === 'P') {
+            residues.set(key, { chain, resnum, x, y, z, hasP: true });
+        } else if (atomName === "C4'" && NUCLEIC_COMP.has(compId) && !residues.has(key)) {
             residues.set(key, { chain, resnum, x, y, z, hasP: true });
         }
     }
@@ -3153,25 +3159,39 @@ function parseStructureCoords(text, format) {
 
 // CA-only counterparts to parseStructureCoords, mirroring lis.py's parse_pdb_ca_coords /
 // parse_cif_ca_coords: pDockQ2's fitted logistic constants were calibrated against a strictly
-// CA-CA interface, not the Cb-preferred one used everywhere else in this file (Cb points into
-// the interface along the sidechain, so a Cb-Cb cutoff admits more contacts than the same cutoff
-// on CA-CA, silently invalidating the fitted constants).
+// CA-CA interface, not the Cb-preferred one used everywhere else in this file.
+// IMPORTANT: Non-protein HETATM tokens (glycans/ligands/ions/per-atom PTMs) emit NaN-coordinate
+// placeholders so caCoords stays 1:1 index-aligned with PAE & coords; otherwise any protein
+// chain appearing AFTER a glycan/ligand/PTM shifts into the wrong indices in caContact.
 function parsePdbCaCoords(pdbText) {
     const residues = new Map();
+    let hetIdx = 0;
     for (const line of pdbText.split('\n')) {
         if (!line.startsWith('ATOM') && !line.startsWith('HETATM')) continue;
         if (line.length < 54) continue;
         const atomName = line.substring(12, 16).trim();
+        const compId = line.substring(17, 20).trim().toUpperCase();
         const chain = line.substring(21, 22).trim() || 'A';
         const resnum = parseInt(line.substring(22, 26).trim());
-        if (isNaN(resnum)) continue;
         const x = parseFloat(line.substring(30, 38));
         const y = parseFloat(line.substring(38, 46));
         const z = parseFloat(line.substring(46, 54));
+        if (isNaN(x)) continue;
+        if (line.startsWith('HETATM')) {
+            if (atomName === 'CA' && MOD_AA.has(compId)) {
+                residues.set(`het:${chain}:${hetIdx++}`, { chain, resnum: isNaN(resnum) ? 1 : resnum, x, y, z, hasP: false });
+            } else {
+                residues.set(`het:${chain}:${hetIdx++}`, { chain, resnum: 1, x: NaN, y: NaN, z: NaN, hasP: false });
+            }
+            continue;
+        }
+        if (isNaN(resnum)) continue;
         const key = `${chain}:${resnum}`;
         if (atomName === 'CA') {
             residues.set(key, { chain, resnum, x, y, z, hasP: false });
-        } else if (atomName === 'P' && !residues.has(key)) {
+        } else if (atomName === 'P') {
+            residues.set(key, { chain, resnum, x, y, z, hasP: true });
+        } else if (atomName === "C4'" && NUCLEIC_COMP.has(compId) && !residues.has(key)) {
             residues.set(key, { chain, resnum, x, y, z, hasP: true });
         }
     }
@@ -3180,6 +3200,7 @@ function parsePdbCaCoords(pdbText) {
 
 function parseCifCaCoords(cifText) {
     const residues = new Map();
+    let hetIdx = 0;
     let inAtomSite = false;
     let colNames = [];
     for (const line of cifText.split('\n')) {
@@ -3191,21 +3212,34 @@ function parseCifCaCoords(cifText) {
         if (inAtomSite && !line.startsWith('_atom_site.') && !line.startsWith('#') && line.trim()) {
             if (line.startsWith('loop_') || line.startsWith('_')) { inAtomSite = false; continue; }
             const p = line.trim().split(/\s+/);
-            if (p.length < colNames.length) continue;
-            const getCol = (name) => p[colNames.indexOf(name)] || '';
+            // Do not enforce p.length === colNames.length: Boltz CIFs wrap trailing pdbx_PDB_model_num onto the next line.
+            if (!p.length || (p[0] !== 'ATOM' && p[0] !== 'HETATM')) continue;
+            const getCol = (name) => { const ci = colNames.indexOf(name); return (ci >= 0 && ci < p.length) ? p[ci] : ''; };
             const groupPDB = getCol('group_PDB');
             if (groupPDB !== 'ATOM' && groupPDB !== 'HETATM') continue;
-            const atomName = getCol('label_atom_id');
+            const atomName = getCol('label_atom_id').replace(/^"(.*)"$|^'(.*)'$/, '$1$2');
+            const compId = getCol('label_comp_id').toUpperCase();
             const chain = getCol('label_asym_id');
             const resnum = parseInt(getCol('label_seq_id'));
             const x = parseFloat(getCol('Cartn_x'));
             const y = parseFloat(getCol('Cartn_y'));
             const z = parseFloat(getCol('Cartn_z'));
-            if (isNaN(x) || isNaN(resnum)) continue;
+            if (isNaN(x)) continue;
+            if (groupPDB === 'HETATM') {
+                if (atomName === 'CA' && MOD_AA.has(compId)) {
+                    residues.set(`het:${chain}:${hetIdx++}`, { chain, resnum: isNaN(resnum) ? 1 : resnum, x, y, z, hasP: false });
+                } else {
+                    residues.set(`het:${chain}:${hetIdx++}`, { chain, resnum: 1, x: NaN, y: NaN, z: NaN, hasP: false });
+                }
+                continue;
+            }
+            if (isNaN(resnum)) continue;
             const key = `${chain}:${resnum}`;
             if (atomName === 'CA') {
                 residues.set(key, { chain, resnum, x, y, z, hasP: false });
-            } else if (atomName === 'P' && !residues.has(key)) {
+            } else if (atomName === 'P') {
+                residues.set(key, { chain, resnum, x, y, z, hasP: true });
+            } else if (atomName === "C4'" && NUCLEIC_COMP.has(compId) && !residues.has(key)) {
                 residues.set(key, { chain, resnum, x, y, z, hasP: true });
             }
         }
@@ -3310,12 +3344,12 @@ function getChainsFromCif(cifText) {
             if (!parts.length || (parts[0] !== 'ATOM' && parts[0] !== 'HETATM')) continue;
             const getCol = (name) => parts[colNames.indexOf(name)] || '';
             const groupPDB = getCol('group_PDB');
-            const atomName = getCol('label_atom_id');
-            const compId = getCol('label_comp_id');
+            const atomName = getCol('label_atom_id').replace(/^"(.*)"$|^'(.*)'$/, '$1$2');
+            const compId = getCol('label_comp_id').toUpperCase();
             const chain = getCol('label_asym_id');
             const resSeq = getCol('label_seq_id');
 
-            if (covTargetRes.size > 0 && groupPDB === 'ATOM' && !BACKBONE_ATOMS.has(atomName)) {
+            if (covTargetRes.size > 0 && (groupPDB === 'ATOM' || MOD_AA.has(compId)) && !BACKBONE_ATOMS.has(atomName)) {
                 const ck = `${chain}:${parseInt(resSeq)}`;
                 if (covTargetRes.has(ck)) {
                     if (!covResAtoms.has(ck)) covResAtoms.set(ck, new Set());
@@ -3324,21 +3358,18 @@ function getChainsFromCif(cifText) {
             }
 
             let counted = false;
-            if (groupPDB === 'ATOM' && (atomName === 'CA' || atomName === 'P')) {
+            if (groupPDB === 'ATOM' && (atomName === 'CA' || atomName === 'P' || (atomName === "C4'" && NUCLEIC_COMP.has(compId)))) {
                 const rkey = `${chain}:${resSeq}`;
                 if (!seenResidues.has(rkey)) {
                     seenResidues.add(rkey);
                     counted = true;
-                    if (atomName === 'P') chainTypes.set(chain, compId.startsWith('D') ? 'dna' : 'rna');
+                    if (atomName === 'P' || atomName === "C4'") chainTypes.set(chain, compId.startsWith('D') ? 'dna' : 'rna');
                     else if (!chainTypes.has(chain)) chainTypes.set(chain, 'protein');
                 }
             } else if (groupPDB === 'HETATM' && ION_NAMES.has(compId)) {
-                const rkey = `${chain}:ion`;
-                if (!seenResidues.has(rkey)) {
-                    seenResidues.add(rkey);
-                    counted = true;
-                    chainTypes.set(chain, 'ion');
-                }
+                // One token per ion atom (handles both single-ion and multi-ion chains)
+                counted = true;
+                chainTypes.set(chain, 'ion');
             } else if (groupPDB === 'HETATM') {
                 // Non-ion HETATM. AlphaFold3 makes one token per atom, so count every atom
                 // (keeps sizes aligned with the per-atom PAE tokens). A modified amino acid
@@ -3402,23 +3433,108 @@ function getChainsFromCif(cifText) {
 function getChainsFromPdb(pdbText) {
     const chainOrder = [];
     const chainCounts = new Map();
+    const chainTypes = new Map();
     const seenResidues = new Set();
-    for (const line of pdbText.split('\n')) {
-        if (!line.startsWith('ATOM')) continue;
+    const ptm = new Map();
+    const rawCovale = [];
+    const lines = pdbText.split('\n');
+
+    // Parse PDB LINK records (columns 21-26 & 51-56) for covalent glycan/ligand attachments
+    for (const line of lines) {
+        if (!line.startsWith('LINK  ') || line.length < 56) continue;
+        const c1 = line.substring(21, 22).trim() || 'A';
+        const s1 = parseInt(line.substring(22, 26).trim());
+        const c2 = line.substring(51, 52).trim() || 'A';
+        const s2 = parseInt(line.substring(52, 56).trim());
+        if (c1 && c2 && c1 !== c2) rawCovale.push({ c1, s1, c2, s2 });
+    }
+    const covTargetRes = new Set();
+    for (const rc of rawCovale) {
+        if (rc.c1 && !isNaN(rc.s1)) covTargetRes.add(`${rc.c1}:${rc.s1}`);
+        if (rc.c2 && !isNaN(rc.s2)) covTargetRes.add(`${rc.c2}:${rc.s2}`);
+    }
+    const covResAtoms = new Map();
+
+    for (const line of lines) {
+        const isAtom = line.startsWith('ATOM');
+        const isHet = !isAtom && line.startsWith('HETATM');
+        if ((!isAtom && !isHet) || line.length < 26) continue;
         const atomName = line.substring(12, 16).trim();
-        if (atomName !== 'CA' && atomName !== 'P') continue;
+        const compId = line.substring(17, 20).trim().toUpperCase();
         const chain = line.substring(21, 22).trim() || 'A';
         const resnum = line.substring(22, 26).trim();
-        const rkey = `${chain}:${resnum}`;
-        if (seenResidues.has(rkey)) continue;
-        seenResidues.add(rkey);
-        if (!chainCounts.has(chain)) {
-            chainOrder.push(chain);
-            chainCounts.set(chain, 0);
+        const seqInt = parseInt(resnum);
+
+        if (covTargetRes.size > 0 && (isAtom || MOD_AA.has(compId)) && !BACKBONE_ATOMS.has(atomName) && !isNaN(seqInt)) {
+            const ck = `${chain}:${seqInt}`;
+            if (covTargetRes.has(ck)) {
+                if (!covResAtoms.has(ck)) covResAtoms.set(ck, new Set());
+                covResAtoms.get(ck).add(atomName);
+            }
         }
-        chainCounts.set(chain, chainCounts.get(chain) + 1);
+
+        let counted = false;
+        if (isAtom && (atomName === 'CA' || atomName === 'P' || (atomName === "C4'" && NUCLEIC_COMP.has(compId)))) {
+            const rkey = `${chain}:${resnum}`;
+            if (!seenResidues.has(rkey)) {
+                seenResidues.add(rkey);
+                counted = true;
+                if (atomName === 'P' || atomName === "C4'") chainTypes.set(chain, compId.startsWith('D') ? 'dna' : 'rna');
+                else if (!chainTypes.has(chain)) chainTypes.set(chain, 'protein');
+            }
+        } else if (isHet && ION_NAMES.has(compId)) {
+            counted = true;
+            chainTypes.set(chain, 'ion');
+        } else if (isHet) {
+            counted = true;
+            if (atomName === 'CA' || MOD_AA.has(compId)) {
+                chainTypes.set(chain, 'protein');
+                if (!isNaN(seqInt) && !BACKBONE_ATOMS.has(atomName)) {
+                    const rk = `${chain}:${seqInt}`;
+                    if (!ptm.has(rk)) ptm.set(rk, { chain, seq: seqInt, atoms: [] });
+                    ptm.get(rk).atoms.push(atomName);
+                }
+            } else if (!chainTypes.has(chain)) chainTypes.set(chain, 'glycan');
+        }
+        if (counted) {
+            if (!chainCounts.has(chain)) {
+                chainOrder.push(chain);
+                chainCounts.set(chain, 0);
+            }
+            chainCounts.set(chain, chainCounts.get(chain) + 1);
+        }
     }
-    return { names: chainOrder, sizes: chainOrder.map(c => chainCounts.get(c)) };
+
+    const covalentLinks = {};
+    const NP_STICK = new Set(['glycan', 'ligand', 'ion']);
+    const seenCov = new Set();
+    for (const rc of rawCovale) {
+        const t1 = chainTypes.get(rc.c1) || 'protein';
+        const t2 = chainTypes.get(rc.c2) || 'protein';
+        let npChain = null, polyChain = null, polySeq = NaN;
+        if (NP_STICK.has(t1) && !NP_STICK.has(t2) && !isNaN(rc.s2)) {
+            npChain = rc.c1; polyChain = rc.c2; polySeq = rc.s2;
+        } else if (NP_STICK.has(t2) && !NP_STICK.has(t1) && !isNaN(rc.s1)) {
+            npChain = rc.c2; polyChain = rc.c1; polySeq = rc.s1;
+        }
+        if (!npChain || !polyChain || isNaN(polySeq)) continue;
+        const dk = `${npChain}|${polyChain}|${polySeq}`;
+        if (seenCov.has(dk)) continue;
+        seenCov.add(dk);
+        const atomSet = covResAtoms.get(`${polyChain}:${polySeq}`);
+        (covalentLinks[npChain] = covalentLinks[npChain] || []).push({
+            chain: polyChain,
+            seq: polySeq,
+            atoms: atomSet ? [...atomSet] : [],
+        });
+    }
+    return {
+        names: chainOrder,
+        sizes: chainOrder.map(c => chainCounts.get(c)),
+        types: chainOrder.map(c => chainTypes.get(c) || 'protein'),
+        ptm: (() => { const byChain = {}; for (const r of ptm.values()) { (byChain[r.chain] = byChain[r.chain] || []).push({ seq: r.seq, atoms: r.atoms }); } return byChain; })(),
+        covalentLinks,
+    };
 }
 
 // ============================================================================

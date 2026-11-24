@@ -22,21 +22,37 @@ function parseBfactorsPerResidue(text, format) {
     by[format] = m;
     return m;
 }
+const _V3D_NUCLEIC_COMP = new Set(['DA', 'DT', 'DG', 'DC', 'DU', 'A', 'U', 'G', 'C', 'ADE', 'THY', 'GUA', 'CYT', 'URA']);
+const _V3D_MOD_AA = new Set(['SEP','TPO','PTR','MSE','SEC','HYP','CSO','CSD','CME','CSS','OCS','MLY','M3L','MLZ','ALY','KCX','PCA','CGU','NEP','HIC','SAC','MHO','CAS','DDZ','SNN','CXM','FME','CSX','CSP','TYS','SXE']);
 function _parseBfactorsPerResidue(text, format) {
     const m = new Map();
+    const hetSeq = new Map(); // per-chain 1-based token counter for non-polymer HETATM atoms (glycans/ligands/ions)
     if (format === 'pdb') {
         for (const line of text.split('\n')) {
             if (line.length < 66) continue;
-            if (line.startsWith('ATOM') && line.substring(12, 16).trim() === 'CA') {
+            if (line.startsWith('ATOM')) {
+                const atom = line.substring(12, 16).trim();
+                const comp = line.substring(17, 20).trim().toUpperCase();
                 const ch = line.substring(21, 22).trim() || 'A';
                 const rn = parseInt(line.substring(22, 26).trim());
                 const bf = parseFloat(line.substring(60, 66).trim());
-                if (!isNaN(rn) && !isNaN(bf)) m.set(`${ch}:${rn}`, bf);
+                if (isNaN(rn) || isNaN(bf)) continue;
+                const k = `${ch}:${rn}`;
+                if (atom === 'CA' || atom === 'P') m.set(k, bf);
+                else if (atom === "C4'" && _V3D_NUCLEIC_COMP.has(comp) && !m.has(k)) m.set(k, bf);
             } else if (line.startsWith('HETATM')) {
+                const comp = line.substring(17, 20).trim().toUpperCase();
                 const ch = line.substring(21, 22).trim() || 'A';
                 const rn = parseInt(line.substring(22, 26).trim());
                 const bf = parseFloat(line.substring(60, 66).trim());
-                if (!isNaN(bf)) m.set(`${ch}:${isNaN(rn) ? 1 : rn}`, bf);
+                if (isNaN(bf)) continue;
+                if (_V3D_MOD_AA.has(comp) && !isNaN(rn)) {
+                    m.set(`${ch}:${rn}`, bf);
+                } else {
+                    const idx = (hetSeq.get(ch) || 0) + 1;
+                    hetSeq.set(ch, idx);
+                    m.set(`${ch}:${idx}`, bf);
+                }
             }
         }
     } else {
@@ -46,24 +62,43 @@ function _parseBfactorsPerResidue(text, format) {
             if (line.startsWith('_atom_site.')) { inA = true; cols.push(line.trim().split('.')[1]); ix = null; continue; }
             if (!inA || line.startsWith('#') || !line.trim()) continue;
             if (line.startsWith('loop_') || line.startsWith('_')) { inA = false; continue; }
-            if (!ix) ix = { group: cols.indexOf('group_PDB'), atom: cols.indexOf('label_atom_id'), ch: cols.indexOf('label_asym_id'), bf: cols.indexOf('B_iso_or_equiv'), rn: cols.indexOf('label_seq_id') };
-            // only CA atoms and HETATM records are kept, so other atom lines skip the split
-            const het = line.trimStart().startsWith('HETATM');
-            if (!het && !/(^|\s)CA(\s|$)/.test(line)) continue;
-            const p = line.trim().split(/\s+/);
-            if (p.length < cols.length) continue;
-            const g = (i) => i >= 0 ? p[i] : '';
+            if (!ix) ix = {
+                group: cols.indexOf('group_PDB'),
+                atom: cols.indexOf('label_atom_id'),
+                comp: cols.indexOf('label_comp_id'),
+                ch: cols.indexOf('label_asym_id'),
+                bf: cols.indexOf('B_iso_or_equiv'),
+                rn: cols.indexOf('label_seq_id')
+            };
+            const trimmed = line.trimStart();
+            if (!trimmed.startsWith('ATOM') && !trimmed.startsWith('HETATM')) continue;
+            const het = trimmed.startsWith('HETATM');
+            if (!het && !/(^|\s)['"]?(CA|P|C4')['"]?(\s|$)/.test(trimmed)) continue;
+            const p = trimmed.split(/\s+/);
+            // Do not enforce p.length === cols.length: Boltz CIFs wrap trailing pdbx_PDB_model_num
+            const g = (i) => (i >= 0 && i < p.length) ? p[i] : '';
             const group = g(ix.group);
-            const atom = g(ix.atom);
+            if (group !== 'ATOM' && group !== 'HETATM') continue;
+            const atom = g(ix.atom).replace(/^"(.*)"$|^'(.*)'$/, '$1$2');
+            const comp = g(ix.comp).toUpperCase();
             const ch = g(ix.ch);
             const bf = parseFloat(g(ix.bf));
             if (isNaN(bf)) continue;
-            if (group === 'ATOM' && atom === 'CA') {
+            if (group === 'ATOM') {
                 const rn = parseInt(g(ix.rn));
-                if (!isNaN(rn)) m.set(`${ch}:${rn}`, bf);
+                if (isNaN(rn)) continue;
+                const k = `${ch}:${rn}`;
+                if (atom === 'CA' || atom === 'P') m.set(k, bf);
+                else if (atom === "C4'" && _V3D_NUCLEIC_COMP.has(comp) && !m.has(k)) m.set(k, bf);
             } else if (group === 'HETATM') {
                 const rn = parseInt(g(ix.rn));
-                m.set(`${ch}:${isNaN(rn) ? 1 : rn}`, bf);
+                if (!isNaN(rn)) {
+                    m.set(`${ch}:${rn}`, bf);
+                } else {
+                    const idx = (hetSeq.get(ch) || 0) + 1;
+                    hetSeq.set(ch, idx);
+                    m.set(`${ch}:${idx}`, bf);
+                }
             }
         }
     }
@@ -143,15 +178,15 @@ function _parseChainSequences(text, format) {
                 ch: cols.indexOf('label_asym_id'),
                 rn: cols.indexOf('label_seq_id')
             };
-            if (!/(^|\s)(CA|C4'|P)(\s|$)/.test(line)) continue;
+            if (!/(^|\s)['"]?(CA|C4'|P)['"]?(\s|$)/.test(line)) continue;
             const p = line.trim().split(/\s+/);
-            if (p.length < cols.length) continue;
-            const atom = ix.atom >= 0 ? p[ix.atom].replace(/^['"]|['"]$/g, '') : '';
+            if (!p.length || (p[0] !== 'ATOM' && p[0] !== 'HETATM')) continue;
+            const atom = (ix.atom >= 0 && ix.atom < p.length) ? p[ix.atom].replace(/^"(.*)"$|^'(.*)'$/, '$1$2') : '';
             if (atom !== 'CA' && atom !== "C4'" && atom !== 'P') continue;
-            const comp = (ix.comp >= 0 ? p[ix.comp] : '').toUpperCase();
+            const comp = ((ix.comp >= 0 && ix.comp < p.length) ? p[ix.comp] : '').toUpperCase();
             if (!_V3D_AA3_TO_1[comp]) continue;
-            const ch = ix.ch >= 0 ? p[ix.ch] : 'A';
-            const rn = parseInt(ix.rn >= 0 ? p[ix.rn] : '', 10);
+            const ch = (ix.ch >= 0 && ix.ch < p.length) ? p[ix.ch] : 'A';
+            const rn = parseInt((ix.rn >= 0 && ix.rn < p.length) ? p[ix.rn] : '', 10);
             add(ch, rn, comp);
         }
     }
