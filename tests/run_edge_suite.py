@@ -27,12 +27,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import csv
 import functools
 import http.server
 import io
 import json
 import math
 import socketserver
+import subprocess
 import sys
 import tempfile
 import threading
@@ -42,6 +44,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 REPO_DIR = Path(__file__).resolve().parent.parent
+LIS_PY = REPO_DIR / "python" / "lis.py"
 
 CIF_HEADER = """data_test
 loop_
@@ -620,6 +623,50 @@ def main():
                         diff = abs((wv or 0.0) - (jv or 0.0))
                         check(f"WASM_vs_JS:{cname}:{pk}.{mk}", diff < 1e-5, f"wasm={wv} vs js={jv} (diff={diff})")
                 page.close()
+
+            # 16. Cross-check browser (livia-wasm) against reference python/lis.py on all 14 synthetic fixtures
+            if LIS_PY.exists():
+                for cname, zpath in fixtures.items():
+                    ex_dir = Path(td) / f"lis_ex_{cname}"
+                    out_dir = Path(td) / f"lis_out_{cname}"
+                    ex_dir.mkdir(parents=True, exist_ok=True)
+                    out_dir.mkdir(parents=True, exist_ok=True)
+                    with zipfile.ZipFile(zpath) as zf:
+                        zf.extractall(ex_dir)
+                    # Unwrap single top-level directory for AF3 detection if present
+                    sub = [x for x in ex_dir.iterdir() if x.is_dir()]
+                    in_path = sub[0] if len(sub) == 1 else ex_dir
+                    proc = subprocess.run(
+                        [sys.executable, str(LIS_PY), str(in_path), "-d", str(out_dir), "-o", f"{cname}.csv"],
+                        capture_output=True, text=True, timeout=60,
+                    )
+                    check(f"lispy_run:{cname}", proc.returncode == 0, f"lis.py failed: {proc.stderr[:250]}")
+                    if proc.returncode != 0:
+                        continue
+                    csvs = list(out_dir.glob("*.csv"))
+                    check(f"lispy_csv:{cname}", len(csvs) == 1, f"expected 1 CSV, got {csvs}")
+                    if not csvs:
+                        continue
+                    py_by_pair = {}
+                    with open(csvs[0], newline="") as f:
+                        for row in csv.DictReader(f):
+                            if str(row.get("model", "")).strip().lower() in ("average", "avg", "mean"):
+                                continue
+                            py_by_pair[f"{row['chain_i'].strip()}-{row['chain_j'].strip()}"] = row
+                    w_pairs = results[cname]["pairMetrics"]
+                    check(f"lispy_pairs:{cname}", set(py_by_pair.keys()) == set(w_pairs.keys()), f"pairs mismatch: py={set(py_by_pair)} vs br={set(w_pairs)}")
+                    for pk, wm in w_pairs.items():
+                        pr = py_by_pair.get(pk)
+                        if not pr:
+                            continue
+                        for mk in ("iLIS", "LIS", "cLIS", "ipSAE", "actifpTM", "pDockQ", "LIpDockQ", "pDockQ2", "LIpDockQ2"):
+                            raw = (pr.get(mk) or "").strip()
+                            pv = None if raw in ("", "nan", "None") else float(raw)
+                            wv = wm[mk]
+                            if pv is None and wv is None:
+                                continue
+                            diff = abs((wv or 0.0) - (pv or 0.0))
+                            check(f"lispy_vs_wasm:{cname}:{pk}.{mk}", diff <= 5.5e-5, f"browser={wv} vs lis.py={pv} (diff={diff:.6f})")
 
             browser.close()
     httpd.shutdown()

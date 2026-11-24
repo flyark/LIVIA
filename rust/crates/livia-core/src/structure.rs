@@ -29,12 +29,35 @@ pub fn is_ion_name(comp_id: &str) -> bool {
 }
 
 #[inline]
+pub fn is_nucleic_comp(comp_id: &str) -> bool {
+    matches!(
+        comp_id,
+        "DA" | "DT" | "DG" | "DC" | "DU" | "A" | "U" | "G" | "C" | "ADE" | "THY" | "GUA" | "CYT" | "URA"
+    )
+}
+
+#[inline]
 pub fn is_mod_aa(comp_id: &str) -> bool {
     matches!(
         comp_id,
         "SEP" | "TPO" | "PTR" | "MSE" | "CSO" | "HYP" | "MLY" | "M3L" | "ALY" | "PCA" | "KCX"
             | "LLP" | "CME" | "CSD" | "OCS" | "SAH" | "SAM" | "FME" | "ACE" | "NME"
+            | "SEC" | "CSS" | "MLZ" | "CGU" | "NEP" | "HIC" | "SAC" | "MHO" | "CAS"
+            | "DDZ" | "SNN" | "CXM" | "CSX" | "CSP" | "TYS" | "SXE"
     )
+}
+
+#[inline]
+fn unquote_cif(tok: &str) -> &str {
+    let bytes = tok.as_bytes();
+    if bytes.len() >= 2
+        && ((bytes[0] == b'"' && bytes[bytes.len() - 1] == b'"')
+            || (bytes[0] == b'\'' && bytes[bytes.len() - 1] == b'\''))
+    {
+        &tok[1..tok.len() - 1]
+    } else {
+        tok
+    }
 }
 
 struct OrderedResidues {
@@ -77,7 +100,7 @@ fn fill_residue_gaps(ord: OrderedResidues) -> Vec<ResidueCoord> {
     let mut het: Vec<ResidueCoord> = Vec::new();
 
     for (key, r) in ord.keys.into_iter().zip(ord.vals) {
-        if key.starts_with("het:") {
+        if key.starts_with("het:") || key.starts_with("ion:") {
             het.push(r);
         } else {
             if !polymer.contains_key(&r.chain) {
@@ -130,7 +153,8 @@ pub fn parse_pdb_coords(pdb_text: &str) -> Vec<ResidueCoord> {
         let Some(zs) = line.get(46..54) else { continue };
 
         let atom_name = atom_s.trim();
-        let comp_id = comp_s.trim();
+        let comp_upper = comp_s.trim().to_ascii_uppercase();
+        let comp_id = comp_upper.as_str();
         let chain_trim = chain_s.trim();
         let chain = if chain_trim.is_empty() { "A" } else { chain_trim };
 
@@ -144,20 +168,19 @@ pub fn parse_pdb_coords(pdb_text: &str) -> Vec<ResidueCoord> {
 
         if is_het {
             if is_ion_name(comp_id) {
-                let k = format!("{chain}:1");
-                if !residues.contains(&k) {
-                    residues.set(
-                        k,
-                        ResidueCoord {
-                            chain: chain.to_string(),
-                            resnum: 1,
-                            x,
-                            y,
-                            z,
-                            has_p: false,
-                        },
-                    );
-                }
+                let k = format!("ion:{chain}:{het_idx}");
+                het_idx += 1;
+                residues.set(
+                    k,
+                    ResidueCoord {
+                        chain: chain.to_string(),
+                        resnum: 1,
+                        x,
+                        y,
+                        z,
+                        has_p: false,
+                    },
+                );
             } else {
                 let k = format!("het:{chain}:{het_idx}");
                 het_idx += 1;
@@ -204,7 +227,19 @@ pub fn parse_pdb_coords(pdb_text: &str) -> Vec<ResidueCoord> {
                     has_p: false,
                 },
             );
-        } else if atom_name == "P" && !residues.contains(&key) {
+        } else if atom_name == "P" {
+            residues.set(
+                key,
+                ResidueCoord {
+                    chain: chain.to_string(),
+                    resnum,
+                    x,
+                    y,
+                    z,
+                    has_p: true,
+                },
+            );
+        } else if atom_name == "C4'" && is_nucleic_comp(comp_id) && !residues.contains(&key) {
             residues.set(
                 key,
                 ResidueCoord {
@@ -300,8 +335,9 @@ pub fn parse_cif_coords(cif_text: &str) -> Vec<ResidueCoord> {
             if group_pdb != "ATOM" && group_pdb != "HETATM" {
                 continue;
             }
-            let atom_name = get_tok(&parts, cols.atom_id);
-            let comp_id = get_tok(&parts, cols.comp_id);
+            let atom_name = unquote_cif(get_tok(&parts, cols.atom_id));
+            let comp_upper = get_tok(&parts, cols.comp_id).to_ascii_uppercase();
+            let comp_id = comp_upper.as_str();
             let chain = get_tok(&parts, cols.asym_id);
             let res_seq = get_tok(&parts, cols.seq_id);
 
@@ -315,20 +351,19 @@ pub fn parse_cif_coords(cif_text: &str) -> Vec<ResidueCoord> {
 
             if group_pdb == "HETATM" {
                 if is_ion_name(comp_id) {
-                    let k = format!("{chain}:1");
-                    if !residues.contains(&k) {
-                        residues.set(
-                            k,
-                            ResidueCoord {
-                                chain: chain.to_string(),
-                                resnum: 1,
-                                x,
-                                y,
-                                z,
-                                has_p: false,
-                            },
-                        );
-                    }
+                    let k = format!("ion:{chain}:{het_idx}");
+                    het_idx += 1;
+                    residues.set(
+                        k,
+                        ResidueCoord {
+                            chain: chain.to_string(),
+                            resnum: 1,
+                            x,
+                            y,
+                            z,
+                            has_p: false,
+                        },
+                    );
                 } else {
                     let k = format!("het:{chain}:{het_idx}");
                     het_idx += 1;
@@ -373,7 +408,19 @@ pub fn parse_cif_coords(cif_text: &str) -> Vec<ResidueCoord> {
                         has_p: false,
                     },
                 );
-            } else if atom_name == "P" && !residues.contains(&key) {
+            } else if atom_name == "P" {
+                residues.set(
+                    key,
+                    ResidueCoord {
+                        chain: chain.to_string(),
+                        resnum,
+                        x,
+                        y,
+                        z,
+                        has_p: true,
+                    },
+                );
+            } else if atom_name == "C4'" && is_nucleic_comp(comp_id) && !residues.contains(&key) {
                 residues.set(
                     key,
                     ResidueCoord {
@@ -401,11 +448,15 @@ pub fn parse_structure_coords(text: &str, is_pdb: bool) -> Vec<ResidueCoord> {
 
 pub fn parse_pdb_ca_coords(pdb_text: &str) -> Vec<ResidueCoord> {
     let mut residues = OrderedResidues::new();
+    let mut het_idx = 0usize;
     for line in pdb_text.lines() {
-        if (!line.starts_with("ATOM") && !line.starts_with("HETATM")) || line.len() < 54 {
+        let is_atom = line.starts_with("ATOM");
+        let is_het = !is_atom && line.starts_with("HETATM");
+        if (!is_atom && !is_het) || line.len() < 54 {
             continue;
         }
         let Some(atom_s) = line.get(12..16) else { continue };
+        let Some(comp_s) = line.get(17..20) else { continue };
         let Some(chain_s) = line.get(21..22) else { continue };
         let Some(res_s) = line.get(22..26) else { continue };
         let Some(xs) = line.get(30..38) else { continue };
@@ -413,12 +464,10 @@ pub fn parse_pdb_ca_coords(pdb_text: &str) -> Vec<ResidueCoord> {
         let Some(zs) = line.get(46..54) else { continue };
 
         let atom_name = atom_s.trim();
-        if atom_name != "CA" && atom_name != "P" {
-            continue;
-        }
+        let comp_upper = comp_s.trim().to_ascii_uppercase();
+        let comp_id = comp_upper.as_str();
         let chain_trim = chain_s.trim();
         let chain = if chain_trim.is_empty() { "A" } else { chain_trim };
-        let Ok(resnum) = res_s.trim().parse::<i32>() else { continue };
         let (Ok(x), Ok(y), Ok(z)) = (
             xs.trim().parse::<f64>(),
             ys.trim().parse::<f64>(),
@@ -426,38 +475,55 @@ pub fn parse_pdb_ca_coords(pdb_text: &str) -> Vec<ResidueCoord> {
         ) else {
             continue;
         };
+        if is_het {
+            let k = format!("het:{chain}:{het_idx}");
+            het_idx += 1;
+            if atom_name == "CA" && is_mod_aa(comp_id) {
+                let rn = res_s.trim().parse::<i32>().unwrap_or(1);
+                residues.set(
+                    k,
+                    ResidueCoord { chain: chain.to_string(), resnum: rn, x, y, z, has_p: false },
+                );
+            } else {
+                residues.set(
+                    k,
+                    ResidueCoord {
+                        chain: chain.to_string(),
+                        resnum: 1,
+                        x: f64::NAN,
+                        y: f64::NAN,
+                        z: f64::NAN,
+                        has_p: false,
+                    },
+                );
+            }
+            continue;
+        }
+        let Ok(resnum) = res_s.trim().parse::<i32>() else { continue };
         let key = format!("{chain}:{resnum}");
         if atom_name == "CA" {
             residues.set(
                 key,
-                ResidueCoord {
-                    chain: chain.to_string(),
-                    resnum,
-                    x,
-                    y,
-                    z,
-                    has_p: false,
-                },
+                ResidueCoord { chain: chain.to_string(), resnum, x, y, z, has_p: false },
             );
-        } else if atom_name == "P" && !residues.contains(&key) {
+        } else if atom_name == "P" {
             residues.set(
                 key,
-                ResidueCoord {
-                    chain: chain.to_string(),
-                    resnum,
-                    x,
-                    y,
-                    z,
-                    has_p: true,
-                },
+                ResidueCoord { chain: chain.to_string(), resnum, x, y, z, has_p: true },
+            );
+        } else if atom_name == "C4'" && is_nucleic_comp(comp_id) && !residues.contains(&key) {
+            residues.set(
+                key,
+                ResidueCoord { chain: chain.to_string(), resnum, x, y, z, has_p: true },
             );
         }
     }
-    residues.vals
+    fill_residue_gaps(residues)
 }
 
 pub fn parse_cif_ca_coords(cif_text: &str) -> Vec<ResidueCoord> {
     let mut residues = OrderedResidues::new();
+    let mut het_idx = 0usize;
     let mut in_atom_site = false;
     let mut col_names: Vec<&str> = Vec::new();
     let mut cols = CifCols::default();
@@ -494,12 +560,11 @@ pub fn parse_cif_ca_coords(cif_text: &str) -> Vec<ResidueCoord> {
             if group_pdb != "ATOM" && group_pdb != "HETATM" {
                 continue;
             }
-            let atom_name = get_tok(&parts, cols.atom_id);
-            if atom_name != "CA" && atom_name != "P" {
-                continue;
-            }
+            let atom_name = unquote_cif(get_tok(&parts, cols.atom_id));
+            let comp_upper = get_tok(&parts, cols.comp_id).to_ascii_uppercase();
+            let comp_id = comp_upper.as_str();
             let chain = get_tok(&parts, cols.asym_id);
-            let Ok(resnum) = get_tok(&parts, cols.seq_id).parse::<i32>() else { continue };
+            let res_seq = get_tok(&parts, cols.seq_id);
             let (Ok(x), Ok(y), Ok(z)) = (
                 get_tok(&parts, cols.x).parse::<f64>(),
                 get_tok(&parts, cols.y).parse::<f64>(),
@@ -507,30 +572,46 @@ pub fn parse_cif_ca_coords(cif_text: &str) -> Vec<ResidueCoord> {
             ) else {
                 continue;
             };
+            if group_pdb == "HETATM" {
+                let k = format!("het:{chain}:{het_idx}");
+                het_idx += 1;
+                if atom_name == "CA" && is_mod_aa(comp_id) {
+                    let rn = res_seq.parse::<i32>().unwrap_or(1);
+                    residues.set(
+                        k,
+                        ResidueCoord { chain: chain.to_string(), resnum: rn, x, y, z, has_p: false },
+                    );
+                } else {
+                    residues.set(
+                        k,
+                        ResidueCoord {
+                            chain: chain.to_string(),
+                            resnum: 1,
+                            x: f64::NAN,
+                            y: f64::NAN,
+                            z: f64::NAN,
+                            has_p: false,
+                        },
+                    );
+                }
+                continue;
+            }
+            let Ok(resnum) = res_seq.parse::<i32>() else { continue };
             let key = format!("{chain}:{resnum}");
             if atom_name == "CA" {
                 residues.set(
                     key,
-                    ResidueCoord {
-                        chain: chain.to_string(),
-                        resnum,
-                        x,
-                        y,
-                        z,
-                        has_p: false,
-                    },
+                    ResidueCoord { chain: chain.to_string(), resnum, x, y, z, has_p: false },
                 );
-            } else if !residues.contains(&key) {
+            } else if atom_name == "P" {
                 residues.set(
                     key,
-                    ResidueCoord {
-                        chain: chain.to_string(),
-                        resnum,
-                        x,
-                        y,
-                        z,
-                        has_p: true,
-                    },
+                    ResidueCoord { chain: chain.to_string(), resnum, x, y, z, has_p: true },
+                );
+            } else if atom_name == "C4'" && is_nucleic_comp(comp_id) && !residues.contains(&key) {
+                residues.set(
+                    key,
+                    ResidueCoord { chain: chain.to_string(), resnum, x, y, z, has_p: true },
                 );
             }
         }
@@ -559,8 +640,46 @@ pub fn get_chains_from_structure(text: &str, is_pdb: bool) -> ChainInfo {
                 counts.insert(c.chain, 1);
             }
         }
+        let mut types_map: HashMap<String, String> = HashMap::new();
+        for line in text.lines() {
+            if line.len() < 26 {
+                continue;
+            }
+            let is_atom = line.starts_with("ATOM");
+            let is_het = !is_atom && line.starts_with("HETATM");
+            if !is_atom && !is_het {
+                continue;
+            }
+            let Some(atom_s) = line.get(12..16) else { continue };
+            let Some(comp_s) = line.get(17..20) else { continue };
+            let Some(chain_s) = line.get(21..22) else { continue };
+            let atom_name = atom_s.trim();
+            let comp_upper = comp_s.trim().to_ascii_uppercase();
+            let comp_id = comp_upper.as_str();
+            let chain_trim = chain_s.trim();
+            let chain = if chain_trim.is_empty() { "A" } else { chain_trim };
+            if is_atom && (atom_name == "P" || (atom_name == "C4'" && is_nucleic_comp(comp_id))) {
+                types_map.insert(
+                    chain.to_string(),
+                    if comp_id.starts_with('D') { "dna" } else { "rna" }.to_string(),
+                );
+            } else if is_atom && atom_name == "CA" {
+                types_map.entry(chain.to_string()).or_insert_with(|| "protein".to_string());
+            } else if is_het && is_ion_name(comp_id) {
+                types_map.insert(chain.to_string(), "ion".to_string());
+            } else if is_het {
+                if atom_name == "CA" || is_mod_aa(comp_id) {
+                    types_map.insert(chain.to_string(), "protein".to_string());
+                } else {
+                    types_map.entry(chain.to_string()).or_insert_with(|| "glycan".to_string());
+                }
+            }
+        }
         let sizes = names.iter().map(|n| counts[n]).collect();
-        let types = vec!["protein".to_string(); names.len()];
+        let types = names
+            .iter()
+            .map(|n| types_map.get(n).cloned().unwrap_or_else(|| "protein".to_string()))
+            .collect();
         ChainInfo { names, sizes, types }
     } else {
         let mut names: Vec<String> = Vec::new();
@@ -600,17 +719,22 @@ pub fn get_chains_from_structure(text: &str, is_pdb: bool) -> ChainInfo {
                     continue;
                 }
                 let group_pdb = get_tok(&parts, cols.group_pdb);
-                let atom_name = get_tok(&parts, cols.atom_id);
-                let comp_id = get_tok(&parts, cols.comp_id);
+                let atom_name = unquote_cif(get_tok(&parts, cols.atom_id));
+                let comp_upper = get_tok(&parts, cols.comp_id).to_ascii_uppercase();
+                let comp_id = comp_upper.as_str();
                 let chain = get_tok(&parts, cols.asym_id);
                 let res_seq = get_tok(&parts, cols.seq_id);
 
                 let mut counted = false;
-                if group_pdb == "ATOM" && (atom_name == "CA" || atom_name == "P") {
+                if group_pdb == "ATOM"
+                    && (atom_name == "CA"
+                        || atom_name == "P"
+                        || (atom_name == "C4'" && is_nucleic_comp(comp_id)))
+                {
                     let rkey = format!("{chain}:{res_seq}");
                     if seen.insert(rkey) {
                         counted = true;
-                        if atom_name == "P" {
+                        if atom_name == "P" || atom_name == "C4'" {
                             types_map.insert(
                                 chain.to_string(),
                                 if comp_id.starts_with('D') { "dna" } else { "rna" }.to_string(),
@@ -622,11 +746,8 @@ pub fn get_chains_from_structure(text: &str, is_pdb: bool) -> ChainInfo {
                         }
                     }
                 } else if group_pdb == "HETATM" && is_ion_name(comp_id) {
-                    let rkey = format!("{chain}:ion");
-                    if seen.insert(rkey) {
-                        counted = true;
-                        types_map.insert(chain.to_string(), "ion".to_string());
-                    }
+                    counted = true;
+                    types_map.insert(chain.to_string(), "ion".to_string());
                 } else if group_pdb == "HETATM" {
                     counted = true;
                     if atom_name == "CA" || is_mod_aa(comp_id) {
@@ -659,30 +780,53 @@ pub fn get_chains_from_structure(text: &str, is_pdb: bool) -> ChainInfo {
 
 pub fn parse_bfactors_per_residue(text: &str, is_pdb: bool) -> HashMap<String, f64> {
     let mut bfactors: HashMap<String, f64> = HashMap::new();
+    let mut het_seq: HashMap<String, usize> = HashMap::new();
     let mut max_bf = f64::NEG_INFINITY;
 
     if is_pdb {
         for line in text.lines() {
-            if !line.starts_with("ATOM") || line.len() < 66 {
+            if line.len() < 66 {
+                continue;
+            }
+            let is_atom = line.starts_with("ATOM");
+            let is_het = !is_atom && line.starts_with("HETATM");
+            if !is_atom && !is_het {
                 continue;
             }
             let Some(atom_s) = line.get(12..16) else { continue };
-            if atom_s.trim() != "CA" {
-                continue;
-            }
+            let Some(comp_s) = line.get(17..20) else { continue };
             let Some(chain_s) = line.get(21..22) else { continue };
             let Some(res_s) = line.get(22..26) else { continue };
             let Some(bf_s) = line.get(60..66) else { continue };
+            let atom_name = atom_s.trim();
+            let comp_upper = comp_s.trim().to_ascii_uppercase();
+            let comp_id = comp_upper.as_str();
             let chain_trim = chain_s.trim();
             let chain = if chain_trim.is_empty() { "A" } else { chain_trim };
-            let (Ok(rn), Ok(bf)) = (res_s.trim().parse::<i32>(), bf_s.trim().parse::<f64>())
-            else {
-                continue;
-            };
-            if bf > max_bf {
-                max_bf = bf;
+            let Ok(bf) = bf_s.trim().parse::<f64>() else { continue };
+
+            if is_atom {
+                let Ok(rn) = res_s.trim().parse::<i32>() else { continue };
+                let k = format!("{chain}:{rn}");
+                if atom_name == "CA" || atom_name == "P" {
+                    if bf > max_bf { max_bf = bf; }
+                    bfactors.insert(k, bf);
+                } else if atom_name == "C4'" && is_nucleic_comp(comp_id) && !bfactors.contains_key(&k) {
+                    if bf > max_bf { max_bf = bf; }
+                    bfactors.insert(k, bf);
+                }
+            } else {
+                if bf > max_bf { max_bf = bf; }
+                if is_mod_aa(comp_id) {
+                    if let Ok(rn) = res_s.trim().parse::<i32>() {
+                        bfactors.insert(format!("{chain}:{rn}"), bf);
+                        continue;
+                    }
+                }
+                let idx = het_seq.entry(chain.to_string()).or_insert(0);
+                *idx += 1;
+                bfactors.insert(format!("{chain}:{}", *idx), bf);
             }
-            bfactors.insert(format!("{chain}:{rn}"), bf);
         }
     } else {
         let mut in_atom_site = false;
@@ -714,25 +858,39 @@ pub fn parse_bfactors_per_residue(text: &str, is_pdb: bool) -> HashMap<String, f
                     cols_ready = true;
                 }
                 let parts: Vec<&str> = trimmed.split_whitespace().collect();
-                if parts.is_empty() || parts[0] != "ATOM" {
+                if parts.is_empty() || (parts[0] != "ATOM" && parts[0] != "HETATM") {
                     continue;
                 }
-                if get_tok(&parts, cols.group_pdb) != "ATOM"
-                    || get_tok(&parts, cols.atom_id) != "CA"
-                {
+                let group_pdb = get_tok(&parts, cols.group_pdb);
+                if group_pdb != "ATOM" && group_pdb != "HETATM" {
                     continue;
                 }
+                let atom_name = unquote_cif(get_tok(&parts, cols.atom_id));
+                let comp_upper = get_tok(&parts, cols.comp_id).to_ascii_uppercase();
+                let comp_id = comp_upper.as_str();
                 let chain = get_tok(&parts, cols.asym_id);
-                let (Ok(rn), Ok(bf)) = (
-                    get_tok(&parts, cols.seq_id).parse::<i32>(),
-                    get_tok(&parts, cols.bfac).parse::<f64>(),
-                ) else {
-                    continue;
-                };
-                if bf > max_bf {
-                    max_bf = bf;
+                let Ok(bf) = get_tok(&parts, cols.bfac).parse::<f64>() else { continue };
+
+                if group_pdb == "ATOM" {
+                    let Ok(rn) = get_tok(&parts, cols.seq_id).parse::<i32>() else { continue };
+                    let k = format!("{chain}:{rn}");
+                    if atom_name == "CA" || atom_name == "P" {
+                        if bf > max_bf { max_bf = bf; }
+                        bfactors.insert(k, bf);
+                    } else if atom_name == "C4'" && is_nucleic_comp(comp_id) && !bfactors.contains_key(&k) {
+                        if bf > max_bf { max_bf = bf; }
+                        bfactors.insert(k, bf);
+                    }
+                } else {
+                    if bf > max_bf { max_bf = bf; }
+                    if let Ok(rn) = get_tok(&parts, cols.seq_id).parse::<i32>() {
+                        bfactors.insert(format!("{chain}:{rn}"), bf);
+                    } else {
+                        let idx = het_seq.entry(chain.to_string()).or_insert(0);
+                        *idx += 1;
+                        bfactors.insert(format!("{chain}:{}", *idx), bf);
+                    }
                 }
-                bfactors.insert(format!("{chain}:{rn}"), bf);
             }
         }
     }
