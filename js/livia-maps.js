@@ -647,6 +647,7 @@
         if (!opts.noObserve && div.parentElement && typeof ResizeObserver !== 'undefined') observeSeqHost(div.parentElement);
 
         const seqChain = opts.chain || '';
+        if (seqChain) div.dataset.chain = seqChain;
         const frameId = opts.viewerFrameId || 'viewer3d-frame';
         let tip = document.querySelector('.seq-tooltip');
         if (!tip) { tip = document.createElement('div'); tip.className = 'seq-tooltip'; document.body.appendChild(tip); }
@@ -667,12 +668,150 @@
             if (seqChain && typeof highlightMolstarResidue === 'function') highlightMolstarResidue(frameId, null);
         });
         if (seqChain) {
+            const getPop = () => {
+                let p = document.getElementById('livia-seq-drag-pop');
+                if (!p) {
+                    p = document.createElement('div');
+                    p.id = 'livia-seq-drag-pop';
+                    p.className = 'seq-drag-pop';
+                    document.body.appendChild(p);
+                    document.addEventListener('mousedown', (me) => {
+                        if (!p.contains(me.target)) p.style.display = 'none';
+                    });
+                }
+                return p;
+            };
             div.addEventListener('click', (e) => {
                 const t = e.target.closest && e.target.closest('.seq-res');
-                if (t && t.dataset.r && typeof focusMolstarResidue === 'function') focusMolstarResidue(frameId, seqChain, +t.dataset.r);
+                if (!t || !t.dataset.r) return;
+                const r = +t.dataset.r;
+                const nm = typeof resolveMapName === 'function' ? resolveMapName(seqChain) : seqChain;
+                const anchor = div._seqAnchor;
+                if (e.shiftKey && anchor && anchor.chain === seqChain && anchor.res > 0) {
+                    try { window.getSelection && window.getSelection().removeAllRanges(); } catch (_e) {}
+                    const pop = document.getElementById('livia-seq-drag-pop');
+                    if (pop) pop.style.display = 'none';
+                    const s = Math.min(anchor.res, r), end = Math.max(anchor.res, r);
+                    const lbl = s === end ? `${nm}:${s}` : `${nm}:${s}\u2013${end}`;
+                    const append = !!(e.metaKey || e.ctrlKey);
+                    if (typeof focusMolstarSpans === 'function') {
+                        focusMolstarSpans(frameId, [{ chain: seqChain, start: s, end, label: lbl }], { append });
+                    } else if (typeof focusMolstarResidue === 'function') {
+                        focusMolstarResidue(frameId, seqChain, s, end);
+                    }
+                    return;
+                }
+                if (typeof window !== 'undefined' && window.getSelection && String(window.getSelection()).trim()) return;
+                div._seqAnchor = { chain: seqChain, res: r };
+                const append = !!(e.metaKey || e.ctrlKey);
+                if (typeof focusMolstarSpans === 'function') {
+                    focusMolstarSpans(frameId, [{ chain: seqChain, start: r, end: r, label: `${nm}:${r}` }], { append, toggle: append });
+                } else if (typeof focusMolstarResidue === 'function') {
+                    focusMolstarResidue(frameId, seqChain, r);
+                }
+            });
+            div.addEventListener('mouseup', (e) => {
+                if (e.shiftKey) return;
+                setTimeout(() => {
+                    const sel = window.getSelection ? window.getSelection() : null;
+                    if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+                    const range = sel.getRangeAt(0);
+                    if (!div.contains(range.commonAncestorContainer)) return;
+                    const picked = [];
+                    div.querySelectorAll('.seq-res[data-r]').forEach((el) => {
+                        if (sel.containsNode(el, true)) picked.push(+el.dataset.r);
+                    });
+                    if (picked.length < 2) return;
+                    const s = Math.min(...picked), end = Math.max(...picked);
+                    const nm = typeof resolveMapName === 'function' ? resolveMapName(seqChain) : seqChain;
+                    const lbl = `${nm}:${s}\u2013${end}`;
+                    const pop = getPop();
+                    pop.innerHTML = '';
+                    const b1 = document.createElement('button');
+                    b1.type = 'button';
+                    b1.textContent = `Highlight ${lbl} (${end - s + 1} aa)`;
+                    b1.onclick = () => {
+                        pop.style.display = 'none';
+                        try { sel.removeAllRanges(); } catch (_e) {}
+                        if (typeof focusMolstarSpans === 'function') focusMolstarSpans(frameId, [{ chain: seqChain, start: s, end, label: lbl }]);
+                    };
+                    const b2 = document.createElement('button');
+                    b2.type = 'button';
+                    b2.className = 'alt';
+                    b2.textContent = '+ Add';
+                    b2.onclick = () => {
+                        pop.style.display = 'none';
+                        try { sel.removeAllRanges(); } catch (_e) {}
+                        if (typeof focusMolstarSpans === 'function') focusMolstarSpans(frameId, [{ chain: seqChain, start: s, end, label: lbl }], { append: true });
+                    };
+                    pop.append(b1, b2);
+                    const rect = range.getBoundingClientRect();
+                    pop.style.display = 'flex';
+                    const pw = pop.offsetWidth || 220, ph = pop.offsetHeight || 30;
+                    pop.style.left = Math.min(window.innerWidth - pw - 10, Math.max(8, rect.left + rect.width / 2 - pw / 2)) + 'px';
+                    pop.style.top = (rect.top - ph - 8 >= 8 ? rect.top - ph - 8 : Math.min(window.innerHeight - ph - 8, rect.bottom + 8)) + 'px';
+                }, 0);
             });
         }
         return div;
+    }
+
+    // Highlight selected residue spans in a seqFlow container WITHOUT touching LIR/cLIR background fills.
+    // Adds .seq-has-sel on the container (gentle dimming of unselected residues) and .seq-sel /
+    // .seq-sel-start / .seq-sel-end on matching .seq-res spans (crisp top cap + floating per-chain underline track).
+    function syncSequenceHighlights(container, spans, chainColors) {
+        if (!container) return 0;
+        container.querySelectorAll('.seq-res.seq-sel').forEach((el) => {
+            el.classList.remove('seq-sel', 'seq-sel-start', 'seq-sel-end');
+            el.style.removeProperty('--seq-sel-col');
+        });
+        const byCh = new Map();
+        for (const sp of (spans || [])) {
+            if (!sp || !sp.chain || !(sp.start > 0)) continue;
+            const ch = String(sp.chain);
+            const s = Math.min(+sp.start, +(sp.end || sp.start));
+            const e = Math.max(+sp.start, +(sp.end || sp.start));
+            if (!byCh.has(ch)) byCh.set(ch, []);
+            byCh.get(ch).push({ start: s, end: e });
+        }
+        if (!byCh.size) {
+            container.classList.remove('seq-has-sel');
+            return 0;
+        }
+        for (const [ch, list] of byCh) {
+            list.sort((a, b) => a.start - b.start || a.end - b.end);
+            const merged = [];
+            for (const r of list) {
+                const last = merged[merged.length - 1];
+                if (last && r.start <= last.end + 1) last.end = Math.max(last.end, r.end);
+                else merged.push({ start: r.start, end: r.end });
+            }
+            byCh.set(ch, merged);
+        }
+        const colMap = chainColors || {};
+        let matched = 0;
+        container.querySelectorAll('.seq-flow[data-chain]').forEach((flow) => {
+            const ch = flow.dataset.chain;
+            const ranges = byCh.get(ch);
+            if (!ranges || !ranges.length) return;
+            const col = colMap[ch] || '#E91E63';
+            flow.querySelectorAll('.seq-res[data-r]').forEach((el) => {
+                const rn = +el.dataset.r;
+                for (let i = 0; i < ranges.length; i++) {
+                    const rg = ranges[i];
+                    if (rn >= rg.start && rn <= rg.end) {
+                        el.classList.add('seq-sel');
+                        el.style.setProperty('--seq-sel-col', col);
+                        if (rn === rg.start) el.classList.add('seq-sel-start');
+                        if (rn === rg.end) el.classList.add('seq-sel-end');
+                        matched++;
+                        break;
+                    }
+                }
+            });
+        });
+        container.classList.toggle('seq-has-sel', matched > 0);
+        return matched;
     }
 
     // ── Sequential colormaps for value grids (the Score Matrix) and their color bar ──
@@ -815,7 +954,7 @@
         attachExportBar, attachPngBtnFor, attachChartPngButtons,
         setToRanges, paintChordArcBand, paintChordDomainRing, paintChordPlddtRing, plddtLegendHtml, attachChordDomainHover, drawChordRuler, drawChordArcLabel, chordLabelExtent, segPick,
         parseColorCSV, attachColorUpload,
-        seqFlow, fitSeqHost,
+        seqFlow, fitSeqHost, syncSequenceHighlights,
         strokeFadeQuad, strokeFadeCubic,
         atlasSpecies, atlasProteinUrl, atlasPairUrl, atlasNetworkUrl, atlasResChordUrl,
     };

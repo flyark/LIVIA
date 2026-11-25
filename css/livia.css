@@ -339,8 +339,38 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1a5276; }   /* LIVI
 .seq-row { display:flex; align-items:center; margin-bottom:0; }
 .seq-res { display:inline; cursor:default; color:#333; border-radius:2px; }
 .seq-res[data-r] { cursor:pointer; }
-.seq-res[data-r]:hover { box-shadow:0 0 0 1.5px #1a5276; position:relative; z-index:1; }
+.seq-res[data-r]:hover { box-shadow:0 0 0 1.5px #1a5276; position:relative; z-index:2; }
 .seq-res.clir { color:white; font-weight:700; }
+.seq-has-sel .seq-res:not(.seq-sel) { opacity:0.36; transition:opacity 0.12s ease; }
+.seq-has-sel .seq-res:not(.seq-sel):hover { opacity:1; }
+.seq-res.seq-sel {
+    position:relative; z-index:1; opacity:1;
+    box-shadow:0 -1.5px 0 0 #17263A, 0 2px 0 0 #FFFFFF, 0 4.5px 0 0 var(--seq-sel-col, #E91E63);
+}
+.seq-res.seq-sel.seq-sel-start {
+    box-shadow:-2px 0 0 0 #17263A, 0 -1.5px 0 0 #17263A, 0 2px 0 0 #FFFFFF, 0 4.5px 0 0 var(--seq-sel-col, #E91E63);
+}
+.seq-res.seq-sel.seq-sel-end {
+    box-shadow:2px 0 0 0 #17263A, 0 -1.5px 0 0 #17263A, 0 2px 0 0 #FFFFFF, 0 4.5px 0 0 var(--seq-sel-col, #E91E63);
+}
+.seq-res.seq-sel.seq-sel-start.seq-sel-end {
+    box-shadow:-2px 0 0 0 #17263A, 2px 0 0 0 #17263A, 0 -1.5px 0 0 #17263A, 0 2px 0 0 #FFFFFF, 0 4.5px 0 0 var(--seq-sel-col, #E91E63);
+}
+.seq-res.seq-sel:hover {
+    z-index:2;
+    box-shadow:0 0 0 1.5px #1a5276, 0 2px 0 0 #FFFFFF, 0 4.5px 0 0 var(--seq-sel-col, #E91E63);
+}
+.seq-drag-pop {
+    position:fixed; z-index:2400; display:none; align-items:center; gap:5px;
+    background:rgba(23,38,58,0.96); color:#fff; padding:5px 8px; border-radius:7px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.24); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size:12px;
+}
+.seq-drag-pop button {
+    border:1px solid rgba(255,255,255,0.32); background:#2471A3; color:#fff; border-radius:4px;
+    padding:2px 8px; font-size:11.5px; font-weight:600; cursor:pointer; font-family:inherit;
+}
+.seq-drag-pop button.alt { background:transparent; }
+.seq-drag-pop button:hover { background:#1A5276; border-color:#fff; }
 .seq-chain-label { font-size:0.88rem; font-weight:700; color:#1a5276; margin-top:0.5rem; margin-bottom:0.2rem; }
 .seq-tooltip { position:fixed; background:#333; color:white; padding:2px 6px; border-radius:4px; font-size:0.72rem; pointer-events:none; z-index:200; display:none; font-family:'SF Mono',monospace; }
 

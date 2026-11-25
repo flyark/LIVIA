@@ -293,10 +293,106 @@ function _mergeSpansByChain(spans) {
     }
     return out;
 }
-function _mergeHighlightComponents(baseComponents, spans) {
+const V3D_HL_PALETTE = ['#E91E63', '#2962FF', '#FFB300', '#00C853', '#8E24AA', '#00ACC1', '#FF5722', '#3949AB'];
+function _hexRgbSimple(h) {
+    const x = String(h || '').replace('#', '');
+    if (x.length !== 6) return null;
+    return [parseInt(x.slice(0, 2), 16), parseInt(x.slice(2, 4), 16), parseInt(x.slice(4, 6), 16)];
+}
+function _rgbDistSimple(a, b) {
+    if (!a || !b) return 999;
+    const dr = a[0] - b[0], dg = a[1] - b[1], db = a[2] - b[2];
+    return Math.sqrt(2 * dr * dr + 4 * dg * dg + 3 * db * db);
+}
+function _intersectRanges(ranges, keeps) {
+    const out = [];
+    for (const r of (ranges || [])) {
+        const rs = +r.start, re = +r.end;
+        for (const k of (keeps || [])) {
+            const s = Math.max(rs, +k.start), e = Math.min(re, +k.end);
+            if (s <= e) out.push({ start: s, end: e });
+        }
+    }
+    return out;
+}
+function _assignChainHighlightColors(baseComponents, byCh) {
+    const map = {};
+    if (!byCh || !byCh.size) return map;
+    const baseColByCh = new Map();
+    for (const comp of (baseComponents || [])) {
+        if (comp.isIon || comp.stick || comp.isHighlightStick || !comp.chain || !comp.color) continue;
+        const ch = String(comp.chain);
+        const c = String(comp.color).toLowerCase();
+        if (c === '#ffffff' || c === '#d5d5d5' || c === '#e0e0e0' || c === '#cccccc') continue;
+        if (!baseColByCh.has(ch)) baseColByCh.set(ch, c);
+    }
+    const used = new Set();
+    const chains = [...byCh.keys()];
+    for (let i = 0; i < chains.length; i++) {
+        const ch = chains[i];
+        const bRgb = _hexRgbSimple(baseColByCh.get(ch));
+        let chosen = null;
+        for (const cand of V3D_HL_PALETTE) {
+            if (used.has(cand)) continue;
+            const cRgb = _hexRgbSimple(cand);
+            if (!bRgb || _rgbDistSimple(cRgb, bRgb) >= 165) { chosen = cand; break; }
+        }
+        if (!chosen) chosen = V3D_HL_PALETTE.find(c => !used.has(c)) || V3D_HL_PALETTE[i % V3D_HL_PALETTE.length];
+        used.add(chosen);
+        map[ch] = chosen;
+    }
+    return map;
+}
+function _mergeHighlightComponents(baseComponents, spans, opts) {
     if (!spans || !spans.length) return baseComponents || [];
     const byCh = _mergeSpansByChain(spans);
     if (!byCh.size) return baseComponents || [];
+    const showAtoms = !!(opts && opts.showAtoms);
+    const isolate = !!(opts && opts.isolate);
+    const colMap = _assignChainHighlightColors(baseComponents, byCh);
+    let totalRes = 0;
+    for (const ranges of byCh.values()) for (const r of ranges) totalRes += (r.end - r.start + 1);
+    if (isolate) {
+        const out = [];
+        const coveredByCh = new Map();
+        for (const comp of (baseComponents || [])) {
+            if (comp.isHighlightStick) continue;
+            if (comp.isIon) {
+                if (byCh.has(String(comp.chain))) out.push(comp);
+                continue;
+            }
+            if (comp.stick) {
+                const keptAtoms = (comp.atoms || []).filter(a => {
+                    const ks = byCh.get(String(a.chain));
+                    return ks && ks.some(k => a.seq >= k.start && a.seq <= k.end);
+                });
+                if (keptAtoms.length) out.push(Object.assign({}, comp, { atoms: keptAtoms }));
+                continue;
+            }
+            const ch = String(comp.chain);
+            const keeps = byCh.get(ch);
+            if (!keeps || !comp.ranges) continue;
+            const inter = _intersectRanges(comp.ranges, keeps);
+            if (inter.length) {
+                out.push(Object.assign({}, comp, { ranges: inter }));
+                if (!coveredByCh.has(ch)) coveredByCh.set(ch, []);
+                coveredByCh.get(ch).push(...inter);
+            }
+        }
+        // Fallback for any isolated residue absent from baseComponents (e.g. non-LIR when Complete structure was OFF)
+        for (const [ch, ranges] of byCh) {
+            const cov = coveredByCh.get(ch) || [];
+            const missing = cov.length ? _subtractRanges(ranges, cov) : ranges;
+            const col = colMap[ch] || V3D_HL_COLOR;
+            if (missing.length) out.push({ chain: ch, ranges: missing, color: col });
+            if (showAtoms && totalRes <= 120) {
+                // In isolate mode, color sticks by chain's primary base color if available else highlight color
+                const baseMatch = out.find(c => !c.isIon && !c.stick && !c.isHighlightStick && String(c.chain) === ch && c.color);
+                out.push({ chain: ch, ranges, color: (baseMatch && baseMatch.color) || col, isHighlightStick: true });
+            }
+        }
+        return out;
+    }
     const out = [];
     for (const comp of (baseComponents || [])) {
         if (comp.isIon || comp.stick || comp.isHighlightStick) { out.push(comp); continue; }
@@ -305,11 +401,10 @@ function _mergeHighlightComponents(baseComponents, spans) {
         const rem = _subtractRanges(comp.ranges, cuts);
         if (rem.length) out.push(Object.assign({}, comp, { ranges: rem }));
     }
-    let totalRes = 0;
-    for (const ranges of byCh.values()) for (const r of ranges) totalRes += (r.end - r.start + 1);
     for (const [ch, ranges] of byCh) {
-        out.push({ chain: ch, ranges, color: V3D_HL_COLOR });
-        if (totalRes <= 40) out.push({ chain: ch, ranges, color: V3D_HL_COLOR, isHighlightStick: true });
+        const col = colMap[ch] || V3D_HL_COLOR;
+        out.push({ chain: ch, ranges, color: col });
+        if (showAtoms && totalRes <= 120) out.push({ chain: ch, ranges, color: col, isHighlightStick: true });
     }
     return out;
 }
@@ -337,7 +432,7 @@ function _getV3dState(frameId) {
     const id = frameId || 'viewer3d-frame';
     let st = _v3dState.get(id);
     if (!st) {
-        st = { structData: '', fmt: 'mmcif', baseComponents: [], highlightSpans: [], pendingFocus: null, query: '', hits: [], activeHitIdx: -1, autoCompleteNote: '' };
+        st = { structData: '', fmt: 'mmcif', baseComponents: [], highlightSpans: [], pendingFocus: null, query: '', hits: [], activeHitIdx: -1, autoCompleteNote: '', showHighlightAtoms: false, isolateHighlight: false };
         _v3dState.set(id, st);
     }
     return st;
@@ -487,7 +582,7 @@ function applyColorsToMolstarFrame(frameId, colorComponents, fmt, focusSpans) {
     const focusTarget = focusSpans || st.pendingFocus || null;
     st.pendingFocus = null;
     if (!frame || !frame.contentWindow) return false;
-    const merged = _mergeHighlightComponents(st.baseComponents, st.highlightSpans);
+    const merged = _mergeHighlightComponents(st.baseComponents, st.highlightSpans, { showAtoms: !!st.showHighlightAtoms, isolate: !!st.isolateHighlight });
     const mvsJson = buildMvsJson(merged, st.fmt);
     frame.contentWindow.postMessage({
         type: 'updateColors',
@@ -509,27 +604,32 @@ function swapMolstarStructure(frameId, structData, colorComponents, fmt, label) 
     st.fmt = fmt || 'mmcif';
     st.baseComponents = Array.isArray(colorComponents) ? colorComponents : [];
     st.autoCompleteNote = '';
+    const keepHl = !!st._keepHighlightsOnSwap;
+    st._keepHighlightsOnSwap = false;
     if (st.query) {
         const res = searchStructure3d(parseChainSequences(st.structData, st.fmt), st.query);
         st.hits = res.hits;
         st.highlightSpans = res.hits.map(h => ({ chain: h.chain, start: h.start, end: h.end }));
         st.activeHitIdx = res.hits.length === 1 ? 0 : -1;
-    } else {
+    } else if (!keepHl) {
         st.hits = [];
         st.highlightSpans = [];
         st.activeHitIdx = -1;
     }
     if (typeof _syncViewer3dFindUi === 'function') _syncViewer3dFindUi(id);
+    _emitV3dHighlightChange(id);
     if (!frame || !frame.contentWindow) return false;
-    const merged = _mergeHighlightComponents(st.baseComponents, st.highlightSpans);
+    const merged = _mergeHighlightComponents(st.baseComponents, st.highlightSpans, { showAtoms: !!st.showHighlightAtoms, isolate: !!st.isolateHighlight });
     const mvsJson = buildMvsJson(merged, st.fmt);
+    const swapFocus = st.pendingFocus || (st.highlightSpans.length ? st.highlightSpans : null);
+    st.pendingFocus = null;
     frame.contentWindow.postMessage({
         type: 'loadStructure',
         structData: structData,
         mvsStr: JSON.stringify(mvsJson),
         fmt: st.fmt,
         label: label || '',
-        focusSpans: st.highlightSpans.length ? st.highlightSpans : null,
+        focusSpans: swapFocus,
     }, '*');
     return true;
 }
@@ -622,10 +722,9 @@ function isMolstarFrameWarmedUp(frameId) {
     return !!(s && s.warmedUp);
 }
 let _hlRaf = 0, _hlNext = null, _hlLast = '';
-function highlightMolstarResidue(frameId, chain, seqId, endSeqId) {
-    const key = chain && seqId ? `${frameId}|${chain}|${seqId}|${endSeqId || seqId}` : `${frameId}|clear`;
+function _scheduleHoverHighlight(frameId, payload, key) {
     if (key === _hlLast) return;
-    _hlNext = { frameId, chain: chain || '', seqId: seqId ? +seqId : 0, endSeqId: endSeqId ? +endSeqId : (seqId ? +seqId : 0), key };
+    _hlNext = { frameId, payload, key };
     if (_hlRaf) return;
     _hlRaf = requestAnimationFrame(() => {
         _hlRaf = 0;
@@ -637,33 +736,97 @@ function highlightMolstarResidue(frameId, chain, seqId, endSeqId) {
         if (rect.width === 0 || rect.height === 0) return;
         _hlLast = h.key;
         try {
-            frame.contentWindow.postMessage({ type: 'highlightResidue', chain: h.chain, seqId: h.seqId, endSeqId: h.endSeqId }, '*');
+            frame.contentWindow.postMessage(h.payload, '*');
         } catch (_e) {}
     });
 }
-function showMolstarFocusToast(frame, chain, seqId, endSeqId) {
+function highlightMolstarResidue(frameId, chain, seqId, endSeqId) {
+    const id = frameId || 'viewer3d-frame';
+    const key = chain && seqId ? `${id}|${chain}|${seqId}|${endSeqId || seqId}` : `${id}|clear`;
+    _scheduleHoverHighlight(id, {
+        type: 'highlightResidue',
+        chain: chain || '',
+        seqId: seqId ? +seqId : 0,
+        endSeqId: endSeqId ? +endSeqId : (seqId ? +seqId : 0)
+    }, key);
+}
+function highlightMolstarSpans(frameId, spans) {
+    const id = frameId || 'viewer3d-frame';
+    const clean = (spans || [])
+        .filter(s => s && s.chain && s.start > 0)
+        .map(s => ({ chain: String(s.chain), start: Math.min(+s.start, +(s.end || s.start)), end: Math.max(+s.start, +(s.end || s.start)) }));
+    const key = clean.length ? `${id}|spans|${clean.map(s => `${s.chain}:${s.start}-${s.end}`).join(',')}` : `${id}|clear`;
+    _scheduleHoverHighlight(id, { type: 'highlightResidue', spans: clean }, key);
+}
+function getMolstarChainHighlightColors(frameId) {
+    const st = _getV3dState(frameId || 'viewer3d-frame');
+    const byCh = _mergeSpansByChain(st.highlightSpans || []);
+    return _assignChainHighlightColors(st.baseComponents, byCh);
+}
+function _emitV3dHighlightChange(frameId) {
+    if (typeof window === 'undefined' || typeof CustomEvent !== 'function') return;
+    const id = frameId || 'viewer3d-frame';
+    const st = _getV3dState(id);
+    try {
+        window.dispatchEvent(new CustomEvent('livia-3d-highlight-change', {
+            detail: {
+                frameId: id,
+                spans: (st.highlightSpans || []).map(s => ({ chain: s.chain, start: s.start, end: s.end })),
+                hits: (st.hits || []).map(h => Object.assign({}, h)),
+                chainColors: getMolstarChainHighlightColors(id),
+                isolateHighlight: !!st.isolateHighlight,
+                showHighlightAtoms: !!st.showHighlightAtoms,
+                activeHitIdx: st.activeHitIdx,
+                query: st.query || ''
+            }
+        }));
+    } catch (_e) {}
+}
+function _formatHitSummary(items) {
+    const fmtOne = (h) => {
+        if (!h) return '';
+        if (h.label) return String(h.label);
+        const s = +h.start, e = +(h.end || h.start);
+        return `${h.chain}:${e !== s ? `${s}\u2013${e}` : s}`;
+    };
+    const labels = (items || []).map(fmtOne).filter(Boolean);
+    if (!labels.length) return '';
+    if (labels.length === 1) return labels[0];
+    if (labels.length === 2) return `${labels[0]} + ${labels[1]}`;
+    return `${labels.length} regions (${labels[0]}, ${labels[1]}, \u2026)`;
+}
+function showMolstarFocusToast(frame, chainOrSpans, seqId, endSeqId) {
     if (!frame || typeof document === 'undefined') return;
     const rect = frame.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     const visH = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
     if (visH >= Math.min(rect.height * 0.55, window.innerHeight * 0.45)) return;
+    let summary = '';
+    if (Array.isArray(chainOrSpans)) {
+        summary = _formatHitSummary(chainOrSpans);
+    } else if (typeof chainOrSpans === 'string' && seqId == null) {
+        summary = chainOrSpans;
+    } else if (chainOrSpans && seqId != null) {
+        const spanTxt = endSeqId && +endSeqId !== +seqId ? `${seqId}\u2013${endSeqId}` : `${seqId}`;
+        summary = `${chainOrSpans}:${spanTxt}`;
+    }
+    if (!summary) return;
     let toast = document.getElementById('livia-3d-focus-toast');
     if (!toast) {
         toast = document.createElement('div');
         toast.id = 'livia-3d-focus-toast';
         toast.setAttribute('role', 'status');
-        toast.style.cssText = 'position:fixed; right:18px; bottom:18px; z-index:2500; display:none; align-items:center; gap:10px; background:rgba(23,38,58,0.95); color:#fff; padding:8px 12px; border-radius:8px; font-size:12.5px; box-shadow:0 6px 20px rgba(0,0,0,0.22); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;';
+        toast.style.cssText = 'position:fixed; right:18px; bottom:18px; z-index:2500; display:none; align-items:center; gap:10px; background:rgba(23,38,58,0.95); color:#fff; padding:8px 12px; border-radius:8px; font-size:12.5px; box-shadow:0 6px 20px rgba(0,0,0,0.22); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; max-width:min(460px, calc(100vw - 36px));';
         document.body.appendChild(toast);
     }
-    const spanTxt = endSeqId && +endSeqId !== +seqId ? `${seqId}\u2013${endSeqId}` : `${seqId}`;
     const dir = rect.top > window.innerHeight / 2 ? '\u2193' : '\u2191';
     toast.innerHTML = '';
     const msg = document.createElement('span');
-    msg.textContent = `Highlighted ${chain}:${spanTxt} in 3D`;
+    msg.textContent = `Highlighted ${summary} in 3D`;
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = `Jump to 3D ${dir}`;
-    btn.style.cssText = 'border:1px solid rgba(255,255,255,0.4); background:#2471A3; color:#fff; border-radius:5px; padding:3px 9px; font-size:12px; font-weight:600; cursor:pointer;';
+    btn.style.cssText = 'flex-shrink:0; border:1px solid rgba(255,255,255,0.4); background:#2471A3; color:#fff; border-radius:5px; padding:3px 9px; font-size:12px; font-weight:600; cursor:pointer;';
     btn.onclick = () => {
         const card = frame.closest('.card') || frame;
         card.scrollIntoView({ block: 'center' });
@@ -672,15 +835,15 @@ function showMolstarFocusToast(frame, chain, seqId, endSeqId) {
     toast.append(msg, btn);
     toast.style.display = 'flex';
     clearTimeout(toast._tid);
-    toast._tid = setTimeout(() => { toast.style.display = 'none'; }, 3500);
+    toast._tid = setTimeout(() => { toast.style.display = 'none'; }, 3800);
 }
 function highlightSpansInMolstar(frameId, spans, focusTarget, opts) {
     const id = frameId || 'viewer3d-frame';
     const frame = document.getElementById(id);
     if (!frame || !frame.contentWindow) return false;
     const st = _getV3dState(id);
-    const clean = (spans || []).filter(s => s && s.chain && s.start > 0).map(s => ({ chain: String(s.chain), start: +s.start, end: +(s.end || s.start) }));
-    const foc = (focusTarget && focusTarget.length ? focusTarget : clean).map(s => ({ chain: String(s.chain), start: +s.start, end: +(s.end || s.start) }));
+    const clean = (spans || []).filter(s => s && s.chain && s.start > 0).map(s => ({ chain: String(s.chain), start: Math.min(+s.start, +(s.end || s.start)), end: Math.max(+s.start, +(s.end || s.start)) }));
+    const foc = (focusTarget && focusTarget.length ? focusTarget : clean).map(s => ({ chain: String(s.chain), start: Math.min(+s.start, +(s.end || s.start)), end: Math.max(+s.start, +(s.end || s.start)) }));
     st.highlightSpans = clean;
     st.autoCompleteNote = '';
     if (clean.length && _spansOutsideBase(st.baseComponents, clean)) {
@@ -691,6 +854,7 @@ function highlightSpansInMolstar(frameId, spans, focusTarget, opts) {
             sc.checked = true;
             toggleShowComplete(sc);
             if (typeof _syncViewer3dFindUi === 'function') _syncViewer3dFindUi(id);
+            _emitV3dHighlightChange(id);
             return true;
         }
     }
@@ -702,6 +866,7 @@ function highlightSpansInMolstar(frameId, spans, focusTarget, opts) {
     if (!opts || !opts.keepFindUi) {
         if (typeof _syncViewer3dFindUi === 'function') _syncViewer3dFindUi(id);
     }
+    _emitV3dHighlightChange(id);
     return true;
 }
 function clearMolstarHighlight(frameId) {
@@ -709,6 +874,8 @@ function clearMolstarHighlight(frameId) {
     const st = _getV3dState(id);
     st.highlightSpans = [];
     st.pendingFocus = null;
+    st._keepHighlightsOnSwap = false;
+    st.isolateHighlight = false;
     st.query = '';
     st.hits = [];
     st.activeHitIdx = -1;
@@ -719,27 +886,151 @@ function clearMolstarHighlight(frameId) {
         applyColorsToMolstarFrame(id, st.baseComponents, st.fmt, null);
     }
     if (typeof _syncViewer3dFindUi === 'function') _syncViewer3dFindUi(id);
+    _emitV3dHighlightChange(id);
 }
 function resetMolstarCamera(frameId) {
     const frame = document.getElementById(frameId || 'viewer3d-frame');
     if (!frame || !frame.contentWindow) return;
     try { frame.contentWindow.postMessage({ type: 'resetCamera' }, '*'); } catch (_e) {}
 }
-function focusMolstarResidue(frameId, chain, seqId, endSeqId) {
-    if (!chain || !seqId) return;
+function setMolstarHighlightAtoms(frameId, on) {
+    const id = frameId || 'viewer3d-frame';
+    const st = _getV3dState(id);
+    st.showHighlightAtoms = !!on;
+    const cb = id === 'viewer3d-frame' ? document.getElementById('v3d-find-atoms') : null;
+    if (cb) cb.checked = st.showHighlightAtoms;
+    if (st.highlightSpans && st.highlightSpans.length && st.baseComponents && st.baseComponents.length) {
+        applyColorsToMolstarFrame(id, st.baseComponents, st.fmt, null);
+    }
+    if (typeof _syncViewer3dFindUi === 'function') _syncViewer3dFindUi(id);
+    _emitV3dHighlightChange(id);
+}
+function setMolstarIsolateHighlight(frameId, on) {
+    const id = frameId || 'viewer3d-frame';
+    const st = _getV3dState(id);
+    st.isolateHighlight = !!on;
+    const cb = id === 'viewer3d-frame' ? document.getElementById('v3d-find-iso') : null;
+    if (cb) cb.checked = st.isolateHighlight;
+    if (st.highlightSpans && st.highlightSpans.length && st.baseComponents && st.baseComponents.length) {
+        applyColorsToMolstarFrame(id, st.baseComponents, st.fmt, st.isolateHighlight ? st.highlightSpans : null);
+    }
+    if (typeof _syncViewer3dFindUi === 'function') _syncViewer3dFindUi(id);
+    _emitV3dHighlightChange(id);
+}
+function _normalizeSpanHit(s) {
+    if (!s || !s.chain || !(s.start > 0)) return null;
+    const ch = String(s.chain);
+    const a = +s.start, b = +(s.end || s.start);
+    const start = Math.min(a, b), end = Math.max(a, b);
+    const spanTxt = end !== start ? `${start}\u2013${end}` : `${start}`;
+    return {
+        chain: ch,
+        start,
+        end,
+        seq: s.seq || '',
+        label: s.label || `${ch}:${spanTxt}`,
+        meta: s.meta || null
+    };
+}
+function getMolstarHighlightHits(frameId) {
+    const st = _getV3dState(frameId || 'viewer3d-frame');
+    return (st.hits || []).map(h => Object.assign({}, h));
+}
+function focusMolstarSpans(frameId, spans, opts) {
     const id = frameId || 'viewer3d-frame';
     const frame = document.getElementById(id);
-    if (!frame || !frame.contentWindow) return;
-    const ch = String(chain), s = +seqId, e = +(endSeqId || seqId);
+    const o = opts || {};
+    const incoming = [];
+    const seenIn = new Set();
+    for (const raw of (spans || [])) {
+        const h = _normalizeSpanHit(raw);
+        if (!h) continue;
+        const k = `${h.chain}|${h.start}|${h.end}`;
+        if (seenIn.has(k)) continue;
+        seenIn.add(k);
+        incoming.push(h);
+    }
+    if (!incoming.length) return [];
     const st = _getV3dState(id);
-    const spanTxt = e !== s ? `${s}\u2013${e}` : `${s}`;
+    let nextHits;
+    if (o.append && st.hits && st.hits.length) {
+        nextHits = st.hits.map(h => Object.assign({}, h));
+        if (o.toggle && incoming.length === 1) {
+            const t = incoming[0];
+            const idx = nextHits.findIndex(h => h.chain === t.chain && h.start === t.start && h.end === t.end);
+            if (idx >= 0) {
+                nextHits.splice(idx, 1);
+                if (!nextHits.length) {
+                    clearMolstarHighlight(id);
+                    return [];
+                }
+            } else {
+                nextHits.push(t);
+            }
+        } else {
+            for (const h of incoming) {
+                const exists = nextHits.some(x => x.chain === h.chain && x.start === h.start && x.end === h.end);
+                if (!exists) nextHits.push(h);
+            }
+        }
+    } else {
+        nextHits = incoming;
+    }
     st.query = '';
-    st.hits = [{ chain: ch, start: s, end: e, seq: '', label: `${ch}:${spanTxt}` }];
-    st.activeHitIdx = 0;
+    st.hits = nextHits;
+    st.activeHitIdx = nextHits.length === 1 ? 0 : -1;
     const inp = document.getElementById('v3d-find-in');
     if (inp && id === 'viewer3d-frame') inp.value = '';
-    highlightSpansInMolstar(id, [{ chain: ch, start: s, end: e }], [{ chain: ch, start: s, end: e }]);
-    showMolstarFocusToast(frame, ch, s, e);
+    const hlSpans = nextHits.map(h => ({ chain: h.chain, start: h.start, end: h.end }));
+    if (o.deferRender) {
+        st.highlightSpans = hlSpans;
+        st.pendingFocus = hlSpans;
+        st._keepHighlightsOnSwap = true;
+        return nextHits;
+    }
+    highlightSpansInMolstar(id, hlSpans, hlSpans);
+    if (!o.silent && frame) showMolstarFocusToast(frame, o.toastLabel || nextHits);
+    return nextHits;
+}
+function finishDeferredMolstarFocus(frameId, opts) {
+    const id = frameId || 'viewer3d-frame';
+    const frame = document.getElementById(id);
+    const st = _getV3dState(id);
+    const o = opts || {};
+    st._keepHighlightsOnSwap = false;
+    const hlSpans = (st.highlightSpans || []).map(s => ({ chain: s.chain, start: s.start, end: s.end }));
+    if (!hlSpans.length) {
+        if (typeof _syncViewer3dFindUi === 'function') _syncViewer3dFindUi(id);
+        _emitV3dHighlightChange(id);
+        return;
+    }
+    const needsComplete = _spansOutsideBase(st.baseComponents, hlSpans);
+    if (needsComplete || st.pendingFocus) {
+        highlightSpansInMolstar(id, hlSpans, hlSpans);
+    } else {
+        if (typeof _syncViewer3dFindUi === 'function') _syncViewer3dFindUi(id);
+        _emitV3dHighlightChange(id);
+    }
+    if (!o.silent && frame) showMolstarFocusToast(frame, o.toastLabel || st.hits);
+}
+function removeMolstarHighlightHit(frameId, idx) {
+    const id = frameId || 'viewer3d-frame';
+    const st = _getV3dState(id);
+    if (!st.hits || idx < 0 || idx >= st.hits.length) return;
+    st.hits.splice(idx, 1);
+    if (!st.hits.length) {
+        clearMolstarHighlight(id);
+        return;
+    }
+    st.query = '';
+    st.activeHitIdx = st.hits.length === 1 ? 0 : -1;
+    const hlSpans = st.hits.map(h => ({ chain: h.chain, start: h.start, end: h.end }));
+    highlightSpansInMolstar(id, hlSpans, hlSpans);
+}
+function focusMolstarResidue(frameId, chain, seqId, endSeqId) {
+    if (!chain || !seqId) return;
+    const ch = String(chain), s = +seqId, e = +(endSeqId || seqId);
+    focusMolstarSpans(frameId || 'viewer3d-frame', [{ chain: ch, start: s, end: e }]);
 }
 function downloadMolstarPng(frameId, filename) {
     const frame = document.getElementById(frameId || 'viewer3d-frame');
@@ -769,7 +1060,7 @@ function buildMolstarPage(structData, fmt, colorComponents, parentBaseUrl) {
             st.highlightSpans = res.hits.map(h => ({ chain: h.chain, start: h.start, end: h.end }));
             st.activeHitIdx = res.hits.length === 1 ? 0 : -1;
         }
-        comps = _mergeHighlightComponents(st.baseComponents, st.highlightSpans);
+        comps = _mergeHighlightComponents(st.baseComponents, st.highlightSpans, { showAtoms: !!st.showHighlightAtoms, isolate: !!st.isolateHighlight });
         if (typeof _syncViewer3dFindUi === 'function') _syncViewer3dFindUi('viewer3d-frame');
     }
     const mvsJson = buildMvsJson(comps, fmt);
@@ -1099,7 +1390,21 @@ window.addEventListener('message', function(ev) {
         if (!_ready || !_viewer || typeof _viewer.structureInteractivity !== 'function') return;
         try {
             _viewer.structureInteractivity({ action: 'highlight' });
-            if (ev.data.chain && ev.data.seqId > 0) {
+            if (Array.isArray(ev.data.spans) && ev.data.spans.length) {
+                var els = [];
+                for (var si = 0; si < ev.data.spans.length; si++) {
+                    var sp = ev.data.spans[si];
+                    if (sp && sp.chain && sp.start > 0) {
+                        els.push({ label_asym_id: String(sp.chain), beg_label_seq_id: +sp.start, end_label_seq_id: +(sp.end || sp.start) });
+                    }
+                }
+                if (els.length) {
+                    _viewer.structureInteractivity({
+                        action: 'highlight',
+                        elements: els.length === 1 ? els[0] : els
+                    });
+                }
+            } else if (ev.data.chain && ev.data.seqId > 0) {
                 _viewer.structureInteractivity({
                     action: 'highlight',
                     elements: { label_asym_id: String(ev.data.chain), beg_label_seq_id: +ev.data.seqId, end_label_seq_id: +(ev.data.endSeqId || ev.data.seqId) }
@@ -1599,22 +1904,31 @@ function _ensureViewer3dFindCss() {
     if (document.getElementById('v3d-find-css')) return;
     const st = document.createElement('style'); st.id = 'v3d-find-css';
     st.textContent = `.v3d-find { display:flex; flex-direction:column; gap:0.35rem; margin:0 0 0.55rem; font-size:0.82rem; color:#555; }
-.v3d-find-row { display:flex; flex-wrap:wrap; align-items:center; gap:0.35rem 0.45rem; }
-.v3d-find-lab { font-size:0.7rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:#7A8899; min-width:5.6rem; }
-.v3d-find-in { flex:1 1 240px; max-width:360px; height:28px; box-sizing:border-box; padding:0 0.55rem; border:1px solid #DCE3EB; border-radius:6px; font-family:inherit; font-size:0.8rem; color:#17263A; background:#fff; }
+.v3d-find-row { display:flex; align-items:flex-start; gap:0.45rem; }
+.v3d-find-lab { font-size:0.7rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:#7A8899; min-width:5.6rem; line-height:28px; flex-shrink:0; }
+.v3d-find-ctl { flex:1 1 0; min-width:0; display:flex; flex-wrap:wrap; align-items:center; gap:0.35rem 0.4rem; }
+.v3d-find-in { flex:1 1 190px; max-width:300px; height:28px; box-sizing:border-box; padding:0 0.55rem; border:1px solid #DCE3EB; border-radius:6px; font-family:inherit; font-size:0.8rem; color:#17263A; background:#fff; }
 .v3d-find-in:focus { outline:2px solid #2471A3; outline-offset:1px; border-color:#2471A3; }
-.v3d-find-btn { height:28px; padding:0 0.65rem; border-radius:6px; font-family:inherit; font-size:0.78rem; font-weight:600; cursor:pointer; border:1px solid #DCE3EB; background:#fff; color:#17263A; }
+.v3d-find-btn { height:28px; box-sizing:border-box; padding:0 0.62rem; border-radius:6px; font-family:inherit; font-size:0.77rem; font-weight:600; cursor:pointer; border:1px solid #DCE3EB; background:#fff; color:#17263A; white-space:nowrap; }
 .v3d-find-btn:hover { border-color:#2471A3; color:#2471A3; }
 .v3d-find-btn.pri { background:#1A5276; border-color:#1A5276; color:#fff; }
 .v3d-find-btn.pri:hover { background:#2471A3; border-color:#2471A3; color:#fff; }
+.v3d-find label.v3d-find-cb { display:inline-flex !important; align-items:center; gap:0.32rem; height:28px; box-sizing:border-box; margin:0 !important; padding:0 0.55rem; border:1px solid #DCE3EB; border-radius:6px; background:#F8FAFC; font-size:0.76rem; font-weight:500; color:#334155; cursor:pointer; user-select:none; white-space:nowrap; line-height:1; }
+.v3d-find label.v3d-find-cb:hover { border-color:#2471A3; color:#1A5276; }
+.v3d-find label.v3d-find-cb:has(input:checked) { background:#EAF2F8; border-color:#2471A3; color:#1A5276; font-weight:600; }
+.v3d-find label.v3d-find-cb input { margin:0; width:13px; height:13px; cursor:pointer; accent-color:#1A5276; flex-shrink:0; }
 .v3d-find-res { display:flex; flex-wrap:wrap; align-items:center; gap:0.3rem 0.4rem; padding-left:6.05rem; font-size:0.78rem; }
 .v3d-find-res:empty { display:none; }
-.v3d-hit { display:inline-flex; align-items:center; gap:0.3rem; padding:0.18rem 0.5rem; border-radius:999px; border:1px solid #F3B3CB; background:#FDF2F6; color:#9C1143; font-family:inherit; font-size:0.76rem; font-weight:600; cursor:pointer; }
-.v3d-hit:hover, .v3d-hit.on { background:#E91E63; border-color:#E91E63; color:#fff; }
+.v3d-hit { display:inline-flex; align-items:center; gap:0.3rem; padding:0.18rem 0.5rem; border-radius:999px; border:1px solid var(--v3d-hit-bd, #F3B3CB); background:#FDF2F6; color:#1E293B; font-family:inherit; font-size:0.76rem; font-weight:600; cursor:pointer; }
+.v3d-hit-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--v3d-hit-col, #E91E63); flex-shrink:0; }
+.v3d-hit:hover, .v3d-hit.on { background:var(--v3d-hit-col, #E91E63); border-color:var(--v3d-hit-col, #E91E63); color:#fff; }
+.v3d-hit:hover .v3d-hit-dot, .v3d-hit.on .v3d-hit-dot { background:#fff; }
+.v3d-hit-x { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; border-radius:50%; font-size:0.8rem; line-height:1; opacity:0.72; margin-left:1px; }
+.v3d-hit-x:hover { background:rgba(0,0,0,0.2); opacity:1; }
 .v3d-hit code { font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace; font-size:0.74rem; font-weight:500; opacity:0.88; }
 .v3d-find-msg { color:#6B7785; font-size:0.78rem; }
 .v3d-find-msg.miss { color:#B03A2E; }
-@media (max-width:600px) { .v3d-find-lab { min-width:0; width:100%; } .v3d-find-res { padding-left:0; } }`;
+@media (max-width:600px) { .v3d-find-row { flex-direction:column; gap:0.25rem; } .v3d-find-lab { min-width:0; line-height:1.2; } .v3d-find-res { padding-left:0; } }`;
     document.head.appendChild(st);
 }
 function mountViewer3dFindBar(frameId) {
@@ -1626,11 +1940,13 @@ function mountViewer3dFindBar(frameId) {
     const wrap = document.createElement('div');
     wrap.id = 'viewer3d-findbar';
     wrap.className = 'v3d-find';
-    wrap.innerHTML = `<div class="v3d-find-row"><span class="v3d-find-lab">Find in 3D</span>`
-        + `<input type="search" id="v3d-find-in" class="v3d-find-in" spellcheck="false" autocomplete="off" placeholder="Sequence (e.g. PPXY, TNCESL) or residue (A:120-135)" aria-label="Search sequence motif or residue range in 3D structure">`
+    wrap.innerHTML = `<div class="v3d-find-row"><span class="v3d-find-lab">Find in 3D</span><div class="v3d-find-ctl">`
+        + `<input type="search" id="v3d-find-in" class="v3d-find-in" spellcheck="false" autocomplete="off" placeholder="Sequence (e.g. PPXY) or residue (A:120-135)" aria-label="Search sequence motif or residue range in 3D structure">`
         + `<button type="button" id="v3d-find-go" class="v3d-find-btn pri">Highlight</button>`
         + `<button type="button" id="v3d-find-clr" class="v3d-find-btn" hidden>Clear</button>`
-        + `<button type="button" id="v3d-find-rst" class="v3d-find-btn" title="Reset 3D camera to the full structure">Reset view</button></div>`
+        + `<button type="button" id="v3d-find-rst" class="v3d-find-btn" title="Reset 3D camera to the full structure">Reset view</button>`
+        + `<label class="v3d-find-cb" title="Show ball-and-stick sidechain atoms on highlighted residues (up to 120 residues)"><input type="checkbox" id="v3d-find-atoms"> Show atoms</label>`
+        + `<label class="v3d-find-cb" id="v3d-find-iso-wrap" hidden title="Hide unselected regions in 3D so only the selected domains/interface remain (in natural LIR/cLIR colors)"><input type="checkbox" id="v3d-find-iso"> Isolate in 3D</label></div></div>`
         + `<div id="v3d-find-res" class="v3d-find-res" aria-live="polite"></div>`;
     const colorBar = document.getElementById('viewer3d-colorbar');
     const host = frame.parentElement && frame.parentElement.classList.contains('viewer3d') ? frame.parentElement : frame;
@@ -1651,6 +1967,7 @@ function mountViewer3dFindBar(frameId) {
             st.autoCompleteNote = '';
             if (st.baseComponents && st.baseComponents.length) applyColorsToMolstarFrame(id, st.baseComponents, st.fmt, null);
             _syncViewer3dFindUi(id, res);
+            _emitV3dHighlightChange(id);
             return;
         }
         const spans = res.hits.map(h => ({ chain: h.chain, start: h.start, end: h.end }));
@@ -1660,6 +1977,16 @@ function mountViewer3dFindBar(frameId) {
     wrap.querySelector('#v3d-find-go').onclick = runSearch;
     wrap.querySelector('#v3d-find-clr').onclick = () => clearMolstarHighlight(id);
     wrap.querySelector('#v3d-find-rst').onclick = () => resetMolstarCamera(id);
+    const atomsCb = wrap.querySelector('#v3d-find-atoms');
+    if (atomsCb) {
+        atomsCb.checked = !!_getV3dState(id).showHighlightAtoms;
+        atomsCb.onchange = () => setMolstarHighlightAtoms(id, atomsCb.checked);
+    }
+    const isoCb = wrap.querySelector('#v3d-find-iso');
+    if (isoCb) {
+        isoCb.checked = !!_getV3dState(id).isolateHighlight;
+        isoCb.onchange = () => setMolstarIsolateHighlight(id, isoCb.checked);
+    }
     inp.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); runSearch(); }
         else if (e.key === 'Escape') { e.preventDefault(); clearMolstarHighlight(id); }
@@ -1675,7 +2002,13 @@ function _syncViewer3dFindUi(frameId, lastRes) {
     const clrBtn = document.getElementById('v3d-find-clr');
     if (!resEl) return;
     const st = _getV3dState(id);
+    const atomsCb = document.getElementById('v3d-find-atoms');
+    if (atomsCb) atomsCb.checked = !!st.showHighlightAtoms;
+    const isoCb = document.getElementById('v3d-find-iso');
+    const isoWrap = document.getElementById('v3d-find-iso-wrap');
     const hasHl = !!(st.highlightSpans && st.highlightSpans.length);
+    if (isoCb) isoCb.checked = !!st.isolateHighlight;
+    if (isoWrap) isoWrap.hidden = !hasHl;
     if (clrBtn) clrBtn.hidden = !hasHl && !st.query;
     const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     if (!st.hits.length) {
@@ -1691,17 +2024,27 @@ function _syncViewer3dFindUi(frameId, lastRes) {
         }
         return;
     }
-    const pills = st.hits.slice(0, 12).map((h, i) => {
+    const maxPills = 16;
+    const chCols = getMolstarChainHighlightColors(id);
+    const pills = st.hits.slice(0, maxPills).map((h, i) => {
         const sub = h.seq ? (h.seq.length > 10 ? h.seq.slice(0, 8) + '\u2026' : h.seq) : '';
-        return `<button type="button" class="v3d-hit${st.activeHitIdx === i ? ' on' : ''}" data-hi="${i}" title="Focus ${esc(h.label)}${h.seq ? ' (' + esc(h.seq) + ')' : ''} in 3D">${esc(h.label)}${sub ? ` <code>${esc(sub)}</code>` : ''}</button>`;
+        const col = chCols[h.chain] || V3D_HL_COLOR;
+        const rm = !st.query ? `<span class="v3d-hit-x" data-rm="${i}" title="Remove ${esc(h.label)}" aria-label="Remove ${esc(h.label)}">\u00d7</span>` : '';
+        return `<button type="button" class="v3d-hit${st.activeHitIdx === i ? ' on' : ''}" data-hi="${i}" style="--v3d-hit-col:${col}; --v3d-hit-bd:${col}55;" title="Focus ${esc(h.label)}${h.seq ? ' (' + esc(h.seq) + ')' : ''} in 3D"><span class="v3d-hit-dot"></span>${esc(h.label)}${sub ? ` <code>${esc(sub)}</code>` : ''}${rm}</button>`;
     }).join('');
-    const allPill = st.hits.length > 1 ? `<button type="button" class="v3d-hit${st.activeHitIdx === -1 ? ' on' : ''}" data-hi="-1">All (${st.hits.length})</button>` : '';
-    const extra = st.hits.length > 12 ? `<span class="v3d-find-msg">+${st.hits.length - 12} more</span>` : '';
+    const allPill = st.hits.length > 1 ? `<button type="button" class="v3d-hit${st.activeHitIdx === -1 ? ' on' : ''}" data-hi="-1" style="--v3d-hit-col:#1A5276; --v3d-hit-bd:#2471A355;">All (${st.hits.length})</button>` : '';
+    const extra = st.hits.length > maxPills ? `<span class="v3d-find-msg">+${st.hits.length - maxPills} more</span>` : '';
     const note = st.autoCompleteNote ? `<span class="v3d-find-msg">\u00b7 ${esc(st.autoCompleteNote)}</span>` : '';
     const prefix = st.query ? `<span class="v3d-find-msg">${st.hits.length} match${st.hits.length === 1 ? '' : 'es'}:</span>` : `<span class="v3d-find-msg">Highlighted:</span>`;
     resEl.innerHTML = `${prefix}${allPill}${pills}${extra}${note}`;
     resEl.querySelectorAll('[data-hi]').forEach((b) => {
-        b.onclick = () => {
+        b.onclick = (ev) => {
+            const rmEl = ev.target && ev.target.closest ? ev.target.closest('[data-rm]') : null;
+            if (rmEl) {
+                ev.stopPropagation();
+                removeMolstarHighlightHit(id, +rmEl.dataset.rm);
+                return;
+            }
             const idx = +b.dataset.hi;
             st.activeHitIdx = idx;
             const spans = st.hits.map(h => ({ chain: h.chain, start: h.start, end: h.end }));
